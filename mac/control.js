@@ -152,6 +152,27 @@ const UI = {
     return wrap;
   },
 
+  // A direction card for the symmetric layout (docs/UI.md "equal places"). dir: 'm2w' | 'w2m'.
+  // role: what this Mac does in that direction ('sends' / 'receives' / free text).
+  dir(dir, rows, { role = '', soon = '' } = {}) {
+    const title = dir === 'm2w' ? ['Mac', 'PC'] : ['PC', 'Mac'];
+    const head = UI.el('div', { class: 'dir-head' }, [
+      UI.el('span', { class: 'dir-title' }, [
+        UI.el('span', { class: dir === 'm2w' ? 'dev here' : 'dev' , text: title[0] }),
+        UI.el('span', { class: 'arrow', text: '→' }),
+        UI.el('span', { class: dir === 'w2m' ? 'dev here' : 'dev', text: title[1] }),
+      ]),
+      UI.el('span', { class: 'dir-role', text: soon ? `Coming in phase ${soon}` : role }),
+    ]);
+    const card = UI.el('div', { class: `card dir-card${soon ? ' soon-card' : ''}` }, [head, ...rows]);
+    return card;
+  },
+
+  // Two equal direction cards side by side (stacked when narrow), always Mac → PC first.
+  pair(m2w, w2m) {
+    return UI.el('div', { class: 'pair' }, [m2w, w2m]);
+  },
+
   note(kind, text) {
     const n = UI.el('div', { class: `note ${kind}`, text });
     n.set = (t) => { n.textContent = t || ''; n.hidden = !t; };

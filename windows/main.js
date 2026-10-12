@@ -18,6 +18,9 @@ const Terminal = require('./terminal');
 const FileDrop = require('./filedrop');
 const Smb = require('./smb');
 const Apps = require('./apps');
+const Sound = require('./sound');
+const FileRecv = require('./filerecv');
+const Sshd = require('./sshd');
 const { normalize } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
@@ -44,6 +47,9 @@ let terminal = null;
 let fileDrop = null;
 let smb = null;
 let apps = null;
+let sound = null;
+let fileRecv = null;
+let sshd = null;
 let kvm = null;
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check (phase 6)
@@ -90,16 +96,19 @@ function start() {
     isQuitting: () => quitting,
   });
   terminal = new Terminal({ link, settings, onChange: pushState });
+  sshd = new Sshd({ link, settings, save: saveSettings, onChange: pushState });
   fileDrop = new FileDrop({ link, settings, onProgress: (v) => { screen.sendDropProgress(v); pushState(); } });
   screen.fileDrop = fileDrop;
   apps = new Apps({ link, getMonitor: () => screen.win, onChange: pushState });
   screen.apps = apps;
+  sound = new Sound({ link, settings, onChange: pushState });
   smb = new Smb({ link, settings, save: saveSettings, onChange: pushState });
   helper = new Helper();
-  kvm = new Kvm({ link, helper, clip, settings, onChange: onKvmChange });
+  fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
+  kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, settings, onChange: onKvmChange });
   helper.on('exit', pushState);
   helper.start();
-  setupIpc({ link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save: saveSettings, push: pushState, buildState,
+  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup });
   nativeTheme.on('updated', pushState);
   link.start();
@@ -150,9 +159,9 @@ function buildState() {
     ui: settings.ui,
     version: app.getVersion(),
     firewall: fw,
-    audio: settings.audio,
-    terminal: { ...settings.terminal, ...terminal.view() },
-    files: { ...settings.files, ...fileDrop.view(), smb: smb.view() },
+    audio: { ...settings.audio, ...sound.view() },
+    terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
+    files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view() },
     apps: apps.view(),
     startup: getStartup(),
   };

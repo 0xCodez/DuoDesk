@@ -72,7 +72,7 @@ button, input, select { font: inherit; color: inherit; -webkit-app-region: no-dr
 /* ---------- content ---------- */
 #content { flex: 1; min-width: 0; background: var(--content); overflow-y: auto; position: relative; }
 .drag-strip { position: sticky; top: 0; height: 12px; -webkit-app-region: drag; z-index: 3; }
-#pages { padding: 0 28px 28px; max-width: 760px; }
+#pages { padding: 0 28px 28px; max-width: 980px; }
 .page[hidden] { display: none; }
 .page-head { display: flex; align-items: flex-start; gap: 16px; padding: 18px 0 16px; -webkit-app-region: drag; }
 .page-head .titles { flex: 1; }

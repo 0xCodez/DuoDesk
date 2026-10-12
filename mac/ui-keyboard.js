@@ -19,10 +19,16 @@ UI.tab({
 
     body.append(
       status,
-      UI.card('Hotkey', [hotkeyRow]),
-      UI.card('Keys from the PC', [
-        UI.row('Use PC shortcuts the Mac way', 'Ctrl → ⌘ Command, Windows key → ⌃ Control, Alt → ⌥ Option. So Ctrl+C copies on the Mac. Applies to Monitor 2 too.', [swap]),
-      ], { cls: 'keep-on' }),
+      UI.pair(
+        UI.dir('m2w', [
+          hotkeyRow,
+          UI.row('Shortcuts on the PC', 'The PC turns ⌘ Command into Ctrl, so ⌘C copies there. Right Option stays on this Mac (it’s the hotkey) — use Left Option for Alt.'),
+        ], { role: 'this Mac’s keyboard' }),
+        UI.dir('w2m', [
+          UI.row('Switch computers (on the PC)', 'Double-tap Right Ctrl on the PC'),
+          UI.row('Use PC shortcuts the Mac way', 'Ctrl → ⌘ Command, Windows key → ⌃ Control, Alt → ⌥ Option. So Ctrl+C copies here. Applies to Monitor 2 too.', [swap]),
+        ], { role: 'the PC’s keyboard' }),
+      ),
       UI.card('Good to know', [
         UI.row('Password fields', 'macOS blocks key capture while a password field or Terminal’s Secure Keyboard Entry is active. The pointer still crosses.'),
         UI.row('Keyboard layouts', 'Use the same layout (e.g. U.S.) on both computers for now.'),

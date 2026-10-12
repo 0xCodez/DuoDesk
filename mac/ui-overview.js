@@ -28,18 +28,31 @@ UI.tab({
       status,
     ]);
 
-    // Quick switches
-    const quick = [
-      { id: 'share', label: 'Share this screen', hint: 'Monitor 2 on the PC', get: (s) => s.sharing && s.sharing.on, set: (v) => api.setSharing(v) },
-      { id: 'share', label: 'Receive input', hint: 'The PC controls this Mac inside Monitor 2', get: (s) => s.streamInput, set: (v) => api.setStreamInput(v) },
-      { id: 'cursor', label: 'Cursor sharing', hint: 'Push the pointer across the screen edge', get: (s) => s.kvm && s.kvm.mouse, set: (v) => api.setKvm({ mouse: v }) },
-      { id: 'keyboard', label: 'Keyboard sharing', hint: 'Typing follows the pointer; double-tap Right Option', get: (s) => s.kvm && s.kvm.keyboard, set: (v) => api.setKvm({ keyboard: v }) },
-      { id: 'clipboard', label: 'Clipboard', hint: 'Copy on one, paste on the other', get: (s) => s.clipboard && s.clipboard.enabled, set: (v) => api.setClipboard({ enabled: v }) },
-    ].map((q) => {
-      const sw = UI.switch(q.set, { label: q.label });
-      const row = UI.row(q.label, q.hint, [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(q.id) });
-      return { q, sw, row };
-    });
+    // Quick switches, one card per direction (docs/UI.md "equal places").
+    const sw = (label, hint, tab, get, set, soon) => {
+      const c = UI.switch(set || (() => {}), { label, disabled: !!soon });
+      const row = UI.row(label, soon ? `Coming in phase ${soon}` : hint, [c, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
+      return { c, row, get: get || (() => false) };
+    };
+    const m2w = [
+      sw('Share this Mac’s screen', 'Monitor 2 on the PC', 'share', (s) => s.sharing && s.sharing.on, (v) => api.setSharing(v)),
+      sw('Send this Mac’s sound', 'Plays on the PC', 'audio', (s) => s.audio && s.audio.send, (v) => api.setAudio({ send: v })),
+      sw('Use this Mac’s mouse on the PC', 'Push through the edge', 'cursor', (s) => s.kvm && s.kvm.driveOther, (v) => api.setKvm({ driveOther: v })),
+      sw('Send clipboard to the PC', '', 'clipboard', (s) => s.clipboard && s.clipboard.send, (v) => api.setClipboard({ send: v })),
+      sw('This Mac’s folder as a PC drive', '~/MacShare', 'files', (s) => s.smb && s.smb.sharing, (v) => api.setShareMac(v)),
+      sw('Open shells on the PC', 'ssh macshare-pc', 'terminal', (s) => s.terminal && s.terminal.connectPc, (v) => api.setTerminal({ connectPc: v })),
+      sw('Mac apps on the PC', 'Each in its own PC window', 'apps', (s) => s.apps && s.apps.offer, (v) => api.setApps({ offer: v })),
+    ];
+    const w2m = [
+      sw('Show the PC’s screen here', '', 'receive', null, null, '11'),
+      sw('Play the PC’s sound here', '', 'audio', (s) => s.audio && s.audio.receive, (v) => api.setAudio({ receive: v })),
+      sw('Let the PC’s mouse control this Mac', 'The PC pushes through its edge', 'cursor', (s) => s.kvm && s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
+      sw('Accept clipboard from the PC', '', 'clipboard', (s) => s.clipboard && s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
+      sw('The PC’s folder as a Mac drive', 'In Finder’s sidebar', 'files', (s) => s.smb && s.smb.connectPc, (v) => api.setSmb({ connectPc: v })),
+      sw('Let the PC open shells here', 'macshare on the PC', 'terminal', (s) => s.terminal && s.terminal.allowPc, (v) => api.setTerminal({ allowPc: v })),
+      sw('PC apps on this Mac', '', 'apps', null, null, '13'),
+    ];
+    const quick = [...m2w, ...w2m];
 
     const pairedList = el('div');
     const pairedCard = UI.card('Paired PCs', [pairedList]);
@@ -50,7 +63,7 @@ UI.tab({
 
     body.append(
       hero,
-      UI.card('Features', quick.map((x) => x.row)),
+      UI.pair(UI.dir('m2w', m2w.map((x) => x.row), { role: 'this Mac sends' }), UI.dir('w2m', w2m.map((x) => x.row), { role: 'this Mac receives' })),
       pairedCard,
       UI.card('This Mac', Object.values(macRows)),
     );
@@ -72,7 +85,7 @@ UI.tab({
             : 'Open MacShare on your PC and click Pair next to this Mac.';
       status.classList.toggle('bad', !!s.serverError);
 
-      for (const { q, sw } of quick) sw.set(q.get(s));
+      for (const x of quick) x.c.set(x.get(s));
 
       pairedList.replaceChildren(
         ...(s.paired.length

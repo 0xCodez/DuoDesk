@@ -32,6 +32,7 @@ final class Capture {
   private var returnSide: String?
   private var returnResistance = 120.0
   private var buttonsHeld = 0
+  private var dragPbCount = -1             // drag pasteboard changeCount when the left button went down
   // hotkey (Right Option, kVK 0x3D, device flag 0x40)
   private var hkStage = 0, hkAt = 0.0
   // keys
@@ -229,6 +230,18 @@ final class Capture {
 
     if isDown { buttonsHeld += 1 }
     if isUp { buttonsHeld = max(0, buttonsHeld - 1) }
+    if type == .leftMouseDown { dragPbCount = NSPasteboard(name: .drag).changeCount }
+    // A file drag pushed through the crossing edge carries the files over (docs/ROADMAP.md).
+    if type == .leftMouseDragged, !capturing, edgeEnabled, buttonsHeld == 1,
+       let off = Capture.push(&edge, e.location, dx, dy, side, resistance) {
+      let paths = draggedFiles()
+      if !paths.isEmpty {
+        cancelLocalDrag(at: e.location)
+        startCapture(mouse: true, keyboard: cfgKeyboard) // the held button now drags on the other side
+        emit(["event": "edge", "offset": off, "drag": ["paths": paths]])
+        return true
+      }
+    }
     if type == .mouseMoved {
       if !capturing, edgeEnabled, buttonsHeld == 0,
          let off = Capture.push(&edge, e.location, dx, dy, side, resistance) {
@@ -239,6 +252,29 @@ final class Capture {
       checkReturn(e.location, dx: dx, dy: dy)
     }
     return false
+  }
+
+  /// Files on the drag pasteboard, if a drag started since the left button went down.
+  private func draggedFiles() -> [String] {
+    let pb = NSPasteboard(name: .drag)
+    guard pb.changeCount != dragPbCount else { return [] }
+    let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    return urls.map { $0.path }
+  }
+
+  /// End the drag here without dropping anything: Esc cancels it, then a (marked) button-up
+  /// closes the click for the app; the physical release later goes to the other computer.
+  private func cancelLocalDrag(at p: CGPoint) {
+    let src = CGEventSource(stateID: .hidSystemState)
+    for down in [true, false] {
+      let k = CGEvent(keyboardEventSource: src, virtualKey: 0x35, keyDown: down)
+      k?.setIntegerValueField(.eventSourceUserData, value: injectedMark)
+      k?.post(tap: .cghidEventTap)
+    }
+    let up = CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: p, mouseButton: .left)
+    up?.setIntegerValueField(.eventSourceUserData, value: injectedMark)
+    up?.post(tap: .cghidEventTap)
+    buttonsHeld = 0
   }
 
   /// Double-tap: down, up, down, up — each step within the double-tap window.

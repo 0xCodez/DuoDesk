@@ -29,7 +29,7 @@ const SCHEMA = {
   },
   keys: { swapCtrlCmd: bool },
   app: { openAtLogin: bool, keepAwake: bool },
-  audio: { send: bool, muteLocal: bool },
+  audio: { send: bool, receive: bool, muteLocal: bool, volume: clamp(0, 1, 1) },
   terminal: { allowPc: bool, connectPc: bool },
   files: { acceptDrops: bool, reveal: bool },
   smb: { connectPc: bool },
@@ -58,10 +58,11 @@ function setupIpc(ctx) {
     setSharing(on) {
       settings.sharing.on = !!on;
       save();
-      if (on) ctx.stream.restart('sharing on');
+      if (on) ctx.displays.applyVirtual().then(() => ctx.stream.restart('sharing on'));
       else {
         ctx.stream.stop('off');
         ctx.input.releaseAll();
+        ctx.displays.applyVirtual(); // removes the virtual display
       }
     },
     setStreamInput(on) {
@@ -140,9 +141,18 @@ function setupIpc(ctx) {
       if (settings.smb.connectPc) ctx.smb.mountPc();
       else ctx.smb.unmountPc();
     },
-    async shareMacFolder() {
+    // One switch: on = share the chosen folder (default ~/MacShare); off = stop sharing.
+    setShareMac(on) {
+      if (on) ctx.smb.startSharing();
+      else ctx.smb.stopSharing();
+    },
+    async chooseShareFolder() {
       const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Share This Folder' });
-      if (!r.canceled && r.filePaths[0]) ctx.smb.startSharing(r.filePaths[0]);
+      if (r.canceled || !r.filePaths[0]) return;
+      if (settings.smb.sharing) await ctx.smb.stopSharing();
+      settings.smb.folder = r.filePaths[0];
+      save();
+      ctx.smb.startSharing(r.filePaths[0]);
     },
     stopSharingFolder() {
       ctx.smb.stopSharing();
@@ -156,7 +166,13 @@ function setupIpc(ctx) {
     },
     setAudio(partial) {
       setGroup('audio', partial);
-      ctx.stream.restart('audio setting');
+      ctx.audio.applySettings();
+    },
+    // "Share sound with the screen" (Display › Mac → PC).
+    setScreenSound(on) {
+      settings.sharing.audio = !!on;
+      save();
+      ctx.stream.restart('screen sound');
     },
     setApp(partial) {
       setGroup('app', partial);

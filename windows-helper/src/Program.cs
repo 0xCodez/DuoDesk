@@ -18,6 +18,7 @@ namespace MacShare
         static Control invoker;
         static Capture capture;
         static Injector injector;
+        static DropEdge dropEdge;
 
         [STAThread]
         static int Main()
@@ -36,6 +37,7 @@ namespace MacShare
             injector = new Injector();
             injector.Moved = capture.FeedReturn;
             capture.Start();
+            dropEdge = new DropEdge(capture, Emit); // file drags across the edge (shown only while dragging)
 
             Thread writer = new Thread(WriteLoop);
             writer.IsBackground = true;
@@ -122,6 +124,12 @@ namespace MacShare
                         if (ev != null) injector.Apply(ev);
                         break;
                     case "releaseAll": injector.ReleaseAll(); break;
+                    case "folderAt":
+                        string folder; bool desktop;
+                        Shell.FolderAt(out folder, out desktop);
+                        c["path"] = folder;
+                        c["desktop"] = desktop;
+                        break;
                     case "info":
                         Native.POINT cur;
                         Native.GetCursorPos(out cur);
@@ -139,6 +147,7 @@ namespace MacShare
             reply["ok"] = error == null;
             if (error != null) reply["error"] = error;
             if (cmd == "info") { reply["cursor"] = c["cursor"]; reply["capturing"] = c["capturing"]; }
+            if (cmd == "folderAt") { reply["path"] = c["path"]; reply["desktop"] = c["desktop"]; }
             Emit(reply);
         }
     }

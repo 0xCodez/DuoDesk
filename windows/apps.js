@@ -16,6 +16,7 @@ class Apps {
     Object.assign(this, opts);
     this.list = [];       // [{id, name, icon}] from apps.result
     this.windows = [];    // last app.windows list
+    this.picture = null;  // {width, height}: stream pixel size from app.windows pw/ph
     this.message = '';
     this.loading = false;
     this.iconDir = path.join(app.getPath('userData'), 'app-icons');
@@ -34,6 +35,7 @@ class Apps {
     });
     this.link.on(T.APP_WINDOWS, (m) => {
       this.windows = (Array.isArray(m.windows) ? m.windows : []).filter(validWindow);
+      if (m.pw > 0 && m.ph > 0) this.picture = { width: Number(m.pw), height: Number(m.ph) };
       this._toMonitor();
     });
     this.link.on('closed', () => { this.windows = []; this._toMonitor(); });
@@ -87,9 +89,10 @@ class Apps {
     if (!w) return;
     const a = this.list.find((x) => x.id === w.id);
     win.setTitle(w.title || (a ? a.name : 'Mac app'));
+    // 1:1 with the Mac's pixels: w·pw × h·ph device pixels, ÷ the scale of the monitor it opens on.
     const mon = this.getMonitor();
-    const stream = mon && mon.streamSize ? mon.streamSize : { width: 1920, height: 1080 };
-    const scale = displays.getPrimaryDisplay().scaleFactor || 1;
+    const stream = this.picture || (mon && mon.streamSize) || { width: 1920, height: 1080 };
+    const scale = displays.getDisplayMatching(win.getBounds()).scaleFactor || 1;
     let width = (w.w * stream.width) / scale, height = (w.h * stream.height) / scale;
     const grow = Math.max(1, 200 / width, 120 / height); // tiny windows grow, keeping their shape
     width = Math.round(width * grow);

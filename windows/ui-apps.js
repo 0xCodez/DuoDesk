@@ -17,7 +17,13 @@ UI.tab({
     const filter = el('input', { type: 'text', placeholder: 'Search apps', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Search apps' } });
     const grid = el('div', { class: 'app-grid' });
     const status = UI.row('', '');
+    const openCount = UI.row('', '');
+    const pair = UI.dirCards(
+      { rows: [UI.row('Mac apps on this PC', 'Pick one below: it opens on the Mac and each of its windows shows here as its own window, with its own taskbar button'), openCount] },
+      { soon: '13', rows: [UI.row('PC apps on the Mac', 'This PC’s apps in their own windows on the Mac, each with its own Dock icon', [UI.switch(() => {}, { disabled: true, label: 'PC apps on the Mac' })])] },
+    );
     body.append(
+      pair.el,
       note,
       UI.card('Mac apps', [UI.row('Search', '', [filter]), grid, status], { actions: [refresh] }),
       UI.card('How it works', [
@@ -32,6 +38,8 @@ UI.tab({
       const a = s.apps;
       const connected = s.link.state === 'connected';
       if (connected && !asked && !a.list.length) { asked = true; api.listApps(); }
+      openCount.label.textContent = a.open ? a.open + ' Mac window' + (a.open > 1 ? 's' : '') + ' open here' : 'No Mac app windows open';
+      openCount.setHint(a.open ? 'Close one here to close it on the Mac.' : '');
       if (!connected) asked = false;
       note.set(a.message || (connected && s.stream.state !== 'on' ? 'The Mac isn’t sharing its screen, so app windows can’t be shown yet.' : ''));
       refresh.disabled = !connected || a.loading;

@@ -97,6 +97,10 @@
       RTC2_ANSWER: 'rtc2.answer', // M->W {session, sdp}
       RTC2_ICE: 'rtc2.ice', // either {session, candidate}
       RTC2_STOP: 'rtc2.stop', // W->M {session}
+      AUDIO_OFFER: 'audio.offer', // sender->receiver {dir:'m2w'|'w2m', session, sdp} (revision 2)
+      AUDIO_ANSWER: 'audio.answer', // receiver->sender {dir, session, sdp}
+      AUDIO_ICE: 'audio.ice', // either {dir, session, candidate}
+      AUDIO_STOP: 'audio.stop', // sender->receiver {dir}
       SCREEN_POLICY: 'screen.policy', // M->W {accept, width?, height?}: the Mac shows the PC's screen (phase 11)
       SMB_OFFER: 'smb.offer', // sharer->other {share, user, password, port}
       SMB_REVOKE: 'smb.revoke', // sharer->other {share}

@@ -1,5 +1,5 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Display › Share tab: this Mac's screen on the PC (Monitor 2). Extend/Mirror, which display, the MacShare virtual display, stream quality,
+// Display › Mac → PC: this Mac's screen on the PC (Monitor 2). Extend/Mirror, which display, the MacShare virtual display, stream quality,
 // input from Monitor 2, live stats.
 'use strict';
 
@@ -7,10 +7,10 @@ UI.tab({
   id: 'share',
   group: 'Display',
   order: 10,
-  title: 'Share',
-  heading: 'Share this screen',
+  title: 'Mac → PC',
+  heading: 'This Mac’s screen on the PC',
   icon: 'display',
-  desc: 'Show this Mac’s screen in the Monitor 2 window on your PC, and control it from there.',
+  desc: 'Show a screen of this Mac in the Monitor 2 window on the PC, and control it from there. Starts off each time MacShare opens.',
   color: 'linear-gradient(#5ac8fa, #0a84ff)',
   master: { get: (s) => s.sharing && s.sharing.on, set: (v) => UI.api.setSharing(v) },
   badge: (s) => (s.sharing && s.sharing.on ? 'on' : ''),
@@ -61,6 +61,8 @@ UI.tab({
       { value: 50, label: '50 Mbps — Ethernet' },
     ], (v) => api.setBitrate(Number(v)));
 
+    const soundSw = UI.switch((v) => api.setScreenSound(v), { label: 'Share sound with the screen' });
+    const soundRow = UI.row('Share sound with the screen', '', [soundSw]);
     const inputSw = UI.switch((v) => api.setStreamInput(v), { label: 'Receive input' });
     const inputRow = UI.row('Receive input', '', [inputSw]);
 
@@ -84,7 +86,7 @@ UI.tab({
         UI.row('Stream size', 'HiDPI screens are scaled down on the GPU, so text stays smooth.', [streamSize]),
         UI.row('Quality', 'Higher needs a faster network. Too high on Wi-Fi adds lag.', [quality]),
       ]),
-      UI.card('Control from the PC', [inputRow], { cls: 'keep-on' }),
+      UI.card('Sound and control', [soundRow, inputRow], { cls: 'keep-on' }),
       UI.card('Live', Object.values(stats)),
     );
 
@@ -113,11 +115,16 @@ UI.tab({
         preset.set(i < 0 ? 1 : i);
         applyBtn.disabled = true;
       }
-      virtRow.setHint(v.error ? `Error: ${v.error}` : !v.enabled ? 'Off' : v.active ? `On — appears as “MacShare” in System Settings → Displays` : 'Starting…');
+      virtRow.setHint(v.error ? `Error: ${v.error}` : !v.enabled ? 'Off'
+        : v.active ? 'On — appears as “MacShare” in System Settings → Displays' : sh.on ? 'Starting…' : 'Created when you start sharing');
 
       streamSize.set(sh.streamMaxHeight || 0);
       quality.set(sh.bitrateMbps);
 
+      soundSw.set(sh.audio);
+      soundRow.setHint(sh.audio
+        ? (s.audio && s.audio.screen && s.audio.screen.on ? 'On — this Mac’s sound plays in Monitor 2, in sync' : 'On — starts with the next screen session')
+        : 'Off — no sound with the screen (lowest latency). The Audio tab can send sound on its own.');
       inputSw.set(s.streamInput);
       const c = s.client;
       inputRow.setHint(!s.streamInput ? 'Off — Monitor 2 is view only'

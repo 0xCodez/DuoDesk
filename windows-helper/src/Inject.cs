@@ -113,6 +113,13 @@ namespace MacShare
             Send(i);
         }
 
+        // Esc down+up (cancels a local drag-and-drop loop).
+        public static void Escape()
+        {
+            SendScan(0x01, true);
+            SendScan(0x01, false);
+        }
+
         public void ReleaseAll()
         {
             foreach (int s in new List<int>(heldScans)) SendScan(s, false);

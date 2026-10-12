@@ -207,6 +207,28 @@ const UI = {
     });
   },
 
+  // Two equal direction cards (docs/UI.md "Tabs — equal places"), always Mac → PC then PC → Mac.
+  // Each def: { on?: {get(s), set(v), disabled?}, rows: [], soon?: 'phase N' }. Returns { el, update(s) }.
+  dirCards(m2p, p2m) {
+    const make = (dir, def) => {
+      const title = dir === 'm2p'
+        ? [UI.el('span', { text: 'Mac → PC ' }), UI.el('span', { class: 'me', text: '(this PC)' })]
+        : [UI.el('span', { text: 'PC ' }), UI.el('span', { class: 'me', text: '(this PC) ' }), UI.el('span', { text: '→ Mac' })];
+      const sw = def.on ? UI.switch((v) => def.on.set(v), { label: dir === 'm2p' ? 'Mac to PC' : 'PC to Mac', disabled: !!def.on.disabled || !!def.soon }) : null;
+      const head = UI.el('div', { class: 'dir-head' }, [UI.el('div', { class: 'dir-title' }, title), def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null, sw ? sw.el : null]);
+      const card = UI.el('div', { class: 'dir-card' + (def.soon ? ' soon-card' : '') }, [head].concat(def.rows || []));
+      card.update = (s) => {
+        if (!sw) return;
+        const on = !def.soon && !!def.on.get(s);
+        sw.set(on);
+        card.classList.toggle('off', !on);
+      };
+      return card;
+    };
+    const a = make('m2p', m2p), b = make('p2m', p2m);
+    return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), update: (s) => { a.update(s); b.update(s); } };
+  },
+
   // "Right now" row for the Cursor/Keyboard tabs: where input is + the last KVM event.
   inputStatus() {
     const WHERE = { home: 'On this PC', driving: 'Driving the Mac', driven: 'The Mac is driving this PC' };

@@ -3,7 +3,9 @@
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
-const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'files', 'terminal', 'audio', 'apps', 'general'];
+const TABS = ['overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'files', 'terminal', 'audio', 'apps', 'general'];
+
+const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // names before revision 2
 
 const bool = (v, d) => (typeof v === 'boolean' ? v : d);
 const num = (v, d, min, max) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.min(max, Math.max(min, Number(v))) : d);
@@ -38,16 +40,26 @@ function normalize(s) {
       maxKB: Math.round(num(c.maxKB, 256, 1, P.CLIP_MAX_BYTES / 1024)),
       historySize: Math.round(num(c.historySize, 20, 0, 100)),
     },
-    monitor: { autoOpen: bool(mon.autoOpen, true) },
-    audio: { receive: bool(audio.receive, true), volume: Math.round(num(audio.volume, 1, 0, 1) * 100) / 100 },
-    terminal: { enabled: bool(term.enabled, false) },
+    monitor: { autoOpen: bool(mon.autoOpen, true), volume: Math.round(num(mon.volume, 1, 0, 1) * 100) / 100, mute: bool(mon.mute, false) },
+    audio: {
+      receive: bool(audio.receive, true), // play the Mac's sound here (audio.policy W→M)
+      volume: Math.round(num(audio.volume, 1, 0, 1) * 100) / 100,
+      send: bool(audio.send, false), // send this PC's sound to the Mac (dir w2m)
+      muteLocal: bool(audio.muteLocal, false), // silence this PC while sending
+    },
+    terminal: {
+      enabled: bool(term.enabled, false), // shell on the Mac from this PC
+      allowMac: bool(term.allowMac, false), // let the Mac open a shell here (needs OpenSSH Server)
+      installedKey: typeof term.installedKey === 'string' ? term.installedKey : '', // digest of the Mac key line we installed
+    },
     files: {
       dropToMac: bool(files.dropToMac, true),
       shareOn: bool(files.shareOn, false), // set only by a successful share setup (smb.js)
       shareFolder: typeof files.shareFolder === 'string' ? files.shareFolder : '',
       mountMac: bool(files.mountMac, true),
+      acceptFromMac: bool(files.acceptFromMac, true), // files dragged from the Mac across the edge
     },
-    ui: { tab: ui.tab === 'display' ? 'share' : TABS.includes(ui.tab) ? ui.tab : 'overview' }, // 'display' = before the split
+    ui: { tab: OLD_TABS[ui.tab] || (TABS.includes(ui.tab) ? ui.tab : 'overview') },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };
 }

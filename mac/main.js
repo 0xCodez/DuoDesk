@@ -91,6 +91,7 @@ function pushState() {
       const target = displays.target();
       state.sharing = {
         on: !!settings.sharing.on,
+        audio: !!settings.sharing.audio,
         displayId: settings.sharing.displayId,
         bitrateMbps: settings.bitrateMbps,
         streamMaxHeight: settings.streamMaxHeight,
@@ -101,7 +102,7 @@ function pushState() {
     }
     if (stream) {
       state.stream = stream.view;
-      state.audio = { ...settings.audio, ...stream.audio, peerAccepts: stream.peerAudio };
+      state.audio = { ...settings.audio, ...svc.audio.view, screen: stream.audio };
     }
     state.streamInput = settings.streamInput !== false;
     state.displayMode = displayMode();
@@ -112,7 +113,7 @@ function pushState() {
     state.app = settings.app;
     if (kvm) state.input = kvm.view;
     if (svc) state.terminal = { ...settings.terminal, ...svc.terminal.view, toPc: svc.sshClient.view };
-    if (svc) state.files = { ...settings.files, ...svc.drop.view };
+    if (svc) state.files = { ...settings.files, ...svc.drop.view, ...svc.fileSend.view };
     if (svc) {
       const { secret, ...smb } = settings.smb; // never send the share password to the window
       state.smb = { ...smb, ...svc.smb.view };
@@ -144,9 +145,9 @@ function refreshPermissions() {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 900,
-    height: 680,
-    minWidth: 720,
+    width: 1060,
+    height: 720,
+    minWidth: 760,
     minHeight: 520,
     title: 'MacShare',
     show: false,

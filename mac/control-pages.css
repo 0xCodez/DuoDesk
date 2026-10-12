@@ -47,3 +47,16 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 .soon-head { padding: 10px 14px 4px; }
 .soon-item { padding: 8px 14px; }
 .soon-item .hint { color: var(--muted); margin-top: 1px; }
+
+/* Symmetric direction cards (docs/UI.md "equal places") */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; align-items: start; }
+.pair .card { margin-bottom: 0; }
+@media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+.dir-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px 8px; border-bottom: 1px solid var(--row-line); }
+.dir-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; }
+.dir-title .dev { padding: 1px 8px; border-radius: 6px; background: var(--track-off); }
+.dir-title .dev.here { background: var(--accent-soft); color: var(--accent); }
+.dir-title .arrow { color: var(--muted); }
+.dir-role { color: var(--muted); font-size: 11px; }
+.soon-card .row { opacity: 0.55; }
+.soon-card .dir-role { color: var(--accent); font-weight: 600; }

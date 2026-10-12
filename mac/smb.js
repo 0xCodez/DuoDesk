@@ -17,6 +17,20 @@ const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 
 const SCRIPTS = path.join(__dirname, 'scripts');
+const DEFAULT_FOLDER = path.join(os.homedir(), 'MacShare'); // shared with the PC unless another is chosen
+
+// An existing smbfs mount of //…@host/share, if any (e.g. still mounted from the last run).
+function existingMount(host, share) {
+  try {
+    const out = require('child_process').execFileSync('/sbin/mount', [], { encoding: 'utf8' });
+    const want = `@${host}/${share}`.toLowerCase();
+    const line = out.split('\n').find((l) => l.toLowerCase().includes(want) && l.includes('(smbfs'));
+    const m = line && / on (.+?) \(smbfs/.exec(line);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
 const q = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`; // POSIX shell quoting
 
 function portOpen(host, port, ms = 3000) {
@@ -47,6 +61,7 @@ class Smb extends EventEmitter {
     this.offer = null; // the PC's last smb.offer (+ its address)
     this.mount = { path: null, error: null, busy: false };
     this.share = { busy: false, error: null, peer: null }; // peer = the PC's smb.state for our share
+    this.shownOnce = false; // open the PC's folder in Finder the first time it connects
 
     server.on(`t:${P.T.SMB_OFFER}`, (m, ctx) => {
       this.offer = { share: String(m.share || ''), user: String(m.user || ''), password: String(m.password || ''), port: Number(m.port) || 445, host: ctx.address };
@@ -87,12 +102,17 @@ class Smb extends EventEmitter {
       try {
         this.mount.path = (await this.helper.request('smbMount', { url, user: o.user, password: o.password }, 60000)).path;
       } catch (e) {
-        err = e.message;
+        this.mount.path = existingMount(o.host, o.share);
+        if (!this.mount.path) err = e.message;
       }
     }
     this.mount.busy = false;
     this.mount.error = err;
     this._state(err ? { mounted: false, error: err } : { mounted: true });
+    if (!err && !this.shownOnce) {
+      this.shownOnce = true;
+      shell.openPath(this.mount.path); // so it's visible right away (it's also in Finder's sidebar)
+    }
     this.emit('change');
   }
 
@@ -124,8 +144,11 @@ class Smb extends EventEmitter {
     if (this.cfg.sharing && pw) this.server.sendToClient({ t: P.T.SMB_OFFER, share: 'MacShare', user: 'macshare', password: pw, port: 445 });
   }
 
+  // One switch: share the chosen folder, or ~/MacShare (created if missing).
   async startSharing(folder) {
-    if (this.share.busy || !folder) return;
+    folder = folder || this.cfg.folder || DEFAULT_FOLDER;
+    if (this.share.busy) return;
+    fs.mkdirSync(folder, { recursive: true });
     this.share = { busy: true, error: null, peer: null };
     this.emit('change');
     const pw = crypto.randomBytes(18).toString('base64url');
@@ -171,6 +194,7 @@ class Smb extends EventEmitter {
     return {
       pcOffered: !!this.offer,
       pcShare: this.offer ? `\\\\${this.offer.host}\\${this.offer.share}` : null,
+      defaultFolder: DEFAULT_FOLDER,
       mounted: this.mount.path,
       mountError: this.mount.error,
       mounting: this.mount.busy,

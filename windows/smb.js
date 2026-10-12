@@ -4,6 +4,7 @@
 // maps the Mac's shared folder as a drive. Credentials only travel over the paired link; ours are
 // kept encrypted with Windows DPAPI (Electron safeStorage).
 const { app, safeStorage } = require('electron');
+const os = require('os');
 const { execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -50,6 +51,41 @@ class Smb {
   _offer() {
     const c = this._creds();
     if (this.cfg.shareOn && c) this.link.send({ t: T.SMB_OFFER, share: SHARE, user: c.user, password: c.password, port: 445 });
+  }
+
+  // One switch (revision 2): on → share the folder (default %USERPROFILE%\MacShare); the admin
+  // prompt only comes the first time or after the folder changed. Off → the Mac unmounts; the share
+  // and account stay, so switching on again needs no prompt.
+  async setShareOn(on) {
+    if (this.busy) return;
+    if (!on) {
+      this.cfg.shareOn = false;
+      this.save();
+      this.link.send({ t: T.SMB_REVOKE, share: SHARE });
+      this.peerState = null;
+      return this.onChange();
+    }
+    const folder = this.cfg.shareFolder || path.join(os.homedir(), 'MacShare');
+    try { fs.mkdirSync(folder, { recursive: true }); } catch (e) { return this._msg('Can’t create ' + folder + ': ' + e.message); }
+    await this.checkShare();
+    if (this._creds() && this.sharePath && this.sharePath.toLowerCase() === folder.toLowerCase()) {
+      this.cfg.shareOn = true;
+      this.cfg.shareFolder = folder;
+      this.save();
+      this.message = '';
+      this._offer();
+      return this.onChange();
+    }
+    await this.share(folder);
+  }
+
+  // Choose… a different folder: shared right away if sharing is on, else remembered for later.
+  async chooseFolder(folder) {
+    if (!folder) return;
+    if (this.cfg.shareOn) return this.share(folder);
+    this.cfg.shareFolder = folder;
+    this.save();
+    this.onChange();
   }
 
   // One elevated script: account, folder permission, share, firewall (File and Printer Sharing, Private).
@@ -156,6 +192,7 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
         if (!letter) throw new Error('No free drive letter');
         await exec('net.exe', ['use', letter, unc, '/persistent:no']);
         this.drive = letter;
+        this._label(addr, m.share);
       }
       this.mountMessage = '';
       this._state(m.share, true);
@@ -165,6 +202,13 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
       this._state(m.share, false, e.message);
     }
     this._busy('');
+  }
+
+  // Name the mapped drive in This PC: "MacShare on <Mac>" instead of the share path.
+  _label(addr, share) {
+    const mac = this.link.snapshot().link.macName || 'Mac';
+    const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##' + addr + '#' + share;
+    exec('reg.exe', ['add', key, '/v', '_LabelFromReg', '/t', 'REG_SZ', '/d', 'MacShare on ' + mac, '/f']).catch(() => {});
   }
 
   async _unmount(share) {
@@ -196,6 +240,7 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
     return {
       busy: this.busy, message: this.message, sharing: !!(this.cfg.shareOn && this._creds()),
       peer: this.peerState, macShare: this.mac ? this.mac.share : '', drive: this.drive, mountMessage: this.mountMessage,
+      folder: this.cfg.shareFolder || path.join(os.homedir(), 'MacShare'),
     };
   }
 }

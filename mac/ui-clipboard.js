@@ -37,10 +37,10 @@ UI.tab({
 
     body.append(
       peerNote,
-      UI.card('Directions', [
-        UI.row('This Mac → PC', 'Text you copy here can be pasted on the PC', [send]),
-        UI.row('PC → this Mac', 'Text copied on the PC can be pasted here', [receive]),
-      ]),
+      UI.pair(
+        UI.dir('m2w', [UI.row('Send this Mac’s clipboard', 'Text you copy here can be pasted on the PC', [send])], { role: 'this Mac sends' }),
+        UI.dir('w2m', [UI.row('Accept the PC’s clipboard', 'Text copied on the PC can be pasted here', [receive])], { role: 'this Mac receives' }),
+      ),
       UI.card('Timing', [modeRow]),
       UI.card('Privacy and limits', [
         UI.row('Skip passwords', 'Never send items that password managers mark as concealed (1Password, Bitwarden, Keychain…)', [concealed]),

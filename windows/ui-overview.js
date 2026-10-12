@@ -29,17 +29,35 @@ UI.tab({
       status,
     ]);
 
-    // Quick switches
-    const quick = [
-      { id: 'receive', label: 'Receive the Mac’s screen', hint: 'Monitor 2 — the Mac switches sharing on', get: (s) => s.stream.state === 'on', disabled: true },
-      { id: 'cursor', label: 'Cursor sharing', hint: 'Push the pointer across the screen edge', get: (s) => s.kvm.mouse, set: (v) => api.setKvm({ mouse: v }) },
-      { id: 'keyboard', label: 'Keyboard sharing', hint: 'Typing follows the pointer (double-tap Right Ctrl)', get: (s) => s.kvm.keyboard, set: (v) => api.setKvm({ keyboard: v }) },
-      { id: 'clipboard', label: 'Clipboard', hint: 'Copy on one, paste on the other', get: (s) => s.clipboard.enabled, set: (v) => api.setClipboard({ enabled: v }) },
-    ].map((q) => {
-      const sw = UI.switch(q.set || (() => {}), { label: q.label, disabled: !!q.disabled });
-      const row = UI.row(q.label, q.hint, [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(q.id) });
-      return { q, sw, row };
-    });
+    // Every feature, once per direction, in the same place as on the Mac (docs/UI.md).
+    const row = (q) => {
+      const sw = UI.switch(q.set || (() => {}), { label: q.label, disabled: !q.set });
+      const r = UI.row(q.label, q.hint, [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(q.id) });
+      r.update = (s) => sw.set(q.get(s));
+      return r;
+    };
+    const m2p = [
+      { id: 'mac-pc', label: 'The Mac’s screen', hint: 'Monitor 2 (the Mac turns sharing on)', get: (s) => s.stream.state === 'on' },
+      { id: 'cursor', label: 'Mac drives this PC', hint: 'Its mouse and keyboard cross the edge', get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) },
+      { id: 'clipboard', label: 'Accept the Mac’s clipboard', hint: 'Copy there, paste here', get: (s) => s.clipboard.receive, set: (v) => api.setClipboard({ receive: v }) },
+      { id: 'audio', label: 'Play the Mac’s sound', hint: 'On this PC’s speakers', get: (s) => s.audio.receive, set: (v) => api.setAudio({ receive: v }) },
+      { id: 'files', label: 'Files from the Mac', hint: 'Dragged across the edge; its folder as a drive', get: (s) => s.files.acceptFromMac, set: (v) => api.setFiles({ acceptFromMac: v }) },
+      { id: 'terminal', label: 'Shell on this PC', hint: 'The Mac opens one here', get: (s) => s.terminal.allowMac, set: (v) => api.setTerminal({ allowMac: v }) },
+    ].map(row);
+    const p2m = [
+      { id: 'pc-mac', label: 'This PC’s screen', hint: 'Coming in phase 11', get: () => false },
+      { id: 'cursor', label: 'This PC drives the Mac', hint: 'Push through the edge or double-tap Right Ctrl', get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) },
+      { id: 'clipboard', label: 'Send the clipboard', hint: 'Copy here, paste on the Mac', get: (s) => s.clipboard.send, set: (v) => api.setClipboard({ send: v }) },
+      { id: 'audio', label: 'Send this PC’s sound', hint: 'To the Mac’s speakers', get: (s) => s.audio.send, set: (v) => api.setAudio({ send: v }) },
+      { id: 'files', label: 'Files to the Mac', hint: 'Drag across the edge or onto Monitor 2', get: (s) => s.files.dropToMac, set: (v) => api.setFiles({ dropToMac: v }) },
+      { id: 'terminal', label: 'Shell on the Mac', hint: 'Open one from here', get: (s) => s.terminal.enabled, set: (v) => api.setTerminal({ enabled: v }) },
+    ].map(row);
+    const pair = UI.dirCards({ rows: m2p }, { rows: p2m });
+    const devices = [
+      { id: 'cursor', label: 'Share the cursor', hint: 'Both directions', get: (s) => s.kvm.mouse, set: (v) => api.setKvm({ mouse: v }) },
+      { id: 'keyboard', label: 'Share the keyboard', hint: 'Both directions', get: (s) => s.kvm.keyboard, set: (v) => api.setKvm({ keyboard: v }) },
+      { id: 'clipboard', label: 'Clipboard', hint: 'Both directions', get: (s) => s.clipboard.enabled, set: (v) => api.setClipboard({ enabled: v }) },
+    ].map(row);
 
     const monitorBtn = UI.button('Open Monitor 2', () => api.openMonitor(), 'small');
     const pairedRow = UI.row('', '', [monitorBtn, UI.button('Forget', () => api.forget(), 'small')]);
@@ -52,7 +70,8 @@ UI.tab({
 
     body.append(
       hero,
-      UI.card('Features', quick.map((x) => x.row)),
+      pair.el,
+      UI.card('For both directions', devices),
       pairedCard,
       UI.card('Macs on this network', [macList, UI.row('Add by IP', 'If your Mac isn’t listed (another subnet, or broadcasts blocked)', [ipInput, ipBtn])]),
     );
@@ -74,7 +93,7 @@ UI.tab({
             : 'Open MacShare on your Mac, then click Pair next to it below.';
       status.classList.toggle('bad', bad);
 
-      for (const { q, sw } of quick) sw.set(q.get(s));
+      for (const r of m2p.concat(p2m, devices)) r.update(s);
 
       pairedCard.hidden = !s.paired;
       if (s.paired) {

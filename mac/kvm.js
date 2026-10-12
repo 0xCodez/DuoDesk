@@ -13,9 +13,10 @@ const P = require('../shared/protocol.js');
 const REFUSED = { busy: 'The PC is driving this Mac right now', not_allowed: 'The PC doesn’t accept input from this Mac' };
 
 class Kvm extends EventEmitter {
-  constructor({ server, helper, getSettings, clipboard, input }) {
+  constructor({ server, helper, getSettings, clipboard, input, drop, fileSend }) {
     super();
-    Object.assign(this, { server, helper, getSettings, clipboard, input });
+    Object.assign(this, { server, helper, getSettings, clipboard, input, drop, fileSend });
+    this.dragOut = false; // our file drag is on the PC and not yet released
     this.mode = 'home';
     this.route = 0;
     this.peerRoute = 0;
@@ -131,7 +132,10 @@ class Kvm extends EventEmitter {
     this.route++;
     this._setMode('driving', '');
     this.input.releaseAll();
-    this.server.sendToClient({ t: P.T.KVM_TAKE, route: this.route, mouse: !!fields.mouse, keyboard: !!k.keyboard, ...fields.where });
+    const take = { t: P.T.KVM_TAKE, route: this.route, mouse: !!fields.mouse, keyboard: !!k.keyboard, ...fields.where };
+    if (fields.paths && fields.paths.length) take.drag = { count: fields.paths.length };
+    this.server.sendToClient(take);
+    if (take.drag) this.dragOut = this.fileSend.send(fields.paths, 'release') > 0;
     this.clipboard.sendIfChanged('switch');
     clearTimeout(this.acceptTimer);
     const route = this.route;
@@ -143,6 +147,10 @@ class Kvm extends EventEmitter {
   // Row 9: take our input home (helper stops capturing). Tells the PC unless it refused.
   goHome(message, tellPeer = true) {
     if (this.mode !== 'driving') return;
+    if (this.dragOut) {
+      this.dragOut = false;
+      this.fileSend.cancelAll(); // came back without dropping the files on the PC
+    }
     this.helper.send('capture', { on: false });
     if (tellPeer && this.server.current) this.server.sendToClient({ t: P.T.KVM_RELEASE, route: ++this.route });
     this._setMode('home', message);
@@ -164,7 +172,7 @@ class Kvm extends EventEmitter {
           if (!this.server.current) this._setMode('home', 'No PC connected');
           return;
         }
-        this._take({ mouse: true, where: { side: P.opposite(k.pcSide), offset: ev.offset } });
+        this._take({ mouse: true, where: { side: P.opposite(k.pcSide), offset: ev.offset }, paths: ev.drag && ev.drag.paths });
         break;
       case 'hotkey':
         if (this.mode === 'home') {
@@ -190,6 +198,7 @@ class Kvm extends EventEmitter {
           return;
         }
         this._flushMove();
+        if (this.dragOut && e.t === P.T.K_UP && e.b === 0) this.dragOut = false; // dropped on the PC
         this.server.sendToClient(e);
         break;
       }
@@ -211,6 +220,7 @@ class Kvm extends EventEmitter {
     if (this.mode === 'driven' && !(m.route > this.peerRoute)) return;
     const first = this.mode !== 'driven';
     this.peerRoute = m.route;
+    if (m.drag) this.drop.armDrag();
     this._setMode('driven', '');
     this.server.sendToClient({ t: P.T.KVM_ACCEPT, route: m.route });
     if (first) this.input.releaseAll();
@@ -233,6 +243,7 @@ class Kvm extends EventEmitter {
       case P.T.K_DOWN:
       case P.T.K_UP:
         ev = { t: m.t, b: Math.max(0, Math.min(4, num(m.b) | 0)) };
+        if (m.t === P.T.K_UP && ev.b === 0) this.drop.release(); // a drag from the PC ends here
         break;
       case P.T.K_WHEEL: {
         const s = k.reverseScroll ? -1 : 1;
@@ -258,6 +269,7 @@ class Kvm extends EventEmitter {
   // Rows 8b / 9b: stop being driven.
   _drivenHome(message) {
     if (this.mode !== 'driven') return;
+    this.drop.cancelDrag();
     this.helper.send('releaseAll');
     this.helper.send('armReturn', { on: false });
     this._setMode('home', message);

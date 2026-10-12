@@ -28,7 +28,6 @@ class Screen {
     link.on(T.RTC_ICE, (m) => this._relay(m));
     link.on(T.STREAM_STOP, () => this._stop());
     link.on(T.STREAM_INPUT, (m) => this._setMacInput(m.on !== false));
-    link.on('welcome', () => this.applyAudio());
     link.on('closed', () => {
       this.autoOpened = false;
       this._stop();
@@ -66,9 +65,10 @@ class Screen {
   _onInfo(m) {
     const width = Number(m.width) || 0;
     const height = Number(m.height) || 0;
-    this.state = { state: 'on', name: typeof m.name === 'string' ? m.name : 'Mac display', width, height };
+    // audio: the Mac's "Share sound with the screen" (revision 2) — only then is there a sound track.
+    this.state = { state: 'on', name: typeof m.name === 'string' ? m.name : 'Mac display', width, height, audio: m.audio === true };
     this.replay = []; // a fresh offer follows every stream.info
-    this._relay({ t: T.STREAM_INFO, name: this.state.name, width, height });
+    this._relay({ t: T.STREAM_INFO, name: this.state.name, width, height, audio: this.state.audio });
     this._title();
     if (this.win && !this.win.isDestroyed()) this.win.streamSize = { width, height };
     if (!this.autoOpened && this.settings.monitor.autoOpen) {
@@ -83,15 +83,14 @@ class Screen {
     if (this.ready && this.win && !this.win.isDestroyed()) this.win.webContents.send('drop-progress', v);
   }
 
-  // Audio (phase 10): tell the Mac whether to send sound, and the renderer how loud to play it.
+  // Screen sound (revision 2): played only when the Mac shares it with the screen; local volume.
   applyAudio() {
-    this.link.send({ t: T.AUDIO_POLICY, accept: !!this.settings.audio.receive });
     this._pushAudio();
   }
 
   _pushAudio() {
-    const a = this.settings.audio;
-    if (this.ready && this.win && !this.win.isDestroyed()) this.win.webContents.send('audio', { on: a.receive, volume: a.volume });
+    const m = this.settings.monitor;
+    if (this.ready && this.win && !this.win.isDestroyed()) this.win.webContents.send('audio', { on: !m.mute, volume: m.volume });
   }
 
   // Input allowed changed elsewhere (KVM mode): tell the renderer.

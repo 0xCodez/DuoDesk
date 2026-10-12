@@ -1,50 +1,50 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Audio tab (phase 10): this Mac's sound on the PC (with the screen stream), mute here while
-// sending. PC -> Mac sound is listed as coming next.
+// Audio tab (revision 2): sound on its own, both ways, independent of the screen.
 'use strict';
 
 UI.tab({
   id: 'audio',
   order: 70,
   title: 'Audio',
-  desc: 'Hear this Mac on the PC. The sound travels with the screen, so it stays in sync with Monitor 2.',
+  desc: 'Hear one computer on the other, in either direction — with or without screen sharing.',
   color: 'linear-gradient(#ff6482, #ff2d55)',
-  master: { get: (s) => s.audio && s.audio.send, set: (v) => UI.api.setAudio({ send: v }) },
-  badge: (s) => (s.audio && s.audio.send ? 'on' : ''),
+  badge: (s) => (s.audio && (s.audio.send || s.audio.receive) ? 'on' : ''),
   build(body) {
     const { api } = UI;
-    const status = UI.note('info', '');
+    const sendSw = UI.switch((v) => api.setAudio({ send: v }), { label: 'Send this Mac’s sound' });
     const mute = UI.switch((v) => api.setAudio({ muteLocal: v }), { label: 'Mute this Mac while sending' });
-    const stateRow = UI.row('Sound to the PC', '');
+    const recvSw = UI.switch((v) => api.setAudio({ receive: v }), { label: 'Play the PC’s sound here' });
+    const vol = UI.slider({ min: 0, max: 1, step: 0.05, format: (v) => `${Math.round(v * 100)}%` }, (v) => api.setAudio({ volume: v }));
+    const sendRow = UI.row('Send this Mac’s sound', '', [sendSw]);
+    const recvRow = UI.row('Play the PC’s sound here', '', [recvSw]);
     body.append(
-      status,
-      UI.card('This Mac → PC', [
-        stateRow,
-        UI.row('Mute this Mac while sending', 'Silence this Mac’s speakers; the PC still gets the sound', [mute]),
-      ]),
-      UI.card('PC → this Mac', [
-        UI.row('Play the PC’s sound here', 'Coming next: the PC sends its sound over a second connection', [UI.switch(() => {}, { disabled: true, label: 'Play the PC sound' })]),
-      ], { cls: 'keep-on' }),
-      UI.card('How it works', [
-        UI.row('System sound is captured with ScreenCaptureKit (no extra driver) and sent as high-quality stereo Opus on the same encrypted connection as Monitor 2.', ''),
+      UI.pair(
+        UI.dir('m2w', [sendRow, UI.row('Mute this Mac while sending', 'Silence the speakers here; the PC still gets the sound', [mute])], { role: 'this Mac sends' }),
+        UI.dir('w2m', [recvRow, UI.row('Volume', '', [vol])], { role: 'this Mac plays' }),
+      ),
+      UI.card('Good to know', [
+        UI.row('Sound with the screen', 'Display › Mac → PC can also carry this Mac’s sound in sync with Monitor 2. Then this separate stream pauses, so the sound never plays twice.'),
+        UI.row('Quality', 'Stereo, 48 kHz Opus at 128 kbps on its own encrypted connection — it never slows the screen down.'),
       ], { cls: 'keep-on' }),
     );
+    const live = (x) => x && x.status === 'live';
     return (s) => {
       const a = s.audio;
       if (!a) return;
+      sendSw.set(a.send);
       mute.set(a.muteLocal);
-      let text = '';
-      let kind = 'info';
-      if (!a.send) text = 'Off — the PC hears nothing from this Mac.';
-      else if (!s.client) text = 'Waiting for your PC to connect.';
-      else if (!a.peerAccepts) { kind = 'warn'; text = `${s.client.name} isn’t playing this Mac’s sound — turn it on in the PC app’s Audio tab.`; }
-      else if (a.error) { kind = 'bad'; text = `Can’t capture sound: ${a.error}`; }
-      else if (!s.sharing || !s.sharing.on) { kind = 'warn'; text = 'Sound goes with screen sharing — turn on Display › Share.'; }
-      else if (a.on) text = `Playing on ${s.client.name}.`;
-      else text = 'Starting…';
-      status.className = `note ${kind}`;
-      status.set(text);
-      stateRow.setHint(a.on ? 'Live — stereo, 48 kHz' : 'Not sending');
+      recvSw.set(a.receive);
+      vol.set(a.volume);
+      const pc = s.client ? s.client.name : 'the PC';
+      sendRow.setHint(!a.send ? 'Off'
+        : !s.client ? 'Waiting for your PC to connect'
+          : a.screenCarries ? 'Travelling with the screen right now (Display › Mac → PC)'
+            : !a.peerAccepts ? `${pc} isn’t playing it — turn on “Play the Mac’s sound” in the PC app`
+              : a.error ? `Can’t capture sound: ${a.error}`
+                : live(a.sending) ? `Playing on ${pc}` : 'Connecting…');
+      recvRow.setHint(!a.receive ? 'Off'
+        : !s.client ? 'Waiting for your PC to connect'
+          : live(a.receiving) ? `Playing ${pc}’s sound` : `Waiting for ${pc} to send its sound (Audio tab in the PC app)`);
     };
   },
 });

@@ -7,7 +7,7 @@ const { apply } = require('./settings');
 // ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -36,27 +36,33 @@ function setupIpc(ctx) {
 
   handle('setKvm', (partial) => change('kvm', partial, () => kvm.applyConfig()));
   handle('setKeys', (partial) => change('keys', partial));
-  handle('setMonitor', (partial) => change('monitor', partial));
+  handle('setMonitor', (partial) => change('monitor', partial, () => screen.applyAudio()));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));
   handle('clearHistory', () => clip.clearHistory());
   handle('setTab', (tab) => change('ui', { tab })); // invalid names fall back in normalize()
-  handle('setAudio', (partial) => change('audio', partial, () => screen.applyAudio()));
-  handle('setTerminal', (partial) => change('terminal', partial, () => terminal.apply()));
+  handle('setAudio', (partial) => change('audio', partial, () => sound.apply()));
+  handle('setTerminal', (partial) => {
+    const p = partial && typeof partial === 'object' ? { enabled: partial.enabled, allowMac: partial.allowMac } : {};
+    Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
+    change('terminal', p, () => { terminal.apply(); sshd.apply(); });
+  });
+  handle('setupSshd', () => sshd.setup());
   handle('openTerminal', () => terminal.open());
   handle('addToPath', () => terminal.addToPath());
   handle('setFiles', (partial) => {
     // shareOn/shareFolder only change through share()/unshare()
-    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac } : {};
+    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac, acceptFromMac: partial.acceptFromMac } : {};
     Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
     change('files', p, () => smb.applyMount());
   });
-  handle('shareFolder', async () => {
+  handle('setShareOn', (on) => smb.setShareOn(on === true));
+  handle('chooseShareFolder', async () => {
     const win = BrowserWindow.getFocusedWindow();
-    const r = await dialog.showOpenDialog(win, { title: 'Folder to share with the Mac', properties: ['openDirectory'] });
-    if (!r.canceled && r.filePaths[0]) await smb.share(r.filePaths[0]);
+    const r = await dialog.showOpenDialog(win, { title: 'Folder to share with the Mac', properties: ['openDirectory', 'createDirectory'] });
+    if (!r.canceled && r.filePaths[0]) await smb.chooseFolder(r.filePaths[0]);
   });
-  handle('unshareFolder', () => smb.unshare());
+  handle('removeShare', () => smb.unshare());
   handle('openMacDrive', () => smb.drive && shell.openPath(smb.drive + '\\'));
   handle('cancelDrop', () => fileDrop.cancel());
   handle('listApps', () => apps.refresh());

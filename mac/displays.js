@@ -47,7 +47,8 @@ class Displays extends EventEmitter {
       const v = this.getSettings().virtual;
       this.virtualError = null;
       try {
-        if (!v.enabled) {
+        // The virtual display exists only while this Mac's screen is shared (no empty extra monitor).
+        if (!v.enabled || !this.getSettings().sharing.on) {
           if (this.virtualId !== null) await this.helper.request('destroyDisplay');
           this.virtualId = null;
           return;

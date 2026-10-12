@@ -37,7 +37,7 @@ function write(name, data) {
 const DEFAULT_SETTINGS = {
   macId: null,
   macName: null,
-  sharing: { on: true, displayId: null },
+  sharing: { on: false, displayId: null, audio: false }, // `on` is reset to false at every start (revision 2)
   virtual: { enabled: true, width: 1920, height: 1080, hiDPI: false, hz: 60 },
   bitrateMbps: 20,
   streamInput: true, // accept mouse/keyboard from Monitor 2
@@ -64,7 +64,7 @@ const DEFAULT_SETTINGS = {
   },
   ui: { tab: 'overview' },
   app: { openAtLogin: false, keepAwake: true }, // phase 6
-  audio: { send: false, muteLocal: false }, // phase 10: this Mac's sound on the PC
+  audio: { send: false, receive: false, muteLocal: false, volume: 1 }, // revision 2: independent, both ways
   terminal: { allowPc: false, connectPc: false }, // phase 8: PC -> Mac shell; Mac -> PC (`ssh macshare-pc`)
   files: { acceptDrops: true, folder: '', reveal: true }, // phase 9: '' = Downloads
   apps: { offer: true }, // phase 12: the PC can list and open this Mac's apps
@@ -73,6 +73,7 @@ const DEFAULT_SETTINGS = {
 
 function loadSettings() {
   const s = read('settings.json', {});
+  if (s.sharing) s.sharing.on = false; // screen sharing never starts by itself
   const out = { ...DEFAULT_SETTINGS, ...s };
   for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   return out;

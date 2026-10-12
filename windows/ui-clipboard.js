@@ -1,5 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Clipboard tab: directions, when to sync, privacy and limits, Recent list (docs/KVM.md).
+// Clipboard tab: accept (Mac → PC) and send (PC → Mac) as two direction cards (docs/UI.md), then
+// timing, privacy and the Recent list for both (docs/KVM.md "Clipboard").
 'use strict';
 
 UI.tab({
@@ -14,10 +15,8 @@ UI.tab({
     const { el, api } = UI;
     const set = (partial) => api.setClipboard(partial);
 
-    const peerNote = UI.note('warn', '');
+    const peerRow = UI.row('', '');
     const skipNote = UI.note('info', '');
-    const send = UI.switch((v) => set({ send: v }), { label: 'This PC to Mac' });
-    const receive = UI.switch((v) => set({ receive: v }), { label: 'Mac to this PC' });
     const mode = UI.segmented([
       { value: 'switch', label: 'When you switch' },
       { value: 'instant', label: 'Instantly' },
@@ -31,16 +30,21 @@ UI.tab({
       { value: 0, label: 'Off' }, { value: 10, label: '10 items' }, { value: 20, label: '20 items' },
       { value: 50, label: '50 items' }, { value: 100, label: '100 items' },
     ], (v) => set({ historySize: Number(v) }));
+    const pair = UI.dirCards(
+      { on: { get: (s) => s.clipboard.receive, set: (v) => set({ receive: v }) }, rows: [
+        UI.row('Accept the Mac’s clipboard', 'Text copied on the Mac can be pasted here'),
+      ] },
+      { on: { get: (s) => s.clipboard.send, set: (v) => set({ send: v }) }, rows: [
+        UI.row('Send this PC’s clipboard', 'Text you copy here can be pasted on the Mac'),
+        peerRow,
+      ] },
+    );
 
     const list = el('div', { class: 'history' });
     const clearBtn = UI.button('Clear', () => api.clearHistory(), 'small');
 
     body.append(
-      peerNote,
-      UI.card('Directions', [
-        UI.row('This PC → Mac', 'Text you copy here can be pasted on the Mac', [send]),
-        UI.row('Mac → this PC', 'Text copied on the Mac can be pasted here', [receive]),
-      ]),
+      pair.el,
       UI.card('Timing', [modeRow]),
       UI.card('Privacy and limits', [
         UI.row('Skip passwords', 'Never send items that password managers mark as private (1Password, Bitwarden, KeePass…)', [concealed]),
@@ -54,8 +58,7 @@ UI.tab({
     let lastKey = '';
     return (s) => {
       const c = s.clipboard;
-      send.set(c.send);
-      receive.set(c.receive);
+      pair.update(s);
       mode.set(c.mode);
       modeRow.setHint(c.mode === 'instant'
         ? 'Everything you copy here goes to the Mac right away (while connected).'
@@ -63,12 +66,13 @@ UI.tab({
       concealed.set(c.skipConcealed);
       maxKB.set(c.maxKB);
       historySize.set(c.historySize);
-      peerNote.set(s.link.state === 'connected' && !c.peerAccepts
-        ? 'The Mac doesn’t accept the PC’s clipboard (turned off in the Mac app).' : '');
+      const refused = s.link.state === 'connected' && !c.peerAccepts;
+      peerRow.hidden = !refused;
+      peerRow.label.textContent = 'The Mac doesn’t accept it';
+      peerRow.setHint('Turned off in the Mac app (its Clipboard tab).');
       skipNote.set(c.enabled && c.lastSkip ? 'Last item not sent: ' + c.lastSkip + '.' : '');
       clearBtn.disabled = !c.history.length;
 
-      // Rebuild the list only when it changed (or every 15 s for the relative times).
       const key = JSON.stringify(c.history.map((h) => [h.at, h.dir])) + c.historySize + Math.floor(Date.now() / 15000);
       if (key === lastKey) return;
       lastKey = key;

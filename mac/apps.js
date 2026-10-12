@@ -11,9 +11,9 @@ const P = require('../shared/protocol.js');
 const POLL_MS = 100; // ≤ 10 app.windows per second, only when something changed
 
 class Apps extends EventEmitter {
-  constructor({ server, helper, displays, getSettings }) {
+  constructor({ server, helper, displays, stream, getSettings }) {
     super();
-    Object.assign(this, { server, helper, displays, getSettings });
+    Object.assign(this, { server, helper, displays, stream, getSettings });
     this.launched = new Map(); // bundle id -> { pid, name }
     this.lastKey = '';
     this.windows = [];
@@ -46,7 +46,7 @@ class Apps extends EventEmitter {
   async _launch(id) {
     const reply = (ok, why) => this.server.sendToClient({ t: P.T.APP_LAUNCHED, id, ok, ...(why ? { why } : {}) });
     if (!this.enabled) return reply(false, 'off');
-    if (!/^[A-Za-z0-9.-]{1,200}$/.test(id)) return reply(false, 'bad id');
+    if (!/^[A-Za-z0-9.-]{1,200}$/.test(id) || /^com\.apple\.(Siri|siri)/.test(id)) return reply(false, 'not offered');
     try {
       const { pid } = await this.helper.request('appLaunch', { appId: id }, 20000);
       this.launched.set(id, { pid });
@@ -101,7 +101,10 @@ class Apps extends EventEmitter {
     if (key === this.lastKey) return;
     this.lastKey = key;
     this.windows = wins;
-    this.server.sendToClient({ t: P.T.APP_WINDOWS, windows: wins });
+    // pw/ph: pixel size of the stream picture, so the PC opens each app window at 1:1 (no scaling).
+    const pw = this.stream.view.width || t.pixelWidth;
+    const ph = this.stream.view.height || t.pixelHeight;
+    this.server.sendToClient({ t: P.T.APP_WINDOWS, windows: wins, pw, ph });
     this.emit('change');
   }
 

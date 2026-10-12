@@ -69,7 +69,7 @@ button, input, select { font: inherit; color: inherit; }
 
 /* ---------- content ---------- */
 #content { flex: 1; min-width: 0; background: var(--content); overflow-y: auto; position: relative; }
-#pages { padding: 8px 28px 28px; max-width: 760px; }
+#pages { padding: 8px 28px 28px; max-width: 920px; }
 .page[hidden] { display: none; }
 .page-head { display: flex; align-items: flex-start; gap: 16px; padding: 18px 0 16px; }
 .page-head .titles { flex: 1; }
@@ -139,3 +139,12 @@ select { padding: 3px 24px 3px 8px; border-radius: 6px; border: 1px solid var(--
 input[type="text"] { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--control-line); background: var(--control); box-shadow: var(--shadow); min-width: 190px; user-select: text; }
 input[type="text"]:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }
 .switch:hover:not(:disabled) { filter: brightness(1.05); }
+/* Direction cards (docs/UI.md "Tabs — equal places") */
+.dir-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; align-items: start; }
+@media (max-width: 900px) { .dir-pair { grid-template-columns: 1fr; } }
+.dir-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.dir-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--row-line); font-weight: 600; }
+.dir-title { flex: 1; }
+.dir-head .me { color: var(--muted); font-weight: 400; }
+.dir-card.off > .row, .dir-card.soon-card > .row { opacity: 0.5; }
+.dir-card .row .hint { overflow-wrap: anywhere; }

@@ -16,13 +16,17 @@ const { Drop } = require('./drop');
 const { Smb } = require('./smb');
 const { Apps } = require('./apps');
 const { SshClient } = require('./ssh-client');
+const { AudioHub } = require('./audiohub');
+const { Audio } = require('./audio');
+const { FileSend } = require('./filesend');
 const store = require('./store');
 
 function startServices({ server, getSettings, pushState, onHelperReady }) {
   const s = getSettings;
   const helper = new Helper();
   const displays = new Displays(helper, s);
-  const stream = new Stream(server, displays, s, helper);
+  const hub = new AudioHub(helper, s);
+  const stream = new Stream(server, displays, s, hub);
   let kvm = null;
   // Stream input only when "Receive input" is on and shared input is home (docs/KVM.md).
   const input = new Input(server, helper, displays, {
@@ -30,15 +34,17 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
     swapKeys: () => s().keys.swapCtrlCmd !== false,
   });
   const clipboard = new Clipboard(server, helper, s);
-  kvm = new Kvm({ server, helper, getSettings: s, clipboard, input });
-  const terminal = new Terminal(server, s);
   const drop = new Drop({ server, helper, displays, getSettings: s });
+  const fileSend = new FileSend(server);
+  kvm = new Kvm({ server, helper, getSettings: s, clipboard, input, drop, fileSend });
+  const terminal = new Terminal(server, s);
   const smb = new Smb({ server, helper, getSettings: s, saveSettings: () => store.saveSettings(s()) });
 
-  const apps = new Apps({ server, helper, displays, getSettings: s });
+  const apps = new Apps({ server, helper, displays, stream, getSettings: s });
   const sshClient = new SshClient(server, s);
+  const audio = new Audio({ server, hub, stream, getSettings: s });
 
-  for (const x of [stream, clipboard, kvm, terminal, drop, smb, apps, sshClient]) x.on('change', pushState);
+  for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio]) x.on('change', pushState);
   displays.on('change', () => {
     input.releaseAll(); // the shared display moved or changed size mid-press
     pushState();
@@ -78,13 +84,10 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   helper.start();
 
   return {
-    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, updateAwake,
+    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, audio, hub, fileSend, updateAwake,
     shutdown() {
       kvm.shutdown();
-      if (stream.mutedByUs) {
-        require('child_process').execFileSync('/usr/bin/osascript', ['-e', 'set volume without output muted']);
-        stream.mutedByUs = false;
-      }
+      hub.shutdown(); // unmute this Mac if we muted it while sending
       stream.stop('off');
       helper.stop(); // closes stdin: the helper exits and the virtual display goes away
     },

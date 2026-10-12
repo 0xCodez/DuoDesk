@@ -9,6 +9,7 @@ const overlay = document.getElementById('overlay');
 const statsBox = document.getElementById('stats');
 const audio = document.getElementById('audio');
 let audioCfg = { on: true, volume: 1 };
+let streamAudio = false; // stream.info.audio: the Mac shares sound with the screen
 
 let pc = null;
 let session = null;
@@ -30,7 +31,7 @@ function closePc() {
 }
 
 function applyAudio() {
-  audio.muted = !audioCfg.on;
+  audio.muted = !audioCfg.on || !streamAudio;
   audio.volume = audioCfg.volume;
   if (audio.srcObject && audioCfg.on) audio.play().catch(() => {});
 }
@@ -172,6 +173,8 @@ if (new URLSearchParams(location.search).get('test') === '1') {
     switch (msg.t) {
       case T.STREAM_INFO:
         streamName = msg.name;
+        streamAudio = msg.audio === true;
+        applyAudio();
         if (!pc) setOverlay('Waiting for ' + (streamName || 'the Mac') + '…');
         break;
       case T.RTC_OFFER: onOffer(msg); break;

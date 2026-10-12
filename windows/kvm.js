@@ -1,13 +1,14 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Shared cursor and keyboard: the docs/KVM.md state machine, Windows side, both roles
 // (rows 1–6 + 9: this PC drives the Mac; rows 7–8c + 9b: the Mac drives this PC).
+const fs = require('fs');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
 const K_TYPES = new Set([T.K_MOVE, T.K_DOWN, T.K_UP, T.K_WHEEL, T.K_KEY_DOWN, T.K_KEY_UP]);
 
 class Kvm {
-  // opts: link, helper, clip, settings (shared object), onChange()
+  // opts: link, helper, clip, fileDrop, fileRecv, settings (shared object), onChange()
   constructor(opts) {
     Object.assign(this, opts);
     this.mode = 'home'; // 'home' | 'driving' | 'driven'
@@ -18,6 +19,7 @@ class Kvm {
     this.acceptTimer = null;
     this.keepalive = null;
     this.silence = null;
+    this.dragPending = false; // we crossed with a file drag; cleared when our left button comes up
 
     const link = this.link;
     link.on(T.KVM_LAYOUT, (m) => {
@@ -106,7 +108,14 @@ class Kvm {
           this.helper.send('capture', { on: false });
           return;
         }
-        this._take({ side: P.opposite(this.crossingSide), offset: msg.offset });
+        {
+          const paths = msg.drag && Array.isArray(msg.drag.paths) && this.settings.files.dropToMac ? msg.drag.paths.filter(isFile) : []; // folders aren't sent (iteration later)
+          this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(paths.length ? { drag: { count: paths.length } } : {}) });
+          if (paths.length) { // the files follow; the Mac places them where its pointer is on release
+            this.dragPending = true;
+            this.fileDrop.drop(paths, null, null, true);
+          }
+        }
         break;
       case 'hotkey':
         if (this.mode === 'home') { // row 2
@@ -126,7 +135,10 @@ class Kvm {
         if (this.mode === 'driven') this._sendHome(msg.offset);
         break;
       case 'ev':
-        if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) this.link.send(msg.ev);
+        if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) {
+          this.link.send(msg.ev);
+          if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released on the Mac
+        }
         break;
       case 'captureEnded': // dead-man or a local stop: input is back here
         if (this.mode === 'driving') this._release(msg.reason === 'deadman' ? 'Input came back (safety timer)' : '');
@@ -211,6 +223,8 @@ class Kvm {
       ev.dy = -(Number(ev.dy) || 0);
     }
     this.helper.send('inject', { ev });
+    // The Mac released its left button here: files it dragged across land under the pointer.
+    if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) this.fileRecv.onRelease();
   }
 
   // Row 8c: we send the input home (return edge or hotkey).
@@ -241,6 +255,10 @@ class Kvm {
   _setMode(mode, message) {
     const was = this.mode;
     this.mode = mode;
+    if (mode === 'home' && this.dragPending) { // went home before releasing: the files don't go
+      this.dragPending = false;
+      this.fileDrop.cancelRelease();
+    }
     this.message = message || '';
     if (mode === 'driving' && was !== 'driving') {
       clearInterval(this.keepalive);
@@ -271,6 +289,10 @@ class Kvm {
     else if (this.mode === 'driven') this._drivenHome('', false);
     this.helper.stop();
   }
+}
+
+function isFile(p) {
+  try { return typeof p === 'string' && fs.statSync(p).isFile(); } catch (_) { return false; }
 }
 
 module.exports = Kvm;

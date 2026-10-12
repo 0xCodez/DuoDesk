@@ -39,11 +39,11 @@ UI.tab({
 
     body.append(
       status,
+      UI.pair(
+        UI.dir('m2w', [UI.row('Use this Mac’s trackpad and mouse on the PC', 'Push through the edge facing the PC, or double-tap Right Option. Dragged files come along.', [drive])], { role: 'this Mac’s mouse' }),
+        UI.dir('w2m', [UI.row('Let the PC’s mouse control this Mac', 'The PC pushes through its edge facing this Mac, or double-taps Right Ctrl', [driven])], { role: 'the PC’s mouse' }),
+      ),
       UI.card('Arrangement', [el('div', { class: 'layout' }, [grid, layoutHint])]),
-      UI.card('Directions', [
-        UI.row('Use this Mac’s trackpad and mouse on the PC', 'Push through the edge facing the PC', [drive]),
-        UI.row('Let the PC’s mouse control this Mac', 'The PC pushes through its edge facing this Mac', [driven]),
-      ]),
       UI.card('Feel', [
         UI.row('Edge resistance', 'How far you push past the edge before the pointer crosses — stops accidental crossings', [resistance]),
         UI.row('Pointer speed on the other computer', '', [speed]),

@@ -5,6 +5,15 @@ import Cocoa
 
 enum Apps {
   private static var iconCache: [String: String] = [:]
+  /// Never offered: assistants and system agents that aren't normal windowed apps.
+  private static let hidden: Set<String> = ["com.apple.Siri", "com.apple.siri.launcher", "com.apple.SiriNCService"]
+
+  private static func offerable(_ b: Bundle, id: String) -> Bool {
+    if hidden.contains(id) { return false }
+    let info = b.infoDictionary ?? [:]
+    func flag(_ k: String) -> Bool { (info[k] as? Bool) ?? ((info[k] as? String) == "1") || ((info[k] as? NSNumber)?.boolValue ?? false) }
+    return !flag("LSUIElement") && !flag("LSBackgroundOnly") // menu-bar extras and background agents
+  }
 
   static func list() -> [[String: Any]] {
     var byId: [String: (name: String, url: URL)] = [:]
@@ -14,14 +23,14 @@ enum Apps {
     for root in roots {
       for name in (try? fm.contentsOfDirectory(atPath: root)) ?? [] where name.hasSuffix(".app") {
         let url = URL(fileURLWithPath: root).appendingPathComponent(name)
-        guard let b = Bundle(url: url), let id = b.bundleIdentifier, byId[id] == nil else { continue }
+        guard let b = Bundle(url: url), let id = b.bundleIdentifier, byId[id] == nil, offerable(b, id: id) else { continue }
         let display = (b.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
           ?? (b.object(forInfoDictionaryKey: "CFBundleName") as? String) ?? String(name.dropLast(4))
         byId[id] = (display, url)
       }
     }
     for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
-      if let id = app.bundleIdentifier, let url = app.bundleURL, byId[id] == nil {
+      if let id = app.bundleIdentifier, let url = app.bundleURL, byId[id] == nil, !hidden.contains(id) {
         byId[id] = (app.localizedName ?? id, url)
       }
     }

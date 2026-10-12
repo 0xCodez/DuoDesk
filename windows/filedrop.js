@@ -25,8 +25,9 @@ class FileDrop {
     this.link.on('closed', () => this._abortAll('The Mac disconnected'));
   }
 
-  // paths from the Monitor 2 drop; x/y normalized over the video (or null).
-  drop(paths, x, y) {
+  // paths from the Monitor 2 drop (x/y normalized over the video, or null), or from a drag across
+  // the edge (release = true: the Mac places them where its pointer is when the button comes up).
+  drop(paths, x, y, release) {
     if (!this.settings.files.dropToMac) return this._report(null, false, 'Dropping files onto Monitor 2 is off (Files tab)');
     const files = [];
     for (const p of paths) {
@@ -36,7 +37,7 @@ class FileDrop {
       } catch (_) { /* gone */ }
     }
     if (!files.length) return this._report(null, false, 'Only files can be sent (not folders)');
-    files.forEach((f, i) => this.queue.push({ ...f, x, y, index: i, count: files.length }));
+    files.forEach((f, i) => this.queue.push({ ...f, x, y, release: !!release, index: i, count: files.length }));
     this._next();
   }
 
@@ -60,10 +61,11 @@ class FileDrop {
     if (this.link.status.state !== 'connected') throw new Error('Not connected to the Mac');
     if (job.size > P.FILE_MAX_BYTES) throw new Error('Too big');
     const id = crypto.randomBytes(8).toString('hex');
-    this.current = { id, name, size: job.size, sent: 0, index: job.index, count: job.count };
+    this.current = { id, name, size: job.size, sent: 0, index: job.index, count: job.count, release: job.release };
     this._progress();
     const offer = { t: T.FILE_OFFER, id, name, size: job.size, index: job.index, count: job.count };
-    if (typeof job.x === 'number') { offer.x = job.x; offer.y = job.y; }
+    if (job.release) offer.drop = 'release';
+    else { offer.drop = 'point'; if (typeof job.x === 'number') { offer.x = job.x; offer.y = job.y; } }
     this.link.send(offer);
     const a = await this._wait(id, [T.FILE_ACCEPT, T.FILE_REFUSE, T.FILE_CANCEL], ANSWER_MS);
     if (a.t !== T.FILE_ACCEPT) throw new Error(a.t === T.FILE_REFUSE ? refuseText(a.why) : 'Cancelled');
@@ -101,6 +103,12 @@ class FileDrop {
     if (m.t === T.FILE_CANCEL && this.current && this.current.id === m.id) this.current.cancelled = true;
     const w = this.waiters.get(m.id);
     if (w && w.types.includes(m.t)) w.resolve(m);
+  }
+
+  // Input went home before the button came up: the dragged files don't go (revision 2 R4).
+  cancelRelease() {
+    this.queue = this.queue.filter((j) => !j.release);
+    if (this.current && this.current.release) this.cancel();
   }
 
   cancel() {

@@ -1,7 +1,14 @@
 @echo off
 rem MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 rem Builds bin\macshare-winhelper.exe with the .NET Framework C# compiler (C# 5 only).
+rem Works while MacShare is running: a running .exe can be renamed, so the new build is swapped
+rem in and the app picks it up the next time it starts the helper.
+setlocal
 set CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe
-if not exist "%~dp0bin" mkdir "%~dp0bin"
-"%CSC%" /nologo /optimize+ /platform:x64 /target:exe /out:"%~dp0bin\macshare-winhelper.exe" ^
-  /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll "%~dp0src\*.cs"
+set BIN=%~dp0bin
+if not exist "%BIN%" mkdir "%BIN%"
+"%CSC%" /nologo /optimize+ /platform:x64 /target:exe /out:"%BIN%\macshare-winhelper.new.exe" ^
+  /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll "%~dp0src\*.cs" || exit /b 1
+if exist "%BIN%\macshare-winhelper.old.exe" del /q "%BIN%\macshare-winhelper.old.exe" 2>nul
+if exist "%BIN%\macshare-winhelper.exe" ren "%BIN%\macshare-winhelper.exe" macshare-winhelper.old.exe
+ren "%BIN%\macshare-winhelper.new.exe" macshare-winhelper.exe

@@ -1,41 +1,41 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Apps tab (phase 12): let the PC list and open this Mac's apps, each in its own PC window.
+// Apps tab (revision 2): Mac apps on the PC and PC apps on this Mac, in equal places.
 'use strict';
 
 UI.tab({
   id: 'apps',
   order: 80,
   title: 'Apps',
-  desc: 'Open Mac apps from the PC. Each app window shows up on the PC as its own window, with its own taskbar button.',
+  desc: 'Open an app of one computer from the other. Each app window shows up as its own window there, with its own taskbar or Dock icon.',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
-  master: { get: (s) => s.apps && s.apps.offer, set: (v) => UI.api.setApps({ offer: v }) },
   badge: (s) => (s.apps && s.apps.offer ? 'on' : ''),
   build(body) {
-    const status = UI.note('info', '');
-    const open = UI.row('Open from the PC', '');
+    const { api } = UI;
+    const offerSw = UI.switch((v) => api.setApps({ offer: v }), { label: 'Show this Mac’s apps on the PC' });
+    const offerRow = UI.row('Show this Mac’s apps on the PC', '', [offerSw]);
+    const usage = UI.row('Opened from the PC', '');
     body.append(
-      status,
-      UI.card('Apps on the PC', [
-        open,
-        UI.row('How it works', 'The app opens here on the screen you share (Display › Share). Its windows are moved onto that screen, and the PC cuts each one out of the stream into its own window.'),
-        UI.row('Tip', 'Use Extend with the MacShare virtual display: app windows then live there and don’t clutter this Mac’s own screen.'),
-      ]),
-      UI.card('Later', [
-        UI.row('PC apps on this Mac', 'Windows apps in their own Mac windows with a Dock icon — a later phase', [UI.switch(() => {}, { disabled: true, label: 'PC apps here' })]),
-      ], { cls: 'keep-on' }),
+      UI.pair(
+        UI.dir('m2w', [
+          offerRow,
+          usage,
+          UI.row('How it works', 'The app opens here on the screen you share (Display › Mac → PC) and its windows move onto it; the PC cuts each window out of the stream at 1:1 size. Extend with the MacShare virtual display keeps them off this Mac’s own screen.'),
+        ], { role: 'this Mac’s apps' }),
+        UI.dir('w2m', [
+          UI.row('Show the PC’s apps here', 'Each PC app in its own Mac window with a Dock icon', [UI.switch(() => {}, { disabled: true, label: 'PC apps here' })]),
+          UI.row('Open PC apps from this Mac', 'A list of the PC’s apps with their icons'),
+        ], { role: 'the PC’s apps', soon: '13' }),
+      ),
     );
     return (s) => {
       const a = s.apps;
       if (!a) return;
-      open.setHint(a.launched.length ? `${a.launched.length} app${a.launched.length > 1 ? 's' : ''} opened from the PC · ${a.windows} window${a.windows === 1 ? '' : 's'} on the PC` : 'Nothing opened from the PC yet');
-      let kind = 'info';
-      let text;
-      if (!a.offer) text = 'Off — the PC can’t see or open this Mac’s apps.';
-      else if (!s.sharing || !s.sharing.on) { kind = 'warn'; text = 'App windows come from the shared screen — turn on Display › Share.'; }
-      else if (!s.permissions.accessibility) { kind = 'warn'; text = 'Grant Accessibility (General) so app windows can be moved onto the shared screen.'; }
-      else text = s.client ? `Ready — open the Apps tab in ${s.client.name}’s MacShare app.` : 'Ready — waiting for your PC to connect.';
-      status.className = `note ${kind}`;
-      status.set(text);
+      offerSw.set(a.offer);
+      offerRow.setHint(!a.offer ? 'Off — the PC can’t see or open this Mac’s apps'
+        : !s.sharing || !s.sharing.on ? 'App windows come from the shared screen — turn on Display › Mac → PC'
+          : !s.permissions.accessibility ? 'Grant Accessibility (General) so app windows can be moved onto the shared screen'
+            : s.client ? `Ready — open the Apps tab in ${s.client.name}’s MacShare app` : 'Ready — waiting for your PC to connect');
+      usage.setHint(a.launched.length ? `${a.launched.length} app${a.launched.length > 1 ? 's' : ''} · ${a.windows} window${a.windows === 1 ? '' : 's'} on the PC` : 'Nothing yet');
     };
   },
 });
