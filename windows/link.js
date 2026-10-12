@@ -54,6 +54,11 @@ class Link {
     return true;
   }
 
+  // Bytes queued on the socket (file transfers wait while this is high).
+  get bufferedAmount() {
+    return this.ws ? this.ws.bufferedAmount : 0;
+  }
+
   snapshot() {
     const p = this.pairing;
     return {

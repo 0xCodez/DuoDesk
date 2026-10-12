@@ -29,6 +29,7 @@ const SCHEMA = {
   },
   keys: { swapCtrlCmd: bool },
   app: { openAtLogin: bool, keepAwake: bool },
+  audio: { send: bool, muteLocal: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'switch'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -101,6 +102,10 @@ function setupIpc(ctx) {
       const prev = { ...settings.kvm };
       setGroup('kvm', partial);
       ctx.kvm.settingsChanged(prev);
+    },
+    setAudio(partial) {
+      setGroup('audio', partial);
+      ctx.stream.restart('audio setting');
     },
     setApp(partial) {
       setGroup('app', partial);

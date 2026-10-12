@@ -64,12 +64,13 @@ const DEFAULT_SETTINGS = {
   },
   ui: { tab: 'overview' },
   app: { openAtLogin: false, keepAwake: true }, // phase 6
+  audio: { send: false, muteLocal: false }, // phase 10: this Mac's sound on the PC
 };
 
 function loadSettings() {
   const s = read('settings.json', {});
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   return out;
 }
 

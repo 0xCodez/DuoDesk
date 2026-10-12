@@ -47,6 +47,8 @@
     return { x, y };
   }
 
+  window.monitorNorm = (e) => norm(e, false); // also used by monitor-drop.js
+
   function flushMove() {
     rafQueued = false;
     if (!pendingMove) return;

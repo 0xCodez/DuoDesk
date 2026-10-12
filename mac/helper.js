@@ -2,7 +2,8 @@
 // Spawns mac-helper and talks JSON lines with it.
 //   request(cmd, args) -> Promise<reply>   (has an id, waits for {"id","ok"})
 //   send(cmd, args)                        (fire-and-forget, no id)
-// Events: 'event' (name, obj) for {"event":...} lines; 'exit' (code); 'ready' after each spawn.
+// Events: 'event' (name, obj) for {"event":...} lines; 'exit' (code); 'ready' after each spawn;
+//         'pcm' (Buffer) — raw system audio from fd 3 (48 kHz stereo float32, see Audio.swift).
 'use strict';
 
 const path = require('path');
@@ -33,7 +34,9 @@ class Helper extends EventEmitter {
       console.error(`[helper] ${BIN} not found — run "npm run build:helper"`);
       return false;
     }
-    const proc = spawn(BIN, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const proc = spawn(BIN, [], { stdio: ['pipe', 'pipe', 'pipe', 'pipe'] });
+    proc.stdio[3].on('data', (buf) => this.emit('pcm', buf));
+    proc.stdio[3].on('error', () => {});
     this.proc = proc;
     readline.createInterface({ input: proc.stdout }).on('line', (line) => this._onLine(line));
     readline.createInterface({ input: proc.stderr }).on('line', (line) => console.log(line));

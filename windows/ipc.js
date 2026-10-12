@@ -4,10 +4,10 @@ const { ipcMain } = require('electron');
 const P = require('../shared/protocol.js');
 const { apply } = require('./settings');
 
-// ctx: link, discovery, screen, clip, kvm, settings, save(), push(), buildState(),
+// ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, terminal, fileDrop, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -41,6 +41,12 @@ function setupIpc(ctx) {
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));
   handle('clearHistory', () => clip.clearHistory());
   handle('setTab', (tab) => change('ui', { tab })); // invalid names fall back in normalize()
+  handle('setAudio', (partial) => change('audio', partial, () => screen.applyAudio()));
+  handle('setTerminal', (partial) => change('terminal', partial, () => terminal.apply()));
+  handle('openTerminal', () => terminal.open());
+  handle('addToPath', () => terminal.addToPath());
+  handle('setFiles', (partial) => change('files', partial));
+  handle('cancelDrop', () => fileDrop.cancel());
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));

@@ -5,13 +5,14 @@
 const P = window.MacShareProtocol;
 const api = window.capture;
 
-let cur = null; // {session, stream, pc, remoteSet, pendingIce, statsTimer, last}
+let cur = null; // {session, stream, pc, remoteSet, pendingIce, statsTimer, last, actx, player}
 
 function close() {
   if (!cur) return;
   clearInterval(cur.statsTimer);
   if (cur.stream) cur.stream.getTracks().forEach((t) => t.stop());
   if (cur.pc) cur.pc.close();
+  if (cur.actx) cur.actx.close();
   cur = null;
 }
 
@@ -39,6 +40,29 @@ function withBitrate(sdp, mbps) {
   }).join('\r\n');
 }
 
+// Opus: stereo, music-grade bitrate (system sound, not a voice call).
+function withOpus(sdp) {
+  const pt = /a=rtpmap:(\d+) opus\/48000\/2/i.exec(sdp);
+  if (!pt) return sdp;
+  return sdp.split('\r\n').map((l) => {
+    if (!l.startsWith(`a=fmtp:${pt[1]} `)) return l;
+    const keep = l.slice(`a=fmtp:${pt[1]} `.length).split(';').filter((x) => x && !/^(stereo|sprop-stereo|maxaveragebitrate)=/.test(x));
+    return `a=fmtp:${pt[1]} ${[...keep, 'stereo=1', 'sprop-stereo=1', 'maxaveragebitrate=128000'].join(';')}`;
+  }).join('\r\n');
+}
+
+// System audio from the helper (via main) -> AudioWorklet -> a MediaStreamTrack.
+async function audioTrack(me) {
+  me.actx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
+  await me.actx.audioWorklet.addModule('pcm-worklet.js');
+  me.player = new AudioWorkletNode(me.actx, 'pcm-player', { outputChannelCount: [2] });
+  const dest = me.actx.createMediaStreamDestination();
+  dest.channelCount = 2;
+  me.player.connect(dest);
+  await me.actx.resume();
+  return dest.stream.getAudioTracks()[0];
+}
+
 async function getStream(sourceId, width, height) {
   try {
     return await navigator.mediaDevices.getDisplayMedia({
@@ -54,7 +78,7 @@ async function getStream(sourceId, width, height) {
   }
 }
 
-async function start({ session, bitrateMbps, sourceId, width, height }) {
+async function start({ session, bitrateMbps, sourceId, width, height, audio }) {
   close();
   const me = { session, pendingIce: [], remoteSet: false, last: null };
   cur = me;
@@ -68,6 +92,7 @@ async function start({ session, bitrateMbps, sourceId, width, height }) {
     const pc = new RTCPeerConnection({ iceServers: [] });
     me.pc = pc;
     const tr = pc.addTransceiver(track, { direction: 'sendonly', streams: [me.stream] });
+    if (audio) pc.addTransceiver(await audioTrack(me), { direction: 'sendonly', streams: [me.stream] });
     const codecs = RTCRtpSender.getCapabilities('video').codecs;
     // H.264 first (VideoToolbox hardware), High profile before Main before Baseline: better
     // quality per bit. Everything else stays as a fallback.
@@ -88,7 +113,7 @@ async function start({ session, bitrateMbps, sourceId, width, height }) {
     };
 
     const offer = await pc.createOffer();
-    await pc.setLocalDescription({ type: 'offer', sdp: withBitrate(offer.sdp, bitrateMbps) });
+    await pc.setLocalDescription({ type: 'offer', sdp: withOpus(withBitrate(offer.sdp, bitrateMbps)) });
     me.bitrateMbps = bitrateMbps;
     const p = tr.sender.getParameters();
     if (!p.encodings || !p.encodings.length) p.encodings = [{}];
@@ -113,7 +138,7 @@ async function onRemote(msg) {
   if (!me || !me.pc || msg.session !== me.session) return;
   try {
     if (msg.t === P.T.RTC_ANSWER) {
-      await me.pc.setRemoteDescription({ type: 'answer', sdp: withBitrate(msg.sdp, me.bitrateMbps) });
+      await me.pc.setRemoteDescription({ type: 'answer', sdp: withOpus(withBitrate(msg.sdp, me.bitrateMbps)) });
       me.remoteSet = true;
       for (const c of me.pendingIce.splice(0)) await me.pc.addIceCandidate(c);
     } else if (msg.t === P.T.RTC_ICE && msg.candidate) {
@@ -167,6 +192,12 @@ async function stats(me) {
   });
 }
 
+api.onPcm((buf) => {
+  if (!cur || !cur.player) return;
+  const f = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength >> 2);
+  const copy = new Float32Array(f); // own buffer, transferable
+  cur.player.port.postMessage(copy, [copy.buffer]);
+});
 api.onStart(start);
 api.onStop(close);
 api.onRemote(onRemote);

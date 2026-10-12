@@ -7,6 +7,8 @@ const api = window.monitor;
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const statsBox = document.getElementById('stats');
+const audio = document.getElementById('audio');
+let audioCfg = { on: true, volume: 1 };
 
 let pc = null;
 let session = null;
@@ -24,7 +26,15 @@ function closePc() {
   session = null;
   pending = null;
   video.srcObject = null;
+  audio.srcObject = null;
 }
+
+function applyAudio() {
+  audio.muted = !audioCfg.on;
+  audio.volume = audioCfg.volume;
+  if (audio.srcObject && audioCfg.on) audio.play().catch(() => {});
+}
+api.onAudio((a) => { audioCfg = a; applyAudio(); });
 
 async function onOffer(msg) {
   closePc();
@@ -34,9 +44,14 @@ async function onOffer(msg) {
   setOverlay('Connecting to ' + (streamName || 'the Mac') + '…');
 
   my.ontrack = (e) => {
-    video.srcObject = e.streams[0] || new MediaStream([e.track]);
     if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0;
     else e.receiver.playoutDelayHint = 0; // lowest latency
+    if (e.track.kind === 'audio') { // the Mac's sound (phase 10), played next to the muted video
+      audio.srcObject = new MediaStream([e.track]);
+      applyAudio();
+      return;
+    }
+    video.srcObject = new MediaStream([e.track]);
     video.play().catch(() => {});
   };
   my.onicecandidate = (e) => {

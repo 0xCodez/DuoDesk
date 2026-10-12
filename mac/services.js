@@ -16,7 +16,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   const s = getSettings;
   const helper = new Helper();
   const displays = new Displays(helper, s);
-  const stream = new Stream(server, displays, s);
+  const stream = new Stream(server, displays, s, helper);
   let kvm = null;
   // Stream input only when "Receive input" is on and shared input is home (docs/KVM.md).
   const input = new Input(server, helper, displays, {
@@ -69,6 +69,10 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
     helper, displays, stream, input, clipboard, kvm, updateAwake,
     shutdown() {
       kvm.shutdown();
+      if (stream.mutedByUs) {
+        require('child_process').execFileSync('/usr/bin/osascript', ['-e', 'set volume without output muted']);
+        stream.mutedByUs = false;
+      }
       stream.stop('off');
       helper.stop(); // closes stdin: the helper exits and the virtual display goes away
     },

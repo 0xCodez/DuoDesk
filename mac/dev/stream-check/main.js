@@ -35,6 +35,7 @@ app.whenReady().then(() => {
     if (m.t === 'ping') return ws.send(JSON.stringify({ t: 'pong', ts: m.ts }));
     if (m.t.startsWith('rtc.') || m.t.startsWith('stream.')) rx.webContents.send('m', m);
     if (m.t === 'error') console.log('error from Mac:', m.code);
+    if (m.t === 'welcome' && process.env.AUDIO) ws.send(JSON.stringify({ t: 'audio.policy', accept: true }));
   });
   ws.on('close', () => console.log('link closed'));
   ipcMain.on('out', (_e, m) => ws.send(JSON.stringify(m)));

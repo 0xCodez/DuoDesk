@@ -41,3 +41,23 @@ body.input-off #video { cursor: default; } /* the Mac ignores input: show where 
   user-select: none;
 }
 #stats.hidden { display: none; }
+#drop-status {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  max-width: 80%;
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: rgba(20, 20, 22, 0.85);
+  color: #e8e8ea;
+  font: 13px "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+#drop-status.ok { color: #6ee787; }
+#drop-status.bad { color: #ff8a80; }
+#drop-status.hidden { display: none; }
+body.dragging #video { outline: 3px solid #0a84ff; outline-offset: -3px; }

@@ -14,6 +14,8 @@ const setupIpc = require('./ipc');
 const Helper = require('./helper');
 const Kvm = require('./kvm');
 const firewall = require('./firewall');
+const Terminal = require('./terminal');
+const FileDrop = require('./filedrop');
 const { normalize } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
@@ -36,6 +38,8 @@ let device = null;
 let screen = null;
 let clip = null;
 let helper = null;
+let terminal = null;
+let fileDrop = null;
 let kvm = null;
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check (phase 6)
@@ -81,11 +85,14 @@ function start() {
     onChange: pushState,
     isQuitting: () => quitting,
   });
+  terminal = new Terminal({ link, settings, onChange: pushState });
+  fileDrop = new FileDrop({ link, settings, onProgress: (v) => { screen.sendDropProgress(v); pushState(); } });
+  screen.fileDrop = fileDrop;
   helper = new Helper();
   kvm = new Kvm({ link, helper, clip, settings, onChange: onKvmChange });
   helper.on('exit', pushState);
   helper.start();
-  setupIpc({ link, discovery, screen, clip, kvm, settings, save: saveSettings, push: pushState, buildState,
+  setupIpc({ link, discovery, screen, clip, kvm, terminal, fileDrop, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup });
   nativeTheme.on('updated', pushState);
   link.start();
@@ -136,6 +143,9 @@ function buildState() {
     ui: settings.ui,
     version: app.getVersion(),
     firewall: fw,
+    audio: settings.audio,
+    terminal: { ...settings.terminal, ...terminal.view() },
+    files: { ...settings.files, ...fileDrop.view() },
     startup: getStartup(),
   };
 }

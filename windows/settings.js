@@ -15,6 +15,9 @@ function normalize(s) {
   const c = s.clipboard || {};
   const ui = s.ui || {};
   const mon = s.monitor || {};
+  const audio = s.audio || {};
+  const term = s.terminal || {};
+  const files = s.files || {};
   return {
     kvm: {
       mouse: bool(kvm.mouse, true),
@@ -36,6 +39,9 @@ function normalize(s) {
       historySize: Math.round(num(c.historySize, 20, 0, 100)),
     },
     monitor: { autoOpen: bool(mon.autoOpen, true) },
+    audio: { receive: bool(audio.receive, true), volume: Math.round(num(audio.volume, 1, 0, 1) * 100) / 100 },
+    terminal: { enabled: bool(term.enabled, false) },
+    files: { dropToMac: bool(files.dropToMac, true) },
     ui: { tab: ui.tab === 'display' ? 'share' : TABS.includes(ui.tab) ? ui.tab : 'overview' }, // 'display' = before the split
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };

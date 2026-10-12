@@ -6,6 +6,7 @@
 'use strict';
 
 const path = require('path');
+const { execFile } = require('child_process');
 const { BrowserWindow, ipcMain, session, desktopCapturer } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
@@ -13,11 +14,17 @@ const P = require('../shared/protocol.js');
 const RETRY_MS = 2000;
 
 class Stream extends EventEmitter {
-  constructor(server, displays, getSettings) {
+  constructor(server, displays, getSettings, helper) {
     super();
     this.server = server;
     this.displays = displays;
     this.getSettings = getSettings;
+    this.helper = helper;
+    this.peerAudio = false; // the PC's audio.policy (assume false until it says)
+    this.audioOn = false; // helper capturing system audio
+    this.pcmRest = null; // bytes of a split stereo frame from the last pipe read
+    this.mutedByUs = false;
+    this.audio = { on: false, error: null };
     this.win = null;
     this.session = 0;
     this.active = null; // {session, displayId, width, height} while a session runs
@@ -33,7 +40,21 @@ class Stream extends EventEmitter {
       }
     });
 
-    server.on('client', () => this.restart('client'));
+    server.on('client', () => {
+      this.peerAudio = false;
+      this.restart('client');
+    });
+    server.on(`t:${P.T.AUDIO_POLICY}`, (m) => {
+      const accept = m.accept === true;
+      if (accept === this.peerAudio) return;
+      this.peerAudio = accept;
+      this.emit('change');
+      if (this.active && !!this.getSettings().audio.send) this.restart('audio policy');
+    });
+    helper.on('pcm', (buf) => this._onPcm(buf));
+    helper.on('exit', () => {
+      this.audioOn = false;
+    });
     server.on('closed', () => {
       if (!server.current) this._stopWindow('no PC connected');
     });
@@ -116,16 +137,18 @@ class Stream extends EventEmitter {
 
     const s = ++this.session;
     const { width, height } = this._outSize(target);
+    const audio = await this._setAudio(!!this.getSettings().audio.send && this.peerAudio);
+    if (this.session !== s) return;
     this.active = { session: s, displayId: target.id, width: target.pixelWidth, height: target.pixelHeight };
     Object.assign(this.view, { display: target.label, width, height, fps: 0, mbps: 0 });
     this._setStatus('starting');
     console.log(`[stream] session ${s} (${reason}): ${target.label} ${target.pixelWidth}x${target.pixelHeight} -> ${width}x${height}`);
-    this.server.sendToClient({ t: P.T.STREAM_INFO, name: target.label, width, height });
+    this.server.sendToClient({ t: P.T.STREAM_INFO, name: target.label, width, height, audio });
     try {
       await this._ensureWindow();
       if (!this.active || this.active.session !== s) return;
       const src = await this._source();
-      this._toWindow('start', { session: s, bitrateMbps: this.getSettings().bitrateMbps, sourceId: src.id, width, height });
+      this._toWindow('start', { session: s, bitrateMbps: this.getSettings().bitrateMbps, sourceId: src.id, width, height, audio });
     } catch (e) {
       console.error(`[stream] start failed: ${e.message}`);
       this._setStatus(`error: ${e.message}`);
@@ -150,8 +173,47 @@ class Stream extends EventEmitter {
     }
   }
 
+  // Start/stop the helper's system-audio capture; returns whether audio is on.
+  async _setAudio(want) {
+    if (want && !this.audioOn) {
+      try {
+        await this.helper.request('audioCapture', { on: true });
+        this.audioOn = true;
+        this.audio.error = null;
+      } catch (e) {
+        this.audio.error = e.message;
+        console.error(`[stream] audio: ${e.message}`);
+      }
+    } else if (!want && this.audioOn) {
+      this.audioOn = false;
+      this.helper.request('audioCapture', { on: false }).catch(() => {});
+    }
+    this.pcmRest = null;
+    this._localMute(this.audioOn && !!this.getSettings().audio.muteLocal);
+    this.audio.on = this.audioOn;
+    this.emit('change');
+    return this.audioOn;
+  }
+
+  // "Mute this Mac while sending": the capture taps app audio, so the system mute doesn't affect it.
+  _localMute(on) {
+    if (on === this.mutedByUs) return;
+    this.mutedByUs = on;
+    execFile('/usr/bin/osascript', ['-e', on ? 'set volume with output muted' : 'set volume without output muted'], () => {});
+  }
+
+  // Forward whole stereo float32 frames (8 bytes) to the capture window.
+  _onPcm(buf) {
+    if (!this.audioOn || !this.win || this.win.isDestroyed()) return;
+    if (this.pcmRest) buf = Buffer.concat([this.pcmRest, buf]);
+    const whole = buf.length - (buf.length % 8);
+    this.pcmRest = whole < buf.length ? Buffer.from(buf.subarray(whole)) : null;
+    if (whole) this.win.webContents.send('pcm', buf.subarray(0, whole));
+  }
+
   _stopWindow(status) {
     clearTimeout(this.retryTimer);
+    if (this.audioOn) this._setAudio(false);
     this.active = null;
     this._toWindow('stop', {});
     Object.assign(this.view, { fps: 0, mbps: 0 });

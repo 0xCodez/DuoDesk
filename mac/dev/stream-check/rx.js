@@ -14,6 +14,13 @@ rx.on(async (m) => {
     pc = new RTCPeerConnection({ iceServers: [] });
     pc.onicecandidate = (e) => e.candidate && rx.send({ t: 'rtc.ice', session: sess, candidate: e.candidate.toJSON() });
     pc.ontrack = (e) => {
+      if (e.track.kind === 'audio') { // measure what actually arrives (the <video> is muted)
+        const ctx = new AudioContext(); const an = ctx.createAnalyser();
+        ctx.createMediaStreamSource(new MediaStream([e.track])).connect(an);
+        const b = new Float32Array(2048);
+        setInterval(() => { an.getFloatTimeDomainData(b); let p = 0; for (const v of b) p = Math.max(p, Math.abs(v)); window.peakRx = Math.max(window.peakRx || 0, p); }, 20);
+        setInterval(() => { console.log(`audio rx peak ${(window.peakRx || 0).toFixed(3)}`); window.peakRx = 0; }, 2000);
+      }
       if (e.receiver.jitterBufferTarget !== undefined) e.receiver.jitterBufferTarget = 0;
       v.srcObject = e.streams[0];
     };
@@ -53,7 +60,12 @@ v.requestVideoFrameCallback(onFrame);
 setInterval(async () => {
   if (!pc) return;
   let r = null;
-  (await pc.getStats()).forEach((x) => { if (x.type === 'inbound-rtp' && x.kind === 'video') r = x; });
+  let a = null;
+  (await pc.getStats()).forEach((x) => {
+    if (x.type === 'inbound-rtp' && x.kind === 'video') r = x;
+    if (x.type === 'inbound-rtp' && x.kind === 'audio') a = x;
+  });
+  if (a) console.log(`audio: level ${(a.audioLevel || 0).toFixed(3)} samples ${a.totalSamplesReceived} jitterbuf ${a.jitterBufferEmittedCount ? Math.round((a.jitterBufferDelay / a.jitterBufferEmittedCount) * 1000) : '-'} ms concealed ${a.concealedSamples}`);
   if (!r) return;
   const s = lat.slice().sort((a, b) => a - b);
   const med = s.length ? s[s.length >> 1] : '-';

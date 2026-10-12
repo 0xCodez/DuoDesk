@@ -33,6 +33,8 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences } = requi
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 // Tag every sent video frame with playout delay 0/0 (RTP playout-delay extension): the receiver
 // renders frames as soon as they are decoded instead of building up a smoothing jitter buffer.
+// The hidden capture window plays system audio into WebRTC without any user gesture.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -97,7 +99,10 @@ function pushState() {
         virtual: { ...settings.virtual, active: displays.virtualId !== null, error: displays.virtualError },
       };
     }
-    if (stream) state.stream = stream.view;
+    if (stream) {
+      state.stream = stream.view;
+      state.audio = { ...settings.audio, ...stream.audio, peerAccepts: stream.peerAudio };
+    }
     state.streamInput = settings.streamInput !== false;
     state.displayMode = displayMode();
     state.kvm = settings.kvm;

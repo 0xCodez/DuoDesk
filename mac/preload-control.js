@@ -6,7 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const ACTIONS = [
   'setSharing', 'setStreamInput', 'selectDisplay', 'setDisplayMode', 'setVirtual', 'setStreamMaxHeight',
-  'setBitrate', 'setKvm', 'setApp', 'setKeys', 'setClipboard', 'copyHistory', 'clearHistory', 'setTab',
+  'setBitrate', 'setKvm', 'setApp', 'setAudio', 'setKeys', 'setClipboard', 'copyHistory', 'clearHistory', 'setTab',
   'pairRespond', 'forget', 'openSettings', 'relaunch',
 ];
 

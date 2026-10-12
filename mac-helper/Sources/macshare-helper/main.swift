@@ -110,6 +110,10 @@ func handle(_ line: String) {
     reply(id)
   case "clipboardInfo":
     reply(id, PasteboardWatch.info())
+  case "audioCapture":
+    AudioCapture.shared.set(on: (msg["on"] as? Bool) ?? false) { err in
+      if let err = err { replyError(id, err) } else { reply(id) }
+    }
   case "destroyDisplay":
     virtualDisplay.destroy()
     reply(id)
@@ -132,6 +136,7 @@ DispatchQueue.global().async {
 }
 
 signal(SIGTERM) { _ in exit(0) }
+signal(SIGPIPE, SIG_IGN) // main closed a pipe (e.g. the audio fd): just stop writing
 NSApplication.shared.setActivationPolicy(.prohibited)
 log("ready")
 NSApplication.shared.run()

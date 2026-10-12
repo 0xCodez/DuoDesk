@@ -40,17 +40,6 @@
       settings: ['Allow the PC to open a shell here', 'Add the macshare-pc command'],
     },
     {
-      id: 'audio', order: 70, title: 'Audio', phase: '10', color: 'linear-gradient(#ff6482, #ff2d55)',
-      desc: 'Hear one computer’s sound on the other.',
-      what: [
-        ['Mac → PC', 'Sound from the Mac plays through the PC’s speakers, in sync with Monitor 2.'],
-        ['PC → Mac', 'The PC’s sound plays on the Mac.'],
-        ['Mute here', 'Optionally silence the computer whose sound is being sent.'],
-      ],
-      how: 'System audio is captured (ScreenCaptureKit on the Mac, WASAPI loopback on the PC) and sent as an audio track on the same encrypted connection as the screen.',
-      settings: ['Send this Mac’s sound to the PC', 'Play the PC’s sound here', 'Mute this Mac while sending'],
-    },
-    {
       id: 'apps', order: 80, title: 'Apps', phase: '12–13', color: 'linear-gradient(#bf5af2, #5e5ce6)',
       desc: 'Mac apps as their own windows on the PC, with their own taskbar icon.',
       what: [

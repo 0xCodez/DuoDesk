@@ -29,6 +29,8 @@
     HOTKEY_MAC: 'AltRight', // Right Option
     HOTKEY_WIN: 'ControlRight', // Right Ctrl
     CLIP_MAX_BYTES: 256 * 1024, // clipboard text limit (UTF-8)
+    FILE_CHUNK_BYTES: 64 * 1024, // raw bytes per file.chunk (base64 on the wire)
+    FILE_MAX_BYTES: 4 * 1024 * 1024 * 1024, // largest dropped file
     SIDES: ['left', 'right', 'top', 'bottom'],
 
     // Control message types (field `t`)
@@ -78,11 +80,36 @@
       CLIP: 'clip',
       CLIP_REQUEST: 'clip.request',
       CLIP_POLICY: 'clip.policy', // either way: {accept} — whether this side applies clip from the other
-      // iteration 2: app drawer
+      // roadmap, Bundle B (BUILD_PLAN "Roadmap messages")
+      AUDIO_POLICY: 'audio.policy', // W->M {accept}: the PC plays the Mac's sound
+      SSH_KEY: 'ssh.key', // W->M {pub}
+      SSH_INFO: 'ssh.info', // M->W {enabled, user, port, hostKeys, why?}
+      SSH_FORGET: 'ssh.forget', // W->M
+      FILE_OFFER: 'file.offer', // W->M {id, name, size, x?, y?, index, count}
+      FILE_ACCEPT: 'file.accept', // M->W {id}
+      FILE_REFUSE: 'file.refuse', // M->W {id, why}
+      FILE_CHUNK: 'file.chunk', // W->M {id, seq, data (base64)}
+      FILE_END: 'file.end', // W->M {id, sha256}
+      FILE_DONE: 'file.done', // M->W {id, ok, path?, error?}
+      FILE_CANCEL: 'file.cancel', // either {id}
+      // roadmap, docs/ROADMAP.md (phases 7, 11, 12; PC -> Mac media)
+      RTC2_OFFER: 'rtc2.offer', // W->M {session, sdp, kind}
+      RTC2_ANSWER: 'rtc2.answer', // M->W {session, sdp}
+      RTC2_ICE: 'rtc2.ice', // either {session, candidate}
+      RTC2_STOP: 'rtc2.stop', // W->M {session}
+      SMB_OFFER: 'smb.offer', // sharer->other {share, user, password, port}
+      SMB_REVOKE: 'smb.revoke', // sharer->other {share}
+      SMB_STATE: 'smb.state', // other->sharer {share, mounted, error?}
       APPS_LIST: 'apps.list',
       APPS_RESULT: 'apps.result',
       APP_LAUNCH: 'app.launch',
       APP_LAUNCHED: 'app.launched',
+      APP_WINDOWS: 'app.windows', // M->W {windows: [{wid, id, title, x, y, w, h}]} normalized rects
+      APP_FOCUS: 'app.focus', // W->M {wid}
+      APP_CLOSE: 'app.close', // W->M {wid}
+      APP_WINDOWS: 'app.windows',
+      APP_FOCUS: 'app.focus',
+      APP_CLOSE: 'app.close',
     },
 
     // Error codes (field `code` of an `error` message)
