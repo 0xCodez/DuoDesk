@@ -8,6 +8,7 @@ const P = require('../shared/protocol.js');
 const store = require('./store');
 const Discovery = require('./discovery');
 const Link = require('./link');
+const Screen = require('./screen');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 if (!app.requestSingleInstanceLock()) {
@@ -20,11 +21,13 @@ if (!app.requestSingleInstanceLock()) {
 
 let mainWin = null;
 let tray = null;
+let trayMenu = null;
 let quitting = false;
 let discovery = null;
 let link = null;
 let settings = null;
 let device = null;
+let screen = null;
 
 function loadDevice() {
   let d = store.read('device.json', null);
@@ -70,10 +73,18 @@ function start() {
     resolveAddress: (macId) => discovery.get(macId),
   });
   link.onState(pushState);
+  screen = new Screen({
+    link,
+    settings,
+    saveSettings: () => store.write('settings.json', settings),
+    onChange: pushState,
+    isQuitting: () => quitting,
+  });
   link.start();
 
   createTray();
   createMainWindow();
+  if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
 }
 
 // ---- state ----
@@ -87,6 +98,11 @@ function pushState() {
     const s = buildState();
     if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('state', s);
     if (tray) tray.setToolTip('MacShare — ' + statusLine(s));
+    const canMonitor = s.link.state === 'connected';
+    if (trayMenu && trayMenu.getMenuItemById('monitor').enabled !== canMonitor) {
+      trayMenu.getMenuItemById('monitor').enabled = canMonitor;
+      tray.setContextMenu(trayMenu);
+    }
   });
 }
 
@@ -96,7 +112,7 @@ function buildState() {
     ...link.snapshot(),
     macs: discovery.list(),
     discoveryError: discovery.error,
-    stream: { state: 'off' }, // phase 2
+    stream: screen.state,
     input: 'home', // phases 4–5
     kvm: settings.kvm,
   };
@@ -129,7 +145,7 @@ ipcMain.handle('pair', (_e, target) => {
 ipcMain.handle('confirmCode', () => link.confirmCode());
 ipcMain.handle('cancelPair', () => link.cancelPair());
 ipcMain.handle('forget', () => link.forget());
-ipcMain.handle('openMonitor', () => { /* phase 2 */ });
+ipcMain.handle('openMonitor', () => screen.open(false));
 
 // ---- windows and tray ----
 
@@ -181,12 +197,13 @@ function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png'));
   tray = new Tray(icon);
   tray.setToolTip('MacShare');
-  tray.setContextMenu(Menu.buildFromTemplate([
+  trayMenu = Menu.buildFromTemplate([
     { label: 'Open MacShare', click: showMain },
-    { label: 'Open Monitor 2', enabled: false }, // phase 2
+    { id: 'monitor', label: 'Open Monitor 2', enabled: false, click: () => screen.open(false) },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
-  ]));
+  ]);
+  tray.setContextMenu(trayMenu);
   tray.on('click', showMain);
 }
 

@@ -40,3 +40,7 @@ button {
 button:hover { filter: brightness(0.96); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button:disabled { opacity: 0.5; cursor: default; }
+.field { margin-bottom: 10px; flex-wrap: wrap; }
+.lbl { color: var(--muted); min-width: 60px; }
+select { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+code { font: 12px ui-monospace, Menlo, monospace; }

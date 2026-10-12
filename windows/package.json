@@ -8,6 +8,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test:monitor": "electron . --test-monitor",
     "build:helper": "..\\windows-helper\\build.cmd"
   },
   "dependencies": {

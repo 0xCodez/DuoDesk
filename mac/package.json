@@ -8,7 +8,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build:helper": "cd ../mac-helper && swift build -c release 2>&1 | tail -30",
+    "build:helper": "../mac-helper/build.sh 2>&1 | tail -30",
     "probe": "node dev/probe.js"
   },
   "dependencies": {

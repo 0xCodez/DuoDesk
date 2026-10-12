@@ -15,6 +15,9 @@ const { EventEmitter } = require('events');
 const { WebSocketServer } = require('ws');
 const P = require('../shared/protocol.js');
 
+// Dev only (dev/stream-check): listen elsewhere so a running PC doesn't take over the session.
+const LISTEN_PORT = Number(process.env.MACSHARE_DEV_PORT) || P.PORT;
+
 class Server extends EventEmitter {
   constructor({ keyPem, certPem }) {
     super();
@@ -25,7 +28,7 @@ class Server extends EventEmitter {
     this.wss = new WebSocketServer({ server: this.https, maxPayload: P.MAX_PAYLOAD });
     this.wss.on('connection', (ws, req) => this._onConnection(ws, req));
     this.https.on('error', (err) => this.emit('listenError', err));
-    this.https.listen(P.PORT, '0.0.0.0', () => this.emit('listening'));
+    this.https.listen(LISTEN_PORT, '0.0.0.0', () => this.emit('listening'));
     this.tick = setInterval(() => this._liveness(), P.PING_MS);
   }
 

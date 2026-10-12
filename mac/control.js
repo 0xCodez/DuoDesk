@@ -66,6 +66,8 @@ function render(s) {
   const inp = s.input || { where: 'home' };
   $('input').textContent = (INPUT_TEXT[inp.where] || inp.where) + (inp.message ? ` — ${inp.message}` : '');
 
+  renderSharing(s);
+
   // Paired PCs
   $('paired-empty').hidden = s.paired.length > 0;
   $('paired').replaceChildren(...s.paired.map((d) => {
@@ -93,6 +95,77 @@ function render(s) {
     ]);
   }));
 }
+
+const PRESETS = [
+  { label: '1280×720', width: 1280, height: 720, hiDPI: false },
+  { label: '1920×1080', width: 1920, height: 1080, hiDPI: false },
+  { label: '2560×1440', width: 2560, height: 1440, hiDPI: false },
+  { label: '1920×1080 HiDPI (3840×2160 px)', width: 1920, height: 1080, hiDPI: true },
+  { label: '2560×1440 HiDPI (5120×2880 px)', width: 2560, height: 1440, hiDPI: true },
+];
+$('virt-preset').replaceChildren(...PRESETS.map((p, i) => el('option', { value: String(i), textContent: p.label })));
+
+const STREAM_TEXT = {
+  off: 'Sharing is off', starting: 'Starting…', 'waiting for answer': 'Waiting for the PC…',
+  new: 'Connecting…', connecting: 'Connecting…', live: 'Live', disconnected: 'Interrupted…',
+  failed: 'Failed — retrying', closed: 'Closed',
+};
+
+let presetDirty = false;
+$('virt-preset').onchange = () => { presetDirty = true; };
+
+function renderSharing(s) {
+  const sh = s.sharing;
+  $('helper-missing').hidden = !!(s.helper && s.helper.running);
+  if (!sh) return;
+  $('share-on').checked = sh.on;
+  if (document.activeElement !== $('stream-size')) $('stream-size').value = String(sh.streamMaxHeight || 0);
+  if (document.activeElement !== $('bitrate')) {
+    const b = String(sh.bitrateMbps);
+    if (![...$('bitrate').options].some((o) => o.value === b)) $('bitrate').append(el('option', { value: b, textContent: `${b} Mbps` }));
+    $('bitrate').value = b;
+  }
+
+  const opts = [el('option', { value: 'virtual', textContent: 'MacShare virtual display' + (sh.virtual.active ? '' : ' (off — uses main display)') })];
+  for (const d of sh.displays) {
+    if (d.virtual) continue;
+    opts.push(el('option', { value: String(d.id), textContent: `${d.label} — ${d.width}×${d.height}${d.primary ? ' (main)' : ''}` }));
+  }
+  const sel = $('share-display');
+  if (document.activeElement !== sel) {
+    sel.replaceChildren(...opts);
+    sel.value = sh.displayId == null || !sh.displays.some((d) => d.id === sh.displayId && !d.virtual) ? 'virtual' : String(sh.displayId);
+  }
+
+  const v = sh.virtual;
+  $('virt-on').checked = v.enabled;
+  if (!presetDirty) {
+    const i = PRESETS.findIndex((p) => p.width === v.width && p.height === v.height && p.hiDPI === !!v.hiDPI);
+    $('virt-preset').value = String(i < 0 ? 1 : i);
+  }
+  $('virt-status').textContent = v.error ? `Error: ${v.error}` : v.enabled ? (v.active ? 'on' : 'starting…') : 'off';
+  $('virt-status').className = v.error ? 'bad' : 'muted';
+
+  const st = s.stream || { status: 'off' };
+  let status = STREAM_TEXT[st.status] || st.status;
+  if (sh.on && !s.client) status = 'Waiting for a PC to connect';
+  $('stream-status').textContent = st.display && sh.on && s.client ? `${status} — ${st.display}` : status;
+  $('stream-stats').textContent = st.status === 'live'
+    ? `${st.width}×${st.height}, ${st.fps} fps, ${st.mbps} of ${st.targetMbps || '?'} Mbps, QP ${st.qp || '–'} (lower = sharper), `
+      + `${st.codec || '?'} ${st.encoder || ''}${st.limit && st.limit !== 'none' ? ` — limited by ${st.limit}` : ''}`
+    : '—';
+}
+
+$('share-on').onchange = (e) => api.setSharing(e.target.checked);
+$('share-display').onchange = (e) => api.selectDisplay(e.target.value === 'virtual' ? null : Number(e.target.value));
+$('stream-size').onchange = (e) => api.setStreamMaxHeight(Number(e.target.value));
+$('bitrate').onchange = (e) => api.setBitrate(Number(e.target.value));
+$('virt-on').onchange = (e) => api.setVirtual({ enabled: e.target.checked });
+$('virt-apply').onclick = () => {
+  const p = PRESETS[Number($('virt-preset').value)];
+  presetDirty = false;
+  api.setVirtual({ enabled: true, width: p.width, height: p.height, hiDPI: p.hiDPI });
+};
 
 $('pair-allow').onclick = () => api.pairRespond(true);
 $('pair-deny').onclick = () => api.pairRespond(false);

@@ -34,6 +34,46 @@
   </section>
 
   <section class="card">
+    <h2>Screen sharing</h2>
+    <p id="helper-missing" class="error" hidden>mac-helper is not running. Build it with <code>npm run build:helper</code>, then restart MacShare.</p>
+    <div class="row field">
+      <label><input type="checkbox" id="share-on"> Share a screen with the PC (Monitor 2)</label>
+    </div>
+    <div class="row field">
+      <label for="share-display" class="lbl">Display</label>
+      <select id="share-display"></select>
+    </div>
+    <div class="row field">
+      <label><input type="checkbox" id="virt-on"> MacShare virtual display</label>
+      <select id="virt-preset"></select>
+      <button id="virt-apply">Apply</button>
+      <span id="virt-status" class="muted"></span>
+    </div>
+    <div class="row field">
+      <label for="bitrate" class="lbl">Quality</label>
+      <select id="bitrate">
+        <option value="10">10 Mbps — slow Wi-Fi</option>
+        <option value="20">20 Mbps — Wi-Fi</option>
+        <option value="30">30 Mbps — fast Wi-Fi (5 GHz)</option>
+        <option value="50">50 Mbps — Ethernet</option>
+      </select>
+    </div>
+    <div class="row field">
+      <label for="stream-size" class="lbl">Stream size</label>
+      <select id="stream-size">
+        <option value="1080">1080p — lowest latency</option>
+        <option value="1440">1440p — sharper, ~20 ms slower</option>
+        <option value="0">Display's full pixels — 4K adds ~30–60 ms</option>
+      </select>
+      <span class="muted">HiDPI displays are scaled down on the GPU: text stays smooth.</span>
+    </div>
+    <dl>
+      <dt>Stream</dt><dd id="stream-status"></dd>
+      <dt>Stats</dt><dd id="stream-stats"></dd>
+    </dl>
+  </section>
+
+  <section class="card">
     <h2>Paired PCs</h2>
     <ul id="paired" class="list"></ul>
     <p id="paired-empty" class="muted">No paired PCs yet. Click <em>Pair</em> in the Windows app.</p>

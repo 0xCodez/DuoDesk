@@ -12,4 +12,8 @@ contextBridge.exposeInMainWorld('macshare', {
   openSettings: (kind) => ipcRenderer.send('openSettings', kind),
   relaunch: () => ipcRenderer.send('relaunch'),
   setSharing: (on) => ipcRenderer.send('setSharing', on),
+  selectDisplay: (id) => ipcRenderer.send('selectDisplay', id),
+  setVirtual: (partial) => ipcRenderer.send('setVirtual', partial),
+  setBitrate: (mbps) => ipcRenderer.send('setBitrate', mbps),
+  setStreamMaxHeight: (h) => ipcRenderer.send('setStreamMaxHeight', h),
 });

@@ -98,6 +98,7 @@ function renderStream(s) {
   $('stream-state').textContent = s.stream.state === 'on'
     ? s.stream.name + ' (' + s.stream.width + '×' + s.stream.height + ')'
     : 'Mac is not sharing';
+  $('btn-monitor').disabled = s.link.state !== 'connected';
 }
 
 function render(s) {
