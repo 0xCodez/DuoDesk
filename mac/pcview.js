@@ -12,9 +12,9 @@ const path = require('path');
 const { BrowserWindow, ipcMain, screen } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const { attachKeys } = require('./viewer-keys');
 
 const T = P.T;
-const MODIFIERS = new Set(['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight', 'CapsLock']);
 const POINTER = new Set([T.IN_MOVE, T.IN_DOWN, T.IN_UP, T.IN_WHEEL]);
 
 class PcView extends EventEmitter {
@@ -28,7 +28,7 @@ class PcView extends EventEmitter {
     this.kind = '';
     this.status = 'off';
     this.stats = null; // {width, height, fps, mbps, decoder, codec, delayMs}
-    this.heldKeys = new Set();
+    this.keys = null;
     this.sized = false;
 
     server.on('client', () => this._policy());
@@ -135,7 +135,16 @@ class PcView extends EventEmitter {
     });
     const win = this.win;
     win.webContents.on('console-message', (e) => e.level === 'error' && console.log(`[pcview] ${e.message}`));
-    win.webContents.on('before-input-event', (e, input) => this._key(e, input));
+    this.keys = attachKeys(win, {
+      send: (m) => this.server.current && this.server.sendToClient(m),
+      enabled: () => !!(this.cfg.input && this.session && this.server.current),
+      // Ctrl-⌘-F: full screen here.
+      local: (input) => {
+        if (!(input.code === 'KeyF' && input.meta && input.control)) return false;
+        if (input.type === 'keyDown' && !input.isAutoRepeat) win.setFullScreen(!win.isFullScreen());
+        return true;
+      },
+    });
     win.on('blur', () => {
       this._releaseKeys();
       this._toWin({ t: 'blur' });
@@ -170,37 +179,8 @@ class PcView extends EventEmitter {
     this.win.center();
   }
 
-  // Keys: everything goes to the PC, except Ctrl+Cmd+F (full screen here). Taking them in main
-  // stops Cmd+Q / Cmd+W / Cmd+H from acting on MacShare while the PC window has focus.
-  _key(e, input) {
-    if (input.type !== 'keyDown' && input.type !== 'keyUp') return;
-    if (input.code === 'KeyF' && input.meta && input.control) {
-      e.preventDefault();
-      if (input.type === 'keyDown' && !input.isAutoRepeat) this.win.setFullScreen(!this.win.isFullScreen());
-      return;
-    }
-    e.preventDefault();
-    if (!this.cfg.input || !this.session || !this.server.current || !input.code) return;
-    if (input.type === 'keyDown') {
-      this.heldKeys.add(input.code);
-      this.server.sendToClient({ t: T.IN_KEY_DOWN, code: input.code });
-    } else {
-      this.heldKeys.delete(input.code);
-      this.server.sendToClient({ t: T.IN_KEY_UP, code: input.code });
-      // macOS sends no key-up for keys released while Command is down: let them go with Command.
-      if (input.code === 'MetaLeft' || input.code === 'MetaRight') {
-        for (const c of [...this.heldKeys]) if (!MODIFIERS.has(c)) this._keyUp(c);
-      }
-    }
-  }
-
-  _keyUp(code) {
-    this.heldKeys.delete(code);
-    if (this.server.current) this.server.sendToClient({ t: T.IN_KEY_UP, code });
-  }
-
   _releaseKeys() {
-    for (const c of [...this.heldKeys]) this._keyUp(c);
+    if (this.keys) this.keys.release();
   }
 
   _fromWin(e) {
@@ -228,11 +208,23 @@ class PcView extends EventEmitter {
     if (this.win && !this.win.isDestroyed() && this.win.isFullScreen() !== !!this.cfg.fullScreen) this.win.setFullScreen(!!this.cfg.fullScreen);
   }
 
+  // "Open the PC's screen" (PC → Mac tab): turn receiving on and open the window, also before the
+  // PC shares — it then shows what to do on the PC and fills in when the offer comes.
   show() {
-    if (this.win && !this.win.isDestroyed()) {
-      this.win.show();
-      this.win.focus();
+    if (!this.cfg.on) {
+      this.cfg.on = true;
+      this.saveSettings();
+      this._policy();
     }
+    clearTimeout(this.closeTimer);
+    const fresh = !this.win || this.win.isDestroyed();
+    this._open();
+    if (fresh && !this.session) {
+      const pc = this.server.current ? this.server.current.name : 'your PC';
+      this._toWin({ t: 'stop', why: this.server.current ? `Waiting for ${pc} to share its screen — Display › PC → Mac in its MacShare app` : 'Waiting for your PC to connect…' });
+    }
+    this.win.focus();
+    this.emit('change');
   }
 
   shutdown() {

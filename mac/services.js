@@ -20,6 +20,7 @@ const { AudioHub } = require('./audiohub');
 const { Audio } = require('./audio');
 const { FileSend } = require('./filesend');
 const { PcView } = require('./pcview');
+const { PcApps } = require('./pcapps');
 const store = require('./store');
 
 function startServices({ server, getSettings, pushState, onHelperReady }) {
@@ -46,9 +47,10 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   const sshClient = new SshClient(server, s);
   const audio = new Audio({ server, hub, stream, getSettings: s });
   const pcView = new PcView({ server, getSettings: s, saveSettings: () => store.saveSettings(s()) });
-  kvm.blockEdge = () => pcView.focused; // moving inside the PC window never crosses to the PC
+  const pcApps = new PcApps({ server, getSettings: s });
+  kvm.blockEdge = () => pcView.focused || pcApps.focused; // moving inside the PC window never crosses to the PC
 
-  for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio, pcView]) x.on('change', pushState);
+  for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio, pcView, pcApps]) x.on('change', pushState);
   displays.on('change', () => {
     input.releaseAll(); // the shared display moved or changed size mid-press
     pushState();
@@ -88,9 +90,10 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   helper.start();
 
   return {
-    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, audio, pcView, hub, fileSend, updateAwake,
+    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, audio, pcView, pcApps, hub, fileSend, updateAwake,
     shutdown() {
       pcView.shutdown();
+      pcApps.shutdown();
       kvm.shutdown();
       hub.shutdown(); // unmute this Mac if we muted it while sending
       stream.stop('off');

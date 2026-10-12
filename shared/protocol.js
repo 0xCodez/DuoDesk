@@ -112,6 +112,16 @@
       APP_WINDOWS: 'app.windows', // M->W {windows: [{wid, id, title, x, y, w, h}]} normalized rects
       APP_FOCUS: 'app.focus', // W->M {wid}
       APP_CLOSE: 'app.close', // W->M {wid}
+      // phase 13: PC apps on the Mac (docs/ROADMAP.md)
+      PAPP_POLICY: 'papp.policy', // M->W {accept}
+      PAPPS_LIST: 'papps.list', // M->W
+      PAPPS_RESULT: 'papps.result', // W->M {apps: [{id, name, icon}]}
+      PAPP_LAUNCH: 'papp.launch', // M->W {id}
+      PAPP_LAUNCHED: 'papp.launched', // W->M {id, ok, why?}
+      PAPP_WINDOWS: 'papp.windows', // W->M {windows: [{wid, id, title, w, h, scale, popup?, owner?, x?, y?}]}
+      PAPP_FOCUS: 'papp.focus', // M->W {wid}
+      PAPP_CLOSE: 'papp.close', // M->W {wid}
+      PAPP_SIZE: 'papp.size', // M->W {wid, w, h} physical px
     },
 
     // Error codes (field `code` of an `error` message)

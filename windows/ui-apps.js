@@ -1,6 +1,7 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Apps tab (phase 12): the Mac's apps with their icons; click one and it opens on the Mac, its
-// windows appearing here as their own windows with their own taskbar buttons.
+// Apps tab. Mac → PC (phase 12): the Mac's apps with their icons; click one and it opens on the Mac,
+// its windows appearing here as their own windows with their own taskbar buttons. PC → Mac (phase
+// 13): the Mac opens this PC's apps; each of their windows is streamed on its own to a Mac window.
 'use strict';
 
 UI.tab({
@@ -8,8 +9,8 @@ UI.tab({
   order: 80,
   title: 'Apps',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
-  desc: 'Mac apps as their own windows on this PC, each with its own taskbar button.',
-  badge: (s) => (s.apps.open ? String(s.apps.open) : ''),
+  desc: 'Apps of one computer as their own windows on the other — with their own taskbar button or Dock icon.',
+  badge: (s) => (s.apps.open + s.pcApps.streaming ? String(s.apps.open + s.pcApps.streaming) : ''),
   build(body) {
     const { el, api } = UI;
     const note = UI.note('warn', '');
@@ -18,16 +19,21 @@ UI.tab({
     const grid = el('div', { class: 'app-grid' });
     const status = UI.row('', '');
     const openCount = UI.row('', '');
+    const pcState = UI.row('', '');
     const pair = UI.dirCards(
       { rows: [UI.row('Mac apps on this PC', 'Pick one below: it opens on the Mac and each of its windows shows here as its own window, with its own taskbar button'), openCount] },
-      { soon: '13', rows: [UI.row('PC apps on the Mac', 'This PC’s apps in their own windows on the Mac, each with its own Dock icon', [UI.switch(() => {}, { disabled: true, label: 'PC apps on the Mac' })])] },
+      { on: { get: (s) => s.pcApps.allow, set: (v) => api.setPcApps({ allow: v }) }, rows: [
+        UI.row('PC apps on the Mac', 'The Mac lists this PC’s apps (Apps tab on the Mac); one you pick opens here and each of its windows shows on the Mac as its own window, with the app’s own Dock icon. Mouse and keyboard there drive it here.'),
+        pcState,
+      ] },
     );
     body.append(
       pair.el,
       note,
       UI.card('Mac apps', [UI.row('Search', '', [filter]), grid, status], { actions: [refresh] }),
       UI.card('How it works', [
-        UI.row('Windows from the Mac’s screen', 'The app opens on the Mac’s shared display; this PC cuts each of its windows out of the screen stream into its own window. Menus and dialogs appear inside the window they belong to. Needs screen sharing on (the Mac’s Display › Share).'),
+        UI.row('Mac apps here: windows from the Mac’s screen', 'The app opens on the Mac’s shared display; this PC cuts each of its windows out of the screen stream into its own window. Menus and dialogs appear inside the window they belong to. Needs screen sharing on (the Mac’s Display › Share).'),
+        UI.row('PC apps on the Mac: one stream per window', 'Each window is captured on its own (even when covered here), at its own size, with the low-latency settings and the Quality of Display › PC → Mac. Clicking or typing in it on the Mac brings it to the front here. Menus and pop-ups show only on this PC for now. Uses “Let the Mac control it” from Display › PC → Mac.'),
       ], { cls: 'keep-on' }),
     );
     filter.oninput = () => { key = ''; if (UI.state) render(UI.state); };
@@ -40,6 +46,10 @@ UI.tab({
       if (connected && !asked && !a.list.length) { asked = true; api.listApps(); }
       openCount.label.textContent = a.open ? a.open + ' Mac window' + (a.open > 1 ? 's' : '') + ' open here' : 'No Mac app windows open';
       openCount.setHint(a.open ? 'Close one here to close it on the Mac.' : '');
+      const pa = s.pcApps;
+      pcState.label.textContent = !pa.allow ? 'Off' : pa.streaming ? pa.streaming + ' window' + (pa.streaming > 1 ? 's' : '') + ' on the Mac'
+        : !connected ? 'Waiting for the Mac' : !pa.macAccepts ? 'The Mac isn’t showing PC apps' : pa.open ? 'Starting…' : 'No PC app open on the Mac';
+      pcState.setHint(pa.message || (pa.allow && connected && !pa.macAccepts ? 'Turn on “PC apps on this Mac” in the Mac’s Apps tab.' : ''));
       if (!connected) asked = false;
       note.set(a.message || (connected && s.stream.state !== 'on' ? 'The Mac isn’t sharing its screen, so app windows can’t be shown yet.' : ''));
       refresh.disabled = !connected || a.loading;

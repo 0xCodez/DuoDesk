@@ -9,6 +9,9 @@ set BIN=%~dp0bin
 if not exist "%BIN%" mkdir "%BIN%"
 "%CSC%" /nologo /optimize+ /platform:x64 /target:exe /out:"%BIN%\macshare-winhelper.new.exe" ^
   /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll "%~dp0src\*.cs" || exit /b 1
-if exist "%BIN%\macshare-winhelper.old.exe" del /q "%BIN%\macshare-winhelper.old.exe" 2>nul
-if exist "%BIN%\macshare-winhelper.exe" ren "%BIN%\macshare-winhelper.exe" macshare-winhelper.old.exe
+rem The previous build may still be running (old.exe): then park the current one under another name.
+del /q "%BIN%\macshare-winhelper.old*.exe" 2>nul
+set OLD=macshare-winhelper.old.exe
+if exist "%BIN%\%OLD%" set OLD=macshare-winhelper.old-%RANDOM%.exe
+if exist "%BIN%\macshare-winhelper.exe" ren "%BIN%\macshare-winhelper.exe" %OLD%
 ren "%BIN%\macshare-winhelper.new.exe" macshare-winhelper.exe

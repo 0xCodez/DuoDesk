@@ -21,6 +21,7 @@ function normalize(s) {
   const term = s.terminal || {};
   const files = s.files || {};
   const pcs = s.pcScreen || {};
+  const pca = s.pcApps || {};
   return {
     kvm: {
       mouse: bool(kvm.mouse, true),
@@ -68,6 +69,7 @@ function normalize(s) {
       sound: bool(pcs.sound, false), // the screen's sound in the same session
       input: bool(pcs.input, true), // the Mac's mouse and keyboard drive this PC
     },
+    pcApps: { allow: bool(pca.allow, true) }, // phase 13: the Mac may open this PC's apps (it shows them only if it accepts)
     ui: { tab: OLD_TABS[ui.tab] || (TABS.includes(ui.tab) ? ui.tab : 'overview') },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };

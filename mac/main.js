@@ -24,6 +24,7 @@
 //   clipboard: { ...settings.clipboard, peerAccepts, lastSkip,
 //                history: [{ dir: 'out'|'in', at, size, text (preview) }] },
 //   receive: { on, fullScreen, input, session, kind, status, stats, open },   // phase 11 (pcview.js)
+//   papps: { on, apps: [{id, name, icon}], listing, launch: {id: ''|'ok'|why}, windows: [{wid, id, title, live}] },   // phase 13
 //   ui: { tab }, app: { openAtLogin, keepAwake },
 // }
 'use strict';
@@ -120,6 +121,7 @@ function pushState() {
       state.smb = { ...smb, ...svc.smb.view };
       state.apps = { ...settings.apps, ...svc.apps.view };
       state.receive = { ...settings.receive, ...svc.pcView.view };
+      state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
     updateTray();

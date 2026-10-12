@@ -54,6 +54,21 @@ function asAdmin(cmd, prompt) {
   });
 }
 
+// Run one of scripts/*.sh as root. The admin shell may not read files in privacy-protected folders
+// (Desktop, Documents, Downloads — where a dev checkout often lives): "Operation not permitted".
+// So it runs a copy from a fresh private temp folder, removed afterwards.
+async function runScript(name, args, prompt) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'macshare-'));
+  const copy = path.join(dir, name);
+  try {
+    fs.copyFileSync(path.join(SCRIPTS, name), copy);
+    fs.chmodSync(copy, 0o700);
+    return await asAdmin(`/bin/sh ${[copy, ...args].map(q).join(' ')}`, prompt);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 class Smb extends EventEmitter {
   constructor({ server, helper, getSettings, saveSettings }) {
     super();
@@ -155,7 +170,7 @@ class Smb extends EventEmitter {
     const pwFile = path.join(os.tmpdir(), `macshare-${crypto.randomBytes(6).toString('hex')}`);
     fs.writeFileSync(pwFile, pw, { mode: 0o600 });
     try {
-      await asAdmin(`/bin/sh ${q(path.join(SCRIPTS, 'smb-share.sh'))} ${q(folder)} ${q(pwFile)}`, 'MacShare wants to share a folder with your PC.');
+      await runScript('smb-share.sh', [folder, pwFile], 'MacShare wants to share a folder with your PC.');
       const c = this.cfg;
       c.sharing = true;
       c.folder = folder;
@@ -177,7 +192,7 @@ class Smb extends EventEmitter {
     this.share = { busy: true, error: null, peer: null };
     this.emit('change');
     try {
-      await asAdmin(`/bin/sh ${q(path.join(SCRIPTS, 'smb-unshare.sh'))} ${q(c.folder)}`, 'MacShare wants to stop sharing the folder.');
+      await runScript('smb-unshare.sh', [c.folder], 'MacShare wants to stop sharing the folder.');
       this.server.sendToClient({ t: P.T.SMB_REVOKE, share: 'MacShare' });
       c.sharing = false;
       c.secret = '';

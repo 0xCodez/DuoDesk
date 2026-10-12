@@ -50,7 +50,7 @@ UI.tab({
       sw('Accept clipboard from the PC', '', 'clipboard', (s) => s.clipboard && s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
       sw('The PC’s folder as a Mac drive', 'In Finder’s sidebar', 'files', (s) => s.smb && s.smb.connectPc, (v) => api.setSmb({ connectPc: v })),
       sw('Let the PC open shells here', 'macshare on the PC', 'terminal', (s) => s.terminal && s.terminal.allowPc, (v) => api.setTerminal({ allowPc: v })),
-      sw('PC apps on this Mac', '', 'apps', null, null, '13'),
+      sw('PC apps on this Mac', 'Each in its own window, own Dock icon', 'apps', (s) => s.papps && s.papps.on, (v) => api.setPcApps({ on: v })),
     ];
     const quick = [...m2w, ...w2m];
 

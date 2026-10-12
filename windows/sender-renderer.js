@@ -1,15 +1,17 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Hidden window, phase 11: captures one monitor of this PC (and optionally its sound) and sends it
-// to the Mac as an `rtc2` session (we offer, the Mac answers recvonly). Mirrors mac/capture.js.
+// Hidden sender window (phases 11, 13): each `rtc2` session captures one monitor of this PC (phase
+// 11, optionally with its sound) or one app window (phase 13) and sends it to the Mac (we offer, the
+// Mac answers recvonly). Low-latency settings as mac/capture.js.
 'use strict';
 
 const T = window.MacShareProtocol.T;
-const api = window.pcscreen;
+const api = window.sender;
 
-let cur = null; // {session, pc, stream, pending}
+const sessions = new Map(); // session → {session, pc, stream, pending, mbps, statsTimer, last}
+const alive = (me) => sessions.get(me.session) === me;
 
-function report(status, error) {
-  api.state({ session: cur ? cur.session : 0, status, error: error || '' });
+function report(me, status, error) {
+  api.state({ session: me.session, status, error: error || '' });
 }
 
 // Bitrate hints in the video fmtp lines (start high, keep a floor). Values in kbps.
@@ -41,23 +43,26 @@ function withOpus(sdp) {
     : sdp.replace(m[0], m[0] + '\r\na=fmtp:' + m[1] + ' ' + extra);
 }
 
-// m: {session, sourceId, width, height, mbps, audio}
+// m: {session, sourceId, width, height, follow?, mbps, audio, offer: {kind, wid?}}
+// follow: the picture follows the source's size (an app window), up to width × height.
 async function start(m) {
-  stop();
-  const me = (cur = { session: m.session, pending: [], mbps: m.mbps });
+  stop(m.session);
+  const me = { session: m.session, pending: [], mbps: m.mbps };
+  sessions.set(me.session, me);
   try {
-    const desktop = { chromeMediaSource: 'desktop', chromeMediaSourceId: m.sourceId };
+    const video = { chromeMediaSource: 'desktop', chromeMediaSourceId: m.sourceId, maxWidth: m.width, maxHeight: m.height, maxFrameRate: 60 };
+    if (m.follow) Object.assign(video, { minWidth: 2, minHeight: 2 }); // min ≠ max: any size within the limit, no scaling
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: m.audio ? { mandatory: { chromeMediaSource: 'desktop' } } : false,
-      video: { mandatory: { ...desktop, maxWidth: m.width, maxHeight: m.height, maxFrameRate: 60 } },
+      video: { mandatory: video },
     });
-    if (cur !== me) return stream.getTracks().forEach((t) => t.stop());
+    if (!alive(me)) return stream.getTracks().forEach((t) => t.stop());
     me.stream = stream;
-    const video = stream.getVideoTracks()[0];
-    video.contentHint = 'detail';
-    video.onended = () => cur === me && report('ended', 'The captured monitor went away');
+    const track = stream.getVideoTracks()[0];
+    track.contentHint = 'detail';
+    track.onended = () => alive(me) && report(me, 'ended', 'The captured ' + (m.offer.kind === 'window' ? 'window' : 'monitor') + ' went away');
     const pc = (me.pc = new RTCPeerConnection({ iceServers: [] }));
-    const tr = pc.addTransceiver(video, { direction: 'sendonly', streams: [stream] });
+    const tr = pc.addTransceiver(track, { direction: 'sendonly', streams: [stream] });
     const audio = stream.getAudioTracks()[0];
     if (audio) pc.addTransceiver(audio, { direction: 'sendonly', streams: [stream] });
     // H.264 first (hardware encode here, VideoToolbox decode on the Mac), High before Main before Baseline.
@@ -67,8 +72,8 @@ async function start(m) {
       return { 64: 0, '4d': 1, '42': 2 }[p ? p[1].toLowerCase() : ''] ?? 3;
     };
     tr.setCodecPreferences(RTCRtpSender.getCapabilities('video').codecs.slice().sort((a, b) => rank(a) - rank(b)));
-    pc.onicecandidate = (e) => e.candidate && cur === me && api.send({ t: T.RTC2_ICE, session: me.session, candidate: e.candidate.toJSON() });
-    pc.onconnectionstatechange = () => cur === me && report(pc.connectionState === 'connected' ? 'live' : pc.connectionState);
+    pc.onicecandidate = (e) => e.candidate && alive(me) && api.send({ t: T.RTC2_ICE, session: me.session, candidate: e.candidate.toJSON() });
+    pc.onconnectionstatechange = () => alive(me) && report(me, pc.connectionState === 'connected' ? 'live' : pc.connectionState);
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription({ type: 'offer', sdp: withOpus(withBitrate(offer.sdp, m.mbps)) });
@@ -78,18 +83,19 @@ async function start(m) {
     p.encodings[0].maxFramerate = 60;
     p.degradationPreference = 'maintain-resolution';
     await tr.sender.setParameters(p);
-    if (cur !== me) return;
-    api.send({ t: T.RTC2_OFFER, session: me.session, sdp: pc.localDescription.sdp, kind: audio ? 'screen+audio' : 'screen' });
-    report('connecting');
+    if (!alive(me)) return;
+    const kind = m.offer.kind === 'screen' && audio ? 'screen+audio' : m.offer.kind;
+    api.send({ ...m.offer, t: T.RTC2_OFFER, session: me.session, sdp: pc.localDescription.sdp, kind });
+    report(me, 'connecting');
     me.statsTimer = setInterval(() => stats(me), 1000);
   } catch (e) {
-    if (cur === me) report('failed', 'Capturing this PC’s screen: ' + e.message);
+    if (alive(me)) report(me, 'failed', 'Capturing: ' + e.message);
   }
 }
 
 // Once a second, as on the Mac: picture, fps, bitrate (and what the network allows), encoder.
 async function stats(me) {
-  if (cur !== me || !me.pc) return;
+  if (!alive(me) || !me.pc) return;
   const report = await me.pc.getStats();
   let out = null, pair = null;
   const byId = new Map();
@@ -98,7 +104,7 @@ async function stats(me) {
     if (r.type === 'outbound-rtp' && r.kind === 'video') out = r;
     if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pair = r;
   });
-  if (!out || cur !== me) return;
+  if (!out || !alive(me)) return;
   const now = performance.now();
   let mbps = 0, qp = 0, encodeMs = 0;
   if (me.last) {
@@ -128,36 +134,37 @@ async function stats(me) {
 }
 
 async function onAnswer(m) {
-  const me = cur;
+  const me = sessions.get(m.session);
   if (!me || !me.pc || m.session !== me.session) return;
   try {
     await me.pc.setRemoteDescription({ type: 'answer', sdp: withOpus(withBitrate(m.sdp, me.mbps)) });
     for (const c of me.pending.splice(0)) await me.pc.addIceCandidate(c).catch(() => {});
     me.pending = null;
   } catch (e) {
-    report('failed', 'The Mac’s answer: ' + e.message);
+    report(me, 'failed', 'The Mac’s answer: ' + e.message);
   }
 }
 
 function onIce(m) {
-  if (!cur || m.session !== cur.session || !m.candidate) return;
-  if (cur.pending) cur.pending.push(m.candidate);
-  else if (cur.pc) cur.pc.addIceCandidate(m.candidate).catch(() => {});
+  const me = sessions.get(m.session);
+  if (!me || !m.candidate) return;
+  if (me.pending) me.pending.push(m.candidate);
+  else if (me.pc) me.pc.addIceCandidate(m.candidate).catch(() => {});
 }
 
-function stop() {
-  if (cur) {
-    clearInterval(cur.statsTimer);
-    if (cur.pc) cur.pc.close();
-    if (cur.stream) cur.stream.getTracks().forEach((t) => t.stop());
-  }
-  cur = null;
+function stop(session) {
+  const me = sessions.get(session);
+  if (!me) return;
+  sessions.delete(session);
+  clearInterval(me.statsTimer);
+  if (me.pc) me.pc.close();
+  if (me.stream) me.stream.getTracks().forEach((t) => t.stop());
 }
 
 api.on((m) => {
   switch (m.t) {
     case 'start': start(m); break;
-    case 'stop': stop(); report('off'); break;
+    case 'stop': stop(m.session); break;
     case T.RTC2_ANSWER: onAnswer(m); break;
     case T.RTC2_ICE: onIce(m); break;
   }

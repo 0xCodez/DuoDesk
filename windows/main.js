@@ -22,10 +22,15 @@ const Sound = require('./sound');
 const FileRecv = require('./filerecv');
 const Sshd = require('./sshd');
 const PcScreen = require('./pcscreen');
+const PcApps = require('./pcapps');
+const Sender = require('./sender');
 const Vdd = require('./vdd');
 const { normalize } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
+// Lowest latency for what we send (phase 11/13): frames are tagged with playout delay 0/0, so the
+// Mac renders each one as soon as it is decoded (the Mac sender uses the same switch).
+app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -51,6 +56,7 @@ let smb = null;
 let apps = null;
 let sound = null;
 let pcScreen = null;
+let pcApps = null;
 let vdd = null;
 let fileRecv = null;
 let sshd = null;
@@ -111,11 +117,13 @@ function start() {
   fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
   kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, settings, onChange: onKvmChange });
   vdd = new Vdd({ helper, onChange: pushState });
-  pcScreen = new PcScreen({ link, helper, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
+  const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
+  pcScreen = new PcScreen({ link, helper, sender, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
+  pcApps = new PcApps({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   helper.on('exit', pushState);
   helper.start();
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
-  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, vdd, settings, save: saveSettings, push: pushState, buildState,
+  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup });
   nativeTheme.on('updated', pushState);
   link.start();
@@ -168,6 +176,7 @@ function buildState() {
     firewall: fw,
     audio: { ...settings.audio, ...sound.view() },
     pcScreen: pcScreen.view(),
+    pcApps: pcApps.view(),
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
     files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view() },
     apps: apps.view(),
@@ -295,6 +304,7 @@ app.on('before-quit', () => {
   saveBounds();
   if (discovery) discovery.stop();
   if (pcScreen) pcScreen.shutdown();
+  if (pcApps) pcApps.shutdown();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });
 

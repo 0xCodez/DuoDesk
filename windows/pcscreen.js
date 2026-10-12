@@ -2,27 +2,23 @@
 // Phase 11, Display › PC → Mac (docs/ROADMAP.md): this PC's screen in a window on the Mac.
 // Mirror = one existing monitor; Extend = the virtual monitor (vdd.js). Sharing starts off every
 // time the app starts. We offer an `rtc2` session (kind `screen` / `screen+audio`) while sharing is
-// on and the Mac's `screen.policy` accepts; `in.*` from the Mac are injected by the helper.
-const { BrowserWindow, ipcMain, desktopCapturer, screen: displays } = require('electron');
-const path = require('path');
+// on and the Mac's `screen.policy` accepts (sender.js); `in.*` without `wid` from the Mac are
+// injected by the helper (remote-input.js).
+const { desktopCapturer, screen: displays } = require('electron');
 const P = require('../shared/protocol.js');
+const RemoteInput = require('./remote-input');
 
 const T = P.T;
-const POINTER = new Set([T.IN_MOVE, T.IN_DOWN, T.IN_UP]);
 
 class PcScreen {
-  // opts: link, helper, vdd, settings (shared), inputAllowed() (KVM at home), onChange()
+  // opts: link, helper, sender, vdd, settings (shared), inputAllowed() (KVM at home), onChange()
   constructor(opts) {
     Object.assign(this, opts);
     this.mode = 'off'; // 'off' | 'mirror' | 'extend' — never saved
     this.mac = { accept: false, width: 0, height: 0 }; // the Mac's screen.policy
-    this.win = null;
-    this.ready = false;
-    this.queue = [];
-    this.session = 0;
     this.sending = null; // {session, displayId, rect (physical px), key}
     this.status = { status: 'off', error: '', name: '', width: 0, height: 0 };
-    this.injected = false; // keys/buttons may be held down by the Mac
+    this.input = new RemoteInput(opts);
     this.busy = false;
 
     const link = this.link;
@@ -35,30 +31,18 @@ class PcScreen {
       if (this.mode === 'extend' && this.cfg.extendSize === 'mac' && size !== this.mac.width + 'x' + this.mac.height) this.sizeExtend();
       else this.apply();
     });
-    link.on(T.RTC2_ANSWER, (m) => this.sending && m.session === this.sending.session && typeof m.sdp === 'string' && this._toWin(m));
-    link.on(T.RTC2_ICE, (m) => this.sending && m.session === this.sending.session && this._toWin(m));
-    for (const t of [T.IN_MOVE, T.IN_DOWN, T.IN_UP, T.IN_WHEEL, T.IN_KEY_DOWN, T.IN_KEY_UP]) link.on(t, (m) => this._input(m));
+    for (const t of RemoteInput.TYPES) link.on(t, (m) => this._input(m));
 
-    ipcMain.on('pcscreen-out', (e, m) => {
-      if (!this._fromWin(e) || !m || !this.sending || m.session !== this.sending.session) return;
-      if (m.t === T.RTC2_OFFER || m.t === T.RTC2_ICE) this.link.send(m);
-    });
-    ipcMain.on('pcscreen-state', (e, s) => {
-      if (!this._fromWin(e) || !s || !this.sending || s.session !== this.sending.session) return;
-      this.status.status = String(s.status || '');
-      this.status.error = String(s.error || '');
+    this.sender.on('state', (session, s) => {
+      if (!this.sending || session !== this.sending.session) return;
+      Object.assign(this.status, s);
       if (s.status === 'ended' || s.status === 'failed') this._stopSend(true); // apply() retries on the next change
       this.onChange();
     });
-    ipcMain.on('pcscreen-stats', (e, st) => {
-      if (!this._fromWin(e) || !st || !this.sending || st.session !== this.sending.session) return;
+    this.sender.on('stats', (session, st) => {
+      if (!this.sending || session !== this.sending.session) return;
       this.stats = st;
       this.onChange();
-    });
-    ipcMain.on('pcscreen-ready', (e) => {
-      if (!this._fromWin(e)) return;
-      this.ready = true;
-      for (const m of this.queue.splice(0)) this.win.webContents.send('pcscreen', m);
     });
     // A monitor came or went (or changed size): the shared one may be different now.
     for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) displays.on(ev, () => this.apply());
@@ -170,86 +154,32 @@ class PcScreen {
       return this._stopSend(true);
     }
     this._stopSend(true);
-    this.sending = { session: ++this.session, displayId: d.id, rect, key };
+    const session = this.sender.start({ sourceId: src.id, width, height, mbps: this.cfg.mbps, audio: this.cfg.sound, offer: { kind: 'screen' } });
+    this.sending = { session, displayId: d.id, rect, key };
     this.stats = null;
     Object.assign(this.status, { status: 'starting', error: '', name: d.label || src.name, width: rect.width, height: rect.height });
-    this._toWin({ t: 'start', session: this.sending.session, sourceId: src.id, width, height, mbps: this.cfg.mbps, audio: this.cfg.sound });
   }
 
   _stopSend(tellMac) {
-    this._release();
+    this.input.release();
     if (!this.sending) return;
     const { session } = this.sending;
     this.sending = null;
     this.stats = null;
     this.status.status = 'off';
-    this._toWin({ t: 'stop' });
-    if (tellMac && this.link.status.state === 'connected') this.link.send({ t: T.RTC2_STOP, session });
+    this.sender.stop(session, tellMac);
   }
 
-  // in.* from the Mac's PC window: coordinates are normalized over the shared monitor.
+  // in.* from the Mac's PC window (no `wid`; those are app windows, pcapps.js): coordinates are
+  // normalized over the shared monitor.
   _input(m) {
-    if (!this.sending || !this.cfg.input || !this.inputAllowed()) return;
-    const ev = (e) => this.helper.send('inject', { ev: e });
-    if (POINTER.has(m.t)) {
-      const x = Number(m.x), y = Number(m.y);
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        const r = this.sending.rect;
-        const c = (v) => Math.min(1, Math.max(0, v));
-        this.helper.send('moveTo', { x: Math.round(r.x + c(x) * (r.width - 1)), y: Math.round(r.y + c(y) * (r.height - 1)) });
-      }
-      if (m.t !== T.IN_MOVE && Number.isInteger(m.b)) {
-        ev({ t: m.t === T.IN_DOWN ? T.K_DOWN : T.K_UP, b: m.b });
-        this.injected = true;
-      }
-    } else if (m.t === T.IN_WHEEL) {
-      ev({ t: T.K_WHEEL, dx: Number(m.dx) || 0, dy: Number(m.dy) || 0, mode: 'pixel' });
-    } else if (typeof m.code === 'string') {
-      const code = this.settings.keys.swapCtrlCmd ? P.mapKeyFromOtherPlatform(m.code) : m.code;
-      ev({ t: m.t === T.IN_KEY_DOWN ? T.K_KEY_DOWN : T.K_KEY_UP, code });
-      this.injected = true;
-    }
-  }
-
-  // Let go of anything the Mac still holds (session ended, input switched off).
-  _release() {
-    if (!this.injected) return;
-    this.injected = false;
-    if (this.inputAllowed()) this.helper.send('releaseAll');
+    if (!this.sending || m.wid != null) return;
+    const r = this.sending.rect;
+    this.input.handle(m, (x, y) => this.helper.send('moveTo', { x: Math.round(r.x + x * (r.width - 1)), y: Math.round(r.y + y * (r.height - 1)) }));
   }
 
   applyInput() {
-    if (!this.cfg.input) this._release();
-  }
-
-  _fromWin(e) {
-    return this.win && !this.win.isDestroyed() && e.sender === this.win.webContents;
-  }
-
-  _toWin(m) {
-    if (!this.win || this.win.isDestroyed()) {
-      if (m.t !== 'start') return; // nothing to stop
-      this._create();
-    }
-    if (this.ready) this.win.webContents.send('pcscreen', m);
-    else this.queue.push(m);
-  }
-
-  _create() {
-    this.ready = false;
-    this.queue = [];
-    this.win = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        preload: path.join(__dirname, 'preload-pcscreen.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        backgroundThrottling: false,
-      },
-    });
-    this.win.loadFile(path.join(__dirname, 'pcscreen.html'));
-    this.win.on('closed', () => { this.win = null; this.ready = false; });
+    if (!this.settings.pcScreen.input) this.input.release();
   }
 
   // Monitors for the Mirror picker.

@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('macshare', {
   launchApp: call('launchApp'),
   setPcScreen: call('setPcScreen'),
   setPcScreenMode: call('setPcScreenMode'),
+  setPcApps: call('setPcApps'),
   installVdd: call('installVdd'),
   removeVdd: call('removeVdd'),
   checkFirewall: call('checkFirewall'),

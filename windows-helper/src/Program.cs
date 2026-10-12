@@ -38,6 +38,7 @@ namespace MacShare
             injector = new Injector();
             injector.Moved = capture.FeedReturn;
             capture.Start();
+            AppWindows.Watch(delegate { Dictionary<string, object> e = new Dictionary<string, object>(); e["event"] = "winShown"; Emit(e); }); // phase 13: menus
             dropEdge = new DropEdge(capture, Emit); // file drags across the edge (shown only while dragging)
 
             Thread writer = new Thread(WriteLoop);
@@ -86,6 +87,24 @@ namespace MacShare
             });
         }
 
+        // Slow commands (shell, COM, many processes) run on their own thread so the hooks on the
+        // main thread never wait; the reply is emitted from there.
+        delegate void Work(Dictionary<string, object> reply);
+        static void Async(Dictionary<string, object> c, Work work)
+        {
+            Thread t = new Thread(delegate ()
+            {
+                Dictionary<string, object> reply = new Dictionary<string, object>();
+                if (Json.Has(c, "id")) reply["id"] = c["id"];
+                try { work(reply); reply["ok"] = true; }
+                catch (Exception e) { reply["ok"] = false; reply["error"] = e.Message; }
+                if (Json.Has(c, "id")) Emit(reply);
+            });
+            t.IsBackground = true;
+            t.SetApartmentState(ApartmentState.MTA);
+            t.Start();
+        }
+
         static void Dispatch(string line)
         {
             Dictionary<string, object> c;
@@ -127,6 +146,25 @@ namespace MacShare
                     case "releaseAll": injector.ReleaseAll(); break;
                     case "moveTo": Injector.MoveTo((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0)); break; // phase 11: the Mac's pointer on this PC's screen
                     case "displays": c["displays"] = Display.List(); break;
+                    // phase 13: PC apps on the Mac
+                    case "windows": Async(c, delegate (Dictionary<string, object> r) { r["windows"] = AppWindows.List(); }); return;
+                    case "icons":
+                        System.Collections.IList paths = c.ContainsKey("paths") ? c["paths"] as System.Collections.IList : null;
+                        int size = (int)Json.Num(c, "size", 256);
+                        Async(c, delegate (Dictionary<string, object> r)
+                        {
+                            List<string> icons = new List<string>();
+                            if (paths != null) foreach (object o in paths) icons.Add(AppWindows.Icon(Convert.ToString(o), size));
+                            r["icons"] = icons;
+                        });
+                        return;
+                    case "winRaise": AppWindows.Raise(Json.Num(c, "wid", 0)); break;
+                    case "winClose": AppWindows.Close(Json.Num(c, "wid", 0)); break;
+                    case "winSize": AppWindows.Resize(Json.Num(c, "wid", 0), (int)Json.Num(c, "w", 0), (int)Json.Num(c, "h", 0)); break;
+                    case "winMove":
+                        Point wp = AppWindows.PointIn(Json.Num(c, "wid", 0), Json.Num(c, "x", 0), Json.Num(c, "y", 0));
+                        Injector.MoveTo(wp.X, wp.Y);
+                        break;
                     case "displayMode":
                         c["changed"] = Display.SetMode(Json.Str(c, "name", ""), (int)Json.Num(c, "width", 0), (int)Json.Num(c, "height", 0));
                         break;

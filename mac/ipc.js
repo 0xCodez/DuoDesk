@@ -35,6 +35,7 @@ const SCHEMA = {
   smb: { connectPc: bool },
   apps: { offer: bool },
   receive: { on: bool, fullScreen: bool, input: bool },
+  papps: { on: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'switch'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -168,6 +169,16 @@ function setupIpc(ctx) {
     setReceive(partial) {
       setGroup('receive', partial);
       ctx.pcView.applySettings();
+    },
+    setPcApps(partial) {
+      setGroup('papps', partial);
+      ctx.pcApps.applySettings();
+    },
+    listPcApps() {
+      ctx.pcApps.list();
+    },
+    openPcApp(id) {
+      ctx.pcApps.open(String(id));
     },
     showPcView() {
       ctx.pcView.show();

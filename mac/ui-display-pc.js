@@ -22,8 +22,8 @@ UI.tab({
     const fullSw = UI.switch((v) => api.setReceive({ fullScreen: v }), { label: 'Open full screen' });
     const inputSw = UI.switch((v) => api.setReceive({ input: v }), { label: 'Control the PC from the window' });
     const onRow = UI.row('Show the PC’s screen in a window', '', [onSw]);
-    const showBtn = UI.button('Show window', () => api.showPcView(), 'small');
-    const winRow = UI.row('Window', '', [showBtn]);
+    const showBtn = UI.button('Open the PC’s screen', () => api.showPcView(), 'primary');
+    const winRow = UI.row('PC screen window', '', [showBtn]);
 
     const live = { status: UI.row('Stream', ''), picture: UI.row('Picture', ''), rate: UI.row('Bitrate', ''), dec: UI.row('Decoder', ''), delay: UI.row('Delay here', '') };
     const vals = Object.fromEntries(Object.entries(live).map(([k, r]) => {
@@ -56,7 +56,8 @@ UI.tab({
       onRow.setHint(!r.on ? 'Off — the PC can’t show its screen here'
         : !s.client ? 'Waiting for your PC to connect'
           : r.session ? `Showing ${pc}` : `Waiting for ${pc} to share (Display › PC → Mac in the PC app)`);
-      winRow.hidden = !r.open;
+      showBtn.textContent = r.open ? 'Show the window' : 'Open the PC’s screen';
+      winRow.setHint(r.open ? (r.session ? 'Open' : 'Open — waiting for the PC to share') : 'Like Monitor 2 on the PC: opens the window now; the picture comes when the PC shares');
       const st = r.stats;
       const isLive = r.status === 'live' && st;
       vals.status.textContent = STATUS[r.status] || r.status;
