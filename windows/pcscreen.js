@@ -190,7 +190,7 @@ class PcScreen {
       .map((d) => ({ d, r: displays.dipToScreenRect(null, d.bounds) }))
       .filter(({ r }) => !(v && r.x === v.x && r.y === v.y))
       .map(({ d, r }) => {
-        return { id: String(d.id), label: (d.label || 'Monitor') + ' — ' + r.width + ' × ' + r.height + (d.id === primary ? ' (main)' : '') };
+        return { id: String(d.id), label: (d.label || 'Monitor') + ', ' + r.width + ' × ' + r.height + (d.id === primary ? ' (main)' : '') };
       });
   }
 

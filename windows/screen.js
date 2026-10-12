@@ -143,8 +143,8 @@ class Screen {
     const macName = this.link.snapshot().link.macName || 'Mac';
     const s = this.state;
     this.win.setTitle(s.state === 'on'
-      ? 'Monitor 2 — ' + macName + ' (' + s.width + '×' + s.height + ')'
-      : 'Monitor 2 — ' + macName);
+      ? macName + ' (' + s.width + ' × ' + s.height + ')'
+      : macName);
   }
 
   _create() {

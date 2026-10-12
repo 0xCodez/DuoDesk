@@ -54,6 +54,7 @@ func handle(_ line: String) {
   switch cmd {
   case "kvmConfig":
     guard Capture.shared.startTap() else { return replyError(id, "event tap failed (Accessibility / Input Monitoring)") }
+    Flash.shared.prepare()
     Capture.shared.configure(side: (msg["side"] as? String) ?? "right", resistance: num("resistancePx", 120),
                              edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
                              dragFiles: (msg["dragFiles"] as? Bool) ?? true)
@@ -61,6 +62,7 @@ func handle(_ line: String) {
   case "capture":
     if (msg["on"] as? Bool) == true {
       Capture.shared.startCapture(mouse: (msg["mouse"] as? Bool) ?? true, keyboard: (msg["keyboard"] as? Bool) ?? true)
+      Flash.shared.leave(at: CGEvent(source: nil)?.location ?? .zero, side: nil) // the hotkey
     } else {
       Capture.shared.stopCapture(side: msg["side"] as? String, offset: (msg["offset"] as? NSNumber)?.doubleValue)
     }
@@ -69,8 +71,10 @@ func handle(_ line: String) {
     break
   case "place":
     let center = (msg["center"] as? Bool) == true
-    Capture.shared.warp(Screens.edgePoint(side: center ? nil : msg["side"] as? String,
-                                          offset: center ? nil : (msg["offset"] as? NSNumber)?.doubleValue))
+    let side = center ? nil : msg["side"] as? String
+    let to = Screens.edgePoint(side: side, offset: center ? nil : (msg["offset"] as? NSNumber)?.doubleValue)
+    Capture.shared.warp(to)
+    Flash.shared.arrive(at: to, side: side) // the PC's pointer arrives here
     reply(id)
   case "armReturn":
     Capture.shared.armReturn(on: (msg["on"] as? Bool) ?? false, side: (msg["side"] as? String) ?? "right",
@@ -182,14 +186,17 @@ DispatchQueue.global().async {
     DispatchQueue.main.async { handle(line) }
   }
   DispatchQueue.main.async {
-    Capture.shared.stopCapture(side: nil, offset: nil)
+    Capture.shared.stopCapture(side: nil, offset: nil) // also shows the pointer again
     injector.releaseAll()
     virtualDisplay.destroy()
     exit(0)
   }
 }
 
-signal(SIGTERM) { _ in exit(0) }
+signal(SIGTERM) { _ in
+  PointerVisibility.show() // never leave the pointer hidden
+  exit(0)
+}
 signal(SIGPIPE, SIG_IGN) // main closed a pipe (e.g. the audio fd): just stop writing
 NSApplication.shared.setActivationPolicy(.prohibited)
 log("ready")

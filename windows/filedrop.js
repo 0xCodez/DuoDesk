@@ -46,9 +46,9 @@ class FileDrop {
     this._next();
   }
 
-  // A drag across the edge (revision 3): walk the folders, describe everything in `drag.start`, then
-  // send the files. Returns {count} for kvm.take, or null when nothing can go.
-  startDrag(paths) {
+  // A drag across the edge (revision 3), step 1: walk the folders. Returns what kvm.take and
+  // beginDrag need, or null when nothing can go. Nothing is sent yet: kvm.take goes first.
+  prepareDrag(paths) {
     if (!this.settings.files.dropToMac || this.link.status.state !== 'connected') return null;
     const items = [], dirs = [], list = [], jobs = [];
     let bytes = 0;
@@ -76,13 +76,17 @@ class FileDrop {
       items.push({ name, dir, size: bytes - before });
     }
     if (!items.length) return null;
-    const drag = crypto.randomBytes(8).toString('hex');
+    return { drag: crypto.randomBytes(8).toString('hex'), items, dirs, list, jobs, bytes, count: items.length };
+  }
+
+  // Step 2, right after kvm.take: describe everything in `drag.start`, then send the files.
+  beginDrag(d) {
     this.cancelRelease(); // one drag at a time
+    const { drag, items, dirs, list, jobs, bytes } = d;
     this.drag = { drag, name: items.length > 1 ? items.length + ' items' : items[0].name };
     this.link.send({ t: T.DRAG_START, drag, items, dirs, list, files: list.length, bytes });
     jobs.forEach((j, i) => this.queue.push({ ...j, drag, index: i, count: jobs.length }));
     this._next();
-    return { count: items.length };
   }
 
   // The Mac says how the drag ended: dropped (show where), or cancelled — stop sending.

@@ -8,7 +8,7 @@ UI.tab({
   order: 20,
   title: 'Cursor',
   color: 'linear-gradient(#ffb340, #ff9500)',
-  desc: 'Push the pointer through the screen edge to move it onto the other computer, and back.',
+  desc: 'Move the pointer off the edge of the screen to go to the other computer.',
   master: { get: (s) => s.kvm.mouse, set: (v) => UI.api.setKvm({ mouse: v }) },
   badge: (s) => (s.kvm.mouse ? 'on' : ''),
   build(body) {
@@ -23,13 +23,13 @@ UI.tab({
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => (v ? v + ' px' : 'None') }, (v) => set({ resistancePx: v }));
     const pair = UI.dirCards(
       { on: { get: (s) => s.kvm.beDriven, set: (v) => set({ beDriven: v }) }, rows: [
-        UI.row('The Mac’s mouse can move onto this PC', 'Its pointer appears here at the same height'),
+        UI.row('Use the Mac’s mouse on this PC', 'Or double-tap Right Option on the Mac'),
         UI.row('Pointer speed here', '', [speed]),
-        UI.row('Reverse scrolling', 'For the Mac’s scrolling on this PC', [reverse]),
+        UI.row('Reverse scrolling from the Mac', '', [reverse]),
       ] },
       { on: { get: (s) => s.kvm.driveOther, set: (v) => set({ driveOther: v }) }, rows: [
-        UI.row('This PC’s mouse can move onto the Mac', 'Push through the edge facing the Mac, or double-tap Right Ctrl'),
-        UI.row('Edge resistance', 'How far to keep pushing before the pointer crosses', [resistance]),
+        UI.row('Use this PC’s mouse on the Mac', 'Or double-tap Right Ctrl'),
+        UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
       ] },
     );
 
@@ -46,7 +46,7 @@ UI.tab({
     body.append(
       pair.el,
       UI.card('Right now', [status], { cls: 'keep-on' }),
-      el('div', { class: 'card-title', text: 'Layout' }),
+      el('div', { class: 'card-title', text: 'Where your Mac is' }),
       el('div', { class: 'card layout' }, [grid, layoutHint]),
     );
 
@@ -64,8 +64,8 @@ UI.tab({
         c.className = Object.values(CELL).includes(i) ? 'cell' + (here ? ' mac-here' : '') : '';
         c.textContent = here ? 'Mac' : '';
       });
-      layoutHint.textContent = side ? 'The Mac is to the ' + side + ' of this PC. Change it on the Mac (Cursor tab).'
-        : 'Shown once connected. Set it on the Mac (Cursor tab).';
+      layoutHint.textContent = side ? 'Your Mac is ' + { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[side] + ' this PC. Change it on the Mac.'
+        : 'Set it on your Mac.';
     };
   },
 });

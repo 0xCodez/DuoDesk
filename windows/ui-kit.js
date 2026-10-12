@@ -211,9 +211,7 @@ const UI = {
   // Each def: { on?: {get(s), set(v), disabled?}, rows: [], soon?: 'phase N' }. Returns { el, update(s) }.
   dirCards(m2p, p2m) {
     const make = (dir, def) => {
-      const title = dir === 'm2p'
-        ? [UI.el('span', { text: 'Mac → PC ' }), UI.el('span', { class: 'me', text: '(this PC)' })]
-        : [UI.el('span', { text: 'PC ' }), UI.el('span', { class: 'me', text: '(this PC) ' }), UI.el('span', { text: '→ Mac' })];
+      const title = [UI.el('span', { text: dir === 'm2p' ? 'Mac → PC' : 'PC → Mac' })];
       const sw = def.on ? UI.switch((v) => def.on.set(v), { label: dir === 'm2p' ? 'Mac to PC' : 'PC to Mac', disabled: !!def.on.disabled || !!def.soon }) : null;
       const head = UI.el('div', { class: 'dir-head' }, [UI.el('div', { class: 'dir-title' }, title), def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null, sw ? sw.el : null]);
       const card = UI.el('div', { class: 'dir-card' + (def.soon ? ' soon-card' : '') }, [head].concat(def.rows || []));
@@ -231,16 +229,16 @@ const UI = {
 
   // "Right now" row for the Cursor/Keyboard tabs: where input is + the last KVM event.
   inputStatus() {
-    const WHERE = { home: 'On this PC', driving: 'Driving the Mac', driven: 'The Mac is driving this PC' };
+    const WHERE = { home: 'On this PC', driving: 'On the Mac', driven: 'The Mac is using this PC' };
     const pill = UI.el('span', { class: 'pill' });
     const row = UI.row('Keyboard and mouse', '', [pill]);
     row.update = (s) => {
       const k = s.kvmState;
       pill.textContent = WHERE[k.mode] || WHERE.home;
       pill.className = 'pill ' + (k.mode === 'home' ? 'muted' : 'good');
-      row.setHint(k.helper && k.helper !== 'starting' ? 'Input helper: ' + k.helper
-        : s.link.state !== 'connected' ? 'Connect to your Mac to share them.'
-          : k.message || (k.mode === 'home' ? 'Double-tap Right Ctrl, or push the pointer through the edge facing the Mac.' : 'Double-tap Right Ctrl to bring them back.'));
+      row.setHint(k.helper && k.helper !== 'starting' ? k.helper
+        : s.link.state !== 'connected' ? 'Waiting for your Mac'
+          : k.message || (k.mode === 'home' ? '' : 'Double-tap Right Ctrl to come back'));
     };
     return row;
   },

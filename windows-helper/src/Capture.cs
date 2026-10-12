@@ -41,6 +41,8 @@ namespace MacShare
         IntPtr mouseHook, keyHook;
         RawWindow raw;
         readonly Timer timer = new Timer();
+        public Flash Flash; // crossing animation (set by Program)
+        DateTime lastHook = DateTime.UtcNow, lastReinstall = DateTime.MinValue;
 
         public Capture(Action<Dictionary<string, object>> emit)
         {
@@ -51,18 +53,38 @@ namespace MacShare
         {
             mouseProc = MouseHook;
             keyProc = KeyHook;
-            IntPtr mod = Native.GetModuleHandle(null);
-            mouseHook = Native.SetWindowsHookEx(Native.WH_MOUSE_LL, mouseProc, mod, 0);
-            keyHook = Native.SetWindowsHookEx(Native.WH_KEYBOARD_LL, keyProc, mod, 0);
+            Hook();
             raw = new RawWindow(OnRawMove);
             timer.Interval = 100;
             timer.Tick += delegate { Tick(); };
             timer.Start();
         }
 
+        void Hook()
+        {
+            IntPtr mod = Native.GetModuleHandle(null);
+            if (mouseHook != IntPtr.Zero) Native.UnhookWindowsHookEx(mouseHook);
+            if (keyHook != IntPtr.Zero) Native.UnhookWindowsHookEx(keyHook);
+            mouseHook = Native.SetWindowsHookEx(Native.WH_MOUSE_LL, mouseProc, mod, 0);
+            keyHook = Native.SetWindowsHookEx(Native.WH_KEYBOARD_LL, keyProc, mod, 0);
+            lastHook = DateTime.UtcNow;
+        }
+
+        // Windows silently removes a low-level hook whose callback once took longer than
+        // LowLevelHooksTimeout. Raw input keeps coming then, but the hook isn't called: put it back.
+        void Watchdog()
+        {
+            DateTime now = DateTime.UtcNow;
+            if ((now - lastHook).TotalMilliseconds < 500 || (now - lastReinstall).TotalMilliseconds < 1000) return;
+            lastReinstall = now;
+            Hook();
+            emit(Ev("hooksReinstalled"));
+        }
+
         public void Shutdown()
         {
             if (capturing) Stop(null, 0);
+            HideCursor.Show();
             timer.Stop();
             if (mouseHook != IntPtr.Zero) Native.UnhookWindowsHookEx(mouseHook);
             if (keyHook != IntPtr.Zero) Native.UnhookWindowsHookEx(keyHook);
@@ -105,6 +127,10 @@ namespace MacShare
                 Native.POINT p;
                 Native.GetCursorPos(out p);
                 saved = new Point(p.x, p.y);
+                // Leaving: the animation where it goes, then the pointer hides and stays put for
+                // the eye (it is parked in the middle only to measure motion).
+                if (Flash != null) Flash.Play(saved, Side != null && Screens.OnOuterEdge(p.x, p.y, Side) ? Side : null, true);
+                HideCursor.Hide();
                 // Park in the middle so outward motion isn't clamped by the screen edge.
                 parked = Screens.Center();
                 Native.SetCursorPos(parked.X, parked.Y);
@@ -125,6 +151,8 @@ namespace MacShare
             {
                 Point p = side != null ? Screens.EdgePoint(side, offset) : saved;
                 Native.SetCursorPos(p.X, p.Y);
+                HideCursor.Show();
+                if (Flash != null) Flash.Play(p, side ?? (Side != null && Screens.OnOuterEdge(p.X, p.Y, Side) ? Side : null), false); // arriving
             }
             push = 0;
         }
@@ -154,6 +182,7 @@ namespace MacShare
 
         IntPtr MouseHook(int nCode, IntPtr wParam, IntPtr lParam)
         {
+            lastHook = DateTime.UtcNow;
             if (nCode < 0) return Native.CallNextHookEx(mouseHook, nCode, wParam, lParam);
             Native.MSLLHOOKSTRUCT m = (Native.MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(Native.MSLLHOOKSTRUCT));
             if ((m.flags & Native.LLMHF_INJECTED) != 0 && m.dwExtraInfo == Native.MARK)
@@ -280,6 +309,7 @@ namespace MacShare
 
         void OnRawMove(int dx, int dy)
         {
+            Watchdog();
             if (capturing) return;
             Native.POINT p;
             Native.GetCursorPos(out p);
@@ -312,6 +342,7 @@ namespace MacShare
             retPush += outward;
             if (retPush < retResistance) return;
             retArmed = false;
+            if (Flash != null) Flash.Play(new Point(x, y), retSide, true); // leaving this PC for the Mac
             Dictionary<string, object> d = Ev("return");
             d["offset"] = Math.Round(Screens.Offset(x, y, retSide), 4);
             emit(d);

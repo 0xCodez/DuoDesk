@@ -40,7 +40,7 @@ function interpret(payload) {
   const blocked = blocks.some((p) => touches(p, active.length ? active : ['Domain', 'Private', 'Public']));
   const covered = allows.length > 0 && lanProfiles.every((name) => allows.some((p) => touches(p, [name])));
   const publicNets = lan.filter((n) => n.category === 'Public').map((n) => ({ index: n.index, alias: n.alias }));
-  let message = 'OK — the network is Private and MacShare is allowed through the firewall.';
+  let message = 'OK';
   if (!lan.length) message = 'No network connection.';
   else if (publicNets.length) message = 'The network "' + publicNets[0].alias + '" is Public, so Windows blocks the Mac’s broadcasts.';
   else if (blocked) message = 'A Windows Firewall rule blocks MacShare.';

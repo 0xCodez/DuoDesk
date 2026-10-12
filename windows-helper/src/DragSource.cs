@@ -388,6 +388,11 @@ namespace MacShare
             return Global(b);
         }
 
+        public static void Nudge()
+        {
+            mouse_event(0x0001 /* MOVE */, 0, 0, 0, Native.MARK);
+        }
+
         // Left button, marked as ours (the capture hooks skip it).
         public static void Button(bool down)
         {

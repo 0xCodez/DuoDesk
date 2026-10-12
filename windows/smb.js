@@ -149,7 +149,7 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
 `);
       this.message = '';
     } catch (e) {
-      this.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined — the share is still there' : e.message;
+      this.message = /cancel/i.test(e.message) ? 'Cancelled. The folder is still shared.' : e.message;
     }
     try { fs.unlinkSync(this.credFile); } catch (_) { /* none */ }
     this.cfg.shareOn = false;

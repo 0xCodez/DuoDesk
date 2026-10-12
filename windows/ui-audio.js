@@ -8,7 +8,7 @@ UI.tab({
   order: 70,
   title: 'Audio',
   color: 'linear-gradient(#ff6482, #ff2d55)',
-  desc: 'Hear one computer’s sound on the other — each direction on its own.',
+  desc: 'Hear one computer on the other.',
   badge: (s) => (s.audio.receiving || s.audio.sending ? 'on' : ''),
   build(body) {
     const { api } = UI;
@@ -19,21 +19,18 @@ UI.tab({
     const sendState = UI.row('', '');
     const pair = UI.dirCards(
       { on: { get: (s) => s.audio.receive, set: (v) => set({ receive: v }) }, rows: [
-        UI.row('Play the Mac’s sound here', 'On this PC’s speakers or headphones'),
-        UI.row('Volume', 'Windows’ own volume still applies', [volume]),
+        UI.row('Play the Mac’s sound here', ''),
+        UI.row('Volume', '', [volume]),
         recvState,
       ] },
       { on: { get: (s) => s.audio.send, set: (v) => set({ send: v }) }, rows: [
-        UI.row('Send this PC’s sound to the Mac', 'Everything this PC plays'),
-        UI.row('Mute this PC while sending', 'Sound only comes out of the Mac', [mute]),
+        UI.row('Send this PC’s sound', ''),
+        UI.row('Mute this PC while sending', '', [mute]),
         sendState,
       ] },
     );
     body.append(
       pair.el,
-      UI.card('Good to know', [
-        UI.row('Low latency, its own stream', 'Sound travels separately from the screen (Opus, stereo), so a sound-only setup has no video delay. Screen sound — in sync with Monitor 2 — is an option in Display.'),
-      ], { cls: 'keep-on' }),
     );
     return (s) => {
       const a = s.audio;
@@ -41,10 +38,11 @@ UI.tab({
       pair.update(s);
       volume.set(a.volume);
       mute.set(a.muteLocal);
-      recvState.label.textContent = !a.receive ? 'Off' : a.receiving ? 'Playing the Mac’s sound' : 'Waiting for the Mac';
-      recvState.setHint(a.receive && !a.receiving ? 'Starts when the Mac turns on “Send this Mac’s sound” (Mac: Audio tab).' : '');
-      sendState.label.textContent = !a.send ? 'Off' : a.sending ? 'Sending to the Mac' : !connected ? 'Waiting for the Mac' : !a.macAccepts ? 'The Mac isn’t playing it' : 'Starting…';
-      sendState.setHint(a.error || (a.send && connected && !a.macAccepts ? 'Turn on “Play the PC’s sound” on the Mac (Audio tab).' : ''));
+      recvState.hidden = !a.receive;
+      recvState.label.textContent = a.receiving ? 'Playing your Mac' : connected ? 'Turned off on the Mac' : 'Waiting for your Mac';
+      sendState.hidden = !a.send && !a.error;
+      sendState.label.textContent = a.sending ? 'Playing on your Mac' : !connected ? 'Waiting for your Mac' : !a.macAccepts ? 'Turned off on the Mac' : 'Connecting…';
+      sendState.setHint(a.error || '');
     };
   },
 });

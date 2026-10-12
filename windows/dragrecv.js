@@ -139,6 +139,10 @@ class DragRecv {
     setTimeout(() => this.cur === c && c.state === 'dropping' && this.helper.send('dragDrop', { drag: c.drag }), 400);
   }
 
+  get dragging() {
+    return !!(this.cur && this.cur.state === 'dragging');
+  }
+
   // Input went back to the Mac before the drop: the drag is cancelled (a drop being copied goes on).
   onHome() {
     if (this.cur && this.cur.state === 'dragging') this.cancel('cancelled', false);

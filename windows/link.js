@@ -139,7 +139,7 @@ class Link {
     }
     if (!seenFp || seenFp !== this.pairing.fp) {
       this._closeSocket();
-      this._setStatus('identity_changed', "This Mac's identity changed — forget it and pair again.");
+      this._setStatus('identity_changed', 'This Mac looks different now. Forget it and pair again.');
       return;
     }
     this._hello();
@@ -244,7 +244,7 @@ class Link {
     if (this.mode === 'pair') return this._pairFailed(PAIR_ERRORS[code] || 'Pairing failed (' + code + ').');
     if (code === P.E.BAD_TOKEN) {
       this.forget();
-      this._setStatus('not_paired', 'The Mac no longer knows this PC — pair again.');
+      this._setStatus('not_paired', 'Your Mac forgot this PC. Pair again.');
       return;
     }
     if (code === P.E.VERSION_MISMATCH) this.lastError = PAIR_ERRORS[code];

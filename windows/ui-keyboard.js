@@ -13,40 +13,29 @@ UI.tab({
   badge: (s) => (s.kvm.keyboard ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
-    const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Cmd' });
-    const modeRow = UI.row('How you switch', '');
+    const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Command' });
+    const kbd = (t) => el('kbd', { text: t });
     const status = UI.inputStatus();
     const pair = UI.dirCards(
       { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, rows: [
-        UI.row('The Mac’s keyboard can type here', 'While the Mac drives this PC'),
-        UI.row('Swap Ctrl and Cmd', 'Cmd+C on the Mac acts as Ctrl+C here; Control as the Windows key; Option as Alt', [swap]),
+        UI.row('Switch computers', 'Double-tap Right Option on the Mac'),
+        UI.row('⌘ works as Ctrl', 'So ⌘C copies here', [swap]),
       ] },
       { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, rows: [
-        UI.row('This PC’s keyboard can type on the Mac', 'Ctrl+C here acts as Cmd+C there (the Mac swaps)'),
-        modeRow,
+        UI.row('Switch computers', 'Double-tap', [kbd('Right Ctrl')]),
+        UI.row('Shortcuts on the Mac', 'Ctrl works as ⌘, so Ctrl+C copies there'),
       ] },
     );
 
     body.append(
       pair.el,
       UI.card('Right now', [status], { cls: 'keep-on' }),
-      UI.card('For both directions', [
-        UI.row('Hotkey', 'Double-tap Right Ctrl to send keyboard and mouse to the Mac, and again to bring them back (the Mac uses Right Option)', [
-          el('span', { class: 'keys' }, [el('kbd', { text: 'Right Ctrl' }), el('kbd', { text: 'Right Ctrl' })]),
-        ]),
-      ]),
-      UI.card('Good to know', [
-        UI.row('Keys Windows keeps', 'The Windows key, Alt+Tab, Ctrl+Alt+Del and Alt+F4 always act on this PC.'),
-        UI.row('Admin windows', 'Windows doesn’t let MacShare type into administrator windows or UAC prompts.'),
-      ], { cls: 'keep-on' }),
     );
 
     return (s) => {
       pair.update(s);
       status.update(s);
       swap.set(s.keys.swapCtrlCmd);
-      modeRow.setHint(s.kvm.mouse ? 'Push the pointer through the edge, or use the hotkey.'
-        : 'Cursor sharing is off, so only the hotkey switches (the pointer stays here).');
     };
   },
 });

@@ -12,6 +12,35 @@ private let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 
 private func now() -> Double { ProcessInfo.processInfo.systemUptime }
 
+// Hiding the pointer from a background process needs the window server's "SetsCursorInBackground"
+// connection property (private; the same call Synergy/Barrier-style tools use).
+@_silgen_name("_CGSDefaultConnection") private func _CGSDefaultConnection() -> Int32
+@_silgen_name("CGSSetConnectionProperty")
+private func CGSSetConnectionProperty(_ cid: Int32, _ target: Int32, _ key: CFString, _ value: CFTypeRef) -> CGError
+
+/// The pointer is hidden on this Mac while it is on the other computer. Balanced: one hide, one show.
+enum PointerVisibility {
+  private static var hidden = false
+  private static var allowed = false
+
+  static func hide() {
+    guard !hidden else { return }
+    if !allowed {
+      let cid = _CGSDefaultConnection()
+      _ = CGSSetConnectionProperty(cid, cid, "SetsCursorInBackground" as CFString, kCFBooleanTrue)
+      allowed = true
+    }
+    CGDisplayHideCursor(CGMainDisplayID())
+    hidden = true
+  }
+
+  static func show() {
+    guard hidden else { return }
+    CGDisplayShowCursor(CGMainDisplayID())
+    hidden = false
+  }
+}
+
 final class Capture {
   static let shared = Capture()
 
@@ -25,6 +54,7 @@ final class Capture {
   // capture
   private(set) var capturing = false
   private var capMouse = false, capKeyboard = false
+  private var pinnedAt: CGPoint?            // where the pointer stays (hidden) while it is on the other computer
   private var lastCommand = 0.0
   private var deadman: Timer?
   // edge / return edge push
@@ -78,7 +108,14 @@ final class Capture {
     capturing = true
     capMouse = mouse
     capKeyboard = keyboard
-    if mouse { CGAssociateMouseAndMouseCursorPosition(0) } // pointer frozen, deltas still arrive
+    if mouse {
+      CGAssociateMouseAndMouseCursorPosition(0) // pointer frozen, deltas still arrive
+      pinnedAt = CGEvent(source: nil)?.location
+      // Hide it once the leaving animation and a drag hand-off at the edge had their moment.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+        if let self = self, self.capturing, self.capMouse { PointerVisibility.hide() }
+      }
+    }
     touch()
     deadman?.invalidate()
     deadman = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -94,7 +131,15 @@ final class Capture {
     deadman?.invalidate()
     deadman = nil
     if capMouse { CGAssociateMouseAndMouseCursorPosition(1) }
-    if let side = side, let offset = offset { warp(Screens.edgePoint(side: side, offset: offset)) }
+    pinnedAt = nil
+    PointerVisibility.show()
+    if let side = side, let offset = offset {
+      let p = Screens.edgePoint(side: side, offset: offset)
+      warp(p)
+      Flash.shared.arrive(at: p, side: side) // back on this Mac
+    } else {
+      Flash.shared.arrive(at: CGEvent(source: nil)?.location ?? .zero, side: nil)
+    }
     swallowUps.formUnion(remoteDown)
     remoteDown.removeAll()
     edge.push = 0
@@ -115,6 +160,7 @@ final class Capture {
   func checkReturn(_ p: CGPoint, dx: Double, dy: Double) {
     guard let side = returnSide, let off = Capture.push(&ret, p, dx, dy, side, returnResistance) else { return }
     returnSide = nil
+    Flash.shared.leave(at: p, side: side)
     emit(["event": "return", "offset": off])
   }
 
@@ -210,6 +256,11 @@ final class Capture {
     if isDown { hkStage = 0 }
 
     if capturing && capMouse {
+      // Keep the hidden pointer where it left, even if the freeze lapsed (it moved on its own before).
+      if let pin = pinnedAt, abs(e.location.x - pin.x) > 0.5 || abs(e.location.y - pin.y) > 0.5 {
+        CGWarpMouseCursorPosition(pin)
+        CGAssociateMouseAndMouseCursorPosition(0)
+      }
       if isDown || isUp {
         let b = type == .leftMouseDown || type == .leftMouseUp ? 0
           : type == .rightMouseDown || type == .rightMouseUp ? 1 : Int(e.getIntegerValueField(.mouseEventButtonNumber))
@@ -242,6 +293,7 @@ final class Capture {
         buttonsHeld = 0
         startCapture(mouse: true, keyboard: cfgKeyboard)
         DragIn.shared.swallowLocalDrag(at: e.location) // Finder's drag ends here, quietly
+        Flash.shared.leave(at: e.location, side: side)
         emit(["event": "edge", "offset": off, "drag": ["paths": paths]])
         return true
       }
@@ -250,6 +302,7 @@ final class Capture {
       if !capturing, edgeEnabled, buttonsHeld == 0,
          let off = Capture.push(&edge, e.location, dx, dy, side, resistance) {
         startCapture(mouse: true, keyboard: cfgKeyboard) // capture first, so no motion leaks
+        Flash.shared.leave(at: e.location, side: side)
         emit(["event": "edge", "offset": off])
         return true
       }

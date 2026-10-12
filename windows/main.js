@@ -150,7 +150,7 @@ function pushState() {
     if (phase === 'code' && lastPairPhase !== 'code') showMain();
     lastPairPhase = phase;
     if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('state', s);
-    if (tray) tray.setToolTip('MacShare — ' + statusLine(s));
+    if (tray) tray.setToolTip('MacShare: ' + statusLine(s));
     const canMonitor = s.link.state === 'connected';
     if (trayMenu && trayMenu.getMenuItemById('monitor').enabled !== canMonitor) {
       trayMenu.getMenuItemById('monitor').enabled = canMonitor;
@@ -234,7 +234,7 @@ function statusLine(s) {
     case 'connected': return 'Connected to ' + s.link.macName;
     case 'connecting': return 'Connecting…';
     case 'reconnecting': return 'Reconnecting…';
-    case 'identity_changed': return "Mac's identity changed";
+    case 'identity_changed': return 'Pair again';
     default: return 'Not paired';
   }
 }
@@ -293,7 +293,7 @@ function createTray() {
   tray.setToolTip('MacShare');
   trayMenu = Menu.buildFromTemplate([
     { label: 'Open MacShare', click: showMain },
-    { id: 'monitor', label: 'Open Monitor 2', enabled: false, click: () => screen.open(false) },
+    { id: 'monitor', label: 'Show the Mac’s screen', enabled: false, click: () => screen.open(false) },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
   ]);

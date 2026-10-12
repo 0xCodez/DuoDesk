@@ -38,7 +38,9 @@ namespace MacShare
             capture = new Capture(Emit);
             injector = new Injector();
             injector.Moved = capture.FeedReturn;
+            HideCursor.Restore(); // in case a crash left the cursors blank
             capture.Start();
+            capture.Flash = new Flash();
             AppWindows.Watch(delegate { Dictionary<string, object> e = new Dictionary<string, object>(); e["event"] = "winShown"; Emit(e); }); // phase 13: menus
             dropEdge = new DropEdge(capture, Emit); // file drags across the edge (shown only while dragging)
 
@@ -135,8 +137,10 @@ namespace MacShare
                         else capture.Stop(Json.Has(c, "offset") ? Json.Str(c, "side", null) : null, Json.Num(c, "offset", 0));
                         break;
                     case "place":
-                        Point p = Json.Bool(c, "center", false) ? Screens.Center() : Screens.EdgePoint(Json.Str(c, "side", "left"), Json.Num(c, "offset", 0.5));
+                        bool center = Json.Bool(c, "center", false);
+                        Point p = center ? Screens.Center() : Screens.EdgePoint(Json.Str(c, "side", "left"), Json.Num(c, "offset", 0.5));
                         Native.SetCursorPos(p.X, p.Y);
+                        capture.Flash.Play(p, center ? null : Json.Str(c, "side", "left"), false); // the Mac arrives here
                         break;
                     case "armReturn":
                         capture.ArmReturn(Json.Bool(c, "on", false), Json.Str(c, "side", null), Json.Num(c, "resistancePx", 120));
@@ -192,7 +196,13 @@ namespace MacShare
                         }
                         break;
                     case "dragDrop": if (drag != null && drag.Id == Json.Str(c, "drag", "")) drag.DropRequested = true; break;
-                    case "dragCancel": if (drag != null && drag.Id == Json.Str(c, "drag", "")) drag.CancelRequested = true; break;
+                    case "dragCancel":
+                        if (drag != null && drag.Id == Json.Str(c, "drag", ""))
+                        {
+                            drag.CancelRequested = true;
+                            Native2.Nudge(); // a 0-px move, so the drag loop asks again right away
+                        }
+                        break;
                     case "winRaise": AppWindows.Raise(Json.Num(c, "wid", 0)); break;
                     case "winClose": AppWindows.Close(Json.Num(c, "wid", 0)); break;
                     case "winSize": AppWindows.Resize(Json.Num(c, "wid", 0), (int)Json.Num(c, "w", 0), (int)Json.Num(c, "h", 0)); break;

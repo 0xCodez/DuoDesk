@@ -8,7 +8,7 @@ UI.tab({
   order: 40,
   title: 'Clipboard',
   color: 'linear-gradient(#64d2ff, #30b0c7)',
-  desc: 'Copy on one computer, paste on the other. Text only for now; images and files come later.',
+  desc: 'Copy on one computer, paste on the other.',
   master: { get: (s) => s.clipboard.enabled, set: (v) => UI.api.setClipboard({ enabled: v }) },
   badge: (s) => (!s.clipboard.enabled ? '' : s.link.state === 'connected' && !s.clipboard.peerAccepts ? 'warn' : 'on'),
   build(body) {
@@ -32,10 +32,10 @@ UI.tab({
     ], (v) => set({ historySize: Number(v) }));
     const pair = UI.dirCards(
       { on: { get: (s) => s.clipboard.receive, set: (v) => set({ receive: v }) }, rows: [
-        UI.row('Accept the Mac’s clipboard', 'Text copied on the Mac can be pasted here'),
+        UI.row('Paste what you copy on the Mac', ''),
       ] },
       { on: { get: (s) => s.clipboard.send, set: (v) => set({ send: v }) }, rows: [
-        UI.row('Send this PC’s clipboard', 'Text you copy here can be pasted on the Mac'),
+        UI.row('Send what you copy here', ''),
         peerRow,
       ] },
     );
@@ -45,11 +45,11 @@ UI.tab({
 
     body.append(
       pair.el,
-      UI.card('Timing', [modeRow]),
-      UI.card('Privacy and limits', [
-        UI.row('Skip passwords', 'Never send items that password managers mark as private (1Password, Bitwarden, KeePass…)', [concealed]),
-        UI.row('Largest item', 'Bigger copies stay on this computer', [maxKB]),
-        UI.row('Remember recent items', 'Kept in memory only, never saved to disk', [historySize]),
+      UI.card('', [modeRow]),
+      UI.card('Privacy', [
+        UI.row('Skip passwords', 'From password managers', [concealed]),
+        UI.row('Largest item', '', [maxKB]),
+        UI.row('Recent items', 'Never saved to disk', [historySize]),
       ]),
       skipNote,
       UI.card('Recent', [list], { actions: [clearBtn] }),
@@ -60,16 +60,14 @@ UI.tab({
       const c = s.clipboard;
       pair.update(s);
       mode.set(c.mode);
-      modeRow.setHint(c.mode === 'instant'
-        ? 'Everything you copy here goes to the Mac right away (while connected).'
-        : 'Sent when you move into or out of Monitor 2, or cross the screen edge. Nothing leaves while you stay put.');
+      modeRow.setHint(c.mode === 'instant' ? 'As soon as you copy' : 'When you move to the other computer');
       concealed.set(c.skipConcealed);
       maxKB.set(c.maxKB);
       historySize.set(c.historySize);
       const refused = s.link.state === 'connected' && !c.peerAccepts;
       peerRow.hidden = !refused;
-      peerRow.label.textContent = 'The Mac doesn’t accept it';
-      peerRow.setHint('Turned off in the Mac app (its Clipboard tab).');
+      peerRow.label.textContent = 'Turned off on the Mac';
+      peerRow.setHint('');
       skipNote.set(c.enabled && c.lastSkip ? 'Last item not sent: ' + c.lastSkip + '.' : '');
       clearBtn.disabled = !c.history.length;
 
@@ -85,7 +83,7 @@ UI.tab({
           ]),
           UI.button('Copy', () => api.copyHistory(i), 'small'),
         ]))
-        : [UI.row(c.historySize ? 'Nothing yet' : 'History is off', c.historySize ? 'Copied text that goes between the computers shows up here.' : 'Turn on “Remember recent items” to see what was shared.')]));
+        : [UI.row(c.historySize ? 'Nothing yet' : 'Recent items are off', '')]));
     };
   },
 });

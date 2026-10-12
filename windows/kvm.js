@@ -58,7 +58,7 @@ class Kvm {
     helper.on('ready', () => {
       this.applyConfig();
       // A restarted helper has lost its state: nothing is captured or armed any more.
-      if (this.mode === 'driving') this._release('MacShare’s helper restarted');
+      if (this.mode === 'driving') this._release('');
       else if (this.mode === 'driven') this._drivenHome('MacShare’s helper restarted', true);
     });
     helper.on('event', (name, msg) => this._onHelper(name, msg));
@@ -125,15 +125,18 @@ class Kvm {
         {
           // A file/folder drag crossed (revision 3): the Mac shows it as its own drag; the data follows.
           const paths = msg.drag && Array.isArray(msg.drag.paths) && this._dragsOut() ? msg.drag.paths.filter((p) => typeof p === 'string') : [];
-          const drag = paths.length ? this.fileDrop.startDrag(paths) : null;
-          this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(drag ? { drag } : {}) });
-          if (drag) this.dragPending = true;
+          const drag = paths.length ? this.fileDrop.prepareDrag(paths) : null;
+          this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(drag ? { drag: { count: drag.count } } : {}) });
+          if (drag) { // order: kvm.take, drag.start, then the files
+            this.fileDrop.beginDrag(drag);
+            this.dragPending = true;
+          }
         }
         break;
       case 'hotkey':
         if (this.mode === 'home') { // row 2
           if (!this._canDrive()) {
-            if (this.connected && !this.cfg.driveOther) this._note('Using this PC’s keyboard and mouse on the Mac is off');
+            if (this.connected && !this.cfg.driveOther) this._note('Mouse and keyboard to the Mac is off');
             return;
           }
           this.helper.send('capture', { on: true, mouse: !!this.cfg.mouse, keyboard: !!this.cfg.keyboard });
@@ -154,7 +157,7 @@ class Kvm {
         }
         break;
       case 'captureEnded': // dead-man or a local stop: input is back here
-        if (this.mode === 'driving') this._release(msg.reason === 'deadman' ? 'Input came back (safety timer)' : '');
+        if (this.mode === 'driving') this._release(msg.reason === 'deadman' ? '' : '');
         break;
     }
   }
@@ -168,7 +171,7 @@ class Kvm {
     this._clearAccept();
     const route = this.route;
     this.acceptTimer = setTimeout(() => {
-      if (this.mode === 'driving' && this.route === route) this._goHome("The Mac didn't answer");
+      if (this.mode === 'driving' && this.route === route) this._goHome('Your Mac didn’t answer');
     }, P.KVM_TAKE_TIMEOUT_MS);
   }
 
@@ -208,7 +211,7 @@ class Kvm {
     }
     if (!this.cfg.beDriven) { // row 7
       this.link.send({ t: T.KVM_REFUSE, route, why: P.REFUSE.NOT_ALLOWED });
-      this._note('The Mac tried to take over this PC (turned off here)');
+      this._note('The Mac tried to use this PC. It’s turned off here.');
       return;
     }
     this.peerRoute = route;
@@ -235,6 +238,7 @@ class Kvm {
       ev.dx = -(Number(ev.dx) || 0);
       ev.dy = -(Number(ev.dy) || 0);
     }
+    if (ev.t === T.K_KEY_DOWN && ev.code === 'Escape' && this.dragRecv && this.dragRecv.dragging) this.dragRecv.cancel('cancelled', false);
     this.helper.send('inject', { ev });
     // The Mac released its left button here: its drag drops where the pointer is.
     if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) { this.fileRecv.onRelease(); if (this.dragRecv) this.dragRecv.onRelease(); }

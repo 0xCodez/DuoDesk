@@ -60,7 +60,7 @@ async function onOffer(msg) {
   };
   my.onconnectionstatechange = () => {
     if (my !== pc) return;
-    if (my.connectionState === 'failed') setOverlay('The video connection failed — waiting for the Mac to retry…');
+    if (my.connectionState === 'failed') setOverlay('Reconnecting…');
     else if (my.connectionState === 'disconnected') setOverlay('The video connection was interrupted…');
     else if (my.connectionState === 'connected' && video.readyState >= 2) setOverlay('');
   };
@@ -155,7 +155,7 @@ function startTestPattern() {
     g.fillRect(x, h / 2 - 100, 200, 200);
     g.fillStyle = '#ffffff';
     g.font = '48px Segoe UI, sans-serif';
-    g.fillText('MacShare test pattern — 1920×1080 — frame ' + frame, 60, 100);
+    g.fillText('MacShare test pattern, 1920×1080, frame ' + frame, 60, 100);
     g.font = '20px Consolas, monospace';
     g.fillText('The quick brown fox jumps over the lazy dog 0123456789', 60, 150);
     frame++;
