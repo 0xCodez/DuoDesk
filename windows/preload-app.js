@@ -19,4 +19,7 @@ contextBridge.exposeInMainWorld('macshare', {
   copyHistory: call('copyHistory'),
   clearHistory: call('clearHistory'),
   setTab: call('setTab'),
+  checkFirewall: call('checkFirewall'),
+  fixFirewall: call('fixFirewall'),
+  setStartup: call('setStartup'),
 });

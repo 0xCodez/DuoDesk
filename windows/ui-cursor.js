@@ -1,6 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Cursor tab: where the Mac is (set on the Mac), directions, resistance, speed, scrolling.
-// Settings are saved now; crossing arrives in phases 4–5 (docs/KVM.md).
+// Behaviour: docs/KVM.md (kvm.js + windows-helper).
 'use strict';
 
 UI.tab({
@@ -33,9 +33,10 @@ UI.tab({
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => (v ? v + ' px' : 'None') }, (v) => set({ resistancePx: v }));
     const speed = UI.slider({ min: 0.25, max: 3, step: 0.05, format: (v) => v.toFixed(2) + '×' }, (v) => set({ speed: v }));
     const reverse = UI.switch((v) => set({ reverseScroll: v }), { label: 'Reverse scrolling' });
+    const status = UI.inputStatus();
 
     body.append(
-      UI.note('info', 'Crossing the edge comes in phases 4–5. Your settings are saved now.'),
+      UI.card('Right now', [status], { cls: 'keep-on' }),
       el('div', { class: 'card-title', text: 'Layout' }),
       layout,
       UI.card('Directions', [
@@ -60,6 +61,7 @@ UI.tab({
       });
       layoutHint.textContent = side ? 'The Mac is to the ' + side + ' of this PC. Change it on the Mac (Cursor tab).'
         : 'Shown once connected. Set it on the Mac (Cursor tab).';
+      status.update(s);
       drive.set(k.driveOther);
       driven.set(k.beDriven);
       resistance.set(k.resistancePx);

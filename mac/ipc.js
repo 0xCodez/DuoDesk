@@ -28,6 +28,7 @@ const SCHEMA = {
     resistancePx: (v) => Math.round(clamp(0, 400, 120)(v)), speed: clamp(0.25, 4, 1), reverseScroll: bool,
   },
   keys: { swapCtrlCmd: bool },
+  app: { openAtLogin: bool, keepAwake: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'switch'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -97,7 +98,14 @@ function setupIpc(ctx) {
       ctx.stream.restart('bitrate changed');
     },
     setKvm(partial) {
-      setGroup('kvm', partial); // behaviour arrives in phases 4–5 (kvm.js)
+      const prev = { ...settings.kvm };
+      setGroup('kvm', partial);
+      ctx.kvm.settingsChanged(prev);
+    },
+    setApp(partial) {
+      setGroup('app', partial);
+      ctx.login.apply(settings.app.openAtLogin);
+      ctx.updateAwake();
     },
     setKeys(partial) {
       setGroup('keys', partial);

@@ -1,6 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Keyboard tab: share the keyboard, hotkey, Ctrl ↔ Cmd swap for keys arriving from the Mac.
-// Settings are saved now; the behaviour arrives in phases 4–5 (docs/KVM.md).
+// Behaviour: docs/KVM.md (kvm.js + windows-helper).
 'use strict';
 
 UI.tab({
@@ -15,9 +15,10 @@ UI.tab({
     const { el, api } = UI;
     const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Cmd' });
     const modeRow = UI.row('How you switch', '');
+    const status = UI.inputStatus();
 
     body.append(
-      UI.note('info', 'Sharing the keyboard comes in phases 4–5. Your settings are saved now.'),
+      UI.card('Right now', [status], { cls: 'keep-on' }),
       UI.card('Switching', [
         UI.row('Hotkey', 'Double-tap Right Ctrl to send keyboard and mouse to the Mac, and again to bring them back', [
           el('span', { class: 'keys' }, [el('kbd', { text: 'Right Ctrl' }), el('kbd', { text: 'Right Ctrl' })]),
@@ -34,6 +35,7 @@ UI.tab({
     );
 
     return (s) => {
+      status.update(s);
       swap.set(s.keys.swapCtrlCmd);
       modeRow.setHint(s.kvm.mouse ? 'Push the pointer through the edge, or use the hotkey.'
         : 'Cursor sharing is off, so only the hotkey switches (the pointer stays here).');

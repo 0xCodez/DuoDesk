@@ -9,11 +9,11 @@ UI.tab({
   title: 'Cursor',
   desc: 'Push the pointer through the screen edge and it moves onto the other computer.',
   color: 'linear-gradient(#ffb340, #ff9500)',
-  phase: '4–5',
   master: { get: (s) => s.kvm && s.kvm.mouse, set: (v) => UI.api.setKvm({ mouse: v }) },
   badge: (s) => (s.kvm && s.kvm.mouse ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
+    const status = UI.note('info', '');
 
     // Layout picker: the Mac in the middle, a slot on each side for the PC.
     const slots = {};
@@ -38,7 +38,7 @@ UI.tab({
     const reverse = UI.switch((v) => api.setKvm({ reverseScroll: v }), { label: 'Reverse scrolling' });
 
     body.append(
-      UI.note('info', 'Arrives in phase 4. Your choices here are saved and used as soon as it lands.'),
+      status,
       UI.card('Arrangement', [el('div', { class: 'layout' }, [grid, layoutHint])]),
       UI.card('Directions', [
         UI.row('Use this Mac’s trackpad and mouse on the PC', 'Push through the edge facing the PC', [drive]),
@@ -54,6 +54,9 @@ UI.tab({
     return (s) => {
       const k = s.kvm;
       if (!k) return;
+      const [kind, text] = UI.kvmStatus(s);
+      status.className = `note ${kind}`;
+      status.set(text);
       for (const [side, b] of Object.entries(slots)) {
         b.classList.toggle('on', k.pcSide === side);
         b.textContent = k.pcSide === side ? 'PC' : '';

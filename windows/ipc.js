@@ -4,9 +4,10 @@ const { ipcMain } = require('electron');
 const P = require('../shared/protocol.js');
 const { apply } = require('./settings');
 
-// ctx: link, discovery, screen, clip, settings, save(), push(), buildState()
+// ctx: link, discovery, screen, clip, kvm, settings, save(), push(), buildState(),
+//      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -33,13 +34,16 @@ function setupIpc(ctx) {
   handle('forget', () => link.forget());
   handle('openMonitor', () => screen.open(false));
 
-  handle('setKvm', (partial) => change('kvm', partial)); // behaviour in phases 4–5
+  handle('setKvm', (partial) => change('kvm', partial, () => kvm.applyConfig()));
   handle('setKeys', (partial) => change('keys', partial));
   handle('setMonitor', (partial) => change('monitor', partial));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));
   handle('clearHistory', () => clip.clearHistory());
   handle('setTab', (tab) => change('ui', { tab })); // invalid names fall back in normalize()
+  handle('checkFirewall', () => ctx.checkFirewall());
+  handle('fixFirewall', () => ctx.fixFirewall());
+  handle('setStartup', (on) => ctx.setStartup(on === true));
 }
 
 module.exports = setupIpc;

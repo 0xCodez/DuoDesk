@@ -49,7 +49,34 @@ func handle(_ line: String) {
     return
   }
   let id = msg["id"]
+  Capture.shared.touch() // every command is a keepalive for the capture dead-man
+  let num = { (k: String, d: Double) in (msg[k] as? NSNumber)?.doubleValue ?? d }
   switch cmd {
+  case "kvmConfig":
+    guard Capture.shared.startTap() else { return replyError(id, "event tap failed (Accessibility / Input Monitoring)") }
+    Capture.shared.configure(side: (msg["side"] as? String) ?? "right", resistance: num("resistancePx", 120),
+                             edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true)
+    reply(id)
+  case "capture":
+    if (msg["on"] as? Bool) == true {
+      Capture.shared.startCapture(mouse: (msg["mouse"] as? Bool) ?? true, keyboard: (msg["keyboard"] as? Bool) ?? true)
+    } else {
+      Capture.shared.stopCapture(side: msg["side"] as? String, offset: (msg["offset"] as? NSNumber)?.doubleValue)
+    }
+    reply(id)
+  case "keepalive":
+    break
+  case "place":
+    let center = (msg["center"] as? Bool) == true
+    Capture.shared.warp(Screens.edgePoint(side: center ? nil : msg["side"] as? String,
+                                          offset: center ? nil : (msg["offset"] as? NSNumber)?.doubleValue))
+    reply(id)
+  case "armReturn":
+    Capture.shared.armReturn(on: (msg["on"] as? Bool) ?? false, side: (msg["side"] as? String) ?? "right",
+                             resistance: num("resistancePx", 120))
+    reply(id)
+  case "inject":
+    if let ev = msg["ev"] as? [String: Any] { injector.injectRel(ev) }
   case "ping":
     reply(id)
   case "permissions":
@@ -97,6 +124,7 @@ DispatchQueue.global().async {
     DispatchQueue.main.async { handle(line) }
   }
   DispatchQueue.main.async {
+    Capture.shared.stopCapture(side: nil, offset: nil)
     injector.releaseAll()
     virtualDisplay.destroy()
     exit(0)

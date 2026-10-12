@@ -11,6 +11,9 @@ const Link = require('./link');
 const Screen = require('./screen');
 const Clip = require('./clip');
 const setupIpc = require('./ipc');
+const Helper = require('./helper');
+const Kvm = require('./kvm');
+const firewall = require('./firewall');
 const { normalize } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
@@ -32,7 +35,11 @@ let settings = null;
 let device = null;
 let screen = null;
 let clip = null;
-let pcSide = null; // from kvm.layout: where the PC is, seen from the Mac
+let helper = null;
+let kvm = null;
+let lastMode = 'home';
+let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check (phase 6)
+const startHidden = process.argv.includes('--hidden'); // started at sign-in: tray only
 let lastPairPhase = null;
 
 function loadDevice() {
@@ -64,26 +71,28 @@ function start() {
     resolveAddress: (macId) => discovery.get(macId),
   });
   link.onState(pushState);
-  link.on(P.T.KVM_LAYOUT, (m) => {
-    if (['left', 'right', 'top', 'bottom'].includes(m.pcSide)) pcSide = m.pcSide;
-    pushState();
-  });
   clip = new Clip(link, () => settings.clipboard, pushState);
   screen = new Screen({
     link,
     clip,
-    inputAllowed: () => true, // phases 4–5: false while driving or driven
+    inputAllowed: () => !kvm || kvm.mode === 'home', // no Monitor 2 input while driving or driven
     settings,
     saveSettings,
     onChange: pushState,
     isQuitting: () => quitting,
   });
-  setupIpc({ link, discovery, screen, clip, settings, save: saveSettings, push: pushState, buildState });
+  helper = new Helper();
+  kvm = new Kvm({ link, helper, clip, settings, onChange: onKvmChange });
+  helper.on('exit', pushState);
+  helper.start();
+  setupIpc({ link, discovery, screen, clip, kvm, settings, save: saveSettings, push: pushState, buildState,
+    checkFirewall, fixFirewall, setStartup });
   nativeTheme.on('updated', pushState);
   link.start();
 
   createTray();
   createMainWindow();
+  setTimeout(checkFirewall, 3000);
   if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
 }
 
@@ -118,14 +127,56 @@ function buildState() {
     discoveryError: discovery.error,
     stream: screen.state,
     macInput: screen.macInput, // the Mac's "Receive input" switch
-    input: 'home', // phases 4–5
-    kvm: { ...settings.kvm, pcSide },
+    input: kvm.mode,
+    kvmState: kvm.view(),
+    kvm: { ...settings.kvm, pcSide: kvm.pcSide },
     keys: settings.keys,
     monitor: settings.monitor,
     clipboard: { ...settings.clipboard, ...clip.view },
     ui: settings.ui,
     version: app.getVersion(),
+    firewall: fw,
+    startup: getStartup(),
   };
+}
+
+// KVM mode changed: Monitor 2 stops/starts sending input, and the UI updates.
+function onKvmChange() {
+  if (kvm.mode !== lastMode) {
+    lastMode = kvm.mode;
+    screen.refreshInput();
+  }
+  pushState();
+}
+
+// ---- phase 6: firewall, start with Windows ----
+
+async function checkFirewall() {
+  fw = { ...fw, checking: true };
+  pushState();
+  fw = { ...(await firewall.check()), checking: false };
+  pushState();
+}
+
+async function fixFirewall() {
+  fw = { ...fw, checking: true };
+  pushState();
+  try {
+    fw = { ...(await firewall.fix(fw)), checking: false };
+  } catch (e) {
+    fw = { ...fw, checking: false, message: 'Not fixed: ' + (/cancel/i.test(e.message) ? 'the administrator prompt was declined' : e.message) };
+  }
+  pushState();
+}
+
+// In development the login item starts electron.exe with this app's folder.
+const loginItem = () => ({ path: process.execPath, args: app.isPackaged ? ['--hidden'] : [app.getAppPath(), '--hidden'] });
+function getStartup() {
+  return app.getLoginItemSettings(loginItem()).openAtLogin;
+}
+function setStartup(on) {
+  app.setLoginItemSettings({ openAtLogin: !!on, ...loginItem() });
+  pushState();
 }
 
 function saveSettings() {
@@ -167,7 +218,7 @@ function createMainWindow() {
     },
   });
   mainWin.loadFile(path.join(__dirname, 'app.html'));
-  mainWin.once('ready-to-show', () => mainWin.show());
+  mainWin.once('ready-to-show', () => { if (!startHidden) mainWin.show(); });
   mainWin.on('close', (e) => {
     saveBounds();
     if (!quitting) {
@@ -208,6 +259,7 @@ app.on('before-quit', () => {
   quitting = true;
   saveBounds();
   if (discovery) discovery.stop();
+  if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });
 
 // Closing the main window only hides it; the app lives in the tray until Quit.

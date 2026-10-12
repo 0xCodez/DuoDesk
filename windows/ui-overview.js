@@ -32,8 +32,8 @@ UI.tab({
     // Quick switches
     const quick = [
       { id: 'receive', label: 'Receive the Mac’s screen', hint: 'Monitor 2 — the Mac switches sharing on', get: (s) => s.stream.state === 'on', disabled: true },
-      { id: 'cursor', label: 'Cursor sharing', hint: 'Push the pointer across the screen edge — phase 4', get: (s) => s.kvm.mouse, set: (v) => api.setKvm({ mouse: v }) },
-      { id: 'keyboard', label: 'Keyboard sharing', hint: 'Typing follows the pointer — phase 4', get: (s) => s.kvm.keyboard, set: (v) => api.setKvm({ keyboard: v }) },
+      { id: 'cursor', label: 'Cursor sharing', hint: 'Push the pointer across the screen edge', get: (s) => s.kvm.mouse, set: (v) => api.setKvm({ mouse: v }) },
+      { id: 'keyboard', label: 'Keyboard sharing', hint: 'Typing follows the pointer (double-tap Right Ctrl)', get: (s) => s.kvm.keyboard, set: (v) => api.setKvm({ keyboard: v }) },
       { id: 'clipboard', label: 'Clipboard', hint: 'Copy on one, paste on the other', get: (s) => s.clipboard.enabled, set: (v) => api.setClipboard({ enabled: v }) },
     ].map((q) => {
       const sw = UI.switch(q.set || (() => {}), { label: q.label, disabled: !!q.disabled });
@@ -69,7 +69,7 @@ UI.tab({
         : s.pairing ? 'pairing…' : s.paired ? 'reconnecting…' : 'not connected';
       const bad = l.state === 'identity_changed';
       status.textContent = bad ? "This Mac's identity changed — forget it and pair again."
-        : connected ? WHERE[s.input] || WHERE.home
+        : connected ? (WHERE[s.input] || WHERE.home) + (s.kvmState.message ? ' — ' + s.kvmState.message : '')
           : s.paired ? 'Waiting for your Mac — open MacShare on it.'
             : 'Open MacShare on your Mac, then click Pair next to it below.';
       status.classList.toggle('bad', bad);

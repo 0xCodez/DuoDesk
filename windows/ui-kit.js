@@ -207,6 +207,22 @@ const UI = {
     });
   },
 
+  // "Right now" row for the Cursor/Keyboard tabs: where input is + the last KVM event.
+  inputStatus() {
+    const WHERE = { home: 'On this PC', driving: 'Driving the Mac', driven: 'The Mac is driving this PC' };
+    const pill = UI.el('span', { class: 'pill' });
+    const row = UI.row('Keyboard and mouse', '', [pill]);
+    row.update = (s) => {
+      const k = s.kvmState;
+      pill.textContent = WHERE[k.mode] || WHERE.home;
+      pill.className = 'pill ' + (k.mode === 'home' ? 'muted' : 'good');
+      row.setHint(k.helper && k.helper !== 'starting' ? 'Input helper: ' + k.helper
+        : s.link.state !== 'connected' ? 'Connect to your Mac to share them.'
+          : k.message || (k.mode === 'home' ? 'Double-tap Right Ctrl, or push the pointer through the edge facing the Mac.' : 'Double-tap Right Ctrl to bring them back.'));
+    };
+    return row;
+  },
+
   go(id) {
     window.dispatchEvent(new CustomEvent('macshare-go', { detail: id }));
   },

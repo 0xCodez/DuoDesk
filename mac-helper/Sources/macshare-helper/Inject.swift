@@ -1,18 +1,19 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Input injection with CGEvent: absolute stream input (`input`, phase 3) and releaseAll.
+// Relative KVM input (`inject`, phase 5) is in InjectRelative.swift.
 // Every injected event is marked with eventSourceUserData = 0x4D53 so our own tap can skip it.
 import Cocoa
 
 let injectedMark: Int64 = 0x4D53
 
 final class Injector {
-  private let source: CGEventSource?
+  let source: CGEventSource?
   private var heldKeys = Set<UInt16>()         // non-modifier keys we pressed
   private var heldMods = Set<String>()         // modifier DOM codes we pressed
   private var capsLock = false
-  private var heldButtons = Set<Int>()         // P.BUTTON values
+  var heldButtons = Set<Int>()                 // P.BUTTON values
   private var lastDown: (at: TimeInterval, point: CGPoint, button: Int, count: Int64)?
-  private var clickCount: [Int: Int64] = [:]   // button -> click state of its current press
+  var clickCount: [Int: Int64] = [:]           // button -> click state of its current press
 
   init() {
     source = CGEventSource(stateID: .hidSystemState)
@@ -20,7 +21,7 @@ final class Injector {
     source?.localEventsSuppressionInterval = 0
   }
 
-  private var flags: CGEventFlags {
+  var flags: CGEventFlags {
     var f = CGEventFlags(rawValue: 0)
     for code in heldMods {
       if let m = KeyCodes.modifiers[code] { f.insert(m.flag); f.insert(CGEventFlags(rawValue: m.device)) }
@@ -29,7 +30,7 @@ final class Injector {
     return f
   }
 
-  private func post(_ e: CGEvent?) {
+  func post(_ e: CGEvent?) {
     guard let e = e else { return }
     e.setIntegerValueField(.eventSourceUserData, value: injectedMark)
     e.post(tap: .cghidEventTap)
@@ -39,7 +40,7 @@ final class Injector {
     switch b { case 0: return .left; case 1: return .right; default: return .center }
   }
 
-  private func mouseType(_ b: Int, down: Bool) -> CGEventType {
+  func mouseType(_ b: Int, down: Bool) -> CGEventType {
     switch b {
     case 0: return down ? .leftMouseDown : .leftMouseUp
     case 1: return down ? .rightMouseDown : .rightMouseUp
@@ -47,7 +48,7 @@ final class Injector {
     }
   }
 
-  private func mouse(_ type: CGEventType, at p: CGPoint, button b: Int, clickState: Int64? = nil) {
+  func mouse(_ type: CGEventType, at p: CGPoint, button b: Int, clickState: Int64? = nil) {
     let e = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: p, mouseButton: cgButton(b))
     // P.BUTTON: 0 left, 1 right, 2 middle, 3 back, 4 forward -> CG button numbers 0, 1, 2, 3, 4.
     e?.setIntegerValueField(.mouseEventButtonNumber, value: Int64(b))
@@ -75,8 +76,21 @@ final class Injector {
       } else {
         mouse(.mouseMoved, at: p, button: 0)
       }
-    case "in.md":
-      let p = point(ev, bounds), b = (ev["b"] as? NSNumber)?.intValue ?? 0
+    case "in.md", "in.mu":
+      button((ev["b"] as? NSNumber)?.intValue ?? 0, down: t == "in.md", at: point(ev, bounds))
+    case "in.wh":
+      scroll(dx: (ev["dx"] as? NSNumber)?.doubleValue ?? 0, dy: (ev["dy"] as? NSNumber)?.doubleValue ?? 0, lines: false)
+    case "in.kd", "in.ku":
+      guard let code = ev["code"] as? String else { return }
+      key(code, down: t == "in.kd")
+    default:
+      log("input: unknown \(t)")
+    }
+  }
+
+  /// Button down/up at `p`, with the click count macOS expects for double/triple clicks.
+  func button(_ b: Int, down: Bool, at p: CGPoint) {
+    if down {
       let now = ProcessInfo.processInfo.systemUptime
       var count: Int64 = 1
       if let l = lastDown, l.button == b, now - l.at < NSEvent.doubleClickInterval,
@@ -87,24 +101,19 @@ final class Injector {
       clickCount[b] = count
       heldButtons.insert(b)
       mouse(mouseType(b, down: true), at: p, button: b, clickState: count)
-    case "in.mu":
-      let p = point(ev, bounds), b = (ev["b"] as? NSNumber)?.intValue ?? 0
+    } else {
       guard heldButtons.remove(b) != nil else { return }
       mouse(mouseType(b, down: false), at: p, button: b, clickState: clickCount[b] ?? 1)
-    case "in.wh":
-      // DOM sign: positive dy = see content further down. CG pixel scroll: negative = down.
-      let dy = (ev["dy"] as? NSNumber)?.doubleValue ?? 0, dx = (ev["dx"] as? NSNumber)?.doubleValue ?? 0
-      let clamp = { (v: Double) in Int32(max(-10000, min(10000, -v.rounded()))) }
-      let e = CGEvent(scrollWheelEvent2Source: source, units: .pixel, wheelCount: 2,
-                      wheel1: clamp(dy), wheel2: clamp(dx), wheel3: 0)
-      e?.flags = flags
-      post(e)
-    case "in.kd", "in.ku":
-      guard let code = ev["code"] as? String else { return }
-      key(code, down: t == "in.kd")
-    default:
-      log("input: unknown \(t)")
     }
+  }
+
+  /// Scroll in DOM sign (positive dy = see content further down); pixels, or lines (wheel notches).
+  func scroll(dx: Double, dy: Double, lines: Bool) {
+    let clamp = { (v: Double) in Int32(max(-10000, min(10000, -v.rounded()))) }
+    let e = CGEvent(scrollWheelEvent2Source: source, units: lines ? .line : .pixel, wheelCount: 2,
+                    wheel1: clamp(dy), wheel2: clamp(dx), wheel3: 0)
+    e?.flags = flags
+    post(e)
   }
 
   func key(_ code: String, down: Bool) {

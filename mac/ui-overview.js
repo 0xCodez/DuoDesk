@@ -32,8 +32,8 @@ UI.tab({
     const quick = [
       { id: 'share', label: 'Share this screen', hint: 'Monitor 2 on the PC', get: (s) => s.sharing && s.sharing.on, set: (v) => api.setSharing(v) },
       { id: 'share', label: 'Receive input', hint: 'The PC controls this Mac inside Monitor 2', get: (s) => s.streamInput, set: (v) => api.setStreamInput(v) },
-      { id: 'cursor', label: 'Cursor sharing', hint: 'Push the pointer across the screen edge — phase 4', get: (s) => s.kvm && s.kvm.mouse, set: (v) => api.setKvm({ mouse: v }) },
-      { id: 'keyboard', label: 'Keyboard sharing', hint: 'Typing follows the pointer — phase 4', get: (s) => s.kvm && s.kvm.keyboard, set: (v) => api.setKvm({ keyboard: v }) },
+      { id: 'cursor', label: 'Cursor sharing', hint: 'Push the pointer across the screen edge', get: (s) => s.kvm && s.kvm.mouse, set: (v) => api.setKvm({ mouse: v }) },
+      { id: 'keyboard', label: 'Keyboard sharing', hint: 'Typing follows the pointer; double-tap Right Option', get: (s) => s.kvm && s.kvm.keyboard, set: (v) => api.setKvm({ keyboard: v }) },
       { id: 'clipboard', label: 'Clipboard', hint: 'Copy on one, paste on the other', get: (s) => s.clipboard && s.clipboard.enabled, set: (v) => api.setClipboard({ enabled: v }) },
     ].map((q) => {
       const sw = UI.switch(q.set, { label: q.label });

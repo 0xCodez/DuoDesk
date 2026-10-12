@@ -1,0 +1,78 @@
+// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// Creates the helper-backed services and wires them together: display, stream, Monitor 2 input,
+// clipboard, shared cursor/keyboard. Restarts the helper if it dies (phase 6) and keeps the display
+// awake while a PC is connected.
+'use strict';
+
+const { powerSaveBlocker } = require('electron');
+const { Helper } = require('./helper');
+const { Displays } = require('./displays');
+const { Stream } = require('./stream');
+const { Input } = require('./input');
+const { Clipboard } = require('./clipboard');
+const { Kvm } = require('./kvm');
+
+function startServices({ server, getSettings, pushState, onHelperReady }) {
+  const s = getSettings;
+  const helper = new Helper();
+  const displays = new Displays(helper, s);
+  const stream = new Stream(server, displays, s);
+  let kvm = null;
+  // Stream input only when "Receive input" is on and shared input is home (docs/KVM.md).
+  const input = new Input(server, helper, displays, {
+    enabled: () => s().streamInput !== false && (!kvm || kvm.mode === 'home'),
+    swapKeys: () => s().keys.swapCtrlCmd !== false,
+  });
+  const clipboard = new Clipboard(server, helper, s);
+  kvm = new Kvm({ server, helper, getSettings: s, clipboard, input });
+
+  for (const x of [stream, clipboard, kvm]) x.on('change', pushState);
+  displays.on('change', () => {
+    input.releaseAll(); // the shared display moved or changed size mid-press
+    pushState();
+  });
+
+  // Helper lifecycle: (re)create the virtual display and restart the stream after every start.
+  helper.on('ready', () => {
+    displays.applyVirtual().then(() => stream.restart('helper started'));
+    onHelperReady();
+    pushState();
+  });
+  const exits = [];
+  helper.on('exit', () => {
+    pushState();
+    if (helper.stopping) return;
+    const now = Date.now();
+    exits.push(now);
+    while (exits.length && now - exits[0] > 30000) exits.shift();
+    const delay = exits.length <= 2 ? 1000 : exits.length <= 5 ? 3000 : 10000;
+    console.log(`[services] helper exited — restarting in ${delay / 1000} s`);
+    setTimeout(() => helper.start(), delay);
+  });
+
+  // Keep the display awake while a PC is connected.
+  let blocker = null;
+  function updateAwake() {
+    const want = s().app.keepAwake !== false && !!server.current;
+    if (want && blocker === null) blocker = powerSaveBlocker.start('prevent-display-sleep');
+    if (!want && blocker !== null) {
+      powerSaveBlocker.stop(blocker);
+      blocker = null;
+    }
+  }
+  server.on('client', updateAwake);
+  server.on('closed', updateAwake);
+
+  helper.start();
+
+  return {
+    helper, displays, stream, input, clipboard, kvm, updateAwake,
+    shutdown() {
+      kvm.shutdown();
+      stream.stop('off');
+      helper.stop(); // closes stdin: the helper exits and the virtual display goes away
+    },
+  };
+}
+
+module.exports = { startServices };

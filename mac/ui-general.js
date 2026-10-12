@@ -18,7 +18,7 @@ UI.tab({
     const PERMS = [
       { kind: 'screen', label: 'Screen Recording', note: 'Needed to share a screen' },
       { kind: 'accessibility', label: 'Accessibility', note: 'Needed for the PC to control this Mac' },
-      { kind: 'inputMonitoring', label: 'Input Monitoring', note: 'Needed to use this Mac’s keyboard on the PC (phase 4)' },
+      { kind: 'inputMonitoring', label: 'Input Monitoring', note: 'Needed to use this Mac’s keyboard on the PC' },
     ];
     const perms = PERMS.map((p) => {
       const pill = el('span', { class: 'pill' });
@@ -29,6 +29,8 @@ UI.tab({
     const helperVal = el('span', { class: 'value' });
     helperRow.querySelector('.controls').append(helperVal);
     const version = el('span', { class: 'value' });
+    const loginSw = UI.switch((v) => api.setApp({ openAtLogin: v }), { label: 'Open at login' });
+    const awakeSw = UI.switch((v) => api.setApp({ keepAwake: v }), { label: 'Keep the display awake' });
 
     body.append(
       UI.card('Permissions', [
@@ -36,8 +38,8 @@ UI.tab({
         UI.row('After granting a permission', 'macOS applies it when MacShare restarts', [UI.button('Restart MacShare', () => api.relaunch(), 'small')]),
       ]),
       UI.card('App', [
-        UI.row('Open at login', 'Start MacShare in the menu bar when you log in — phase 6', [UI.switch(() => {}, { disabled: true, label: 'Open at login' })]),
-        UI.row('Keep the display awake', 'While a PC is connected — phase 6', [UI.switch(() => {}, { disabled: true, label: 'Keep awake' })]),
+        UI.row('Open at login', 'Start MacShare in the menu bar when you log in (no window)', [loginSw]),
+        UI.row('Keep the display awake', 'While a PC is connected, so Monitor 2 never goes dark', [awakeSw]),
         helperRow,
       ]),
       UI.card('About', [
@@ -53,6 +55,10 @@ UI.tab({
         const unknown = v === null || v === undefined || v === 'unknown';
         pill.className = `pill ${unknown ? 'muted' : ok ? 'good' : 'bad'}`;
         pill.textContent = unknown ? 'Unknown' : ok ? 'Granted' : 'Not granted';
+      }
+      if (s.app) {
+        loginSw.set(s.app.openAtLogin);
+        awakeSw.set(s.app.keepAwake);
       }
       helperVal.textContent = s.helper && s.helper.running ? 'Running' : 'Not running';
       version.textContent = s.version ? `Version ${s.version}` : '';

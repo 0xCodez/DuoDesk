@@ -63,12 +63,13 @@ const DEFAULT_SETTINGS = {
     historySize: 20, // memory only
   },
   ui: { tab: 'overview' },
+  app: { openAtLogin: false, keepAwake: true }, // phase 6
 };
 
 function loadSettings() {
   const s = read('settings.json', {});
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   return out;
 }
 

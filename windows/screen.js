@@ -69,6 +69,11 @@ class Screen {
     this.onChange();
   }
 
+  // Input allowed changed elsewhere (KVM mode): tell the renderer.
+  refreshInput() {
+    this._pushInput();
+  }
+
   _setMacInput(on) {
     if (on === this.macInput) return;
     this.macInput = on;

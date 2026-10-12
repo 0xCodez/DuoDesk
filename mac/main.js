@@ -7,7 +7,7 @@
 //   addresses: ['192.168.1.5:47800', ...],    // where Windows can reach us
 //   serverError: null | 'message',            // e.g. port already in use
 //   client: null | { id, name, address, rttMs },   // the connected, authenticated PC
-//   input: { where: 'home'|'driving'|'driven', message: '' },   // KVM (phases 4–5)
+//   input: { where: 'home'|'driving'|'driven', message: '', tapError: null|'msg' },   // kvm.js
 //   pairing: null | { name, code: null|'123456', confirmed, allowed },
 //   paired: [{ id, name, pairedAt, lastSeen }],
 //   permissions: { screen: 'granted'|'denied'|'not-determined'|..., accessibility: bool,
@@ -23,7 +23,7 @@
 //   kvm: settings.kvm, keys: settings.keys,     // Cursor / Keyboard tabs (behaviour: phases 4–5)
 //   clipboard: { ...settings.clipboard, peerAccepts, lastSkip,
 //                history: [{ dir: 'out'|'in', at, size, text (preview) }] },
-//   ui: { tab },
+//   ui: { tab }, app: { openAtLogin, keepAwake },
 // }
 'use strict';
 
@@ -45,17 +45,15 @@ const identity = require('./identity');
 const discovery = require('./discovery');
 const { Server } = require('./server');
 const { Pairing } = require('./pairing');
-const { Helper } = require('./helper');
-const { Displays } = require('./displays');
-const { Stream } = require('./stream');
-const { Input } = require('./input');
-const { Clipboard } = require('./clipboard');
+const { startServices } = require('./services');
 const { setupIpc } = require('./ipc');
+const login = require('./login');
 
 let win = null;
 let tray = null;
 let quitting = false;
-let settings, id, server, pairing, beacon, helper, displays, stream, input, clip, actions;
+let startHidden = process.argv.includes('--hidden');
+let settings, id, server, pairing, beacon, svc, actions;
 
 const state = {
   macName: '',
@@ -85,6 +83,7 @@ function pushState() {
     state.paired = pairing ? pairing.list() : [];
     const c = server && server.current;
     state.client = c ? { id: c.deviceId, name: c.name, address: c.address, rttMs: c.rttMs } : null;
+    const { helper, displays, stream, clipboard: clip, kvm } = svc || {};
     state.helper.running = !!(helper && helper.running);
     if (displays) {
       const target = displays.target();
@@ -105,13 +104,15 @@ function pushState() {
     state.keys = settings.keys;
     state.clipboard = clip ? { ...settings.clipboard, ...clip.view } : null;
     state.ui = settings.ui;
+    state.app = settings.app;
+    if (kvm) state.input = kvm.view;
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
     updateTray();
   });
 }
 
 function displayMode() {
-  const t = displays && displays.target();
+  const t = svc && svc.displays.target();
   if (!t) return 'custom';
   if (t.virtual) return 'extend';
   return t.primary && !settings.virtual.enabled ? 'mirror' : 'custom';
@@ -120,8 +121,8 @@ function displayMode() {
 function refreshPermissions() {
   state.permissions.screen = systemPreferences.getMediaAccessStatus('screen');
   state.permissions.accessibility = systemPreferences.isTrustedAccessibilityClient(false);
-  if (helper && helper.running) {
-    helper.request('permissions').then((r) => {
+  if (svc && svc.helper.running) {
+    svc.helper.request('permissions').then((r) => {
       state.permissions.inputMonitoring = !!r.inputMonitoring;
       pushState();
     }, () => {});
@@ -151,7 +152,10 @@ function createWindow() {
     if (e.level === 'warning' || e.level === 'error') console.log(`[window] ${e.level}: ${e.message}`);
   });
   win.loadFile(path.join(__dirname, 'control.html'));
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    if (startHidden) startHidden = false; // started at login: stay in the menu bar
+    else win.show();
+  });
   win.on('focus', refreshPermissions);
   win.on('close', (e) => {
     if (!quitting) {
@@ -238,28 +242,10 @@ app.whenReady().then(() => {
 
   beacon = discovery.start(id);
 
-  helper = new Helper();
-  displays = new Displays(helper, () => settings);
-  stream = new Stream(server, displays, () => settings);
-  // Stream input: only when the switch is on (phases 4–5: and KVM is home).
-  input = new Input(server, helper, displays, {
-    enabled: () => settings.streamInput !== false,
-    swapKeys: () => settings.keys.swapCtrlCmd !== false,
-  });
-  clip = new Clipboard(server, helper, () => settings);
-  clip.on('change', pushState);
-  displays.on('change', () => {
-    input.releaseAll(); // the shared display moved or changed size mid-press
-    pushState();
-  });
-  stream.on('change', pushState);
-  helper.on('exit', pushState);
-  if (helper.start()) {
-    displays.applyVirtual().then(() => stream.restart('startup'));
-    refreshPermissions();
-  }
+  svc = startServices({ server, getSettings: () => settings, pushState, onHelperReady: refreshPermissions });
+  if (settings.app.openAtLogin !== login.isOn()) login.apply(settings.app.openAtLogin);
 
-  actions = setupIpc({ state, settings, pushState, server, pairing, displays, stream, input, clipboard: clip });
+  actions = setupIpc({ state, settings, pushState, server, pairing, ...svc, login });
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle('MacShare');
   createWindow();
@@ -272,9 +258,7 @@ app.on('activate', showWindow);
 app.on('window-all-closed', () => {}); // keep running in the menu bar
 app.on('before-quit', () => {
   quitting = true;
-  // Phases 4–5: send any KVM go-home here so the helper releases input.
-  if (stream) stream.stop('off');
-  if (helper) helper.stop(); // closes stdin: the helper exits and the virtual display goes away
+  if (svc) svc.shutdown(); // KVM home first, so the helper releases input
   if (beacon) beacon.stop();
   if (server) server.close();
 });
