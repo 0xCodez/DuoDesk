@@ -55,7 +55,8 @@ func handle(_ line: String) {
   case "kvmConfig":
     guard Capture.shared.startTap() else { return replyError(id, "event tap failed (Accessibility / Input Monitoring)") }
     Capture.shared.configure(side: (msg["side"] as? String) ?? "right", resistance: num("resistancePx", 120),
-                             edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true)
+                             edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
+                             dragFiles: (msg["dragFiles"] as? Bool) ?? true)
     reply(id)
   case "capture":
     if (msg["on"] as? Bool) == true {
@@ -103,6 +104,7 @@ func handle(_ line: String) {
     else { return replyError(id, "input needs ev and bounds") }
     injector.input(ev, bounds: CGRect(x: x, y: y, width: w, height: h))
   case "releaseAll":
+    DragIn.shared.cancel() // first: its button must not come up as a drop
     injector.releaseAll()
     reply(id)
   case "clipboardWatch":
@@ -157,6 +159,15 @@ func handle(_ line: String) {
     reply(id, ["done": Apps.focus(wid: (msg["wid"] as? NSNumber)?.intValue ?? 0)])
   case "appClose":
     reply(id, ["done": Apps.close(wid: (msg["wid"] as? NSNumber)?.intValue ?? 0)])
+  case "dragStart":
+    DragIn.shared.start(drag: (msg["drag"] as? String) ?? "", items: (msg["items"] as? [[String: Any]]) ?? [])
+    reply(id)
+  case "dragCancel":
+    DragIn.shared.cancel()
+    reply(id)
+  case "dragWritten":
+    DragIn.shared.written(drag: (msg["drag"] as? String) ?? "", index: (msg["index"] as? NSNumber)?.intValue ?? -1,
+                          error: msg["error"] as? String)
   case "destroyDisplay":
     virtualDisplay.destroy()
     reply(id)

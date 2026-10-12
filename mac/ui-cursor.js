@@ -7,7 +7,7 @@ UI.tab({
   id: 'cursor',
   order: 20,
   title: 'Cursor',
-  desc: 'Push the pointer through the screen edge and it moves onto the other computer.',
+  desc: 'Move the pointer off the edge of the screen to go to the other computer.',
   color: 'linear-gradient(#ffb340, #ff9500)',
   master: { get: (s) => s.kvm && s.kvm.mouse, set: (v) => UI.api.setKvm({ mouse: v }) },
   badge: (s) => (s.kvm && s.kvm.mouse ? 'on' : ''),
@@ -40,14 +40,14 @@ UI.tab({
     body.append(
       status,
       UI.pair(
-        UI.dir('m2w', [UI.row('Use this Mac’s trackpad and mouse on the PC', 'Push through the edge facing the PC, or double-tap Right Option. Dragged files come along.', [drive])], { role: 'this Mac’s mouse' }),
-        UI.dir('w2m', [UI.row('Let the PC’s mouse control this Mac', 'The PC pushes through its edge facing this Mac, or double-taps Right Ctrl', [driven])], { role: 'the PC’s mouse' }),
+        UI.dir('m2w', [UI.row('Use this Mac’s mouse on the PC', 'Or double-tap Right Option', [drive])]),
+        UI.dir('w2m', [UI.row('Use the PC’s mouse on this Mac', 'Or double-tap Right Ctrl on the PC', [driven])]),
       ),
-      UI.card('Arrangement', [el('div', { class: 'layout' }, [grid, layoutHint])]),
+      UI.card('Where your PC is', [el('div', { class: 'layout' }, [grid, layoutHint])]),
       UI.card('Feel', [
-        UI.row('Edge resistance', 'How far you push past the edge before the pointer crosses — stops accidental crossings', [resistance]),
-        UI.row('Pointer speed on the other computer', '', [speed]),
-        UI.row('Reverse scrolling', 'Flip the scroll direction of input arriving from the PC', [reverse]),
+        UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
+        UI.row('Pointer speed on the PC', '', [speed]),
+        UI.row('Reverse scrolling from the PC', '', [reverse]),
       ]),
     );
 
@@ -62,7 +62,7 @@ UI.tab({
         b.textContent = k.pcSide === side ? 'PC' : '';
       }
       const where = { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[k.pcSide];
-      layoutHint.textContent = `The PC is ${where} this Mac. Click another side to move it. The PC app shows this layout too.`;
+      layoutHint.textContent = `Your PC is ${where} this Mac. Click a side to move it.`;
       drive.set(k.driveOther);
       driven.set(k.beDriven);
       resistance.set(k.resistancePx);

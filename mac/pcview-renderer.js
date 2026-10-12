@@ -50,7 +50,7 @@ async function onOffer(m) {
   const my = (pc = new RTCPeerConnection({ iceServers: [] }));
   const queue = (pending = []);
   const ms = new MediaStream();
-  setOverlay('Connecting to the PC…');
+  setOverlay('Connecting…');
 
   my.ontrack = (e) => {
     if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0;
@@ -64,8 +64,8 @@ async function onOffer(m) {
     if (my !== pc) return;
     const st = my.connectionState;
     report(st === 'connected' ? 'live' : st);
-    if (st === 'failed') setOverlay('The connection failed — waiting for the PC to retry…');
-    else if (st === 'disconnected') setOverlay('The connection was interrupted…');
+    if (st === 'failed') setOverlay('Reconnecting…');
+    else if (st === 'disconnected') setOverlay('Reconnecting…');
   };
 
   try {

@@ -23,19 +23,22 @@ UI.tab({
     const pcShare = UI.row('This PC’s folder on the Mac', '', [sharePill, chooseBtn, share]);
     const pair = UI.dirCards(
       { on: { get: (s) => s.files.acceptFromMac, set: (v) => api.setFiles({ acceptFromMac: v }) }, rows: [
-        UI.row('Accept files from the Mac', 'Dragged across the screen edge, they land in the Explorer window or on the Desktop under the pointer — else in Downloads'),
+        UI.row('Accept files and folders from the Mac', 'Drag them across the screen edge: here they become a normal Windows drag under the pointer — drop them in Explorer, on the Desktop or into an app. Esc cancels.'),
         macDrive,
       ] },
       { on: { get: (s) => s.files.dropToMac, set: (v) => api.setFiles({ dropToMac: v }) }, rows: [
-        UI.row('Send files to the Mac', 'Drag them across the edge facing the Mac, or drop them onto Monitor 2'),
+        UI.row('Send files and folders to the Mac', 'Drag them across the edge facing the Mac (they keep dragging there — drop them in Finder, on the Desktop or into an app), or drop files onto Monitor 2'),
         pcShare,
       ] },
     );
+    const edgeDrag = sw('Drag files across the screen edge', (v) => api.setFiles({ edgeDrag: v }));
+    const edgeRow = UI.row('Drag files across the screen edge', '', [edgeDrag]);
     const cancelBtn = UI.button('Cancel', () => api.cancelDrop(), 'small');
     const outRow = UI.row('', '', [cancelBtn]);
     const inRow = UI.row('', '');
     body.append(
       pair.el,
+      UI.card('For both directions', [edgeRow]),
       UI.card('Transfers', [outRow, inRow]),
       UI.card('Network drives', [
         UI.row('How they work', 'This PC’s folder: the first time, Windows asks for administrator rights once to create a hidden network-only account and the share; switching it off just disconnects the Mac. The Mac’s folder shows in This PC as “MacShare on <Mac>”.'),
@@ -46,6 +49,10 @@ UI.tab({
       const f = s.files;
       const m = f.smb;
       pair.update(s);
+      edgeDrag.set(f.edgeDrag);
+      edgeRow.setHint(!f.edgeDrag ? 'Off — a file drag stays on this PC at the edge, and the Mac doesn’t carry its drags here. Monitor 2 drops and the drives still work.'
+        : f.macDrags === false ? 'On here, but off on the Mac — drags don’t cross until it’s on there too.'
+          : 'Files and folders you drag to the edge keep dragging on the other computer. Off on either side stops it both ways.');
       mount.set(f.mountMac);
       openBtn.hidden = !m.drive;
       macDrive.label.textContent = m.drive ? 'The Mac’s folder is drive ' + m.drive : 'The Mac’s folder as a drive';
@@ -68,6 +75,17 @@ UI.tab({
         outRow.setHint(f.last ? f.last.text + ' · ' + UI.ago(f.last.at) : '');
       }
       const inc = f.incoming;
+      const dr = f.drag;
+      if (dr.state) {
+        inRow.label.textContent = (dr.state === 'copying' ? 'Copying ' : 'Dragging ') + dr.name + ' from the Mac';
+        inRow.setHint(dr.state === 'copying' ? 'Windows is copying it where you dropped it.' : 'Release the button where it should go; Esc cancels.');
+        return;
+      }
+      if (dr.last && (!inc.last || dr.last.at > inc.last.at)) {
+        inRow.label.textContent = dr.last.ok ? 'Received from the Mac' : 'Not received';
+        inRow.setHint(dr.last.text + ' · ' + UI.ago(dr.last.at));
+        return;
+      }
       inRow.label.textContent = inc.receiving ? 'Receiving ' + inc.receiving + ' file' + (inc.receiving > 1 ? 's' : '') + ' from the Mac'
         : inc.last ? (inc.last.ok ? 'Received ' : 'Not received: ') + inc.last.name : 'Nothing received yet';
       inRow.setHint(inc.receiving ? 'They land where you release the mouse button.' : inc.last ? inc.last.text + ' · ' + UI.ago(inc.last.at) : '');

@@ -6,7 +6,7 @@ UI.tab({
   id: 'audio',
   order: 70,
   title: 'Audio',
-  desc: 'Hear one computer on the other, in either direction — with or without screen sharing.',
+  desc: 'Hear one computer on the other.',
   color: 'linear-gradient(#ff6482, #ff2d55)',
   badge: (s) => (s.audio && (s.audio.send || s.audio.receive) ? 'on' : ''),
   build(body) {
@@ -19,13 +19,9 @@ UI.tab({
     const recvRow = UI.row('Play the PC’s sound here', '', [recvSw]);
     body.append(
       UI.pair(
-        UI.dir('m2w', [sendRow, UI.row('Mute this Mac while sending', 'Silence the speakers here; the PC still gets the sound', [mute])], { role: 'this Mac sends' }),
-        UI.dir('w2m', [recvRow, UI.row('Volume', '', [vol])], { role: 'this Mac plays' }),
+        UI.dir('m2w', [sendRow, UI.row('Mute this Mac while sending', '', [mute])]),
+        UI.dir('w2m', [recvRow, UI.row('Volume', '', [vol])]),
       ),
-      UI.card('Good to know', [
-        UI.row('Sound with the screen', 'Display › Mac → PC can also carry this Mac’s sound in sync with Monitor 2. Then this separate stream pauses, so the sound never plays twice.'),
-        UI.row('Quality', 'Stereo, 48 kHz Opus at 128 kbps on its own encrypted connection — it never slows the screen down.'),
-      ], { cls: 'keep-on' }),
     );
     const live = (x) => x && x.status === 'live';
     return (s) => {
@@ -36,15 +32,12 @@ UI.tab({
       recvSw.set(a.receive);
       vol.set(a.volume);
       const pc = s.client ? s.client.name : 'the PC';
-      sendRow.setHint(!a.send ? 'Off'
-        : !s.client ? 'Waiting for your PC to connect'
-          : a.screenCarries ? 'Travelling with the screen right now (Display › Mac → PC)'
-            : !a.peerAccepts ? `${pc} isn’t playing it — turn on “Play the Mac’s sound” in the PC app`
-              : a.error ? `Can’t capture sound: ${a.error}`
-                : live(a.sending) ? `Playing on ${pc}` : 'Connecting…');
-      recvRow.setHint(!a.receive ? 'Off'
-        : !s.client ? 'Waiting for your PC to connect'
-          : live(a.receiving) ? `Playing ${pc}’s sound` : `Waiting for ${pc} to send its sound (Audio tab in the PC app)`);
+      sendRow.setHint(!a.send || !s.client ? ''
+        : a.screenCarries ? 'Playing with the screen'
+          : !a.peerAccepts ? `Turned off on ${pc}`
+            : a.error ? `Can’t capture sound: ${a.error}`
+              : live(a.sending) ? `Playing on ${pc}` : 'Connecting…');
+      recvRow.setHint(!a.receive || !s.client ? '' : live(a.receiving) ? `Playing ${pc}` : `Waiting for ${pc}`);
     };
   },
 });

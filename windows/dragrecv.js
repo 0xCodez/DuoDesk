@@ -1,0 +1,186 @@
+// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// A drag from the Mac across the edge, revision 3 (docs/ROADMAP.md): on `drag.start` while the Mac
+// drives this PC, the helper starts a real Windows drag at the pointer (virtual files: the whole
+// tree described up front, contents streamed from temp files as `file.*` chunks arrive). The Mac's
+// left-button-up drops it wherever the pointer is — Explorer, the Desktop, an app. `drag.end` tells
+// the Mac how it went.
+const { app } = require('electron');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const P = require('../shared/protocol.js');
+
+const T = P.T;
+const MAX_FILES = 10000, MAX_DEPTH = 32;
+
+// "Photos/2024/a.jpg" → safe Windows segments, or null (.., empty, too deep).
+function safeRel(rel) {
+  if (typeof rel !== 'string' || !rel || rel.length > 4000) return null;
+  const segs = rel.split('/');
+  if (segs.length > MAX_DEPTH) return null;
+  const out = [];
+  for (let s of segs) {
+    if (!s || s === '.' || s === '..') return null;
+    s = s.replace(/[<>:"\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '');
+    if (!s) return null;
+    if (/^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i.test(s)) s = '_' + s;
+    out.push(s.slice(0, 200));
+  }
+  return out.join('/');
+}
+
+class DragRecv {
+  // opts: link, helper, settings (shared), isDriven(), onChange()
+  constructor(opts) {
+    Object.assign(this, opts);
+    this.root = path.join(app.getPath('userData'), 'drag');
+    this.cur = null; // {drag, dir, entries, files: Map(rel → file), byId: Map(id → file), where, state}
+    this.last = null; // {text, ok, at}
+    const link = this.link;
+    link.on(T.DRAG_START, (m) => this._start(m));
+    link.on(T.DRAG_CANCEL, (m) => this.cur && m.drag === this.cur.drag && this.cancel('cancelled', false));
+    link.on(T.FILE_OFFER, (m) => m.drop === 'drag' && this._offer(m));
+    link.on(T.FILE_CHUNK, (m) => this._chunk(m));
+    link.on(T.FILE_END, (m) => this._end(m));
+    link.on(T.FILE_CANCEL, (m) => { const f = this.cur && this.cur.byId.get(m.id); if (f) this._fail(f); });
+    link.on('closed', () => this.cancel('cancelled', false));
+    this.helper.on('event', (name, m) => this._event(name, m));
+    this.helper.on('exit', () => this.cancel('failed', false));
+    try { fs.rmSync(this.root, { recursive: true, force: true }); } catch (_) { /* leftovers */ }
+  }
+
+  _start(m) {
+    const end = (result) => this.link.send({ t: T.DRAG_END, drag: m.drag, result });
+    if (typeof m.drag !== 'string' || !m.drag) return;
+    if (this.cur) this.cancel('cancelled', false);
+    if (!this.settings.files.edgeDrag || !this.settings.files.acceptFromMac || !this.isDriven()) return end('cancelled');
+    const list = Array.isArray(m.list) ? m.list : [];
+    if (!list.length && !(Array.isArray(m.dirs) && m.dirs.length) || list.length > MAX_FILES) return end('failed');
+    // Folders first (parents before children: Explorer creates them in order), then the files.
+    const dirs = new Set();
+    const addParents = (rel) => { const s = rel.split('/'); for (let i = 1; i < s.length; i++) dirs.add(s.slice(0, i).join('/')); };
+    for (const d of Array.isArray(m.dirs) ? m.dirs : []) { const r = safeRel(d); if (!r) return end('failed'); dirs.add(r); addParents(r); }
+    const dir = path.join(this.root, crypto.randomBytes(6).toString('hex'));
+    fs.mkdirSync(dir, { recursive: true });
+    const files = new Map();
+    const fileEntries = [];
+    for (const f of list) {
+      const rel = f && safeRel(f.rel);
+      if (!rel || !(f.size >= 0) || f.size > P.FILE_MAX_BYTES || files.has(rel)) return end('failed');
+      addParents(rel);
+      const tmp = path.join(dir, files.size + '.part');
+      fs.writeFileSync(tmp, '');
+      const file = { rel, size: f.size, tmp, index: -1, id: null, got: 0, seq: 0, hash: null, out: null, state: 'waiting' };
+      files.set(rel, file);
+      fileEntries.push(file);
+    }
+    const dirList = [...dirs].sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
+    const entries = dirList.map((d) => ({ rel: d, dir: true, size: 0 }));
+    for (const f of fileEntries) { f.index = entries.length; entries.push({ rel: f.rel, size: f.size, temp: f.tmp }); }
+    const items = Array.isArray(m.items) && m.items.length ? m.items : [...new Set(fileEntries.map((f) => f.rel.split('/')[0]))].map((n) => ({ name: n, dir: dirs.has(n) }));
+    const names = items.slice(0, 50).map((it) => (safeRel(String(it.name)) || 'item').split('/').pop() + (it.dir ? '/' : ''));
+    this.cur = { drag: m.drag, dir, files, byId: new Map(), where: '', state: 'dragging', count: items.length, name: names[0] ? names[0].replace(/\/$/, '') : '' };
+    this.helper.send('dragStart', { drag: m.drag, entries, names });
+    this.onChange();
+  }
+
+  _offer(m) {
+    const refuse = (why) => this.link.send({ t: T.FILE_REFUSE, id: m.id, why });
+    const c = this.cur;
+    if (typeof m.id !== 'string') return;
+    if (!c || m.drag !== c.drag) return refuse('not_allowed');
+    const f = c.files.get(safeRel(m.rel));
+    if (!f || f.id || m.size !== f.size) return refuse('not_allowed');
+    f.id = m.id;
+    f.hash = crypto.createHash('sha256');
+    f.out = fs.createWriteStream(f.tmp, { flags: 'w' });
+    f.state = 'arriving';
+    c.byId.set(m.id, f);
+    this.link.send({ t: T.FILE_ACCEPT, id: m.id });
+  }
+
+  _chunk(m) {
+    const f = this.cur && this.cur.byId.get(m.id);
+    if (!f || f.state !== 'arriving' || m.seq !== f.seq || typeof m.data !== 'string') return;
+    const buf = Buffer.from(m.data, 'base64');
+    f.seq++;
+    f.got += buf.length;
+    f.hash.update(buf);
+    f.out.write(buf);
+  }
+
+  _end(m) {
+    const c = this.cur;
+    const f = c && c.byId.get(m.id);
+    if (!f || f.state !== 'arriving') return;
+    f.state = 'closing';
+    f.out.end(() => {
+      if (this.cur !== c) return;
+      const ok = f.got === f.size && f.hash.digest('hex') === m.sha256;
+      f.state = ok ? 'ok' : 'failed';
+      this.helper.send('dragFile', { drag: c.drag, index: f.index, state: ok ? 'ok' : 'failed' });
+    });
+  }
+
+  _fail(f) {
+    if (f.out) f.out.destroy();
+    f.state = 'failed';
+    this.helper.send('dragFile', { drag: this.cur.drag, index: f.index, state: 'failed' });
+  }
+
+  // The Mac's left button came up here (kvm.js injects it, which drops the drag): remember the
+  // folder under the pointer for the "Dropped in …" line; tell the helper too, in case the
+  // injected button-up didn't reach the drag loop.
+  onRelease() {
+    const c = this.cur;
+    if (!c || c.state !== 'dragging') return;
+    c.state = 'dropping';
+    this.helper.request('folderAt').then((r) => { if (this.cur === c && r && r.path) c.where = r.path; }).catch(() => {});
+    setTimeout(() => this.cur === c && c.state === 'dropping' && this.helper.send('dragDrop', { drag: c.drag }), 400);
+  }
+
+  // Input went back to the Mac before the drop: the drag is cancelled (a drop being copied goes on).
+  onHome() {
+    if (this.cur && this.cur.state === 'dragging') this.cancel('cancelled', false);
+  }
+
+  // The Mac cancelled, or the link/helper went away: end the drag here.
+  cancel(result, fromHelper) {
+    const c = this.cur;
+    if (!c) return;
+    if (!fromHelper) this.helper.send('dragCancel', { drag: c.drag });
+    this._finish(result);
+  }
+
+  _event(name, m) {
+    const c = this.cur;
+    if (!c || !m || m.drag !== c.drag) return;
+    if (name === 'dragState') {
+      if (m.result === 'dropped') { c.state = 'copying'; this.onChange(); } else this._finish(m.result === 'failed' ? 'failed' : 'cancelled');
+    } else if (name === 'dragDone') {
+      this._finish(m.ok ? 'dropped' : c.state === 'copying' ? 'failed' : 'cancelled');
+    }
+  }
+
+  _finish(result) {
+    const c = this.cur;
+    this.cur = null;
+    const where = c.where && /desktop$/i.test(c.where) ? 'Desktop' : c.where;
+    this.link.send(where && result === 'dropped' ? { t: T.DRAG_END, drag: c.drag, result, where } : { t: T.DRAG_END, drag: c.drag, result });
+    for (const f of c.files.values()) {
+      if (f.out) f.out.destroy();
+      if (f.id) this.link.send(result === 'dropped' && f.state === 'ok' ? { t: T.FILE_DONE, id: f.id, ok: true } : { t: T.FILE_DONE, id: f.id, ok: false, error: result });
+    }
+    const label = c.count > 1 ? c.count + ' items' : c.name;
+    this.last = { ok: result === 'dropped', text: result === 'dropped' ? label + ' dropped' + (where ? ' in ' + where : '') : label + ': ' + result, at: Date.now() };
+    setTimeout(() => fs.rm(c.dir, { recursive: true, force: true }, () => {}), 2000); // the target has read it
+    this.onChange();
+  }
+
+  view() {
+    const c = this.cur;
+    return c ? { state: c.state, name: c.count > 1 ? c.count + ' items' : c.name, last: this.last } : { state: '', last: this.last };
+  }
+}
+
+module.exports = DragRecv;

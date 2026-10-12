@@ -111,7 +111,7 @@ class Smb extends EventEmitter {
     this.emit('change');
     let err = null;
     if (!(await portOpen(o.host, o.port))) {
-      err = `can’t reach ${o.host}:${o.port} — is file sharing allowed through the PC’s firewall?`;
+      err = `can’t reach ${o.host}. Check the PC’s firewall.`;
     } else {
       const url = `smb://${o.host}${o.port === 445 ? '' : `:${o.port}`}/${encodeURIComponent(o.share)}`;
       try {

@@ -1,14 +1,17 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Files dropped onto Monitor 2 → the Mac (phase 9, BUILD_PLAN "Roadmap messages"): one file at a
-// time over the control channel in base64 chunks, with a SHA-256 check. Waits while the socket
-// is backed up so mouse and keyboard messages never sit behind a big file.
+// Files dropped onto Monitor 2 → the Mac (phase 9, BUILD_PLAN "Roadmap messages"), and files and
+// folders dragged across the edge (revision 3: `drag.start` + `file.offer {drop:'drag', rel}`, the
+// Mac shows a real drag and the drop target pulls the data): one file at a time over the control
+// channel in base64 chunks, with a SHA-256 check. Waits while the socket is backed up so mouse and
+// keyboard messages never sit behind a big file.
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
-const HIGH_WATER = 1024 * 1024; // pause sending chunks above this many queued bytes
+const HIGH_WATER = 1024 * 1024;
+const MAX_DRAG_FILES = 10000; // pause sending chunks above this many queued bytes
 const ANSWER_MS = 15000; // offer → accept/refuse
 const DONE_MS = 120000; // end → done (the Mac hashes and moves the file)
 
@@ -22,6 +25,8 @@ class FileDrop {
     this.last = null; // {name, ok, text}
     this.waiters = new Map(); // id → {resolve, types}
     for (const t of [T.FILE_ACCEPT, T.FILE_REFUSE, T.FILE_DONE, T.FILE_CANCEL]) this.link.on(t, (m) => this._answer(m));
+    this.drag = null; // {drag, name} while a drag's files are being sent
+    this.link.on(T.DRAG_END, (m) => this._dragEnd(m));
     this.link.on('closed', () => this._abortAll('The Mac disconnected'));
   }
 
@@ -39,6 +44,63 @@ class FileDrop {
     if (!files.length) return this._report(null, false, 'Only files can be sent (not folders)');
     files.forEach((f, i) => this.queue.push({ ...f, x, y, release: !!release, index: i, count: files.length }));
     this._next();
+  }
+
+  // A drag across the edge (revision 3): walk the folders, describe everything in `drag.start`, then
+  // send the files. Returns {count} for kvm.take, or null when nothing can go.
+  startDrag(paths) {
+    if (!this.settings.files.dropToMac || this.link.status.state !== 'connected') return null;
+    const items = [], dirs = [], list = [], jobs = [];
+    let bytes = 0;
+    const walk = (abs, rel) => {
+      let st;
+      try { st = fs.lstatSync(abs); } catch (_) { return; }
+      if (st.isSymbolicLink()) return;
+      if (st.isDirectory()) {
+        dirs.push(rel);
+        let names = [];
+        try { names = fs.readdirSync(abs); } catch (_) { /* unreadable: sent empty */ }
+        for (const n of names.sort()) { if (list.length >= MAX_DRAG_FILES) return; walk(path.join(abs, n), rel + '/' + n); }
+      } else if (st.isFile() && st.size <= P.FILE_MAX_BYTES && list.length < MAX_DRAG_FILES) {
+        list.push({ rel, size: st.size });
+        jobs.push({ path: abs, size: st.size, rel });
+        bytes += st.size;
+      }
+    };
+    for (const p of paths) {
+      const name = path.basename(p);
+      const before = bytes;
+      let dir = false;
+      try { dir = fs.lstatSync(p).isDirectory(); } catch (_) { continue; }
+      walk(p, name);
+      items.push({ name, dir, size: bytes - before });
+    }
+    if (!items.length) return null;
+    const drag = crypto.randomBytes(8).toString('hex');
+    this.cancelRelease(); // one drag at a time
+    this.drag = { drag, name: items.length > 1 ? items.length + ' items' : items[0].name };
+    this.link.send({ t: T.DRAG_START, drag, items, dirs, list, files: list.length, bytes });
+    jobs.forEach((j, i) => this.queue.push({ ...j, drag, index: i, count: jobs.length }));
+    this._next();
+    return { count: items.length };
+  }
+
+  // The Mac says how the drag ended: dropped (show where), or cancelled — stop sending.
+  _dragEnd(m) {
+    if (!this.drag || m.drag !== this.drag.drag) return;
+    const d = this.drag;
+    this.drag = null;
+    if (m.result === 'dropped') this._report(d.name, true, 'Dropped on the Mac' + (typeof m.where === 'string' && m.where ? ' in ' + m.where : ''));
+    else {
+      this._stopDrag(d.drag, false);
+      this._report(d.name, false, m.result === 'failed' ? 'The Mac couldn’t take the drag' : 'Drag cancelled');
+    }
+  }
+
+  _stopDrag(drag, tellMac) {
+    if (tellMac) this.link.send({ t: T.DRAG_CANCEL, drag });
+    this.queue = this.queue.filter((j) => j.drag !== drag);
+    if (this.current && this.current.drag === drag) this.cancel();
   }
 
   async _next() {
@@ -61,10 +123,11 @@ class FileDrop {
     if (this.link.status.state !== 'connected') throw new Error('Not connected to the Mac');
     if (job.size > P.FILE_MAX_BYTES) throw new Error('Too big');
     const id = crypto.randomBytes(8).toString('hex');
-    this.current = { id, name, size: job.size, sent: 0, index: job.index, count: job.count, release: job.release };
+    this.current = { id, name, size: job.size, sent: 0, index: job.index, count: job.count, release: job.release, drag: job.drag };
     this._progress();
     const offer = { t: T.FILE_OFFER, id, name, size: job.size, index: job.index, count: job.count };
-    if (job.release) offer.drop = 'release';
+    if (job.drag) Object.assign(offer, { drop: 'drag', drag: job.drag, rel: job.rel });
+    else if (job.release) offer.drop = 'release';
     else { offer.drop = 'point'; if (typeof job.x === 'number') { offer.x = job.x; offer.y = job.y; } }
     this.link.send(offer);
     const a = await this._wait(id, [T.FILE_ACCEPT, T.FILE_REFUSE, T.FILE_CANCEL], ANSWER_MS);
@@ -87,6 +150,7 @@ class FileDrop {
       stream.destroy();
     }
     this.link.send({ t: T.FILE_END, id, sha256: hash.digest('hex') });
+    if (job.drag) return; // the Mac answers file.done when the drop target has it; drag.end says how it went
     const d = await this._wait(id, [T.FILE_DONE, T.FILE_CANCEL], DONE_MS);
     if (d.t !== T.FILE_DONE || !d.ok) throw new Error(d.error || 'The Mac couldn’t save it');
     this._report(name, true, d.path ? 'Saved on the Mac: ' + d.path : 'Saved on the Mac');
@@ -105,17 +169,23 @@ class FileDrop {
     if (w && w.types.includes(m.t)) w.resolve(m);
   }
 
-  // Input went home before the button came up: the dragged files don't go (revision 2 R4).
+  // Input went home before the button came up: the dragged files don't go (revision 2 R4), and a
+  // revision 3 drag is cancelled on the Mac.
   cancelRelease() {
     this.queue = this.queue.filter((j) => !j.release);
     if (this.current && this.current.release) this.cancel();
+    if (this.drag) {
+      const d = this.drag;
+      this.drag = null;
+      this._stopDrag(d.drag, true);
+    }
   }
 
   cancel() {
     if (!this.current) return;
     this.link.send({ t: T.FILE_CANCEL, id: this.current.id });
     const w = this.waiters.get(this.current.id);
-    this.queue = [];
+    if (!this.current.drag) this.queue = [];
     this.current = null; // the chunk loop stops at its next check
     if (w) w.reject(new Error('Cancelled'));
   }

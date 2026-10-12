@@ -116,7 +116,7 @@ class PcView extends EventEmitter {
     this.closingByUs = false;
     const w = Math.round(wa.width * 0.8), h = Math.round((w * 9) / 16);
     this.win = new BrowserWindow({
-      title: `${pcName} — MacShare`,
+      title: pcName,
       width: w,
       height: Math.min(h, wa.height),
       x: wa.x + Math.round((wa.width - w) / 2),
@@ -221,7 +221,7 @@ class PcView extends EventEmitter {
     this._open();
     if (fresh && !this.session) {
       const pc = this.server.current ? this.server.current.name : 'your PC';
-      this._toWin({ t: 'stop', why: this.server.current ? `Waiting for ${pc} to share its screen — Display › PC → Mac in its MacShare app` : 'Waiting for your PC to connect…' });
+      this._toWin({ t: 'stop', why: this.server.current ? `Choose what to share in MacShare on ${pc}` : 'Waiting for your PC…' });
     }
     this.win.focus();
     this.emit('change');

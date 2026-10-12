@@ -194,7 +194,7 @@ function showWindow() {
 function updateTray() {
   if (!tray) return;
   const c = state.client;
-  tray.setToolTip(c ? `MacShare — connected to ${c.name}` : 'MacShare — no PC connected');
+  tray.setToolTip(c ? `MacShare: ${c.name}` : 'MacShare');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: c ? `Connected: ${c.name}` : 'No PC connected', enabled: false },

@@ -21,6 +21,7 @@ final class Capture {
   private var resistance = 120.0
   private var edgeEnabled = false   // driveOther && mouse && link up (main decides)
   private var cfgKeyboard = true    // capture the keyboard when crossing at the edge
+  private var dragFiles = true      // carry file drags across the edge (drag.policy, both sides)
   // capture
   private(set) var capturing = false
   private var capMouse = false, capKeyboard = false
@@ -61,7 +62,8 @@ final class Capture {
     return true
   }
 
-  func configure(side: String, resistance: Double, edgeEnabled: Bool, keyboard: Bool) {
+  func configure(side: String, resistance: Double, edgeEnabled: Bool, keyboard: Bool, dragFiles: Bool) {
+    self.dragFiles = dragFiles
     self.side = side
     self.resistance = resistance
     self.edgeEnabled = edgeEnabled
@@ -232,12 +234,14 @@ final class Capture {
     if isUp { buttonsHeld = max(0, buttonsHeld - 1) }
     if type == .leftMouseDown { dragPbCount = NSPasteboard(name: .drag).changeCount }
     // A file drag pushed through the crossing edge carries the files over (docs/ROADMAP.md).
-    if type == .leftMouseDragged, !capturing, edgeEnabled, buttonsHeld == 1,
+    if type == .leftMouseDragged, !capturing, edgeEnabled, dragFiles,
        let off = Capture.push(&edge, e.location, dx, dy, side, resistance) {
       let paths = draggedFiles()
+      log("edge: drag through the edge, \(paths.count) file(s) on the drag pasteboard")
       if !paths.isEmpty {
-        cancelLocalDrag(at: e.location)
-        startCapture(mouse: true, keyboard: cfgKeyboard) // the held button now drags on the other side
+        buttonsHeld = 0
+        startCapture(mouse: true, keyboard: cfgKeyboard)
+        DragIn.shared.swallowLocalDrag(at: e.location) // Finder's drag ends here, quietly
         emit(["event": "edge", "offset": off, "drag": ["paths": paths]])
         return true
       }
@@ -260,21 +264,6 @@ final class Capture {
     guard pb.changeCount != dragPbCount else { return [] }
     let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
     return urls.map { $0.path }
-  }
-
-  /// End the drag here without dropping anything: Esc cancels it, then a (marked) button-up
-  /// closes the click for the app; the physical release later goes to the other computer.
-  private func cancelLocalDrag(at p: CGPoint) {
-    let src = CGEventSource(stateID: .hidSystemState)
-    for down in [true, false] {
-      let k = CGEvent(keyboardEventSource: src, virtualKey: 0x35, keyDown: down)
-      k?.setIntegerValueField(.eventSourceUserData, value: injectedMark)
-      k?.post(tap: .cghidEventTap)
-    }
-    let up = CGEvent(mouseEventSource: src, mouseType: .leftMouseUp, mouseCursorPosition: p, mouseButton: .left)
-    up?.setIntegerValueField(.eventSourceUserData, value: injectedMark)
-    up?.post(tap: .cghidEventTap)
-    buttonsHeld = 0
   }
 
   /// Double-tap: down, up, down, up — each step within the double-tap window.

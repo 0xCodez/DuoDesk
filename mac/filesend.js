@@ -1,9 +1,14 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Sends files to the PC (docs/ROADMAP.md "Drag files across the screen edge"): `file.offer`
-// with `drop:'release'`, then chunks with backpressure on the socket (so input and pings never
-// wait behind a big file), then `file.end` with the SHA-256. Folders are skipped for now.
+// Sends files to the PC (docs/ROADMAP.md "Drag files across the screen edge", revision 3): a drag
+// of files and folders is planned (every folder and file by relative path), announced with
+// `drag.start`, then each file is offered (`drop:'drag'`, `rel`) and sent one at a time in order —
+// chunks with backpressure on the socket (so input and pings never wait behind a big file), then
+// `file.end` with the SHA-256. The PC answers `drag.end` (dropped / cancelled / failed).
 //
-// Events: 'change' — this.view changed.
+// `drag.policy {accept}` both ways: our Files switch "Drag files across the screen edge" and the PC's.
+//
+// Events: 'change' — this.view changed; 'dragEnd' (drag id) — the PC finished or dropped a drag;
+//         'policy' — the PC's drag.policy changed.
 'use strict';
 
 const fs = require('fs');
@@ -13,51 +18,162 @@ const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 
 const HIGH_WATER = 1024 * 1024; // pause reading while the socket has more than this queued
+const MAX_FILES = 10000;
+const MAX_DEPTH = 32;
+
+// A name as one protocol path segment (no `:`, `\` or control characters).
+const segment = (n) => String(n).replace(/[\u0000-\u001f:\\]/g, '_');
+
+// Files and folders as a drag: items (top level), dirs and list (every file, sending order) by
+// relative path. Symlinks are skipped; a package (.app…) goes as the folder it is.
+function planDrag(paths) {
+  const items = [], dirs = [], list = [];
+  const walk = (abs, rel, depth) => {
+    let st;
+    try { st = fs.lstatSync(abs); } catch { return null; }
+    if (st.isFile()) {
+      if (list.length >= MAX_FILES) return null;
+      list.push({ rel, size: st.size, path: abs });
+      return st.size;
+    }
+    if (!st.isDirectory() || depth > MAX_DEPTH) return null;
+    dirs.push(rel);
+    let total = 0;
+    let names = [];
+    try { names = fs.readdirSync(abs).sort(); } catch { /* unreadable: sent empty */ }
+    for (const n of names) {
+      if (n === '.DS_Store') continue;
+      total += walk(path.join(abs, n), `${rel}/${segment(n)}`, depth + 1) || 0;
+    }
+    return total;
+  };
+  const seen = new Set();
+  for (const p of paths) {
+    const name = segment(path.basename(p));
+    if (!name || name === '.' || name === '..' || seen.has(name)) continue;
+    let dir;
+    try { dir = fs.lstatSync(p).isDirectory(); } catch { continue; }
+    const size = walk(p, name, 1);
+    if (size === null) continue;
+    seen.add(name);
+    items.push({ name, dir, size });
+  }
+  if (!items.length) return null;
+  return { items, dirs, list, files: list.length, bytes: list.reduce((s, f) => s + f.size, 0) };
+}
 
 class FileSend extends EventEmitter {
-  constructor(server) {
+  constructor(server, getSettings) {
     super();
     this.server = server;
-    this.outgoing = new Map(); // id -> { id, name, size, path, sent, state }
+    this.getSettings = getSettings;
+    this.peerDrag = true; // the PC takes drags across the edge (assumed until it says otherwise)
+    server.on('client', () => {
+      this.peerDrag = true;
+      this.sendPolicy();
+      this.emit('policy');
+    });
+    server.on(`t:${P.T.DRAG_POLICY}`, (m) => {
+      this.peerDrag = m.accept !== false;
+      this.emit('policy');
+      this.emit('change');
+    });
+    this.outgoing = new Map(); // id -> { id, name, size, path, sent, state, drag? } in sending order
     this.recent = []; // newest first: { name, size, at, ok, where|error }
-    server.on(`t:${P.T.FILE_ACCEPT}`, (m) => this._pump(m.id));
+    this.drags = new Map(); // drag id -> { name, bytes }
+    this.pumping = false;
+    server.on(`t:${P.T.FILE_ACCEPT}`, (m) => {
+      const f = this.outgoing.get(m.id);
+      if (f && f.state === 'offered') f.state = 'accepted';
+      this._next();
+    });
+    server.on(`t:${P.T.DRAG_END}`, (m) => this._dragEnd(m));
     server.on(`t:${P.T.FILE_REFUSE}`, (m) => this._finish(m.id, false, `refused (${m.why || 'no reason'})`));
     server.on(`t:${P.T.FILE_DONE}`, (m) => this._finish(m.id, !!m.ok, m.ok ? m.path : m.error));
     server.on(`t:${P.T.FILE_CANCEL}`, (m) => this._finish(m.id, false, 'cancelled on the PC'));
     server.on('closed', () => {
-      if (!server.current) for (const id of [...this.outgoing.keys()]) this._finish(id, false, 'the PC disconnected');
+      if (!server.current) {
+        for (const id of [...this.outgoing.keys()]) this._finish(id, false, 'the PC disconnected');
+        for (const drag of [...this.drags.keys()]) this._dragEnd({ drag, result: 'failed' });
+      }
     });
   }
 
-  // Offer each regular file; returns how many were offered.
-  send(paths, drop = 'release') {
-    const files = [];
-    for (const p of paths) {
-      try {
-        const st = fs.statSync(p);
-        if (st.isFile()) files.push({ p, size: st.size });
-      } catch { /* vanished */ }
-    }
-    files.forEach((f, index) => {
+  // Our "Drag files across the screen edge" switch (both directions).
+  get dragOn() {
+    return this.getSettings().files.dragEdge !== false;
+  }
+
+  sendPolicy() {
+    this.server.sendToClient({ t: P.T.DRAG_POLICY, accept: this.dragOn });
+  }
+
+  planDrag(paths) {
+    return planDrag(paths);
+  }
+
+  // drag.start + one offer per file (call right after kvm.take). Returns the drag id.
+  startDrag(plan) {
+    const drag = crypto.randomUUID();
+    const one = plan.items.length === 1;
+    this.drags.set(drag, { name: one ? plan.items[0].name : `${plan.items.length} items`, bytes: plan.bytes });
+    this.server.sendToClient({
+      t: P.T.DRAG_START, drag, items: plan.items, dirs: plan.dirs,
+      list: plan.list.map((f) => ({ rel: f.rel, size: f.size })), files: plan.files, bytes: plan.bytes,
+    });
+    plan.list.forEach((f, index) => {
       const id = crypto.randomUUID();
-      this.outgoing.set(id, { id, name: path.basename(f.p), size: f.size, path: f.p, sent: 0, state: 'offered' });
-      this.server.sendToClient({ t: P.T.FILE_OFFER, id, name: path.basename(f.p), size: f.size, drop, index, count: files.length });
+      const name = f.rel.slice(f.rel.lastIndexOf('/') + 1);
+      this.outgoing.set(id, { id, name, size: f.size, path: f.path, sent: 0, state: 'offered', drag });
+      this.server.sendToClient({ t: P.T.FILE_OFFER, id, name, size: f.size, drop: 'drag', drag, rel: f.rel, index, count: plan.files });
     });
     this.emit('change');
-    return files.length;
+    return drag;
   }
 
-  // Abort everything not yet confirmed (the drag went home before it was dropped).
-  cancelAll() {
-    for (const id of [...this.outgoing.keys()]) {
-      this.server.sendToClient({ t: P.T.FILE_CANCEL, id });
-      this._finish(id, false, 'cancelled');
+  // Went home before the drop (tell: send drag.cancel), or the PC ended the drag.
+  cancelDrag(drag, tell) {
+    if (tell && this.drags.has(drag)) this.server.sendToClient({ t: P.T.DRAG_CANCEL, drag });
+    for (const f of [...this.outgoing.values()]) {
+      if (f.drag !== drag) continue;
+      this.server.sendToClient({ t: P.T.FILE_CANCEL, id: f.id });
+      this._finish(f.id, false, 'cancelled');
+    }
+    if (tell) this._dragEnd({ drag, result: 'cancelled' });
+  }
+
+  _dragEnd(m) {
+    const d = this.drags.get(m.drag);
+    if (!d) return;
+    console.log(`[drag] out ${m.drag}: ${m.result}${m.where ? ` in ${m.where}` : ''}`);
+    this.drags.delete(m.drag);
+    const ok = m.result === 'dropped';
+    if (!ok) this.cancelDrag(m.drag, false);
+    const where = typeof m.where === 'string' ? m.where.slice(0, 300) : '';
+    this.recent.unshift({ name: d.name, size: d.bytes, at: Date.now(), ok, ...(ok ? { where } : { error: m.result === 'failed' ? 'the PC couldn’t take it' : 'cancelled' }) });
+    this.recent.length = Math.min(this.recent.length, 20);
+    this.emit('dragEnd', m.drag);
+    this.emit('change');
+  }
+
+  // One file at a time, in offer order (a drag's files arrive in the order the PC listed them).
+  async _next() {
+    if (this.pumping) return;
+    this.pumping = true;
+    try {
+      for (;;) {
+        const f = [...this.outgoing.values()].find((x) => x.state === 'accepted');
+        if (!f) break;
+        await this._pump(f.id);
+      }
+    } finally {
+      this.pumping = false;
     }
   }
 
   async _pump(id) {
     const f = this.outgoing.get(id);
-    if (!f || f.state !== 'offered') return;
+    if (!f || f.state !== 'accepted') return;
     f.state = 'sending';
     const ws = this.server.current && this.server.current.ws;
     const hash = crypto.createHash('sha256');
@@ -83,6 +199,7 @@ class FileSend extends EventEmitter {
     const f = this.outgoing.get(id);
     if (!f) return;
     this.outgoing.delete(id);
+    if (f.drag) return this.emit('change'); // a drag is listed once, on drag.end
     this.recent.unshift({ name: f.name, size: f.size, at: Date.now(), ok, ...(ok ? { where: info } : { error: info }) });
     this.recent.length = Math.min(this.recent.length, 20);
     this.emit('change');
@@ -90,6 +207,7 @@ class FileSend extends EventEmitter {
 
   get view() {
     return {
+      peerDrag: this.peerDrag,
       sending: [...this.outgoing.values()].map((f) => ({ name: f.name, size: f.size, sent: f.sent })),
       sent: this.recent,
     };

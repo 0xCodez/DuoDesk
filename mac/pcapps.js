@@ -241,7 +241,7 @@ class PcApps extends EventEmitter {
 
   _title(info) {
     const app = this._appName(info.id);
-    return info.title && app && !info.title.includes(app) ? `${info.title} — ${app}` : info.title || app || 'PC app';
+    return info.title && app && !info.title.includes(app) ? `${info.title} · ${app}` : info.title || app || 'PC app';
   }
 
   _update(w, info) {

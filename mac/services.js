@@ -38,7 +38,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   });
   const clipboard = new Clipboard(server, helper, s);
   const drop = new Drop({ server, helper, displays, getSettings: s });
-  const fileSend = new FileSend(server);
+  const fileSend = new FileSend(server, s);
   kvm = new Kvm({ server, helper, getSettings: s, clipboard, input, drop, fileSend });
   const terminal = new Terminal(server, s);
   const smb = new Smb({ server, helper, getSettings: s, saveSettings: () => store.saveSettings(s()) });

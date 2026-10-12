@@ -6,7 +6,7 @@ UI.tab({
   id: 'keyboard',
   order: 30,
   title: 'Keyboard',
-  desc: 'Your typing goes to whichever computer the pointer is on. A hotkey switches without the mouse.',
+  desc: 'Type on whichever computer the pointer is on.',
   color: 'linear-gradient(#d1d1d6, #8e8e93)',
   master: { get: (s) => s.kvm && s.kvm.keyboard, set: (v) => UI.api.setKvm({ keyboard: v }) },
   badge: (s) => (s.kvm && s.kvm.keyboard ? 'on' : ''),
@@ -22,17 +22,13 @@ UI.tab({
       UI.pair(
         UI.dir('m2w', [
           hotkeyRow,
-          UI.row('Shortcuts on the PC', 'The PC turns ⌘ Command into Ctrl, so ⌘C copies there. Right Option stays on this Mac (it’s the hotkey) — use Left Option for Alt.'),
-        ], { role: 'this Mac’s keyboard' }),
+          UI.row('Shortcuts on the PC', '⌘ works as Ctrl, so ⌘C copies there'),
+        ]),
         UI.dir('w2m', [
-          UI.row('Switch computers (on the PC)', 'Double-tap Right Ctrl on the PC'),
-          UI.row('Use PC shortcuts the Mac way', 'Ctrl → ⌘ Command, Windows key → ⌃ Control, Alt → ⌥ Option. So Ctrl+C copies here. Applies to Monitor 2 too.', [swap]),
-        ], { role: 'the PC’s keyboard' }),
+          UI.row('Switch computers', 'Double-tap Right Ctrl on the PC'),
+          UI.row('Ctrl works as ⌘', 'So Ctrl+C copies here', [swap]),
+        ]),
       ),
-      UI.card('Good to know', [
-        UI.row('Password fields', 'macOS blocks key capture while a password field or Terminal’s Secure Keyboard Entry is active. The pointer still crosses.'),
-        UI.row('Keyboard layouts', 'Use the same layout (e.g. U.S.) on both computers for now.'),
-      ]),
     );
 
     return (s) => {
@@ -41,9 +37,7 @@ UI.tab({
       status.className = `note ${kind}`;
       status.set(text);
       swap.set(s.keys && s.keys.swapCtrlCmd);
-      hotkeyRow.setHint(s.kvm.mouse
-        ? 'Double-tap Right Option to send the keyboard and pointer to the PC, again to come back.'
-        : 'Cursor sharing is off, so the hotkey is how the keyboard moves to the PC (the pointer stays here).');
+      hotkeyRow.setHint('Double-tap to go to the PC and back');
     };
   },
 });

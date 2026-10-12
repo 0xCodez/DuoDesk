@@ -53,7 +53,7 @@ namespace MacShare
         {
             string side = capture.Side;
             bool held = (Native.GetAsyncKeyState(0x01) & 0x8000) != 0;
-            if (!held || side == null || !capture.DriveOther || capture.Capturing) { if (Visible) Hide(); return; }
+            if (!held || side == null || !capture.DriveOther || !capture.DragFiles || capture.Capturing) { if (Visible) Hide(); return; }
             Native.POINT p;
             Native.GetCursorPos(out p);
             Rectangle m = Screen.FromPoint(new Point(p.x, p.y)).Bounds;

@@ -19,6 +19,7 @@ namespace MacShare
         static Capture capture;
         static Injector injector;
         static DropEdge dropEdge;
+        static DragSession drag; // the drag from the Mac on this PC (revision 3)
 
         [STAThread]
         static int Main(string[] args)
@@ -125,6 +126,7 @@ namespace MacShare
                         capture.HotkeyVk = Json.Str(c, "hotkey", "ControlRight") == "ControlLeft" ? 0xA2u : 0xA3u;
                         capture.DriveOther = Json.Bool(c, "driveOther", false);
                         capture.EdgeKeyboard = Json.Bool(c, "keyboard", true);
+                        capture.DragFiles = Json.Bool(c, "dragFiles", true);
                         capture.DeadmanMs = (int)Json.Num(c, "deadmanMs", 1500);
                         capture.DoubleTapMs = (int)Json.Num(c, "doubleTapMs", 400);
                         break;
@@ -158,6 +160,39 @@ namespace MacShare
                             r["icons"] = icons;
                         });
                         return;
+                    // drag across the edge, revision 3: a native drag of virtual files
+                    case "dragStart":
+                        if (drag != null) drag.CancelRequested = true;
+                        drag = new DragSession();
+                        drag.Id = Json.Str(c, "drag", "");
+                        drag.Emit = Emit;
+                        drag.Entries = new List<DragEntry>();
+                        System.Collections.IList ents = c.ContainsKey("entries") ? c["entries"] as System.Collections.IList : null;
+                        if (ents != null) foreach (object o in ents)
+                        {
+                            Dictionary<string, object> e = o as Dictionary<string, object>;
+                            if (e == null) continue;
+                            DragEntry de = new DragEntry();
+                            de.Rel = Json.Str(e, "rel", "file").Replace('/', '\\');
+                            de.Dir = Json.Bool(e, "dir", false);
+                            de.Size = (long)Json.Num(e, "size", 0);
+                            de.Temp = Json.Str(e, "temp", "");
+                            drag.Entries.Add(de);
+                        }
+                        List<string> dnames = new List<string>();
+                        System.Collections.IList nl = c.ContainsKey("names") ? c["names"] as System.Collections.IList : null;
+                        if (nl != null) foreach (object o in nl) dnames.Add(Convert.ToString(o));
+                        drag.Start(dnames);
+                        break;
+                    case "dragFile":
+                        if (drag != null && drag.Id == Json.Str(c, "drag", ""))
+                        {
+                            int di = (int)Json.Num(c, "index", -1);
+                            if (di >= 0 && di < drag.Entries.Count) drag.Entries[di].State = Json.Str(c, "state", "") == "ok" ? 1 : -1;
+                        }
+                        break;
+                    case "dragDrop": if (drag != null && drag.Id == Json.Str(c, "drag", "")) drag.DropRequested = true; break;
+                    case "dragCancel": if (drag != null && drag.Id == Json.Str(c, "drag", "")) drag.CancelRequested = true; break;
                     case "winRaise": AppWindows.Raise(Json.Num(c, "wid", 0)); break;
                     case "winClose": AppWindows.Close(Json.Num(c, "wid", 0)); break;
                     case "winSize": AppWindows.Resize(Json.Num(c, "wid", 0), (int)Json.Num(c, "w", 0), (int)Json.Num(c, "h", 0)); break;

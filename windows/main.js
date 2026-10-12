@@ -20,6 +20,7 @@ const Smb = require('./smb');
 const Apps = require('./apps');
 const Sound = require('./sound');
 const FileRecv = require('./filerecv');
+const DragRecv = require('./dragrecv');
 const Sshd = require('./sshd');
 const PcScreen = require('./pcscreen');
 const PcApps = require('./pcapps');
@@ -115,7 +116,8 @@ function start() {
   smb = new Smb({ link, settings, save: saveSettings, onChange: pushState });
   helper = new Helper();
   fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
-  kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, settings, onChange: onKvmChange });
+  const dragRecv = new DragRecv({ link, helper, settings, isDriven: () => kvm && kvm.mode === 'driven', onChange: pushState });
+  kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, dragRecv, settings, onChange: onKvmChange });
   vdd = new Vdd({ helper, onChange: pushState });
   const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
   pcScreen = new PcScreen({ link, helper, sender, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
@@ -178,7 +180,7 @@ function buildState() {
     pcScreen: pcScreen.view(),
     pcApps: pcApps.view(),
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
-    files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view() },
+    files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags },
     apps: apps.view(),
     startup: getStartup(),
   };

@@ -6,7 +6,7 @@ UI.tab({
   id: 'clipboard',
   order: 40,
   title: 'Clipboard',
-  desc: 'Copy on one computer, paste on the other. Text only for now; images and files come later.',
+  desc: 'Copy on one computer, paste on the other.',
   color: 'linear-gradient(#64d2ff, #30b0c7)',
   master: { get: (s) => s.clipboard && s.clipboard.enabled, set: (v) => UI.api.setClipboard({ enabled: v }) },
   badge: (s) => (s.clipboard && s.clipboard.enabled ? 'on' : ''),
@@ -38,14 +38,14 @@ UI.tab({
     body.append(
       peerNote,
       UI.pair(
-        UI.dir('m2w', [UI.row('Send this Mac’s clipboard', 'Text you copy here can be pasted on the PC', [send])], { role: 'this Mac sends' }),
-        UI.dir('w2m', [UI.row('Accept the PC’s clipboard', 'Text copied on the PC can be pasted here', [receive])], { role: 'this Mac receives' }),
+        UI.dir('m2w', [UI.row('Send what you copy here', '', [send])]),
+        UI.dir('w2m', [UI.row('Paste what you copy on the PC', '', [receive])]),
       ),
-      UI.card('Timing', [modeRow]),
-      UI.card('Privacy and limits', [
-        UI.row('Skip passwords', 'Never send items that password managers mark as concealed (1Password, Bitwarden, Keychain…)', [concealed]),
-        UI.row('Largest item', 'Bigger copies stay on this computer', [maxKB]),
-        UI.row('Remember recent items', 'Kept in memory only, never saved to disk', [historySize]),
+      UI.card('Options', [
+        modeRow,
+        UI.row('Skip passwords', 'From password managers', [concealed]),
+        UI.row('Largest item', '', [maxKB]),
+        UI.row('Recent items', 'Never saved to disk', [historySize]),
       ]),
       skipNote,
       UI.card('Recent', [list], { actions: [clearBtn] }),
@@ -58,14 +58,12 @@ UI.tab({
       send.set(c.send);
       receive.set(c.receive);
       mode.set(c.mode);
-      modeRow.setHint(c.mode === 'instant'
-        ? 'Everything you copy here goes to the PC right away (while connected).'
-        : 'Sent when you move into or out of Monitor 2, or cross the screen edge. Nothing leaves while you stay put.');
+      modeRow.setHint(c.mode === 'instant' ? 'As soon as you copy' : 'When you move to the other computer');
       concealed.set(c.skipConcealed);
       maxKB.set(c.maxKB);
       historySize.set(c.historySize);
-      peerNote.set(s.client && !c.peerAccepts ? `${s.client.name} doesn’t accept clipboard from this Mac (turned off in the PC app).` : '');
-      skipNote.set(c.enabled && c.lastSkip ? `Last item not sent: ${c.lastSkip}.` : '');
+      peerNote.set(s.client && !c.peerAccepts ? `Turned off on ${s.client.name}.` : '');
+      skipNote.set(c.enabled && c.lastSkip ? `Last copy not sent: ${c.lastSkip}.` : '');
       clearBtn.disabled = !c.history.length;
 
       // Rebuild the list only when it changed (or every 15 s for the relative times).
@@ -81,7 +79,7 @@ UI.tab({
           ]),
           UI.button('Copy', () => api.copyHistory(i), 'small'),
         ]))
-        : [UI.row(c.historySize ? 'Nothing yet' : 'History is off', c.historySize ? 'Copied text that goes between the computers shows up here.' : 'Turn on “Remember recent items” to see what was shared.')]));
+        : [UI.row(c.historySize ? 'Nothing yet' : 'Recent items are off', '')]));
     };
   },
 });

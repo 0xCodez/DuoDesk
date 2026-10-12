@@ -19,6 +19,7 @@ namespace MacShare
         public uint HotkeyVk = 0xA3; // Right Ctrl
         public bool DriveOther;      // edge detection on
         public bool EdgeKeyboard = true; // an edge crossing also captures the keyboard
+        public bool DragFiles = true; // file drags at the edge go to the Mac (drag.policy + the Files switches)
         public int DeadmanMs = 1500, DoubleTapMs = 400;
 
         // capture state

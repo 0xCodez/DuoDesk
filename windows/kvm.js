@@ -1,7 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Shared cursor and keyboard: the docs/KVM.md state machine, Windows side, both roles
 // (rows 1–6 + 9: this PC drives the Mac; rows 7–8c + 9b: the Mac drives this PC).
-const fs = require('fs');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
@@ -46,7 +45,9 @@ class Kvm {
       this._setMode('home', '');
     });
     for (const t of K_TYPES) link.on(t, (m) => this._inject(m));
-    link.on('welcome', () => this.applyConfig());
+    link.on('welcome', () => { this.peerDrags = true; this.sentDragPolicy = undefined; this.applyConfig(); }); // re-sends our drag.policy
+    this.peerDrags = true; // the Mac's drag.policy (assume yes until told)
+    link.on(T.DRAG_POLICY, (m) => { this.peerDrags = m.accept !== false; this.applyConfig(); });
     link.on('closed', () => {
       this._linkLost('The Mac disconnected');
       this.pcSide = null;
@@ -77,6 +78,12 @@ class Kvm {
   }
 
   // Tell the helper where the edge is and whether to watch it (docs/KVM.md switches).
+  // Drags across the edge go out when our switch and our "send" are on and the Mac takes them.
+  _dragsOut() {
+    const f = this.settings.files;
+    return !!(f.edgeDrag && f.dropToMac && this.peerDrags);
+  }
+
   applyConfig() {
     const k = this.cfg;
     this.helper.send('kvmConfig', {
@@ -87,7 +94,14 @@ class Kvm {
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
+      dragFiles: this._dragsOut(), // the edge strip that picks up file drags
     });
+    // Our switch, for the Mac (it doesn't pick up drags towards us while it's off).
+    const accept = !!this.settings.files.edgeDrag;
+    if (this.connected && accept !== this.sentDragPolicy) {
+      this.sentDragPolicy = accept;
+      this.link.send({ t: T.DRAG_POLICY, accept });
+    }
   }
 
   view() {
@@ -109,12 +123,11 @@ class Kvm {
           return;
         }
         {
-          const paths = msg.drag && Array.isArray(msg.drag.paths) && this.settings.files.dropToMac ? msg.drag.paths.filter(isFile) : []; // folders aren't sent (iteration later)
-          this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(paths.length ? { drag: { count: paths.length } } : {}) });
-          if (paths.length) { // the files follow; the Mac places them where its pointer is on release
-            this.dragPending = true;
-            this.fileDrop.drop(paths, null, null, true);
-          }
+          // A file/folder drag crossed (revision 3): the Mac shows it as its own drag; the data follows.
+          const paths = msg.drag && Array.isArray(msg.drag.paths) && this._dragsOut() ? msg.drag.paths.filter((p) => typeof p === 'string') : [];
+          const drag = paths.length ? this.fileDrop.startDrag(paths) : null;
+          this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(drag ? { drag } : {}) });
+          if (drag) this.dragPending = true;
         }
         break;
       case 'hotkey':
@@ -223,8 +236,8 @@ class Kvm {
       ev.dy = -(Number(ev.dy) || 0);
     }
     this.helper.send('inject', { ev });
-    // The Mac released its left button here: files it dragged across land under the pointer.
-    if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) this.fileRecv.onRelease();
+    // The Mac released its left button here: its drag drops where the pointer is.
+    if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) { this.fileRecv.onRelease(); if (this.dragRecv) this.dragRecv.onRelease(); }
   }
 
   // Row 8c: we send the input home (return edge or hotkey).
@@ -235,6 +248,7 @@ class Kvm {
 
   // Rows 8b, 8c, 9b.
   _drivenHome(message, sendClip) {
+    if (this.dragRecv) this.dragRecv.onHome(); // a drag from the Mac not dropped yet is cancelled
     this.helper.send('releaseAll');
     this.helper.send('armReturn', { on: false });
     this._setMode('home', message);
@@ -291,8 +305,5 @@ class Kvm {
   }
 }
 
-function isFile(p) {
-  try { return typeof p === 'string' && fs.statSync(p).isFile(); } catch (_) { return false; }
-}
 
 module.exports = Kvm;

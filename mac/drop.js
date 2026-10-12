@@ -5,6 +5,7 @@
 //   drop:'point'   (Monitor 2) x,y normalized over the shared display
 //   drop:'release' (dragged across the edge) wait in a temp folder until the PC's left button comes
 //                  up while it drives this Mac (release()), then go where the pointer is.
+//   drop:'drag'    (revision 3) part of a native drag here: dragin.js says where it lands.
 //
 // Events: 'change' — this.view changed.
 'use strict';
@@ -17,6 +18,7 @@ const { execFile } = require('child_process');
 const { shell, screen } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const { DragIn } = require('./dragin');
 
 const DESKTOP = path.join(os.homedir(), 'Desktop');
 const DOWNLOADS = path.join(os.homedir(), 'Downloads');
@@ -67,7 +69,12 @@ class Drop extends EventEmitter {
     Object.assign(this, { server, helper, displays, getSettings });
     this.active = new Map(); // id -> transfer
     this.recent = []; // newest first: {name, size, path, at, ok, error}
-    this.drag = null; // { dest: null|dir, waiting: [transfer] } while files are dragged in
+    this.drag = null; // { dest: null|dir, waiting: [transfer] } while files are dragged in (drop:'release')
+    this.dragIn = new DragIn({ server, helper, getSettings, remember: (r) => this._remember(r) });
+    this.dragIn.replayOffer = (m) => this._offer(m);
+    this.dragIn.onAbort = (drag) => {
+      for (const t of [...this.active.values()]) if (t.drag === drag) this._abort(t.id, 'cancelled', false);
+    };
 
     const on = (t, fn) => server.on(`t:${t}`, fn);
     on(P.T.FILE_OFFER, (m) => this._offer(m));
@@ -111,6 +118,7 @@ class Drop extends EventEmitter {
     const size = Number(m.size);
     if (!Number.isFinite(size) || size < 0 || size > P.FILE_MAX_BYTES) return refuse('too_big');
     const name = cleanName(m.name);
+    if (m.drop === 'drag') return this._offerDrag(m, size, name);
     const release = m.drop === 'release';
     if (release && !this.drag) this.drag = { dest: null, waiting: [] }; // offer before kvm.take: fine
     const dir = release ? INCOMING : await this._destination(m);
@@ -124,6 +132,26 @@ class Drop extends EventEmitter {
       return refuse('not_allowed');
     }
     this.active.set(m.id, { id: m.id, name, size, dir, tmp, fd, release, got: 0, seq: 0, hash: crypto.createHash('sha256'), at: Date.now() });
+    this.server.sendToClient({ t: P.T.FILE_ACCEPT, id: m.id });
+    this.emit('change');
+  }
+
+  // A file of a native drag (dragin.js): streamed into the drag's temp tree.
+  _offerDrag(m, size, name) {
+    if (this.dragIn.holdOffer(m)) return;
+    const final = this.dragIn.tmpFor(m);
+    if (!final) return this.server.sendToClient({ t: P.T.FILE_REFUSE, id: m.id, why: 'not_allowed' });
+    const tmp = `${final}.macshare-part`;
+    let fd;
+    try {
+      fs.mkdirSync(path.dirname(tmp), { recursive: true });
+      fd = fs.openSync(tmp, 'w', 0o644);
+    } catch (e) {
+      console.error(`[drop] ${tmp}: ${e.message}`);
+      this.dragIn.arrived({ drag: m.drag, rel: m.rel, id: m.id }, false);
+      return this.server.sendToClient({ t: P.T.FILE_REFUSE, id: m.id, why: 'not_allowed' });
+    }
+    this.active.set(m.id, { id: m.id, name, size, tmp, final, fd, drag: m.drag, rel: m.rel, got: 0, seq: 0, hash: crypto.createHash('sha256'), at: Date.now() });
     this.server.sendToClient({ t: P.T.FILE_ACCEPT, id: m.id });
     this.emit('change');
   }
@@ -151,6 +179,15 @@ class Drop extends EventEmitter {
       return this._abort(m.id, t.got !== t.size ? 'size mismatch' : 'checksum mismatch', true);
     }
     this.active.delete(m.id);
+    if (t.drag) {
+      try {
+        fs.renameSync(t.tmp, t.final);
+      } catch (e) {
+        return this._abort(m.id, e.message, true);
+      }
+      this.dragIn.arrived(t, true);
+      return this.emit('change');
+    }
     if (t.release && !(this.drag && this.drag.dest)) {
       // Not dropped yet: wait for the release (kept complete in the temp folder).
       if (!this.drag) this.drag = { dest: null, waiting: [] };
@@ -190,6 +227,10 @@ class Drop extends EventEmitter {
   // The PC's left button came up while it drives this Mac: drop here.
   async release() {
     if (!this.drag || this.drag.dest) return;
+    if (!this.drag.waiting.length && ![...this.active.values()].some((t) => t.release)) {
+      this.drag = null; // a revision 3 drag (dragin.js) or nothing sent: nothing to place
+      return;
+    }
     const p = screen.getCursorScreenPoint();
     const dest = await this._destAt(p.x, p.y);
     if (!this.drag) return;
@@ -216,6 +257,10 @@ class Drop extends EventEmitter {
     if (t.fd !== null) try { fs.closeSync(t.fd); } catch { /* already closed */ }
     fs.rmSync(t.tmp, { force: true });
     if (tell) this.server.sendToClient({ t: P.T.FILE_DONE, id, ok: false, error });
+    if (t.drag) {
+      this.dragIn.arrived(t, false);
+      return this.emit('change');
+    }
     this._remember({ name: t.name, size: t.size, path: null, ok: false, error });
   }
 

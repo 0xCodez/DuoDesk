@@ -182,11 +182,11 @@ const UI = {
   // Live shared-input status (Cursor / Keyboard tabs): where input is, last message, tap problems.
   kvmStatus(s) {
     const i = s.input || { where: 'home' };
-    if (i.tapError) return ['bad', 'macOS blocked keyboard and mouse capture. Grant Accessibility and Input Monitoring in General, then restart MacShare.'];
-    if (!s.client) return ['info', 'Waiting for your PC to connect.'];
-    if (i.where === 'driving') return ['info', `This Mac’s keyboard and mouse are driving ${s.client.name}. Double-tap Right Option or push back to return.`];
-    if (i.where === 'driven') return ['info', `${s.client.name} is driving this Mac.`];
-    return [i.message ? 'warn' : 'info', i.message ? `Last switch: ${i.message}.` : `Ready — ${s.client.name} is connected.`];
+    if (i.tapError) return ['bad', 'macOS is blocking the mouse and keyboard. Allow Accessibility and Input Monitoring in General, then restart.'];
+    if (!s.client) return ['info', 'Waiting for your PC.'];
+    if (i.where === 'driving') return ['info', `You’re using ${s.client.name}. Double-tap Right Option to come back.`];
+    if (i.where === 'driven') return ['info', `${s.client.name} is using this Mac.`];
+    return [i.message ? 'warn' : 'info', i.message ? `${i.message}.` : `Connected to ${s.client.name}.`];
   },
 
   ago(ts) {

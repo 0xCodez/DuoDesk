@@ -30,7 +30,7 @@ class FileRecv {
   }
 
   _offer(m) {
-    if (typeof m.id !== 'string' || this.files.has(m.id)) return;
+    if (typeof m.id !== 'string' || this.files.has(m.id) || m.drop === 'drag') return; // drags: dragrecv.js
     const refuse = (why) => this.link.send({ t: T.FILE_REFUSE, id: m.id, why });
     if (!this.settings.files.acceptFromMac) return refuse('not_allowed');
     if (!(m.size >= 0) || m.size > P.FILE_MAX_BYTES) return refuse('too_big');

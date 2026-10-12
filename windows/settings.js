@@ -60,6 +60,7 @@ function normalize(s) {
       shareFolder: typeof files.shareFolder === 'string' ? files.shareFolder : '',
       mountMac: bool(files.mountMac, true),
       acceptFromMac: bool(files.acceptFromMac, true), // files dragged from the Mac across the edge
+      edgeDrag: bool(files.edgeDrag, true), // drag files/folders across the screen edge, both ways (drag.policy)
     },
     pcScreen: { // Display › PC → Mac (phase 11); Off/Mirror/Extend itself is never saved
       monitor: typeof pcs.monitor === 'string' ? pcs.monitor : '', // Electron display id for Mirror ('' = main)

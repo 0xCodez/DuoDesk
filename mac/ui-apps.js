@@ -6,14 +6,14 @@ UI.tab({
   id: 'apps',
   order: 80,
   title: 'Apps',
-  desc: 'Open an app of one computer from the other. Each app window shows up as its own window there, with its own taskbar or Dock icon.',
+  desc: 'Open apps from the other computer in their own windows.',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
   badge: (s) => ((s.apps && s.apps.offer) || (s.papps && s.papps.on) ? 'on' : ''),
   build(body) {
     const { api, el } = UI;
     const offerSw = UI.switch((v) => api.setApps({ offer: v }), { label: 'Show this Mac’s apps on the PC' });
-    const offerRow = UI.row('Show this Mac’s apps on the PC', '', [offerSw]);
-    const usage = UI.row('Opened from the PC', '');
+    const offerRow = UI.row('Share this Mac’s apps', '', [offerSw]);
+    const usage = UI.row('Open on the PC', '');
     const pcSw = UI.switch((v) => api.setPcApps({ on: v }), { label: 'PC apps on this Mac' });
     const pcRow = UI.row('Show the PC’s apps here', '', [pcSw]);
     const pcUsage = UI.row('Open here', '');
@@ -42,16 +42,15 @@ UI.tab({
         b.onclick = () => api.openPcApp(a.id);
         return b;
       }));
-      if (!apps.length) grid.append(el('div', { class: 'app-empty', text: p.listing ? 'Loading the PC’s apps…' : q ? 'No app matches' : 'No apps yet — press Refresh' }));
+      if (!apps.length) grid.append(el('div', { class: 'app-empty', text: p.listing ? 'Loading the PC’s apps…' : q ? 'No app matches' : 'No apps yet. Press Refresh.' }));
     }
     body.append(
       UI.pair(
         UI.dir('m2w', [
           offerRow,
           usage,
-          UI.row('How it works', 'The app opens here on the screen you share (Display › Mac → PC) and its windows move onto it; the PC cuts each window out of the stream at 1:1 size. Extend with the MacShare virtual display keeps them off this Mac’s own screen.'),
-        ], { role: 'this Mac’s apps' }),
-        UI.dir('w2m', [pcRow, pcUsage, UI.row('How it works', 'The PC captures each window of an app you open here and sends it on its own; it shows up here in its own window, the same size as on the PC, with the app’s own Dock icon. Close a window here and it closes on the PC.')], { role: 'the PC’s apps' }),
+        ]),
+        UI.dir('w2m', [pcRow, pcUsage]),
       ),
       gridCard,
     );
@@ -59,20 +58,18 @@ UI.tab({
       const a = s.apps;
       if (!a) return;
       offerSw.set(a.offer);
-      offerRow.setHint(!a.offer ? 'Off — the PC can’t see or open this Mac’s apps'
-        : !s.sharing || !s.sharing.on ? 'App windows come from the shared screen — turn on Display › Mac → PC'
-          : !s.permissions.accessibility ? 'Grant Accessibility (General) so app windows can be moved onto the shared screen'
-            : s.client ? `Ready — open the Apps tab in ${s.client.name}’s MacShare app` : 'Ready — waiting for your PC to connect');
+      offerRow.setHint(!a.offer ? ''
+        : !s.sharing || !s.sharing.on ? 'Needs screen sharing on'
+          : !s.permissions.accessibility ? 'Needs Accessibility (General)' : '');
       const p = s.papps;
       if (p) {
         pcSw.set(p.on);
-        pcRow.setHint(!p.on ? 'Off — the PC sends no app windows here'
-          : s.client ? `Ready — pick an app below to open it on ${s.client.name}` : 'Waiting for your PC to connect');
-        pcUsage.setHint(p.windows.length ? `${p.windows.length} PC window${p.windows.length > 1 ? 's' : ''} open here: ${p.windows.map((w) => w.title).filter(Boolean).slice(0, 4).join(', ')}` : 'Nothing yet');
+        pcRow.setHint(p.on && !s.client ? 'Waiting for your PC' : '');
+        pcUsage.setHint(p.windows.length ? `${p.windows.length} window${p.windows.length > 1 ? 's' : ''}` : 'Nothing open');
         gridCard.hidden = !p.on || !s.client;
         draw(p);
       }
-      usage.setHint(a.launched.length ? `${a.launched.length} app${a.launched.length > 1 ? 's' : ''} · ${a.windows} window${a.windows === 1 ? '' : 's'} on the PC` : 'Nothing yet');
+      usage.setHint(a.launched.length ? `${a.launched.length} app${a.launched.length > 1 ? 's' : ''}` : 'Nothing open');
     };
   },
 });

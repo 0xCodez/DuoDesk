@@ -52,9 +52,9 @@ function setupIpc(ctx) {
   handle('addToPath', () => terminal.addToPath());
   handle('setFiles', (partial) => {
     // shareOn/shareFolder only change through share()/unshare()
-    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac, acceptFromMac: partial.acceptFromMac } : {};
+    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac, acceptFromMac: partial.acceptFromMac, edgeDrag: partial.edgeDrag } : {};
     Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
-    change('files', p, () => smb.applyMount());
+    change('files', p, () => { smb.applyMount(); kvm.applyConfig(); });
   });
   handle('setShareOn', (on) => smb.setShareOn(on === true));
   handle('chooseShareFolder', async () => {

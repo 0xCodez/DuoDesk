@@ -92,6 +92,11 @@
       FILE_END: 'file.end', // W->M {id, sha256}
       FILE_DONE: 'file.done', // M->W {id, ok, path?, error?}
       FILE_CANCEL: 'file.cancel', // either {id}
+      // drag across the edge, revision 3 (docs/ROADMAP.md): a native drag on the receiver, files + folders
+      DRAG_START: 'drag.start', // owner->receiver {drag, items: [{name, dir, size}], dirs: [rel], list: [{rel, size}], files, bytes}
+      DRAG_CANCEL: 'drag.cancel', // owner->receiver {drag}
+      DRAG_END: 'drag.end', // receiver->owner {drag, result: 'dropped'|'cancelled'|'failed', where?}
+      DRAG_POLICY: 'drag.policy', // both {accept}: this side takes drags across the edge (assume true until told)
       // roadmap, docs/ROADMAP.md (phases 7, 11, 12; PC -> Mac media)
       RTC2_OFFER: 'rtc2.offer', // W->M {session, sdp, kind}
       RTC2_ANSWER: 'rtc2.answer', // M->W {session, sdp}

@@ -16,7 +16,12 @@ class Kvm extends EventEmitter {
   constructor({ server, helper, getSettings, clipboard, input, drop, fileSend }) {
     super();
     Object.assign(this, { server, helper, getSettings, clipboard, input, drop, fileSend });
-    this.dragOut = false; // our file drag is on the PC and not yet released
+    this.dragOut = null; // id of our file drag while it is on the PC and not yet dropped
+    fileSend.on('policy', () => this.config());
+    fileSend.on('dragEnd', (drag) => {
+      if (this.dragOut === drag) this.dragOut = null;
+    });
+    drop.dragIn.isDriven = () => this.mode === 'driven';
     this.mode = 'home';
     this.route = 0;
     this.peerRoute = 0;
@@ -79,6 +84,7 @@ class Kvm extends EventEmitter {
       .request('kvmConfig', {
         side: k.pcSide, resistancePx: k.resistancePx, keyboard: !!k.keyboard,
         driveOther: !!(k.driveOther && k.mouse && this.server.current),
+        dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
       })
       .then(() => this._setTapError(null), (e) => this._setTapError(e.message));
   }
@@ -133,9 +139,13 @@ class Kvm extends EventEmitter {
     this._setMode('driving', '');
     this.input.releaseAll();
     const take = { t: P.T.KVM_TAKE, route: this.route, mouse: !!fields.mouse, keyboard: !!k.keyboard, ...fields.where };
-    if (fields.paths && fields.paths.length) take.drag = { count: fields.paths.length };
+    const plan = fields.paths && fields.paths.length ? this.fileSend.planDrag(fields.paths) : null;
+    if (plan) take.drag = { count: plan.items.length };
     this.server.sendToClient(take);
-    if (take.drag) this.dragOut = this.fileSend.send(fields.paths, 'release') > 0;
+    if (plan) {
+      this.dragOut = this.fileSend.startDrag(plan); // drag.start right after kvm.take
+      console.log(`[drag] out ${this.dragOut}: ${plan.items.length} item(s), ${plan.files} file(s), ${plan.bytes} bytes`);
+    } else if (fields.paths && fields.paths.length) console.log('[drag] out: nothing sendable in', fields.paths);
     this.clipboard.sendIfChanged('switch');
     clearTimeout(this.acceptTimer);
     const route = this.route;
@@ -148,8 +158,8 @@ class Kvm extends EventEmitter {
   goHome(message, tellPeer = true) {
     if (this.mode !== 'driving') return;
     if (this.dragOut) {
-      this.dragOut = false;
-      this.fileSend.cancelAll(); // came back without dropping the files on the PC
+      this.fileSend.cancelDrag(this.dragOut, true); // came back without dropping the files on the PC
+      this.dragOut = null;
     }
     this.helper.send('capture', { on: false });
     if (tellPeer && this.server.current) this.server.sendToClient({ t: P.T.KVM_RELEASE, route: ++this.route });
@@ -198,7 +208,7 @@ class Kvm extends EventEmitter {
           return;
         }
         this._flushMove();
-        if (this.dragOut && e.t === P.T.K_UP && e.b === 0) this.dragOut = false; // dropped on the PC
+        if (this.dragOut && e.t === P.T.K_UP && e.b === 0) this.dragOut = null; // dropped on the PC (drag.end follows)
         this.server.sendToClient(e);
         break;
       }
@@ -220,6 +230,7 @@ class Kvm extends EventEmitter {
     if (this.mode === 'driven' && !(m.route > this.peerRoute)) return;
     const first = this.mode !== 'driven';
     this.peerRoute = m.route;
+    if (m.drag) console.log(`[drag] in: the PC crossed with a drag of ${m.drag.count} item(s)`);
     if (m.drag) this.drop.armDrag();
     this._setMode('driven', '');
     this.server.sendToClient({ t: P.T.KVM_ACCEPT, route: m.route });
@@ -229,6 +240,7 @@ class Kvm extends EventEmitter {
       else if (first) this.helper.send('place', { center: true });
       this.helper.send('armReturn', { on: true, side: this.cfg.pcSide, resistancePx: this.cfg.resistancePx });
     }
+    this.drop.dragIn.onDriven(); // after 'place': the native drag starts where the pointer came in
   }
 
   _onK(m) {
@@ -252,6 +264,11 @@ class Kvm extends EventEmitter {
       }
       default:
         if (typeof m.code !== 'string' || m.code.length > 32) return;
+        // Esc during a drag from the PC cancels it (injected, it would go to the frontmost app).
+        if (m.code === 'Escape' && this.drop.dragIn.dragging) {
+          if (m.t === P.T.K_KEY_DOWN) this.drop.dragIn.cancel();
+          return;
+        }
         ev = { t: m.t, code: this.getSettings().keys.swapCtrlCmd !== false ? P.mapKeyFromOtherPlatform(m.code) : m.code };
     }
     this.helper.send('inject', { ev });
@@ -270,6 +287,7 @@ class Kvm extends EventEmitter {
   _drivenHome(message) {
     if (this.mode !== 'driven') return;
     this.drop.cancelDrag();
+    this.drop.dragIn.cancel(); // before releaseAll: the held button must not drop the files
     this.helper.send('releaseAll');
     this.helper.send('armReturn', { on: false });
     this._setMode('home', message);

@@ -31,7 +31,7 @@ const SCHEMA = {
   app: { openAtLogin: bool, keepAwake: bool },
   audio: { send: bool, receive: bool, muteLocal: bool, volume: clamp(0, 1, 1) },
   terminal: { allowPc: bool, connectPc: bool },
-  files: { acceptDrops: bool, reveal: bool },
+  files: { acceptDrops: bool, reveal: bool, dragEdge: bool },
   smb: { connectPc: bool },
   apps: { offer: bool },
   receive: { on: bool, fullScreen: bool, input: bool },
@@ -124,6 +124,8 @@ function setupIpc(ctx) {
     },
     setFiles(partial) {
       setGroup('files', partial);
+      ctx.fileSend.sendPolicy();
+      ctx.kvm.config();
     },
     async pickDropFolder() {
       const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Use This Folder' });

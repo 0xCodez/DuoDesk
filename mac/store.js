@@ -66,7 +66,7 @@ const DEFAULT_SETTINGS = {
   app: { openAtLogin: false, keepAwake: true }, // phase 6
   audio: { send: false, receive: false, muteLocal: false, volume: 1 }, // revision 2: independent, both ways
   terminal: { allowPc: false, connectPc: false }, // phase 8: PC -> Mac shell; Mac -> PC (`ssh macshare-pc`)
-  files: { acceptDrops: true, folder: '', reveal: true }, // phase 9: '' = Downloads
+  files: { acceptDrops: true, folder: '', reveal: true, dragEdge: true }, // phase 9: '' = Downloads; dragEdge = drag.policy
   apps: { offer: true }, // phase 12: the PC can list and open this Mac's apps
   papps: { on: true }, // phase 13: PC apps on this Mac, each window here with its own Dock icon
   receive: { on: true, fullScreen: false, input: true }, // phase 11: the PC's screen in a window here
