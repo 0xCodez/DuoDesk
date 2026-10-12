@@ -9,12 +9,15 @@
   "scripts": {
     "start": "electron .",
     "build:helper": "../mac-helper/build.sh 2>&1 | tail -30",
-    "probe": "node dev/probe.js"
+    "probe": "node dev/probe.js",
+    "dist": "./build-app.sh",
+    "dmg": "./build-dmg.sh"
   },
   "dependencies": {
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@electron/packager": "^20.3.0",
     "electron": "^44.7.0"
   }
 }

@@ -9,12 +9,14 @@
   "scripts": {
     "start": "electron .",
     "test:monitor": "electron . --test-monitor",
-    "build:helper": "..\\windows-helper\\build.cmd"
+    "build:helper": "..\\windows-helper\\build.cmd",
+    "dist": "node installer/build.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "26.0.12"
   }
 }

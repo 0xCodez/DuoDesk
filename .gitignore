@@ -9,3 +9,9 @@ mac-helper/.swiftpm/
 windows-helper/bin/
 # dev-only local state
 mac/dev/.probe.json
+# packaged app (mac/build-app.sh)
+mac/dist/
+# Windows installer output
+windows/dist/
+# Markdown documentation and notes
+.md/
