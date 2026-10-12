@@ -38,6 +38,7 @@ func replyError(_ id: Any?, _ message: String) {
 
 let virtualDisplay = VirtualDisplay()
 let injector = Injector()
+let pasteboardWatch = PasteboardWatch()
 
 func handle(_ line: String) {
   guard let data = line.data(using: .utf8),
@@ -77,6 +78,11 @@ func handle(_ line: String) {
   case "releaseAll":
     injector.releaseAll()
     reply(id)
+  case "clipboardWatch":
+    pasteboardWatch.set(on: (msg["on"] as? Bool) ?? false)
+    reply(id)
+  case "clipboardInfo":
+    reply(id, PasteboardWatch.info())
   case "destroyDisplay":
     virtualDisplay.destroy()
     reply(id)

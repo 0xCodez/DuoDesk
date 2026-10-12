@@ -2,12 +2,21 @@
 // The small API the main window gets from the main process.
 const { contextBridge, ipcRenderer } = require('electron');
 
+const call = (name) => (...args) => ipcRenderer.invoke(name, ...args);
+
 contextBridge.exposeInMainWorld('macshare', {
-  getState: () => ipcRenderer.invoke('getState'),
+  getState: call('getState'),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
-  pair: (idOrAddress) => ipcRenderer.invoke('pair', idOrAddress),
-  confirmCode: () => ipcRenderer.invoke('confirmCode'),
-  cancelPair: () => ipcRenderer.invoke('cancelPair'),
-  forget: () => ipcRenderer.invoke('forget'),
-  openMonitor: () => ipcRenderer.invoke('openMonitor'),
+  pair: call('pair'),
+  confirmCode: call('confirmCode'),
+  cancelPair: call('cancelPair'),
+  forget: call('forget'),
+  openMonitor: call('openMonitor'),
+  setKvm: call('setKvm'),
+  setKeys: call('setKeys'),
+  setMonitor: call('setMonitor'),
+  setClipboard: call('setClipboard'),
+  copyHistory: call('copyHistory'),
+  clearHistory: call('clearHistory'),
+  setTab: call('setTab'),
 });

@@ -77,6 +77,7 @@
       // clipboard text
       CLIP: 'clip',
       CLIP_REQUEST: 'clip.request',
+      CLIP_POLICY: 'clip.policy', // either way: {accept} — whether this side applies clip from the other
       // iteration 2: app drawer
       APPS_LIST: 'apps.list',
       APPS_RESULT: 'apps.result',

@@ -44,18 +44,31 @@ const DEFAULT_SETTINGS = {
   streamMaxHeight: 1080, // 0 = capture at the display's pixel size; else scale down (GPU) to this height
   kvm: {
     pcSide: 'right',
+    mouse: true, // Cursor tab
+    keyboard: true, // Keyboard tab
     driveOther: true,
     beDriven: true,
     resistancePx: 120,
     speed: 1.0,
     reverseScroll: false,
   },
+  keys: { swapCtrlCmd: true }, // keys from the PC: Ctrl -> Cmd, Win -> Control
+  clipboard: {
+    enabled: true,
+    send: true, // this Mac -> PC
+    receive: true, // PC -> this Mac
+    mode: 'switch', // 'switch' (Monitor 2 focus, crossing) | 'instant' (whenever you copy)
+    skipConcealed: true, // passwords from password managers
+    maxKB: 256,
+    historySize: 20, // memory only
+  },
+  ui: { tab: 'overview' },
 };
 
 function loadSettings() {
   const s = read('settings.json', {});
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['sharing', 'virtual', 'kvm']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   return out;
 }
 

@@ -62,7 +62,7 @@ class Screen {
     this.replay = []; // a fresh offer follows every stream.info
     this._relay({ t: T.STREAM_INFO, name: this.state.name, width, height });
     this._title();
-    if (!this.autoOpened) {
+    if (!this.autoOpened && this.settings.monitor.autoOpen) {
       this.autoOpened = true;
       this.open(false);
     }

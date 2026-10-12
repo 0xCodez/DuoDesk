@@ -1,124 +1,146 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Main window: renders the state pushed by the main process; buttons call the preload API.
-const api = window.macshare;
-const $ = (id) => document.getElementById(id);
+// Main window shell: sidebar + one page per registered tab (ui-*.js), pairing banner, accent
+// rendering of the state pushed by main (docs/UI.md). Same structure and look as the Mac's.
+'use strict';
 
-function show(id, on) {
-  $(id).classList.toggle('hidden', !on);
-}
+(() => {
+  const { el, api } = UI;
+  const $ = (id) => document.getElementById(id);
+  const nav = $('nav');
+  const pages = $('pages');
+  const views = new Map(); // id -> { def, page, navBtn, stateEl, master, render }
+  let current = null;
 
-function renderStatus(s) {
-  const l = s.link;
-  const dot = $('status-dot');
-  dot.className = 'dot';
-  let text = 'Not paired';
-  switch (l.state) {
-    case 'connected':
-      text = 'Connected to ' + l.macName + (l.rtt != null ? ' (RTT ' + l.rtt + ' ms)' : '');
-      dot.classList.add('ok');
-      break;
-    case 'connecting':
-      text = 'Connecting to ' + l.macName + '…';
-      dot.classList.add('warn');
-      break;
-    case 'reconnecting':
-      text = 'Reconnecting…';
-      dot.classList.add('warn');
-      break;
-    case 'identity_changed':
-      text = "This Mac's identity changed";
-      dot.classList.add('bad');
-      break;
+  let lastGroup = null;
+  for (const def of UI.tabs.slice().sort((a, b) => (a.order ?? 50) - (b.order ?? 50))) {
+    if (def.group && def.group !== lastGroup) nav.append(el('li', { class: 'group', text: def.group, attrs: { role: 'presentation' } }));
+    lastGroup = def.group || null;
+    if (def.bottom) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } }));
+    const stateEl = el('span', { class: 'state' });
+    const tile = el('span', { class: 'tile' }, [UI.icon(def.icon || def.id)]);
+    tile.style.background = def.color; // CSSOM, allowed by the CSP (inline style attributes aren't)
+    const navBtn = el('button', { class: 'nav-item', attrs: { role: 'tab', 'aria-controls': 'page-' + def.id } }, [
+      tile,
+      el('span', { class: 'label', text: def.title }),
+      stateEl,
+    ]);
+    if (def.group) navBtn.classList.add('grouped');
+    navBtn.onclick = () => show(def.id, true);
+    nav.append(el('li', {}, [navBtn]));
+
+    const page = el('section', { class: 'page', id: 'page-' + def.id, hidden: true, attrs: { role: 'tabpanel' } });
+    const titles = el('div', { class: 'titles' }, [
+      el('h1', {}, [def.heading || def.title, def.phase ? el('span', { class: 'pill muted', text: 'Phase ' + def.phase }) : null]),
+      el('p', { text: def.desc || '' }),
+    ]);
+    let master = null;
+    if (def.master) {
+      master = UI.switch((v) => def.master.set(v), { label: def.title, disabled: !!def.master.disabled });
+    }
+    page.append(el('header', { class: 'page-head' }, [titles, master ? master.el : null]));
+    const body = el('div', { class: 'page-body' });
+    page.append(body);
+    pages.append(page);
+    const render = def.build(body, page) || (() => {});
+    views.set(def.id, { def, page, navBtn, stateEl, master, render });
   }
-  $('status-text').textContent = text;
-  $('status-detail').textContent = l.state === 'identity_changed' ? 'Forget it and pair again.' : l.message || '';
-  const where = { home: 'Home', driving: 'Driving the Mac', driven: 'Driven by the Mac' };
-  $('input-line').textContent = 'Input: ' + (where[s.input] || 'Home');
-}
 
-function renderPairing(p) {
-  show('pairing-card', !!p);
-  if (!p) return;
-  const code = $('pairing-code');
-  const text = $('pairing-text');
-  text.classList.remove('error');
-  $('pairing-title').textContent = 'Pairing with ' + p.macName;
-  code.textContent = p.code ? p.code.slice(0, 3) + ' ' + p.code.slice(3) : '';
-  show('pairing-code', !!p.code);
-  show('btn-match', p.phase === 'code');
-  $('btn-cancel').textContent = p.phase === 'failed' ? 'Close' : 'Cancel';
-  switch (p.phase) {
-    case 'connecting': text.textContent = 'Connecting to ' + p.address + '…'; break;
-    case 'starting': text.textContent = 'Waiting for the Mac…'; break;
-    case 'code': text.textContent = 'Check the Mac shows the same code, then click Codes match.'; break;
-    case 'waiting': text.textContent = 'Waiting for Allow on the Mac…'; break;
-    case 'failed':
-      text.textContent = p.error;
-      text.classList.add('error');
-      break;
+  function show(id, user) {
+    const v = views.get(id) || views.get('overview');
+    if (current === v) return;
+    if (current) {
+      current.page.hidden = true;
+      current.navBtn.classList.remove('active');
+      current.navBtn.setAttribute('aria-selected', 'false');
+    }
+    current = v;
+    v.page.hidden = false;
+    v.navBtn.classList.add('active');
+    v.navBtn.setAttribute('aria-selected', 'true');
+    $('content').scrollTop = 0;
+    if (user) api.setTab(v.def.id);
+    if (UI.state) renderPage(v, UI.state);
   }
-}
 
-function renderPaired(p) {
-  show('paired-card', !!p);
-  if (!p) return;
-  $('paired-name').textContent = p.macName;
-  $('paired-address').textContent = p.address + ':' + p.port;
-}
-
-function renderMacs(s) {
-  const list = $('mac-list');
-  list.replaceChildren();
-  const busy = !!s.pairing && s.pairing.phase !== 'failed';
-  for (const mac of s.macs) {
-    const li = document.createElement('li');
-    const info = document.createElement('div');
-    const name = document.createElement('div');
-    name.className = 'name';
-    name.textContent = mac.name;
-    const addr = document.createElement('div');
-    addr.className = 'sub';
-    addr.textContent = mac.address;
-    info.append(name, addr);
-    const btn = document.createElement('button');
-    const isPaired = s.paired && s.paired.macId === mac.id;
-    btn.textContent = isPaired ? 'Pair again' : 'Pair';
-    btn.disabled = busy;
-    btn.onclick = () => api.pair(mac.id);
-    li.append(info, btn);
-    list.append(li);
+  function renderPage(v, s) {
+    if (v.master) {
+      const on = !!v.def.master.get(s);
+      v.master.set(on);
+      v.page.classList.toggle('off', !on);
+    }
+    try {
+      v.render(s);
+    } catch (e) {
+      console.error('render ' + v.def.id + ':', e);
+    }
   }
-  show('mac-list', s.macs.length > 0);
-  show('mac-empty', s.macs.length === 0);
-  $('mac-empty').textContent = s.discoveryError || 'Looking for Macs… (start MacShare on the Mac)';
-  $('add-ip').querySelector('button').disabled = busy;
-}
 
-function renderStream(s) {
-  $('stream-state').textContent = s.stream.state === 'on'
-    ? s.stream.name + ' (' + s.stream.width + '×' + s.stream.height + ')' +
-      (s.macInput ? '' : ' — view only (input is off on the Mac)')
-    : 'Mac is not sharing';
-  $('btn-monitor').disabled = s.link.state !== 'connected';
-}
+  function renderSidebar(s) {
+    const l = s.link;
+    const dot = l.state === 'connected' ? 'good' : l.state === 'identity_changed' ? 'bad'
+      : (s.pairing || l.state === 'connecting' || l.state === 'reconnecting') ? 'warn' : '';
+    $('peer-dot').className = 'dot ' + dot;
+    let text = 'No Mac paired';
+    if (l.state === 'connected') text = l.macName + (l.rtt != null ? ' · ' + l.rtt + ' ms' : '');
+    else if (s.pairing) text = 'Pairing…';
+    else if (l.state === 'connecting' || l.state === 'reconnecting') text = 'Reconnecting…';
+    else if (l.state === 'identity_changed') text = 'Identity changed';
+    $('peer-text').textContent = text;
+    for (const v of views.values()) {
+      const b = v.def.badge ? v.def.badge(s) : v.def.phase ? 'P' + v.def.phase : '';
+      v.stateEl.className = 'state' + (b === 'on' ? ' on' : b === 'warn' ? ' warn' : '');
+      v.stateEl.textContent = b === 'on' || b === 'warn' ? '' : b || '';
+    }
+  }
 
-function render(s) {
-  renderStatus(s);
-  renderPairing(s.pairing);
-  renderPaired(s.paired);
-  renderMacs(s);
-  renderStream(s);
-}
+  function renderBanner(s) {
+    const p = s.pairing;
+    $('banner').hidden = !p;
+    if (!p) return;
+    $('banner').classList.toggle('failed', p.phase === 'failed');
+    $('pair-title').textContent = 'Pairing with ' + p.macName;
+    $('pair-code-wrap').hidden = !p.code;
+    $('pair-code').textContent = p.code ? p.code.slice(0, 3) + ' ' + p.code.slice(3) : '';
+    $('pair-match').hidden = p.phase !== 'code';
+    $('pair-cancel').textContent = p.phase === 'failed' ? 'Close' : 'Cancel';
+    const hints = {
+      connecting: 'Connecting to ' + p.address + '…',
+      starting: 'Waiting for the Mac…',
+      code: 'Check that the Mac shows the same code, then click Codes match.',
+      waiting: 'Waiting for Allow on the Mac…',
+      failed: p.error,
+    };
+    $('pair-hint').textContent = hints[p.phase] || '';
+  }
 
-$('btn-match').onclick = () => api.confirmCode();
-$('btn-cancel').onclick = () => api.cancelPair();
-$('btn-forget').onclick = () => api.forget();
-$('btn-monitor').onclick = () => api.openMonitor();
-$('add-ip').onsubmit = (e) => {
-  e.preventDefault();
-  const v = $('ip').value.trim();
-  if (v) api.pair(v);
-};
+  function render(s) {
+    UI.state = s;
+    renderSidebar(s);
+    renderBanner(s);
+    if (current) renderPage(current, s);
+  }
 
-api.onState(render);
-api.getState().then(render);
+  $('pair-match').onclick = () => api.confirmCode();
+  $('pair-cancel').onclick = () => api.cancelPair();
+  window.addEventListener('macshare-go', (e) => show(e.detail, true));
+
+  // ↑/↓ move between tabs while the sidebar has focus.
+  nav.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const ids = [...views.keys()];
+    const i = ids.indexOf(current.def.id) + (e.key === 'ArrowDown' ? 1 : -1);
+    const next = ids[(i + ids.length) % ids.length];
+    show(next, true);
+    views.get(next).navBtn.focus();
+  });
+
+  // Relative times ("2 min ago") age without a state push.
+  setInterval(() => UI.state && current && renderPage(current, UI.state), 15000);
+
+  api.onState(render);
+  api.getState().then((s) => {
+    show((s.ui && s.ui.tab) || 'overview', false);
+    render(s);
+  });
+})();

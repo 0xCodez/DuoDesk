@@ -1,20 +1,19 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Small API for the control window.
+// Small API for the control window: getState/onState plus one call per action in ipc.js.
 'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('macshare', {
+const ACTIONS = [
+  'setSharing', 'setStreamInput', 'selectDisplay', 'setDisplayMode', 'setVirtual', 'setStreamMaxHeight',
+  'setBitrate', 'setKvm', 'setKeys', 'setClipboard', 'copyHistory', 'clearHistory', 'setTab',
+  'pairRespond', 'forget', 'openSettings', 'relaunch',
+];
+
+const api = {
   getState: () => ipcRenderer.invoke('getState'),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
-  pairRespond: (allow) => ipcRenderer.send('pairRespond', allow),
-  forget: (id) => ipcRenderer.send('forget', id),
-  openSettings: (kind) => ipcRenderer.send('openSettings', kind),
-  relaunch: () => ipcRenderer.send('relaunch'),
-  setSharing: (on) => ipcRenderer.send('setSharing', on),
-  selectDisplay: (id) => ipcRenderer.send('selectDisplay', id),
-  setVirtual: (partial) => ipcRenderer.send('setVirtual', partial),
-  setStreamInput: (on) => ipcRenderer.send('setStreamInput', on),
-  setBitrate: (mbps) => ipcRenderer.send('setBitrate', mbps),
-  setStreamMaxHeight: (h) => ipcRenderer.send('setStreamMaxHeight', h),
-});
+};
+for (const name of ACTIONS) api[name] = (arg) => ipcRenderer.send(name, arg);
+
+contextBridge.exposeInMainWorld('macshare', api);

@@ -1,0 +1,49 @@
+/* MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE. */
+/* Page-specific pieces: overview hero, layout picker, clipboard history, roadmap pages. */
+
+/* Overview hero */
+.hero { padding: 22px 20px 16px; }
+.hero-devices { display: grid; grid-template-columns: 1fr 1.2fr 1fr; align-items: center; }
+.hero-device { text-align: center; }
+.hero-name { font-weight: 600; font-size: 14px; margin-top: 8px; }
+.hero-sub { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.device { margin: 0 auto; position: relative; }
+.device.mac { width: 92px; height: 58px; border-radius: 6px; border: 3px solid var(--text); opacity: 0.85; }
+.device.mac::after { content: ""; position: absolute; left: -14px; right: -14px; bottom: -9px; height: 5px; border-radius: 0 0 6px 6px; background: var(--text); }
+.device.pc { width: 84px; height: 56px; border-radius: 4px; border: 3px solid var(--text); opacity: 0.85; }
+.device.pc::after { content: ""; position: absolute; left: 30px; right: 30px; bottom: -12px; height: 9px; border-bottom: 3px solid var(--text); border-left: 3px solid transparent; border-right: 3px solid transparent; }
+.hero-mid { text-align: center; padding: 0 8px; }
+.hero-link { height: 3px; border-radius: 2px; background: repeating-linear-gradient(90deg, var(--idle) 0 6px, transparent 6px 12px); }
+.hero-link.up { background: linear-gradient(90deg, var(--good), var(--accent)); box-shadow: 0 0 8px rgba(48, 185, 77, 0.45); }
+.hero-link-text { color: var(--muted); font-size: 12px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.hero-status { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--row-line); text-align: center; color: var(--muted); }
+.hero-status.bad { color: var(--bad); }
+
+/* Cursor: layout picker */
+.layout { display: flex; align-items: center; gap: 24px; padding: 18px; }
+.layout-grid { display: grid; grid-template-columns: 70px 150px 70px; grid-template-rows: 44px 94px 44px; gap: 6px; flex: none; }
+.screen { border-radius: 6px; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.mac-screen { background: linear-gradient(135deg, #5ac8fa, #0a84ff); color: #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
+.slot { border: 1.5px dashed var(--control-line); border-radius: 6px; background: none; font-weight: 600; font-size: 12px; color: #fff; cursor: default; }
+.slot:hover { border-color: var(--accent); background: var(--accent-soft); }
+.slot.on { border: 0; background: linear-gradient(135deg, #8e8e93, #48484a); }
+.layout-hint { color: var(--muted); }
+kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--control-line); border-bottom-width: 2px; background: var(--control); }
+
+/* Clipboard: history */
+.history { max-height: 360px; overflow-y: auto; }
+.hist-item { display: flex; align-items: center; gap: 12px; padding: 9px 14px; position: relative; }
+.hist-item + .hist-item::before { content: ""; position: absolute; top: 0; left: 50px; right: 0; height: 1px; background: var(--row-line); }
+.hist-dir { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.hist-dir svg { width: 13px; height: 13px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.hist-dir.out { background: var(--accent); }
+.hist-dir.in { background: var(--good); }
+.hist-text { flex: 1; min-width: 0; }
+.hist-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-text .hint { color: var(--muted); font-size: 12px; }
+
+/* Roadmap pages */
+.soon { padding: 6px 0; }
+.soon-head { padding: 10px 14px 4px; }
+.soon-item { padding: 8px 14px; }
+.soon-item .hint { color: var(--muted); margin-top: 1px; }

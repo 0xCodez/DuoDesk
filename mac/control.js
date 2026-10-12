@@ -1,179 +1,187 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Control window: renders the state object from main (see main.js) and sends actions.
+// Control window: a tiny UI kit (window.UI) and the shell (sidebar, tabs, pairing banner).
+// Tabs live in ui-*.js and call UI.tab({...}); ui-start.js boots the window (docs/UI.md).
+// Controls are built once per tab; render(state) only updates values, so a state push never
+// interrupts a drag, an open menu or keyboard focus.
 'use strict';
 
-const api = window.macshare;
-const $ = (id) => document.getElementById(id);
-
-function el(tag, props = {}, children = []) {
-  const e = document.createElement(tag);
-  Object.assign(e, props);
-  for (const c of children) e.append(c);
-  return e;
-}
-
-function ago(ts) {
-  if (!ts) return 'never';
-  const s = Math.round((Date.now() - ts) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
-  return new Date(ts).toLocaleDateString();
-}
-
-const INPUT_TEXT = { home: 'Home', driving: 'Driving the PC', driven: 'Driven by the PC' };
-
-const PERMS = [
-  { kind: 'screen', label: 'Screen Recording', note: 'needed for screen sharing' },
-  { kind: 'accessibility', label: 'Accessibility', note: 'needed to control this Mac from the PC' },
-  { kind: 'inputMonitoring', label: 'Input Monitoring', note: 'needed to drive the PC from this Mac' },
-];
-
-function permText(kind, value) {
-  if (value === null || value === undefined) return ['not checked yet', 'muted'];
-  if (kind === 'screen') return value === 'granted' ? ['Granted', 'good'] : [`Not granted (${value})`, 'bad'];
-  return value ? ['Granted', 'good'] : ['Not granted', 'bad'];
-}
-
-function render(s) {
-  $('mac-name').textContent = s.macName;
-
-  // Pairing request
-  const p = s.pairing;
-  $('pair-request').hidden = !p;
-  if (p) {
-    $('pair-name').textContent = p.name;
-    $('pair-code').textContent = p.code ? `${p.code.slice(0, 3)} ${p.code.slice(3)}` : '…';
-    $('pair-allow').disabled = !p.code || p.allowed;
-    let hint = 'Check that the PC shows the same code.';
-    if (!p.code) hint = 'Waiting for the code…';
-    else if (p.allowed && !p.confirmed) hint = 'Allowed. Waiting for "Codes match" on the PC…';
-    else if (p.confirmed && !p.allowed) hint = 'The PC confirmed the code. Click Allow if it matches.';
-    $('pair-hint').textContent = hint;
-  }
-
-  // Status
-  $('server-error').hidden = !s.serverError;
-  $('server-error').textContent = s.serverError || '';
-  $('addresses').textContent = s.addresses.length ? s.addresses.join(', ') : 'no network';
-  if (s.client) {
-    const rtt = s.client.rttMs == null ? '' : ` — ${s.client.rttMs} ms round trip`;
-    $('client').replaceChildren(el('span', { className: 'good', textContent: 'Connected: ' }),
-      `${s.client.name} (${s.client.address})${rtt}`);
-  } else {
-    $('client').textContent = 'No PC connected';
-  }
-  const inp = s.input || { where: 'home' };
-  $('input').textContent = (INPUT_TEXT[inp.where] || inp.where) + (inp.message ? ` — ${inp.message}` : '');
-
-  renderSharing(s);
-
-  // Paired PCs
-  $('paired-empty').hidden = s.paired.length > 0;
-  $('paired').replaceChildren(...s.paired.map((d) => {
-    const online = s.client && s.client.id === d.id;
-    const forget = el('button', { textContent: 'Forget' });
-    forget.onclick = () => api.forget(d.id);
-    return el('li', {}, [
-      el('span', { className: 'grow' }, [
-        el('strong', { textContent: d.name }),
-        el('span', { className: online ? 'good' : 'muted', textContent: online ? '  connected' : `  last seen ${ago(d.lastSeen)}` }),
-      ]),
-      forget,
-    ]);
-  }));
-
-  // Permissions
-  $('permissions').replaceChildren(...PERMS.map(({ kind, label, note }) => {
-    const [text, cls] = permText(kind, s.permissions[kind]);
-    const open = el('button', { textContent: 'Open Settings' });
-    open.onclick = () => api.openSettings(kind);
-    return el('li', {}, [
-      el('span', { className: 'grow' }, [el('strong', { textContent: label }), el('span', { className: 'muted', textContent: `  ${note}` })]),
-      el('span', { className: cls, textContent: text }),
-      open,
-    ]);
-  }));
-}
-
-const PRESETS = [
-  { label: '1280×720', width: 1280, height: 720, hiDPI: false },
-  { label: '1920×1080', width: 1920, height: 1080, hiDPI: false },
-  { label: '2560×1440', width: 2560, height: 1440, hiDPI: false },
-  { label: '1920×1080 HiDPI (3840×2160 px)', width: 1920, height: 1080, hiDPI: true },
-  { label: '2560×1440 HiDPI (5120×2880 px)', width: 2560, height: 1440, hiDPI: true },
-];
-$('virt-preset').replaceChildren(...PRESETS.map((p, i) => el('option', { value: String(i), textContent: p.label })));
-
-const STREAM_TEXT = {
-  off: 'Sharing is off', starting: 'Starting…', 'waiting for answer': 'Waiting for the PC…',
-  new: 'Connecting…', connecting: 'Connecting…', live: 'Live', disconnected: 'Interrupted…',
-  failed: 'Failed — retrying', closed: 'Closed',
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ICONS = {
+  overview: 'M3 9.5 10 4l7 5.5V17H3z M8 17v-4h4v4',
+  display: 'M3 4h14v9H3z M7 17h6 M10 13v4',
+  receive: 'M3 4h14v9H3z M7 17h6 M10 13v4 M10 6v4.5 M7.8 8.5 10 10.7l2.2-2.2',
+  cursor: 'M5 3l10 6-4.5 1.2L8.5 15z',
+  keyboard: 'M2.5 6h15v8h-15z M5.5 9h1 M8.5 9h1 M11.5 9h1 M14.5 9h0 M6.5 11.5h7',
+  clipboard: 'M6 4h8v13H6z M8 3h4v2.5H8z M8 9h4 M8 12h4',
+  files: 'M3 5h5l1.5 2H17v9H3z',
+  terminal: 'M3 4h14v12H3z M6 8l2.5 2L6 12 M10 12h4',
+  audio: 'M4 8h3l4-3v10l-4-3H4z M14 7.5c1 .8 1 4.2 0 5 M16 5.5c2.2 1.8 2.2 7.2 0 9',
+  apps: 'M4 4h5v5H4z M11 4h5v5h-5z M4 11h5v5H4z M11 11h5v5h-5z',
+  general: 'M10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M10 2.5v2 M10 15.5v2 M2.5 10h2 M15.5 10h2 M4.7 4.7l1.4 1.4 M13.9 13.9l1.4 1.4 M4.7 15.3l1.4-1.4 M13.9 6.1l1.4-1.4',
+  up: 'M10 16V4 M5 9l5-5 5 5',
+  down: 'M10 4v12 M5 11l5 5 5-5',
 };
 
-let presetDirty = false;
-$('virt-preset').onchange = () => { presetDirty = true; };
+const UI = {
+  api: window.macshare,
+  P: window.MacShareProtocol,
+  tabs: [],
+  state: null,
 
-function renderSharing(s) {
-  const sh = s.sharing;
-  $('helper-missing').hidden = !!(s.helper && s.helper.running);
-  if (!sh) return;
-  $('share-on').checked = sh.on;
-  $('stream-input').checked = s.streamInput;
-  $('input-latency').textContent = !s.streamInput ? 'off — input from the PC is ignored'
-    : s.client && s.client.rttMs != null ? `input delay ≈ ${Math.max(1, Math.round(s.client.rttMs / 2))} ms (network, one way)` : '';
-  if (document.activeElement !== $('stream-size')) $('stream-size').value = String(sh.streamMaxHeight || 0);
-  if (document.activeElement !== $('bitrate')) {
-    const b = String(sh.bitrateMbps);
-    if (![...$('bitrate').options].some((o) => o.value === b)) $('bitrate').append(el('option', { value: b, textContent: `${b} Mbps` }));
-    $('bitrate').value = b;
-  }
+  el(tag, props = {}, children = []) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k === 'attrs') for (const [a, av] of Object.entries(v)) e.setAttribute(a, av);
+      else e[k] = v;
+    }
+    for (const c of [].concat(children)) if (c != null && c !== false) e.append(c);
+    return e;
+  },
 
-  const opts = [el('option', { value: 'virtual', textContent: 'MacShare virtual display' + (sh.virtual.active ? '' : ' (off — uses main display)') })];
-  for (const d of sh.displays) {
-    if (d.virtual) continue;
-    opts.push(el('option', { value: String(d.id), textContent: `${d.label} — ${d.width}×${d.height}${d.primary ? ' (main)' : ''}` }));
-  }
-  const sel = $('share-display');
-  if (document.activeElement !== sel) {
-    sel.replaceChildren(...opts);
-    sel.value = sh.displayId == null || !sh.displays.some((d) => d.id === sh.displayId && !d.virtual) ? 'virtual' : String(sh.displayId);
-  }
+  icon(name, cls = '') {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 20 20');
+    if (cls) svg.setAttribute('class', cls);
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', ICONS[name] || '');
+    svg.append(path);
+    return svg;
+  },
 
-  const v = sh.virtual;
-  $('virt-on').checked = v.enabled;
-  if (!presetDirty) {
-    const i = PRESETS.findIndex((p) => p.width === v.width && p.height === v.height && p.hiDPI === !!v.hiDPI);
-    $('virt-preset').value = String(i < 0 ? 1 : i);
-  }
-  $('virt-status').textContent = v.error ? `Error: ${v.error}` : v.enabled ? (v.active ? 'on' : 'starting…') : 'off';
-  $('virt-status').className = v.error ? 'bad' : 'muted';
+  // ---- controls: each returns { el, set(value), ... } ----
+  switch(onChange, { disabled = false, label = '' } = {}) {
+    const el = UI.el('input', { type: 'checkbox', class: 'switch', disabled, attrs: { role: 'switch', 'aria-label': label } });
+    el.onchange = () => onChange(el.checked);
+    return { el, set: (v) => { el.checked = !!v; }, disable: (d) => { el.disabled = !!d; } };
+  },
 
-  const st = s.stream || { status: 'off' };
-  let status = STREAM_TEXT[st.status] || st.status;
-  if (sh.on && !s.client) status = 'Waiting for a PC to connect';
-  $('stream-status').textContent = st.display && sh.on && s.client ? `${status} — ${st.display}` : status;
-  $('stream-stats').textContent = st.status === 'live'
-    ? `${st.width}×${st.height}, ${st.fps} fps, ${st.mbps} of ${st.targetMbps || '?'} Mbps, QP ${st.qp || '–'} (lower = sharper), `
-      + `${st.codec || '?'} ${st.encoder || ''}${st.limit && st.limit !== 'none' ? ` — limited by ${st.limit}` : ''}`
-    : '—';
-}
+  segmented(options, onChange) {
+    const el = UI.el('div', { class: 'seg', attrs: { role: 'radiogroup' } });
+    const btns = options.map((o) => {
+      const b = UI.el('button', { text: o.label, title: o.title || '', attrs: { role: 'radio' } });
+      b.onclick = () => onChange(o.value);
+      el.append(b);
+      return [o.value, b];
+    });
+    return {
+      el,
+      set(v) {
+        for (const [val, b] of btns) {
+          b.classList.toggle('on', val === v);
+          b.setAttribute('aria-checked', String(val === v));
+        }
+      },
+    };
+  },
 
-$('share-on').onchange = (e) => api.setSharing(e.target.checked);
-$('share-display').onchange = (e) => api.selectDisplay(e.target.value === 'virtual' ? null : Number(e.target.value));
-$('stream-input').onchange = (e) => api.setStreamInput(e.target.checked);
-$('stream-size').onchange = (e) => api.setStreamMaxHeight(Number(e.target.value));
-$('bitrate').onchange = (e) => api.setBitrate(Number(e.target.value));
-$('virt-on').onchange = (e) => api.setVirtual({ enabled: e.target.checked });
-$('virt-apply').onclick = () => {
-  const p = PRESETS[Number($('virt-preset').value)];
-  presetDirty = false;
-  api.setVirtual({ enabled: true, width: p.width, height: p.height, hiDPI: p.hiDPI });
+  select(options, onChange) {
+    const el = UI.el('select');
+    let key = '';
+    const fill = (opts) => {
+      const k = JSON.stringify(opts);
+      if (k === key || document.activeElement === el) return; // unchanged, or the user is in it
+      key = k;
+      const v = el.value;
+      el.replaceChildren(...opts.map((o) => UI.el('option', { value: String(o.value), text: o.label })));
+      if (v) el.value = v;
+    };
+    fill(options);
+    el.onchange = () => onChange(el.value);
+    return {
+      el,
+      options: fill,
+      set(v) {
+        if (document.activeElement === el) return;
+        const s = String(v);
+        if (![...el.options].some((o) => o.value === s)) el.append(UI.el('option', { value: s, text: s }));
+        el.value = s;
+      },
+    };
+  },
+
+  slider({ min, max, step, format = (v) => v }, onChange) {
+    const input = UI.el('input', { type: 'range', min, max, step });
+    const out = UI.el('output');
+    let dragging = false;
+    input.onpointerdown = () => { dragging = true; };
+    input.oninput = () => { out.textContent = format(Number(input.value)); };
+    input.onchange = () => { dragging = false; onChange(Number(input.value)); };
+    return {
+      el: UI.el('div', { class: 'slider' }, [input, out]),
+      set(v) {
+        if (dragging) return;
+        input.value = v;
+        out.textContent = format(Number(v));
+      },
+    };
+  },
+
+  button(label, onClick, cls = '') {
+    const b = UI.el('button', { class: `btn ${cls}`.trim(), text: label });
+    b.onclick = onClick;
+    return b;
+  },
+
+  // A row: label (+ hint) on the left, controls on the right. Returns the row with .hint/.label.
+  row(label, hint, controls = [], { onClick } = {}) {
+    const lab = UI.el('span', { class: 'label', text: label });
+    const hintEl = UI.el('span', { class: 'hint', text: hint || '' });
+    if (!hint) hintEl.hidden = true;
+    const row = UI.el('div', { class: 'row' }, [
+      UI.el('div', { class: 'text' }, [lab, hintEl]),
+      UI.el('div', { class: 'controls' }, [].concat(controls).map((c) => (c && c.el) || c)),
+    ]);
+    row.label = lab;
+    row.hint = hintEl;
+    row.setHint = (t) => { hintEl.textContent = t || ''; hintEl.hidden = !t; };
+    if (onClick) {
+      row.classList.add('clickable');
+      row.onclick = (e) => { if (!e.target.closest('input,button,select')) onClick(); };
+    }
+    return row;
+  },
+
+  card(title, rows, { actions, cls = '' } = {}) {
+    const wrap = UI.el('div', { class: 'card-wrap' });
+    if (title) wrap.append(UI.el('div', { class: 'card-title' }, [UI.el('span', { text: title }), actions ? UI.el('span', { class: 'actions' }, actions) : null]));
+    const card = UI.el('div', { class: `card ${cls}`.trim() }, rows);
+    wrap.append(card);
+    wrap.card = card;
+    return wrap;
+  },
+
+  note(kind, text) {
+    const n = UI.el('div', { class: `note ${kind}`, text });
+    n.set = (t) => { n.textContent = t || ''; n.hidden = !t; };
+    return n;
+  },
+
+  ago(ts) {
+    if (!ts) return 'never';
+    const s = Math.round((Date.now() - ts) / 1000);
+    if (s < 10) return 'just now';
+    if (s < 60) return `${s} s ago`;
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    return new Date(ts).toLocaleDateString();
+  },
+
+  bytes(n) {
+    return n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+  },
+
+  // Register a tab: { id, order, title, heading?, group?, icon?, desc, color, phase?, bottom?,
+  //   master?: {get(s), set(v)},
+  //   badge?(s) -> 'on' | text | '', build(body, page) -> render(state) }
+  tab(def) {
+    UI.tabs.push(def);
+  },
+
+  go(id) {
+    window.dispatchEvent(new CustomEvent('macshare-go', { detail: id }));
+  },
 };
 
-$('pair-allow').onclick = () => api.pairRespond(true);
-$('pair-deny').onclick = () => api.pairRespond(false);
-$('relaunch').onclick = () => api.relaunch();
-
-api.onState(render);
-api.getState().then(render);
+window.UI = UI;

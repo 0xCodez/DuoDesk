@@ -1,6 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Main process: lifecycle, windows, tray, IPC and the state pushed to the main window.
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme } = require('electron');
 const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
@@ -10,6 +10,8 @@ const Discovery = require('./discovery');
 const Link = require('./link');
 const Screen = require('./screen');
 const Clip = require('./clip');
+const setupIpc = require('./ipc');
+const { normalize } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 if (!app.requestSingleInstanceLock()) {
@@ -29,6 +31,9 @@ let link = null;
 let settings = null;
 let device = null;
 let screen = null;
+let clip = null;
+let pcSide = null; // from kvm.layout: where the PC is, seen from the Mac
+let lastPairPhase = null;
 
 function loadDevice() {
   let d = store.read('device.json', null);
@@ -39,24 +44,9 @@ function loadDevice() {
   return { id: d.id, name: os.hostname() };
 }
 
-function loadSettings() {
-  const s = store.read('settings.json', {});
-  const kvm = s.kvm || {};
-  return {
-    kvm: {
-      driveOther: kvm.driveOther !== false,
-      beDriven: kvm.beDriven !== false,
-      resistancePx: Number.isFinite(kvm.resistancePx) ? kvm.resistancePx : P.RESISTANCE_PX,
-      speed: Number.isFinite(kvm.speed) ? kvm.speed : 1.0,
-      reverseScroll: kvm.reverseScroll === true,
-    },
-    windows: s.windows || {},
-  };
-}
-
 function start() {
   device = loadDevice();
-  settings = loadSettings();
+  settings = normalize(store.read('settings.json', {}));
 
   discovery = new Discovery(pushState);
   discovery.start();
@@ -74,15 +64,22 @@ function start() {
     resolveAddress: (macId) => discovery.get(macId),
   });
   link.onState(pushState);
+  link.on(P.T.KVM_LAYOUT, (m) => {
+    if (['left', 'right', 'top', 'bottom'].includes(m.pcSide)) pcSide = m.pcSide;
+    pushState();
+  });
+  clip = new Clip(link, () => settings.clipboard, pushState);
   screen = new Screen({
     link,
-    clip: new Clip(link),
+    clip,
     inputAllowed: () => true, // phases 4–5: false while driving or driven
     settings,
-    saveSettings: () => store.write('settings.json', settings),
+    saveSettings,
     onChange: pushState,
     isQuitting: () => quitting,
   });
+  setupIpc({ link, discovery, screen, clip, settings, save: saveSettings, push: pushState, buildState });
+  nativeTheme.on('updated', pushState);
   link.start();
 
   createTray();
@@ -99,6 +96,10 @@ function pushState() {
   setImmediate(() => {
     pushQueued = false;
     const s = buildState();
+    // A pairing code to compare: bring the window to the front (docs/UI.md).
+    const phase = s.pairing ? s.pairing.phase : null;
+    if (phase === 'code' && lastPairPhase !== 'code') showMain();
+    lastPairPhase = phase;
     if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('state', s);
     if (tray) tray.setToolTip('MacShare — ' + statusLine(s));
     const canMonitor = s.link.state === 'connected';
@@ -118,8 +119,17 @@ function buildState() {
     stream: screen.state,
     macInput: screen.macInput, // the Mac's "Receive input" switch
     input: 'home', // phases 4–5
-    kvm: settings.kvm,
+    kvm: { ...settings.kvm, pcSide },
+    keys: settings.keys,
+    monitor: settings.monitor,
+    clipboard: { ...settings.clipboard, ...clip.view },
+    ui: settings.ui,
+    version: app.getVersion(),
   };
+}
+
+function saveSettings() {
+  store.write('settings.json', settings);
 }
 
 function statusLine(s) {
@@ -134,37 +144,20 @@ function statusLine(s) {
 
 // ---- IPC ----
 
-ipcMain.handle('getState', () => buildState());
-
-ipcMain.handle('pair', (_e, target) => {
-  if (typeof target !== 'string' || !target.trim()) return;
-  const mac = discovery.get(target);
-  if (mac) return link.startPairing({ address: mac.address, port: mac.port, macName: mac.name });
-  const m = /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(target);
-  if (!m) return;
-  const port = m[2] ? Number(m[2]) : P.PORT;
-  if (port < 1 || port > 65535) return;
-  link.startPairing({ address: m[1], port, macName: m[1] });
-});
-ipcMain.handle('confirmCode', () => link.confirmCode());
-ipcMain.handle('cancelPair', () => link.cancelPair());
-ipcMain.handle('forget', () => link.forget());
-ipcMain.handle('openMonitor', () => screen.open(false));
-
 // ---- windows and tray ----
 
 function createMainWindow() {
   const b = settings.windows.main || {};
   mainWin = new BrowserWindow({
-    width: b.width || 560,
-    height: b.height || 720,
+    width: b.width || 900,
+    height: b.height || 680,
     x: b.x,
     y: b.y,
-    minWidth: 420,
+    minWidth: 720,
     minHeight: 480,
     title: 'MacShare',
     icon: path.join(__dirname, 'assets', 'tray@2x.png'),
-    backgroundColor: '#f4f5f7',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#2b2b2e' : '#e9e9ee',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload-app.js'),
@@ -187,7 +180,7 @@ function createMainWindow() {
 function saveBounds() {
   if (!mainWin || mainWin.isDestroyed() || mainWin.isMinimized()) return;
   settings.windows.main = mainWin.getNormalBounds();
-  store.write('settings.json', settings);
+  saveSettings();
 }
 
 function showMain() {

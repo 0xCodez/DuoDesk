@@ -6,59 +6,45 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
   <title>MacShare</title>
   <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="app-pages.css">
 </head>
 <body>
-  <main>
-    <section class="card" id="status-card">
-      <div class="status-row">
-        <span class="dot" id="status-dot"></span>
-        <div>
-          <div class="status-text" id="status-text">Starting…</div>
-          <div class="sub" id="status-detail"></div>
-        </div>
+  <nav id="sidebar" aria-label="Sections">
+    <div class="identity">
+      <div class="app-mark" aria-hidden="true"></div>
+      <div class="who">
+        <div class="app-name">MacShare</div>
+        <div class="peer"><span id="peer-dot" class="dot"></span><span id="peer-text">No Mac</span></div>
       </div>
-      <div class="sub" id="input-line">Input: Home</div>
-    </section>
+    </div>
+    <ul id="nav" role="tablist"></ul>
+  </nav>
 
-    <section class="card pairing hidden" id="pairing-card">
-      <h2 id="pairing-title">Pairing</h2>
-      <div class="code hidden" id="pairing-code"></div>
-      <p id="pairing-text"></p>
-      <div class="buttons">
-        <button class="primary hidden" id="btn-match">Codes match</button>
-        <button id="btn-cancel">Cancel</button>
+  <main id="content">
+    <section id="banner" class="banner" hidden>
+      <div class="banner-text">
+        <div><strong id="pair-title">Pairing</strong></div>
+        <div id="pair-code-wrap"><span class="code-label">Code</span> <span id="pair-code" class="code"></span></div>
+        <div id="pair-hint" class="hint"></div>
       </div>
-    </section>
-
-    <section class="card hidden" id="paired-card">
-      <h2>Paired Mac</h2>
-      <div class="row">
-        <div>
-          <div class="name" id="paired-name"></div>
-          <div class="sub" id="paired-address"></div>
-        </div>
-        <button id="btn-forget">Forget</button>
+      <div class="banner-actions">
+        <button id="pair-match" class="btn primary">Codes match</button>
+        <button id="pair-cancel" class="btn">Cancel</button>
       </div>
     </section>
-
-    <section class="card">
-      <h2>Macs on this network</h2>
-      <ul id="mac-list"></ul>
-      <div class="sub" id="mac-empty">Looking for Macs… (start MacShare on the Mac)</div>
-      <form id="add-ip" class="row">
-        <input id="ip" placeholder="Add by IP, e.g. 192.168.1.20" autocomplete="off" spellcheck="false">
-        <button type="submit">Pair</button>
-      </form>
-    </section>
-
-    <section class="card">
-      <h2>Screen</h2>
-      <div class="row">
-        <div class="sub" id="stream-state">Mac is not sharing</div>
-        <button id="btn-monitor" disabled>Open Monitor 2</button>
-      </div>
-    </section>
+    <div id="pages"></div>
   </main>
+
+  <script src="../shared/protocol.js"></script>
+  <script src="ui-kit.js"></script>
+  <script src="ui-overview.js"></script>
+  <script src="ui-share.js"></script>
+  <script src="ui-receive.js"></script>
+  <script src="ui-cursor.js"></script>
+  <script src="ui-keyboard.js"></script>
+  <script src="ui-clipboard.js"></script>
+  <script src="ui-roadmap.js"></script>
+  <script src="ui-general.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

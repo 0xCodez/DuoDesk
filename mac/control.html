@@ -6,93 +6,45 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
   <title>MacShare</title>
   <link rel="stylesheet" href="control.css">
+  <link rel="stylesheet" href="control-pages.css">
 </head>
 <body>
-  <header>
-    <h1>MacShare</h1>
-    <span id="mac-name" class="muted"></span>
-  </header>
+  <nav id="sidebar" aria-label="Sections">
+    <div class="identity">
+      <div class="app-mark" aria-hidden="true"></div>
+      <div class="who">
+        <div class="app-name">MacShare</div>
+        <div class="peer"><span id="peer-dot" class="dot"></span><span id="peer-text">No PC</span></div>
+      </div>
+    </div>
+    <ul id="nav" role="tablist"></ul>
+  </nav>
 
-  <section id="pair-request" class="card attention" hidden>
-    <h2><span id="pair-name"></span> wants to pair</h2>
-    <p id="pair-code-line">Code <strong id="pair-code" class="code"></strong></p>
-    <p id="pair-hint" class="muted"></p>
-    <div class="row">
-      <button id="pair-allow" class="primary">Allow</button>
-      <button id="pair-deny">Deny</button>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Status</h2>
-    <p id="server-error" class="error" hidden></p>
-    <dl>
-      <dt>Listening on</dt><dd id="addresses"></dd>
-      <dt>PC</dt><dd id="client"></dd>
-      <dt>Input</dt><dd id="input"></dd>
-    </dl>
-  </section>
-
-  <section class="card">
-    <h2>Screen sharing</h2>
-    <p id="helper-missing" class="error" hidden>mac-helper is not running. Build it with <code>npm run build:helper</code>, then restart MacShare.</p>
-    <div class="row field">
-      <label><input type="checkbox" id="share-on"> Share a screen with the PC (Monitor 2)</label>
-    </div>
-    <div class="row field">
-      <label><input type="checkbox" id="stream-input"> Receive input: let the PC's mouse and keyboard control this Mac in Monitor 2</label>
-      <span id="input-latency" class="muted"></span>
-    </div>
-    <div class="row field">
-      <label for="share-display" class="lbl">Display</label>
-      <select id="share-display"></select>
-    </div>
-    <div class="row field">
-      <label><input type="checkbox" id="virt-on"> MacShare virtual display</label>
-      <select id="virt-preset"></select>
-      <button id="virt-apply">Apply</button>
-      <span id="virt-status" class="muted"></span>
-    </div>
-    <div class="row field">
-      <label for="bitrate" class="lbl">Quality</label>
-      <select id="bitrate">
-        <option value="10">10 Mbps — slow Wi-Fi</option>
-        <option value="20">20 Mbps — Wi-Fi</option>
-        <option value="30">30 Mbps — fast Wi-Fi (5 GHz)</option>
-        <option value="50">50 Mbps — Ethernet</option>
-      </select>
-    </div>
-    <div class="row field">
-      <label for="stream-size" class="lbl">Stream size</label>
-      <select id="stream-size">
-        <option value="1080">1080p — lowest latency</option>
-        <option value="1440">1440p — sharper, ~20 ms slower</option>
-        <option value="0">Display's full pixels — 4K adds ~30–60 ms</option>
-      </select>
-      <span class="muted">HiDPI displays are scaled down on the GPU: text stays smooth.</span>
-    </div>
-    <dl>
-      <dt>Stream</dt><dd id="stream-status"></dd>
-      <dt>Stats</dt><dd id="stream-stats"></dd>
-    </dl>
-  </section>
-
-  <section class="card">
-    <h2>Paired PCs</h2>
-    <ul id="paired" class="list"></ul>
-    <p id="paired-empty" class="muted">No paired PCs yet. Click <em>Pair</em> in the Windows app.</p>
-  </section>
-
-  <section class="card">
-    <h2>Permissions</h2>
-    <ul class="list" id="permissions"></ul>
-    <div class="row">
-      <button id="relaunch">Restart MacShare</button>
-      <span class="muted">Restart after granting a permission.</span>
-    </div>
-  </section>
+  <main id="content">
+    <div class="drag-strip" aria-hidden="true"></div>
+    <section id="banner" class="banner" hidden>
+      <div class="banner-text">
+        <strong id="pair-name"></strong> wants to pair
+        <span class="code-label">Code</span> <span id="pair-code" class="code"></span>
+        <div id="pair-hint" class="hint"></div>
+      </div>
+      <div class="banner-actions">
+        <button id="pair-deny" class="btn">Deny</button>
+        <button id="pair-allow" class="btn primary">Allow</button>
+      </div>
+    </section>
+    <div id="pages"></div>
+  </main>
 
   <script src="../shared/protocol.js"></script>
   <script src="control.js"></script>
+  <script src="ui-overview.js"></script>
+  <script src="ui-display.js"></script>
+  <script src="ui-cursor.js"></script>
+  <script src="ui-keyboard.js"></script>
+  <script src="ui-clipboard.js"></script>
+  <script src="ui-roadmap.js"></script>
+  <script src="ui-general.js"></script>
+  <script src="ui-start.js"></script>
 </body>
 </html>

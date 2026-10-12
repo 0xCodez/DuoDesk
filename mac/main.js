@@ -17,13 +17,18 @@
 //              displays: [{ id, label, width, height, pixelWidth, pixelHeight, virtual, primary }],
 //              targetId: null|id,                  // the display being shared now
 //              virtual: { enabled, width, height, hiDPI, hz, active: bool, error: null|'msg' } },
+//   displayMode: 'extend'|'mirror'|'custom',    // what Monitor 2 shows (Display tab)
 //   streamInput: bool,                          // accept mouse/keyboard from Monitor 2
-//   stream: { status, display, width, height, fps, mbps, encoder, codec },   // see stream.js
+//   stream: { status, display, width, height, fps, mbps, encoder, codec, qp, ... },   // stream.js
+//   kvm: settings.kvm, keys: settings.keys,     // Cursor / Keyboard tabs (behaviour: phases 4–5)
+//   clipboard: { ...settings.clipboard, peerAccepts, lastSkip,
+//                history: [{ dir: 'out'|'in', at, size, text (preview) }] },
+//   ui: { tab },
 // }
 'use strict';
 
 const path = require('path');
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, systemPreferences } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences } = require('electron');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 // Tag every sent video frame with playout delay 0/0 (RTP playout-delay extension): the receiver
@@ -44,11 +49,13 @@ const { Helper } = require('./helper');
 const { Displays } = require('./displays');
 const { Stream } = require('./stream');
 const { Input } = require('./input');
+const { Clipboard } = require('./clipboard');
+const { setupIpc } = require('./ipc');
 
 let win = null;
 let tray = null;
 let quitting = false;
-let settings, id, server, pairing, beacon, helper, displays, stream, input;
+let settings, id, server, pairing, beacon, helper, displays, stream, input, clip, actions;
 
 const state = {
   macName: '',
@@ -93,9 +100,21 @@ function pushState() {
     }
     if (stream) state.stream = stream.view;
     state.streamInput = settings.streamInput !== false;
+    state.displayMode = displayMode();
+    state.kvm = settings.kvm;
+    state.keys = settings.keys;
+    state.clipboard = clip ? { ...settings.clipboard, ...clip.view } : null;
+    state.ui = settings.ui;
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
     updateTray();
   });
+}
+
+function displayMode() {
+  const t = displays && displays.target();
+  if (!t) return 'custom';
+  if (t.virtual) return 'extend';
+  return t.primary && !settings.virtual.enabled ? 'mirror' : 'custom';
 }
 
 function refreshPermissions() {
@@ -112,17 +131,24 @@ function refreshPermissions() {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 760,
-    height: 820,
-    minWidth: 560,
-    minHeight: 500,
+    width: 900,
+    height: 680,
+    minWidth: 720,
+    minHeight: 520,
     title: 'MacShare',
     show: false,
+    titleBarStyle: 'hiddenInset', // the sidebar runs up under the traffic lights
+    vibrancy: 'sidebar',
+    visualEffectState: 'active',
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload-control.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+  win.webContents.on('console-message', (e) => {
+    if (e.level === 'warning' || e.level === 'error') console.log(`[window] ${e.level}: ${e.message}`);
   });
   win.loadFile(path.join(__dirname, 'control.html'));
   win.once('ready-to-show', () => win.show());
@@ -157,13 +183,19 @@ function updateTray() {
         label: 'Share screen',
         type: 'checkbox',
         checked: !!settings.sharing.on,
-        click: (item) => setSharing(item.checked),
+        click: (item) => actions.setSharing(item.checked),
       },
       {
         label: 'Receive input from the PC',
         type: 'checkbox',
         checked: settings.streamInput !== false,
-        click: (item) => setStreamInput(item.checked),
+        click: (item) => actions.setStreamInput(item.checked),
+      },
+      {
+        label: 'Share clipboard',
+        type: 'checkbox',
+        checked: !!settings.clipboard.enabled,
+        click: (item) => actions.setClipboard({ enabled: item.checked }),
       },
       { type: 'separator' },
       { label: 'Quit MacShare', click: () => app.quit() },
@@ -171,84 +203,12 @@ function updateTray() {
   );
 }
 
-function setSetting(key, partial) {
-  settings[key] = { ...settings[key], ...partial };
-  store.saveSettings(settings);
-  pushState();
-}
-
-function setSharing(on) {
-  setSetting('sharing', { on: !!on });
-  if (on) stream.restart('sharing on');
-  else {
-    stream.stop('off');
-    input.releaseAll();
-  }
-}
-
-function setStreamInput(on) {
-  settings.streamInput = !!on;
-  store.saveSettings(settings);
-  if (!on) input.releaseAll();
-  server.sendToClient({ t: P.T.STREAM_INPUT, on: !!on }); // Windows goes view-only when off
-  pushState();
-}
-
-const VIRTUAL_KEYS = ['enabled', 'width', 'height', 'hiDPI', 'hz'];
-
-function setVirtual(partial) {
-  const clean = {};
-  for (const k of VIRTUAL_KEYS) if (partial && k in partial) clean[k] = partial[k];
-  if (clean.width !== undefined) clean.width = Math.max(640, Math.min(3840, Math.round(Number(clean.width)) || 1920));
-  if (clean.height !== undefined) clean.height = Math.max(480, Math.min(2160, Math.round(Number(clean.height)) || 1080));
-  setSetting('virtual', clean);
-  displays.applyVirtual();
-}
-
-const SETTINGS_URLS = {
-  screen: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
-  accessibility: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-  inputMonitoring: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent',
-};
-
-function setupIpc() {
-  ipcMain.handle('getState', () => state);
-  ipcMain.on('pairRespond', (_e, allow) => pairing.respond(!!allow));
-  ipcMain.on('forget', (_e, deviceId) => pairing.forget(String(deviceId)));
-  ipcMain.on('openSettings', (_e, kind) => SETTINGS_URLS[kind] && shell.openExternal(SETTINGS_URLS[kind]));
-  ipcMain.on('relaunch', () => {
-    app.relaunch();
-    app.exit(0);
-  });
-  ipcMain.on('setSharing', (_e, on) => setSharing(on));
-  // null = the MacShare virtual display
-  ipcMain.on('selectDisplay', (_e, displayId) => {
-    setSetting('sharing', { displayId: displayId == null ? null : Number(displayId) });
-    stream.restart('display selected');
-  });
-  ipcMain.on('setVirtual', (_e, partial) => setVirtual(partial));
-  ipcMain.on('setStreamMaxHeight', (_e, h) => {
-    settings.streamMaxHeight = [0, 1080, 1440, 2160].includes(Number(h)) ? Number(h) : 1080;
-    store.saveSettings(settings);
-    pushState();
-    stream.restart('stream size changed');
-  });
-  ipcMain.on('setStreamInput', (_e, on) => setStreamInput(on));
-  ipcMain.on('setBitrate', (_e, mbps) => {
-    settings.bitrateMbps = Math.max(2, Math.min(100, Number(mbps) || 20));
-    store.saveSettings(settings);
-    pushState();
-    stream.restart('bitrate changed');
-  });
-  // Later phases: setKvm.
-}
-
 app.whenReady().then(() => {
   if (app.dock) app.dock.hide();
   store.init(app.getPath('userData'));
   settings = store.loadSettings();
   id = identity.load(settings);
-  Object.assign(state, { macName: id.macName, macId: id.macId, fp: id.fp });
+  Object.assign(state, { macName: id.macName, macId: id.macId, fp: id.fp, version: app.getVersion() });
   console.log(`[main] ${id.macName} (${id.macId}) fp ${id.fp}`);
 
   server = new Server(id);
@@ -282,7 +242,12 @@ app.whenReady().then(() => {
   displays = new Displays(helper, () => settings);
   stream = new Stream(server, displays, () => settings);
   // Stream input: only when the switch is on (phases 4–5: and KVM is home).
-  input = new Input(server, helper, displays, { enabled: () => settings.streamInput !== false });
+  input = new Input(server, helper, displays, {
+    enabled: () => settings.streamInput !== false,
+    swapKeys: () => settings.keys.swapCtrlCmd !== false,
+  });
+  clip = new Clipboard(server, helper, () => settings);
+  clip.on('change', pushState);
   displays.on('change', () => {
     input.releaseAll(); // the shared display moved or changed size mid-press
     pushState();
@@ -294,7 +259,7 @@ app.whenReady().then(() => {
     refreshPermissions();
   }
 
-  setupIpc();
+  actions = setupIpc({ state, settings, pushState, server, pairing, displays, stream, input, clipboard: clip });
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle('MacShare');
   createWindow();
