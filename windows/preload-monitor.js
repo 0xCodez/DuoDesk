@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('monitor', {
   onRtc: (fn) => ipcRenderer.on('rtc', (_e, m) => fn(m)),
   send: (m) => ipcRenderer.send('rtc', m),
   ready: () => ipcRenderer.send('monitor-ready'),
+  onInputEnabled: (fn) => ipcRenderer.on('input-enabled', (_e, on) => fn(!!on)),
   onToggleStats: (fn) => ipcRenderer.on('toggle-stats', () => fn()),
 });

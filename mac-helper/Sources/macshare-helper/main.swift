@@ -37,6 +37,7 @@ func replyError(_ id: Any?, _ message: String) {
 }
 
 let virtualDisplay = VirtualDisplay()
+let injector = Injector()
 
 func handle(_ line: String) {
   guard let data = line.data(using: .utf8),
@@ -67,6 +68,15 @@ func handle(_ line: String) {
       case .failure(let err): replyError(id, err.message)
       }
     }
+  case "input":
+    guard let ev = msg["ev"] as? [String: Any], let b = msg["bounds"] as? [String: Any],
+          let x = (b["x"] as? NSNumber)?.doubleValue, let y = (b["y"] as? NSNumber)?.doubleValue,
+          let w = (b["width"] as? NSNumber)?.doubleValue, let h = (b["height"] as? NSNumber)?.doubleValue
+    else { return replyError(id, "input needs ev and bounds") }
+    injector.input(ev, bounds: CGRect(x: x, y: y, width: w, height: h))
+  case "releaseAll":
+    injector.releaseAll()
+    reply(id)
   case "destroyDisplay":
     virtualDisplay.destroy()
     reply(id)
@@ -81,6 +91,7 @@ DispatchQueue.global().async {
     DispatchQueue.main.async { handle(line) }
   }
   DispatchQueue.main.async {
+    injector.releaseAll()
     virtualDisplay.destroy()
     exit(0)
   }

@@ -17,6 +17,7 @@
 //              displays: [{ id, label, width, height, pixelWidth, pixelHeight, virtual, primary }],
 //              targetId: null|id,                  // the display being shared now
 //              virtual: { enabled, width, height, hiDPI, hz, active: bool, error: null|'msg' } },
+//   streamInput: bool,                          // accept mouse/keyboard from Monitor 2
 //   stream: { status, display, width, height, fps, mbps, encoder, codec },   // see stream.js
 // }
 'use strict';
@@ -42,11 +43,12 @@ const { Pairing } = require('./pairing');
 const { Helper } = require('./helper');
 const { Displays } = require('./displays');
 const { Stream } = require('./stream');
+const { Input } = require('./input');
 
 let win = null;
 let tray = null;
 let quitting = false;
-let settings, id, server, pairing, beacon, helper, displays, stream;
+let settings, id, server, pairing, beacon, helper, displays, stream, input;
 
 const state = {
   macName: '',
@@ -61,6 +63,7 @@ const state = {
   permissions: { screen: 'unknown', accessibility: false, inputMonitoring: null },
   helper: { running: false },
   sharing: null,
+  streamInput: true,
   stream: null,
 };
 
@@ -89,6 +92,7 @@ function pushState() {
       };
     }
     if (stream) state.stream = stream.view;
+    state.streamInput = settings.streamInput !== false;
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
     updateTray();
   });
@@ -155,6 +159,12 @@ function updateTray() {
         checked: !!settings.sharing.on,
         click: (item) => setSharing(item.checked),
       },
+      {
+        label: 'Receive input from the PC',
+        type: 'checkbox',
+        checked: settings.streamInput !== false,
+        click: (item) => setStreamInput(item.checked),
+      },
       { type: 'separator' },
       { label: 'Quit MacShare', click: () => app.quit() },
     ]),
@@ -170,7 +180,18 @@ function setSetting(key, partial) {
 function setSharing(on) {
   setSetting('sharing', { on: !!on });
   if (on) stream.restart('sharing on');
-  else stream.stop('off');
+  else {
+    stream.stop('off');
+    input.releaseAll();
+  }
+}
+
+function setStreamInput(on) {
+  settings.streamInput = !!on;
+  store.saveSettings(settings);
+  if (!on) input.releaseAll();
+  server.sendToClient({ t: P.T.STREAM_INPUT, on: !!on }); // Windows goes view-only when off
+  pushState();
 }
 
 const VIRTUAL_KEYS = ['enabled', 'width', 'height', 'hiDPI', 'hz'];
@@ -212,6 +233,7 @@ function setupIpc() {
     pushState();
     stream.restart('stream size changed');
   });
+  ipcMain.on('setStreamInput', (_e, on) => setStreamInput(on));
   ipcMain.on('setBitrate', (_e, mbps) => {
     settings.bitrateMbps = Math.max(2, Math.min(100, Number(mbps) || 20));
     store.saveSettings(settings);
@@ -238,6 +260,7 @@ app.whenReady().then(() => {
   });
   server.on('client', (ctx) => {
     console.log(`[server] ${ctx.name} connected from ${ctx.address}`);
+    server.send(ctx, { t: P.T.STREAM_INPUT, on: settings.streamInput !== false });
     pushState();
   });
   server.on('closed', (ctx) => {
@@ -258,7 +281,12 @@ app.whenReady().then(() => {
   helper = new Helper();
   displays = new Displays(helper, () => settings);
   stream = new Stream(server, displays, () => settings);
-  displays.on('change', pushState);
+  // Stream input: only when the switch is on (phases 4–5: and KVM is home).
+  input = new Input(server, helper, displays, { enabled: () => settings.streamInput !== false });
+  displays.on('change', () => {
+    input.releaseAll(); // the shared display moved or changed size mid-press
+    pushState();
+  });
   stream.on('change', pushState);
   helper.on('exit', pushState);
   if (helper.start()) {

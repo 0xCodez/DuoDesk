@@ -15,6 +15,7 @@ html, body {
   background: #000;
   cursor: none; /* the Mac's cursor is in the video */
 }
+body.input-off #video { cursor: default; } /* the Mac ignores input: show where our pointer is */
 #overlay {
   position: fixed;
   inset: 0;

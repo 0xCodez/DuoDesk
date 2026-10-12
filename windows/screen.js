@@ -7,9 +7,11 @@ const P = require('../shared/protocol.js');
 
 const T = P.T;
 const FROM_RENDERER = new Set([T.RTC_ANSWER, T.RTC_ICE]);
+const INPUT = new Set([T.IN_MOVE, T.IN_DOWN, T.IN_UP, T.IN_WHEEL, T.IN_KEY_DOWN, T.IN_KEY_UP]);
 
 class Screen {
-  // opts: link, settings (shared object, .windows.monitor bounds), saveSettings(), onChange(), isQuitting()
+  // opts: link, clip, settings (shared object, .windows.monitor bounds), saveSettings(), onChange(),
+  // isQuitting(), inputAllowed() (false while KVM drives or is driven, phases 4–5)
   constructor(opts) {
     Object.assign(this, opts);
     this.state = { state: 'off', name: '', width: 0, height: 0 };
@@ -18,24 +20,30 @@ class Screen {
     this.replay = []; // messages of the current session, for a renderer that (re)loads
     this.autoOpened = false; // opened once per connection on the first stream.info
     this.test = false;
+    this.macInput = true; // the Mac's "Receive input" switch (stream.input); assumed on until told
 
     const link = this.link;
     link.on(T.STREAM_INFO, (m) => this._onInfo(m));
     link.on(T.RTC_OFFER, (m) => typeof m.sdp === 'string' && this._relay(m));
     link.on(T.RTC_ICE, (m) => this._relay(m));
     link.on(T.STREAM_STOP, () => this._stop());
+    link.on(T.STREAM_INPUT, (m) => this._setMacInput(m.on !== false));
     link.on('closed', () => {
       this.autoOpened = false;
       this._stop();
+      this._setMacInput(true); // the Mac re-sends it after welcome
     });
 
     ipcMain.on('rtc', (e, m) => {
       if (!this.win || e.sender !== this.win.webContents || this.test) return;
-      if (m && FROM_RENDERER.has(m.t)) this.link.send(m);
+      if (!m) return;
+      if (FROM_RENDERER.has(m.t)) this.link.send(m);
+      else if (INPUT.has(m.t) && this.state.state === 'on' && this.macInput && this.inputAllowed()) this.link.send(m);
     });
     ipcMain.on('monitor-ready', (e) => {
       if (!this.win || e.sender !== this.win.webContents) return;
       this.ready = true;
+      this._pushInput();
       for (const m of this.replay) this._toRenderer(m);
     });
   }
@@ -59,6 +67,20 @@ class Screen {
       this.open(false);
     }
     this.onChange();
+  }
+
+  _setMacInput(on) {
+    if (on === this.macInput) return;
+    this.macInput = on;
+    this._pushInput();
+    this.onChange();
+  }
+
+  // Tell the renderer whether to capture input at all (off = no listeners work, normal cursor).
+  _pushInput() {
+    if (this.ready && this.win && !this.win.isDestroyed()) {
+      this.win.webContents.send('input-enabled', this.test || (this.macInput && this.inputAllowed()));
+    }
   }
 
   _stop() {
@@ -115,14 +137,17 @@ class Screen {
     win.loadFile(path.join(__dirname, 'monitor.html'), { query: this.test ? { test: '1' } : {} });
     win.once('ready-to-show', () => win.show());
     win.on('page-title-updated', (e) => e.preventDefault());
+    // Clipboard follows the focus: our text goes over on focus, the Mac's comes back on blur.
+    win.on('focus', () => { if (!this.test && this.state.state === 'on') this.clip.sendIfChanged(); });
+    win.on('blur', () => { if (!this.test && this.state.state === 'on') this.clip.request(); });
     win.webContents.on('before-input-event', (e, input) => {
-      if (input.key === 'F11' && input.type === 'keyDown') {
-        win.setFullScreen(!win.isFullScreen());
-        e.preventDefault();
-      } else if (input.key === 'F9' && input.type === 'keyDown') {
-        win.webContents.send('toggle-stats'); // video stats overlay (kept local, like F11)
-        e.preventDefault();
-      }
+      // F11 fullscreen and F9 stats stay local: both key down and up are kept from the page,
+      // so they are never sent to the Mac.
+      if (input.key !== 'F11' && input.key !== 'F9') return;
+      e.preventDefault();
+      if (input.type !== 'keyDown' || input.isAutoRepeat) return;
+      if (input.key === 'F11') win.setFullScreen(!win.isFullScreen());
+      else win.webContents.send('toggle-stats');
     });
     win.webContents.on('did-start-loading', () => { this.ready = false; });
     // Closing only hides it, so the peer connection survives and reopening is instant.

@@ -96,7 +96,8 @@ function renderMacs(s) {
 
 function renderStream(s) {
   $('stream-state').textContent = s.stream.state === 'on'
-    ? s.stream.name + ' (' + s.stream.width + '×' + s.stream.height + ')'
+    ? s.stream.name + ' (' + s.stream.width + '×' + s.stream.height + ')' +
+      (s.macInput ? '' : ' — view only (input is off on the Mac)')
     : 'Mac is not sharing';
   $('btn-monitor').disabled = s.link.state !== 'connected';
 }

@@ -9,6 +9,7 @@ const store = require('./store');
 const Discovery = require('./discovery');
 const Link = require('./link');
 const Screen = require('./screen');
+const Clip = require('./clip');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 if (!app.requestSingleInstanceLock()) {
@@ -75,6 +76,8 @@ function start() {
   link.onState(pushState);
   screen = new Screen({
     link,
+    clip: new Clip(link),
+    inputAllowed: () => true, // phases 4–5: false while driving or driven
     settings,
     saveSettings: () => store.write('settings.json', settings),
     onChange: pushState,
@@ -113,6 +116,7 @@ function buildState() {
     macs: discovery.list(),
     discoveryError: discovery.error,
     stream: screen.state,
+    macInput: screen.macInput, // the Mac's "Receive input" switch
     input: 'home', // phases 4–5
     kvm: settings.kvm,
   };

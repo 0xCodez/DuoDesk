@@ -119,6 +119,9 @@ function renderSharing(s) {
   $('helper-missing').hidden = !!(s.helper && s.helper.running);
   if (!sh) return;
   $('share-on').checked = sh.on;
+  $('stream-input').checked = s.streamInput;
+  $('input-latency').textContent = !s.streamInput ? 'off — input from the PC is ignored'
+    : s.client && s.client.rttMs != null ? `input delay ≈ ${Math.max(1, Math.round(s.client.rttMs / 2))} ms (network, one way)` : '';
   if (document.activeElement !== $('stream-size')) $('stream-size').value = String(sh.streamMaxHeight || 0);
   if (document.activeElement !== $('bitrate')) {
     const b = String(sh.bitrateMbps);
@@ -158,6 +161,7 @@ function renderSharing(s) {
 
 $('share-on').onchange = (e) => api.setSharing(e.target.checked);
 $('share-display').onchange = (e) => api.selectDisplay(e.target.value === 'virtual' ? null : Number(e.target.value));
+$('stream-input').onchange = (e) => api.setStreamInput(e.target.checked);
 $('stream-size').onchange = (e) => api.setStreamMaxHeight(Number(e.target.value));
 $('bitrate').onchange = (e) => api.setBitrate(Number(e.target.value));
 $('virt-on').onchange = (e) => api.setVirtual({ enabled: e.target.checked });

@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   sharing: { on: true, displayId: null },
   virtual: { enabled: true, width: 1920, height: 1080, hiDPI: false, hz: 60 },
   bitrateMbps: 20,
+  streamInput: true, // accept mouse/keyboard from Monitor 2
   streamMaxHeight: 1080, // 0 = capture at the display's pixel size; else scale down (GPU) to this height
   kvm: {
     pcSide: 'right',

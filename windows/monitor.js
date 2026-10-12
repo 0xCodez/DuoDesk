@@ -70,7 +70,6 @@ function onIce(msg) {
 }
 
 video.addEventListener('playing', () => setOverlay(''));
-video.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // ---- stats overlay (F9) ----
 
