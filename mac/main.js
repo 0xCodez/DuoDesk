@@ -111,6 +111,13 @@ function pushState() {
     state.ui = settings.ui;
     state.app = settings.app;
     if (kvm) state.input = kvm.view;
+    if (svc) state.terminal = { ...settings.terminal, ...svc.terminal.view, toPc: svc.sshClient.view };
+    if (svc) state.files = { ...settings.files, ...svc.drop.view };
+    if (svc) {
+      const { secret, ...smb } = settings.smb; // never send the share password to the window
+      state.smb = { ...smb, ...svc.smb.view };
+      state.apps = { ...settings.apps, ...svc.apps.view };
+    }
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
     updateTray();
   });
@@ -221,7 +228,7 @@ app.whenReady().then(() => {
   console.log(`[main] ${id.macName} (${id.macId}) fp ${id.fp}`);
 
   server = new Server(id);
-  server.on('listening', () => console.log(`[server] listening on 0.0.0.0:${P.PORT}`));
+  server.on('listening', () => console.log(`[server] listening on 0.0.0.0:${server.port}`));
   server.on('listenError', (err) => {
     state.serverError = `Cannot listen on port ${P.PORT}: ${err.code || err.message}`;
     console.error(`[server] ${state.serverError}`);

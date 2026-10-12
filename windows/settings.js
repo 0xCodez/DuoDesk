@@ -41,7 +41,12 @@ function normalize(s) {
     monitor: { autoOpen: bool(mon.autoOpen, true) },
     audio: { receive: bool(audio.receive, true), volume: Math.round(num(audio.volume, 1, 0, 1) * 100) / 100 },
     terminal: { enabled: bool(term.enabled, false) },
-    files: { dropToMac: bool(files.dropToMac, true) },
+    files: {
+      dropToMac: bool(files.dropToMac, true),
+      shareOn: bool(files.shareOn, false), // set only by a successful share setup (smb.js)
+      shareFolder: typeof files.shareFolder === 'string' ? files.shareFolder : '',
+      mountMac: bool(files.mountMac, true),
+    },
     ui: { tab: ui.tab === 'display' ? 'share' : TABS.includes(ui.tab) ? ui.tab : 'overview' }, // 'display' = before the split
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };

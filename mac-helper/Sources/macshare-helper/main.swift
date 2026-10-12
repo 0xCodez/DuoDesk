@@ -114,6 +114,49 @@ func handle(_ line: String) {
     AudioCapture.shared.set(on: (msg["on"] as? Bool) ?? false) { err in
       if let err = err { replyError(id, err) } else { reply(id) }
     }
+  case "windowAt":
+    // Frontmost normal window under a global point (for "drop here"): owner, title, bounds.
+    let pt = CGPoint(x: num("x", 0), y: num("y", 0))
+    let list = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []
+    for w in list where (w[kCGWindowLayer as String] as? Int) == 0 {
+      guard let b = w[kCGWindowBounds as String] as? [String: Double],
+            CGRect(x: b["X"] ?? 0, y: b["Y"] ?? 0, width: b["Width"] ?? 0, height: b["Height"] ?? 0).contains(pt) else { continue }
+      return reply(id, ["owner": w[kCGWindowOwnerName as String] as? String ?? "", "title": w[kCGWindowName as String] as? String ?? "",
+                        "bounds": ["x": b["X"] ?? 0, "y": b["Y"] ?? 0, "width": b["Width"] ?? 0, "height": b["Height"] ?? 0]])
+    }
+    reply(id, ["owner": ""]) // nothing but the desktop
+  case "smbMount":
+    Smb.mount(url: (msg["url"] as? String) ?? "", user: (msg["user"] as? String) ?? "", password: (msg["password"] as? String) ?? "") { r in
+      switch r {
+      case .success(let path): reply(id, ["path": path])
+      case .failure(let e): replyError(id, e.message)
+      }
+    }
+  case "smbUnmount":
+    if let err = Smb.unmount(path: (msg["path"] as? String) ?? "") { replyError(id, err) } else { reply(id) }
+  case "appsList":
+    reply(id, ["apps": Apps.list()])
+  case "appLaunch":
+    Apps.launch(id: (msg["appId"] as? String) ?? "") { r in
+      switch r {
+      case .success(let pid): reply(id, ["pid": pid])
+      case .failure(let e): replyError(id, e.message)
+      }
+    }
+  case "appWindows":
+    let pids = Set(((msg["pids"] as? [NSNumber]) ?? []).map { $0.intValue })
+    reply(id, ["windows": Apps.windows(pids: pids)])
+  case "appMove":
+    if let b = msg["bounds"] as? [String: NSNumber] {
+      Apps.moveOnto(pid: (msg["pid"] as? NSNumber)?.intValue ?? 0,
+                    bounds: CGRect(x: b["x"]?.doubleValue ?? 0, y: b["y"]?.doubleValue ?? 0,
+                                   width: b["width"]?.doubleValue ?? 0, height: b["height"]?.doubleValue ?? 0))
+    }
+    reply(id)
+  case "appFocus":
+    reply(id, ["done": Apps.focus(wid: (msg["wid"] as? NSNumber)?.intValue ?? 0)])
+  case "appClose":
+    reply(id, ["done": Apps.close(wid: (msg["wid"] as? NSNumber)?.intValue ?? 0)])
   case "destroyDisplay":
     virtualDisplay.destroy()
     reply(id)

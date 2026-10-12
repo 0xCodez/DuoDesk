@@ -48,6 +48,7 @@
   }
 
   window.monitorNorm = (e) => norm(e, false); // also used by monitor-drop.js
+  window.monitorInputEnabled = () => enabled; // also used by monitor-apps.js
 
   function flushMove() {
     rafQueued = false;

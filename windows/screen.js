@@ -6,7 +6,7 @@ const path = require('path');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
-const FROM_RENDERER = new Set([T.RTC_ANSWER, T.RTC_ICE]);
+const FROM_RENDERER = new Set([T.RTC_ANSWER, T.RTC_ICE, T.APP_FOCUS, T.APP_CLOSE]);
 const INPUT = new Set([T.IN_MOVE, T.IN_DOWN, T.IN_UP, T.IN_WHEEL, T.IN_KEY_DOWN, T.IN_KEY_UP]);
 
 class Screen {
@@ -51,6 +51,7 @@ class Screen {
       this.ready = true;
       this._pushInput();
       this._pushAudio();
+      if (this.apps) this.apps.resend();
       for (const m of this.replay) this._toRenderer(m);
     });
   }
@@ -69,6 +70,7 @@ class Screen {
     this.replay = []; // a fresh offer follows every stream.info
     this._relay({ t: T.STREAM_INFO, name: this.state.name, width, height });
     this._title();
+    if (this.win && !this.win.isDestroyed()) this.win.streamSize = { width, height };
     if (!this.autoOpened && this.settings.monitor.autoOpen) {
       this.autoOpened = true;
       this.open(false);
@@ -95,6 +97,14 @@ class Screen {
   // Input allowed changed elsewhere (KVM mode): tell the renderer.
   refreshInput() {
     this._pushInput();
+  }
+
+  // App windows need the Monitor 2 renderer (and its stream) even if Monitor 2 itself stays hidden.
+  ensureHidden() {
+    if (!this.win || this.win.isDestroyed()) {
+      this.startHidden = true;
+      this._create();
+    }
   }
 
   _setMacInput(on) {
@@ -163,8 +173,10 @@ class Screen {
     });
     this.win = win;
     this.ready = false;
+    win.streamSize = { width: this.state.width || 1920, height: this.state.height || 1080 };
+    if (this.apps) this.apps.attach(win); // Mac app windows (phase 12) open from this renderer
     win.loadFile(path.join(__dirname, 'monitor.html'), { query: this.test ? { test: '1' } : {} });
-    win.once('ready-to-show', () => win.show());
+    win.once('ready-to-show', () => { if (!this.startHidden) win.show(); this.startHidden = false; });
     win.on('page-title-updated', (e) => e.preventDefault());
     // Clipboard follows the focus: our text goes over on focus, the Mac's comes back on blur.
     win.on('focus', () => { if (!this.test && this.state.state === 'on') this.clip.sendIfChanged(); });

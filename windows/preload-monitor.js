@@ -11,5 +11,6 @@ contextBridge.exposeInMainWorld('monitor', {
   pathFor: (file) => { try { return webUtils.getPathForFile(file); } catch (_) { return ''; } },
   drop: (paths, x, y) => ipcRenderer.send('drop', { paths, x, y }),
   onDropProgress: (fn) => ipcRenderer.on('drop-progress', (_e, v) => fn(v)),
+  onAppWindows: (fn) => ipcRenderer.on('app-windows', (_e, list) => fn(list)),
   onToggleStats: (fn) => ipcRenderer.on('toggle-stats', () => fn()),
 });

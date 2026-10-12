@@ -65,12 +65,16 @@ const DEFAULT_SETTINGS = {
   ui: { tab: 'overview' },
   app: { openAtLogin: false, keepAwake: true }, // phase 6
   audio: { send: false, muteLocal: false }, // phase 10: this Mac's sound on the PC
+  terminal: { allowPc: false, connectPc: false }, // phase 8: PC -> Mac shell; Mac -> PC (`ssh macshare-pc`)
+  files: { acceptDrops: true, folder: '', reveal: true }, // phase 9: '' = Downloads
+  apps: { offer: true }, // phase 12: the PC can list and open this Mac's apps
+  smb: { connectPc: true, sharing: false, folder: '', secret: '' }, // phase 7; secret = safeStorage
 };
 
 function loadSettings() {
   const s = read('settings.json', {});
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   return out;
 }
 

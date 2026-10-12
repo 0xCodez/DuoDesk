@@ -1,13 +1,13 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Main-window actions (preload-app.js → here). Every value is validated by settings.apply().
-const { ipcMain } = require('electron');
+const { ipcMain, dialog, shell, BrowserWindow } = require('electron');
 const P = require('../shared/protocol.js');
 const { apply } = require('./settings');
 
-// ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, settings, save(), push(), buildState(),
+// ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, terminal, fileDrop, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -45,8 +45,22 @@ function setupIpc(ctx) {
   handle('setTerminal', (partial) => change('terminal', partial, () => terminal.apply()));
   handle('openTerminal', () => terminal.open());
   handle('addToPath', () => terminal.addToPath());
-  handle('setFiles', (partial) => change('files', partial));
+  handle('setFiles', (partial) => {
+    // shareOn/shareFolder only change through share()/unshare()
+    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac } : {};
+    Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
+    change('files', p, () => smb.applyMount());
+  });
+  handle('shareFolder', async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    const r = await dialog.showOpenDialog(win, { title: 'Folder to share with the Mac', properties: ['openDirectory'] });
+    if (!r.canceled && r.filePaths[0]) await smb.share(r.filePaths[0]);
+  });
+  handle('unshareFolder', () => smb.unshare());
+  handle('openMacDrive', () => smb.drive && shell.openPath(smb.drive + '\\'));
   handle('cancelDrop', () => fileDrop.cancel());
+  handle('listApps', () => apps.refresh());
+  handle('launchApp', (id) => { apps.launch(id); screen.ensureHidden(); });
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));

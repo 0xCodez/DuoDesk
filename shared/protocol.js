@@ -97,6 +97,7 @@
       RTC2_ANSWER: 'rtc2.answer', // M->W {session, sdp}
       RTC2_ICE: 'rtc2.ice', // either {session, candidate}
       RTC2_STOP: 'rtc2.stop', // W->M {session}
+      SCREEN_POLICY: 'screen.policy', // M->W {accept, width?, height?}: the Mac shows the PC's screen (phase 11)
       SMB_OFFER: 'smb.offer', // sharer->other {share, user, password, port}
       SMB_REVOKE: 'smb.revoke', // sharer->other {share}
       SMB_STATE: 'smb.state', // other->sharer {share, mounted, error?}
@@ -107,9 +108,6 @@
       APP_WINDOWS: 'app.windows', // M->W {windows: [{wid, id, title, x, y, w, h}]} normalized rects
       APP_FOCUS: 'app.focus', // W->M {wid}
       APP_CLOSE: 'app.close', // W->M {wid}
-      APP_WINDOWS: 'app.windows',
-      APP_FOCUS: 'app.focus',
-      APP_CLOSE: 'app.close',
     },
 
     // Error codes (field `code` of an `error` message)

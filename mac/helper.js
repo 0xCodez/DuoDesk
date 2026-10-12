@@ -80,14 +80,14 @@ class Helper extends EventEmitter {
     return true;
   }
 
-  request(cmd, args = {}) {
+  request(cmd, args = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
     return new Promise((resolve, reject) => {
       const id = this.nextId++;
       if (!this._write({ ...args, id, cmd })) return reject(new Error('helper not running'));
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`helper: ${cmd} timed out`));
-      }, REQUEST_TIMEOUT_MS);
+      }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
     });
   }

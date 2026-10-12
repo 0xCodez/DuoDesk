@@ -2,7 +2,7 @@
 // Actions from the control window (and the menu bar): validate, save settings, apply.
 'use strict';
 
-const { ipcMain, shell, app, screen } = require('electron');
+const { ipcMain, shell, app, screen, dialog } = require('electron');
 const P = require('../shared/protocol.js');
 const store = require('./store');
 
@@ -30,6 +30,10 @@ const SCHEMA = {
   keys: { swapCtrlCmd: bool },
   app: { openAtLogin: bool, keepAwake: bool },
   audio: { send: bool, muteLocal: bool },
+  terminal: { allowPc: bool, connectPc: bool },
+  files: { acceptDrops: bool, reveal: bool },
+  smb: { connectPc: bool },
+  apps: { offer: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'switch'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -103,6 +107,53 @@ function setupIpc(ctx) {
       setGroup('kvm', partial);
       ctx.kvm.settingsChanged(prev);
     },
+    setTerminal(partial) {
+      const prev = settings.terminal.connectPc;
+      setGroup('terminal', partial);
+      ctx.terminal.applySettings();
+      if (settings.terminal.connectPc !== prev) ctx.sshClient.applySettings();
+    },
+    openPcShell() {
+      ctx.sshClient.openShell();
+    },
+    openSharingSettings() {
+      shell.openExternal('x-apple.systempreferences:com.apple.Sharing-Settings.extension');
+    },
+    setFiles(partial) {
+      setGroup('files', partial);
+    },
+    async pickDropFolder() {
+      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Use This Folder' });
+      if (r.canceled || !r.filePaths[0]) return;
+      settings.files.folder = r.filePaths[0];
+      save();
+    },
+    resetDropFolder() {
+      settings.files.folder = '';
+      save();
+    },
+    revealDrop(index) {
+      ctx.drop.reveal(Number(index));
+    },
+    setSmb(partial) {
+      setGroup('smb', partial);
+      if (settings.smb.connectPc) ctx.smb.mountPc();
+      else ctx.smb.unmountPc();
+    },
+    async shareMacFolder() {
+      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Share This Folder' });
+      if (!r.canceled && r.filePaths[0]) ctx.smb.startSharing(r.filePaths[0]);
+    },
+    stopSharingFolder() {
+      ctx.smb.stopSharing();
+    },
+    openPcShare() {
+      ctx.smb.openPc();
+    },
+    setApps(partial) {
+      setGroup('apps', partial);
+      ctx.apps.applySettings();
+    },
     setAudio(partial) {
       setGroup('audio', partial);
       ctx.stream.restart('audio setting');
@@ -135,6 +186,7 @@ function setupIpc(ctx) {
     },
     forget(deviceId) {
       ctx.pairing.forget(String(deviceId));
+      ctx.terminal.forget(String(deviceId));
     },
     openSettings(kind) {
       if (SETTINGS_URLS[kind]) shell.openExternal(SETTINGS_URLS[kind]);

@@ -5,20 +5,7 @@
 // Portions adapted from Beamer (https://github.com/kalkman-code/beamer), Copyright (C) Kalkman Code,
 // GPL-3.0. Changed: JS port of win_app/firewall_win.py (status script + interpret), simplified to
 // one program rule and no ports.
-const { execFile } = require('child_process');
-const path = require('path');
-
-const PS = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
-
-function powershell(script, timeoutMs = 60000) {
-  const encoded = Buffer.from(script, 'utf16le').toString('base64');
-  return new Promise((resolve, reject) => {
-    execFile(PS, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
-      { windowsHide: true, timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 },
-      (err, stdout, stderr) => (err ? reject(new Error(String(stderr || err.message).trim().split('\n')[0])) : resolve(String(stdout))));
-  });
-}
+const { run: powershell, runElevated, q } = require('./ps');
 
 const statusScript = (exe) => `
 $ErrorActionPreference = 'SilentlyContinue'
@@ -79,9 +66,7 @@ async function fix(status, exe = process.execPath) {
   }
   lines.push('netsh advfirewall firewall delete rule name="MacShare" program=' + JSON.stringify(exe) + ' | Out-Null');
   lines.push('netsh advfirewall firewall add rule name="MacShare" dir=in action=allow program=' + JSON.stringify(exe) + ' profile=private enable=yes | Out-Null');
-  const inner = Buffer.from(lines.join('\n'), 'utf16le').toString('base64');
-  const outer = "Start-Process -FilePath " + q(PS) + " -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','" + inner + "'";
-  await powershell(outer, 120000); // throws if the UAC prompt is declined
+  await runElevated(lines.join('\n')); // throws if the UAC prompt is declined
   return check(exe);
 }
 

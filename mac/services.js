@@ -11,6 +11,12 @@ const { Stream } = require('./stream');
 const { Input } = require('./input');
 const { Clipboard } = require('./clipboard');
 const { Kvm } = require('./kvm');
+const { Terminal } = require('./terminal');
+const { Drop } = require('./drop');
+const { Smb } = require('./smb');
+const { Apps } = require('./apps');
+const { SshClient } = require('./ssh-client');
+const store = require('./store');
 
 function startServices({ server, getSettings, pushState, onHelperReady }) {
   const s = getSettings;
@@ -25,8 +31,14 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   });
   const clipboard = new Clipboard(server, helper, s);
   kvm = new Kvm({ server, helper, getSettings: s, clipboard, input });
+  const terminal = new Terminal(server, s);
+  const drop = new Drop({ server, helper, displays, getSettings: s });
+  const smb = new Smb({ server, helper, getSettings: s, saveSettings: () => store.saveSettings(s()) });
 
-  for (const x of [stream, clipboard, kvm]) x.on('change', pushState);
+  const apps = new Apps({ server, helper, displays, getSettings: s });
+  const sshClient = new SshClient(server, s);
+
+  for (const x of [stream, clipboard, kvm, terminal, drop, smb, apps, sshClient]) x.on('change', pushState);
   displays.on('change', () => {
     input.releaseAll(); // the shared display moved or changed size mid-press
     pushState();
@@ -66,7 +78,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   helper.start();
 
   return {
-    helper, displays, stream, input, clipboard, kvm, updateAwake,
+    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, updateAwake,
     shutdown() {
       kvm.shutdown();
       if (stream.mutedByUs) {

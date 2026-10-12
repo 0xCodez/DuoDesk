@@ -28,6 +28,7 @@ class Server extends EventEmitter {
     this.wss = new WebSocketServer({ server: this.https, maxPayload: P.MAX_PAYLOAD });
     this.wss.on('connection', (ws, req) => this._onConnection(ws, req));
     this.https.on('error', (err) => this.emit('listenError', err));
+    this.port = LISTEN_PORT;
     this.https.listen(LISTEN_PORT, '0.0.0.0', () => this.emit('listening'));
     this.tick = setInterval(() => this._liveness(), P.PING_MS);
   }
