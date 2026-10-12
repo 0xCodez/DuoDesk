@@ -1,0 +1,20 @@
+{
+  "name": "macshare-mac",
+  "productName": "MacShare",
+  "version": "0.1.0",
+  "description": "MacShare — the Mac side: pairing, secure link, screen sharing and shared mouse/keyboard with a Windows PC.",
+  "license": "GPL-3.0",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:helper": "cd ../mac-helper && swift build -c release 2>&1 | tail -30",
+    "probe": "node dev/probe.js"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0"
+  }
+}

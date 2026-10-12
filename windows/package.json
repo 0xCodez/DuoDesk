@@ -1,0 +1,19 @@
+{
+  "name": "macshare-win",
+  "productName": "MacShare",
+  "version": "0.1.0",
+  "description": "MacShare for Windows: pair with a Mac, view its screen, share mouse, keyboard and clipboard.",
+  "license": "GPL-3.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:helper": "..\\windows-helper\\build.cmd"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}

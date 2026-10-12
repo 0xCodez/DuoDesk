@@ -1,0 +1,54 @@
+<!doctype html>
+<!-- MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+  <title>MacShare</title>
+  <link rel="stylesheet" href="control.css">
+</head>
+<body>
+  <header>
+    <h1>MacShare</h1>
+    <span id="mac-name" class="muted"></span>
+  </header>
+
+  <section id="pair-request" class="card attention" hidden>
+    <h2><span id="pair-name"></span> wants to pair</h2>
+    <p id="pair-code-line">Code <strong id="pair-code" class="code"></strong></p>
+    <p id="pair-hint" class="muted"></p>
+    <div class="row">
+      <button id="pair-allow" class="primary">Allow</button>
+      <button id="pair-deny">Deny</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Status</h2>
+    <p id="server-error" class="error" hidden></p>
+    <dl>
+      <dt>Listening on</dt><dd id="addresses"></dd>
+      <dt>PC</dt><dd id="client"></dd>
+      <dt>Input</dt><dd id="input"></dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Paired PCs</h2>
+    <ul id="paired" class="list"></ul>
+    <p id="paired-empty" class="muted">No paired PCs yet. Click <em>Pair</em> in the Windows app.</p>
+  </section>
+
+  <section class="card">
+    <h2>Permissions</h2>
+    <ul class="list" id="permissions"></ul>
+    <div class="row">
+      <button id="relaunch">Restart MacShare</button>
+      <span class="muted">Restart after granting a permission.</span>
+    </div>
+  </section>
+
+  <script src="../shared/protocol.js"></script>
+  <script src="control.js"></script>
+</body>
+</html>

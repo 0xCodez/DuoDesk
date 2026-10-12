@@ -1,0 +1,8 @@
+# Default: normalize text to LF (later lines override earlier ones, so specifics come after).
+* text=auto eol=lf
+# Windows scripts keep CRLF.
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+# Both agents append to the log; let git keep both sides instead of conflicting.
+HANDOFF.md merge=union
