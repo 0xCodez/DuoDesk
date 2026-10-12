@@ -23,6 +23,7 @@
 //   kvm: settings.kvm, keys: settings.keys,     // Cursor / Keyboard tabs (behaviour: phases 4–5)
 //   clipboard: { ...settings.clipboard, peerAccepts, lastSkip,
 //                history: [{ dir: 'out'|'in', at, size, text (preview) }] },
+//   receive: { on, fullScreen, input, session, kind, status, stats, open },   // phase 11 (pcview.js)
 //   ui: { tab }, app: { openAtLogin, keepAwake },
 // }
 'use strict';
@@ -118,6 +119,7 @@ function pushState() {
       const { secret, ...smb } = settings.smb; // never send the share password to the window
       state.smb = { ...smb, ...svc.smb.view };
       state.apps = { ...settings.apps, ...svc.apps.view };
+      state.receive = { ...settings.receive, ...svc.pcView.view };
     }
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
     updateTray();

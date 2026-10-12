@@ -45,7 +45,7 @@ UI.tab({
       { id: 'terminal', label: 'Shell on this PC', hint: 'The Mac opens one here', get: (s) => s.terminal.allowMac, set: (v) => api.setTerminal({ allowMac: v }) },
     ].map(row);
     const p2m = [
-      { id: 'pc-mac', label: 'This PC’s screen', hint: 'Coming in phase 11', get: () => false },
+      { id: 'pc-mac', label: 'This PC’s screen', hint: 'In a window on the Mac (Mirror or Extend)', get: (s) => s.pcScreen.mode !== 'off', set: (v) => api.setPcScreenMode(v ? 'mirror' : 'off') },
       { id: 'cursor', label: 'This PC drives the Mac', hint: 'Push through the edge or double-tap Right Ctrl', get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) },
       { id: 'clipboard', label: 'Send the clipboard', hint: 'Copy here, paste on the Mac', get: (s) => s.clipboard.send, set: (v) => api.setClipboard({ send: v }) },
       { id: 'audio', label: 'Send this PC’s sound', hint: 'To the Mac’s speakers', get: (s) => s.audio.send, set: (v) => api.setAudio({ send: v }) },

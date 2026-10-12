@@ -21,6 +21,8 @@ const Apps = require('./apps');
 const Sound = require('./sound');
 const FileRecv = require('./filerecv');
 const Sshd = require('./sshd');
+const PcScreen = require('./pcscreen');
+const Vdd = require('./vdd');
 const { normalize } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
@@ -48,6 +50,8 @@ let fileDrop = null;
 let smb = null;
 let apps = null;
 let sound = null;
+let pcScreen = null;
+let vdd = null;
 let fileRecv = null;
 let sshd = null;
 let kvm = null;
@@ -106,9 +110,12 @@ function start() {
   helper = new Helper();
   fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
   kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, settings, onChange: onKvmChange });
+  vdd = new Vdd({ helper, onChange: pushState });
+  pcScreen = new PcScreen({ link, helper, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   helper.on('exit', pushState);
   helper.start();
-  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, settings, save: saveSettings, push: pushState, buildState,
+  helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
+  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, vdd, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup });
   nativeTheme.on('updated', pushState);
   link.start();
@@ -160,6 +167,7 @@ function buildState() {
     version: app.getVersion(),
     firewall: fw,
     audio: { ...settings.audio, ...sound.view() },
+    pcScreen: pcScreen.view(),
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
     files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view() },
     apps: apps.view(),
@@ -286,6 +294,7 @@ app.on('before-quit', () => {
   quitting = true;
   saveBounds();
   if (discovery) discovery.stop();
+  if (pcScreen) pcScreen.shutdown();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });
 

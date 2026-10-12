@@ -21,8 +21,9 @@ namespace MacShare
         static DropEdge dropEdge;
 
         [STAThread]
-        static int Main()
+        static int Main(string[] args)
         {
+            if (args.Length == 3 && args[0] == "--add-root-device") return Display.AddRootDevice(args[1], args[2]); // elevated, scripts\vdd-install.ps1
             // Per-monitor v2: every coordinate is in physical pixels.
             try { if (!Native.SetProcessDpiAwarenessContext(new IntPtr(-4))) Native.SetProcessDPIAware(); }
             catch (Exception) { Native.SetProcessDPIAware(); }
@@ -124,6 +125,11 @@ namespace MacShare
                         if (ev != null) injector.Apply(ev);
                         break;
                     case "releaseAll": injector.ReleaseAll(); break;
+                    case "moveTo": Injector.MoveTo((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0)); break; // phase 11: the Mac's pointer on this PC's screen
+                    case "displays": c["displays"] = Display.List(); break;
+                    case "displayMode":
+                        c["changed"] = Display.SetMode(Json.Str(c, "name", ""), (int)Json.Num(c, "width", 0), (int)Json.Num(c, "height", 0));
+                        break;
                     case "folderAt":
                         string folder; bool desktop;
                         Shell.FolderAt(out folder, out desktop);
@@ -147,6 +153,8 @@ namespace MacShare
             reply["ok"] = error == null;
             if (error != null) reply["error"] = error;
             if (cmd == "info") { reply["cursor"] = c["cursor"]; reply["capturing"] = c["capturing"]; }
+            if (cmd == "displays") reply["displays"] = c["displays"];
+            if (cmd == "displayMode" && error == null) reply["changed"] = c["changed"];
             if (cmd == "folderAt") { reply["path"] = c["path"]; reply["desktop"] = c["desktop"]; }
             Emit(reply);
         }

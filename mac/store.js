@@ -68,6 +68,7 @@ const DEFAULT_SETTINGS = {
   terminal: { allowPc: false, connectPc: false }, // phase 8: PC -> Mac shell; Mac -> PC (`ssh macshare-pc`)
   files: { acceptDrops: true, folder: '', reveal: true }, // phase 9: '' = Downloads
   apps: { offer: true }, // phase 12: the PC can list and open this Mac's apps
+  receive: { on: true, fullScreen: false, input: true }, // phase 11: the PC's screen in a window here
   smb: { connectPc: true, sharing: false, folder: '', secret: '' }, // phase 7; secret = safeStorage
 };
 
@@ -75,7 +76,7 @@ function loadSettings() {
   const s = read('settings.json', {});
   if (s.sharing) s.sharing.on = false; // screen sharing never starts by itself
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   return out;
 }
 

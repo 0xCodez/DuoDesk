@@ -44,7 +44,7 @@ UI.tab({
       sw('Mac apps on the PC', 'Each in its own PC window', 'apps', (s) => s.apps && s.apps.offer, (v) => api.setApps({ offer: v })),
     ];
     const w2m = [
-      sw('Show the PC’s screen here', '', 'receive', null, null, '11'),
+      sw('Show the PC’s screen here', 'In a window', 'receive', (s) => s.receive && s.receive.on, (v) => api.setReceive({ on: v })),
       sw('Play the PC’s sound here', '', 'audio', (s) => s.audio && s.audio.receive, (v) => api.setAudio({ receive: v })),
       sw('Let the PC’s mouse control this Mac', 'The PC pushes through its edge', 'cursor', (s) => s.kvm && s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
       sw('Accept clipboard from the PC', '', 'clipboard', (s) => s.clipboard && s.clipboard.receive, (v) => api.setClipboard({ receive: v })),

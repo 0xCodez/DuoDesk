@@ -20,6 +20,7 @@ function normalize(s) {
   const audio = s.audio || {};
   const term = s.terminal || {};
   const files = s.files || {};
+  const pcs = s.pcScreen || {};
   return {
     kvm: {
       mouse: bool(kvm.mouse, true),
@@ -58,6 +59,14 @@ function normalize(s) {
       shareFolder: typeof files.shareFolder === 'string' ? files.shareFolder : '',
       mountMac: bool(files.mountMac, true),
       acceptFromMac: bool(files.acceptFromMac, true), // files dragged from the Mac across the edge
+    },
+    pcScreen: { // Display › PC → Mac (phase 11); Off/Mirror/Extend itself is never saved
+      monitor: typeof pcs.monitor === 'string' ? pcs.monitor : '', // Electron display id for Mirror ('' = main)
+      mbps: [10, 20, 30, 50].includes(pcs.mbps) ? pcs.mbps : 20, // same presets as the Mac
+      maxHeight: [0, 1080, 1440].includes(pcs.maxHeight) ? pcs.maxHeight : 1080, // stream size (0 = full pixels)
+      extendSize: ['mac', '1920x1080', '2560x1440', '3840x2160'].includes(pcs.extendSize) ? pcs.extendSize : 'mac', // the virtual monitor
+      sound: bool(pcs.sound, false), // the screen's sound in the same session
+      input: bool(pcs.input, true), // the Mac's mouse and keyboard drive this PC
     },
     ui: { tab: OLD_TABS[ui.tab] || (TABS.includes(ui.tab) ? ui.tab : 'overview') },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},

@@ -34,6 +34,7 @@ const SCHEMA = {
   files: { acceptDrops: bool, reveal: bool },
   smb: { connectPc: bool },
   apps: { offer: bool },
+  receive: { on: bool, fullScreen: bool, input: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'switch'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -163,6 +164,13 @@ function setupIpc(ctx) {
     setApps(partial) {
       setGroup('apps', partial);
       ctx.apps.applySettings();
+    },
+    setReceive(partial) {
+      setGroup('receive', partial);
+      ctx.pcView.applySettings();
+    },
+    showPcView() {
+      ctx.pcView.show();
     },
     setAudio(partial) {
       setGroup('audio', partial);

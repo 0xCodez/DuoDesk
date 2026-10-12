@@ -105,4 +105,5 @@ class Helper extends EventEmitter {
   }
 }
 
+Helper.EXE = EXE;
 module.exports = Helper;

@@ -7,7 +7,7 @@ const { apply } = require('./settings');
 // ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, vdd, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -67,6 +67,13 @@ function setupIpc(ctx) {
   handle('cancelDrop', () => fileDrop.cancel());
   handle('listApps', () => apps.refresh());
   handle('launchApp', (id) => { apps.launch(id); screen.ensureHidden(); });
+  handle('setPcScreen', (partial) => {
+    const size = settings.pcScreen.extendSize;
+    change('pcScreen', partial, () => { pcScreen.applyInput(); if (settings.pcScreen.extendSize !== size) pcScreen.sizeExtend(); else pcScreen.apply(); });
+  });
+  handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
+  handle('installVdd', () => vdd.install());
+  handle('removeVdd', () => vdd.remove());
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));

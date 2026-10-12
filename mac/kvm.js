@@ -167,7 +167,7 @@ class Kvm extends EventEmitter {
     switch (name) {
       case 'edge':
         // The helper already captures (it started at the edge); undo that if we can't cross.
-        if (!this._canDrive() || !k.mouse) {
+        if (!this._canDrive() || !k.mouse || (this.blockEdge && this.blockEdge())) {
           this.helper.send('capture', { on: false });
           if (!this.server.current) this._setMode('home', 'No PC connected');
           return;
