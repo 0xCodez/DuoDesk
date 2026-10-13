@@ -2,6 +2,7 @@
 // Display › Mac → PC: the Mac's screen in the Monitor 2 window; this PC owns the window, the screen
 // sound volume and F11/F9. Revision 7: when the other computer lets us (its screen.state `remote`),
 // Open and the switch start/stop its sharing there and Extend | Mirror switches it (screen.ctl).
+// Revision 10: no "Open automatically" — the other computer sends nothing until Open here.
 'use strict';
 
 UI.tab({
@@ -31,7 +32,6 @@ UI.tab({
       { value: 'extend', label: 'Extend' },
     ], (v) => api.remoteScreen(v === 'off' ? { share: false } : { share: true, mode: v }));
     const modeRow = UI.row('{Name} shares', '', [mode]);
-    const autoOpen = UI.switch((v) => api.setMonitor({ autoOpen: v }), { label: 'Open automatically' });
     const volume = UI.slider({ min: 0, max: 1, step: 0.05, format: (v) => Math.round(v * 100) + '%' }, (v) => api.setMonitor({ volume: v }));
     const mute = UI.switch((v) => api.setMonitor({ mute: !v }), { label: 'Play sound' });
     const paceRow = UI.paceRow(); // revision 7c: one Playback setting, synced with the other computer
@@ -45,7 +45,6 @@ UI.tab({
         modeRow,
         paceRow,
         UI.row('Frame generation', 'Fills in late or dropped frames, and adds in-between frames when this screen is faster than the stream', [framegen]),
-        UI.row('Open automatically', '', [autoOpen]),
         UI.row('Sound', '', [mute, volume]),
         UI.row('Full screen', '', [el('kbd', { text: 'F11' })]),
       ], { cls: 'keep-on' }),
@@ -70,7 +69,6 @@ UI.tab({
         : !r ? 'Update MacShare on the other computer to choose from here'
           : !r.remote ? 'The other computer doesn’t allow choosing from here'
             : r.on ? (r.mode === 'extend' ? 'An extra screen for it, shown here' : 'Its main screen, shown here') : 'Pick Mirror or Extend, or just press Open');
-      autoOpen.set(s.monitor.autoOpen);
       mute.set(!s.monitor.mute);
       volume.set(s.monitor.volume);
       paceRow.render(s);

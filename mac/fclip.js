@@ -145,7 +145,11 @@ class FileClip extends EventEmitter {
     if (!plan) return this.emit('popup', 'home', 'Nothing to copy there');
     if (this.offer) this.server.sendToClient({ t: T.FCLIP_GONE, id: this.offer.id }); // newest copy wins
     this.offer = { id: crypto.randomUUID(), paths, items: plan.items, files: plan.files, bytes: plan.bytes };
-    this.server.sendToClient({ t: T.FCLIP_OFFER, id: this.offer.id, items: plan.items, files: plan.files, bytes: plan.bytes });
+    // list / dirs (revision 9b): the whole tree, so a PC pastes it with Windows' own copy dialog.
+    this.server.sendToClient({
+      t: T.FCLIP_OFFER, id: this.offer.id, items: plan.items, files: plan.files, bytes: plan.bytes,
+      list: plan.list.map((f) => ({ rel: f.rel, size: f.size })), dirs: plan.dirs,
+    });
     this.emit('popup', 'away', `Copied ${plan.items.length === 1 ? plan.items[0].name : plural(plan.items.length, 'item')} for ${this.peerName}`);
     this.emit('change');
   }

@@ -29,6 +29,7 @@ class Input {
   }
 
   _onInput(msg) {
+    if (msg.wid != null) return; // input for one app window: appsend.js
     if (!this.enabled()) return;
     const target = this.displays.target();
     if (!target) return;

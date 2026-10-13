@@ -62,7 +62,6 @@ function normalize(s) {
       historySize: Math.round(num(c.historySize, 20, 0, 100)),
     },
     monitor: {
-      autoOpen: bool(mon.autoOpen, true),
       volume: Math.round(num(mon.volume, 1, 0, 1) * 100) / 100,
       mute: bool(mon.mute, false),
       // revision 7c: Playback of shared screens, both directions, the same on both computers (pair.sync

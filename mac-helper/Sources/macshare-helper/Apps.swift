@@ -74,16 +74,29 @@ enum Apps {
   }
 
   /// Normal on-screen windows of these processes, front to back, global CG coordinates.
-  static func windows(pids: Set<Int>) -> [[String: Any]] {
+  /// popups (revision 10): also the app's menus and pop-ups (layers above normal windows), marked
+  /// `popup`, front to back as the window server lists them.
+  static func windows(pids: Set<Int>, popups: Bool = false) -> [[String: Any]] {
     let list = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []
     return list.compactMap { w in
+      let layer = w[kCGWindowLayer as String] as? Int ?? -1
       guard let pid = w[kCGWindowOwnerPID as String] as? Int, pids.contains(pid),
-            (w[kCGWindowLayer as String] as? Int) == 0,
+            layer == 0 || (popups && layer > 0 && layer <= 101),
             let b = w[kCGWindowBounds as String] as? [String: Double],
-            (b["Width"] ?? 0) > 40, (b["Height"] ?? 0) > 40 else { return nil }
-      return ["wid": w[kCGWindowNumber as String] as? Int ?? 0, "pid": pid, "title": w[kCGWindowName as String] as? String ?? "",
-              "x": b["X"] ?? 0, "y": b["Y"] ?? 0, "w": b["Width"] ?? 0, "h": b["Height"] ?? 0]
+            (b["Width"] ?? 0) > (layer == 0 ? 40 : 8), (b["Height"] ?? 0) > (layer == 0 ? 40 : 8) else { return nil }
+      var out: [String: Any] = ["wid": w[kCGWindowNumber as String] as? Int ?? 0, "pid": pid, "title": w[kCGWindowName as String] as? String ?? "",
+                                "x": b["X"] ?? 0, "y": b["Y"] ?? 0, "w": b["Width"] ?? 0, "h": b["Height"] ?? 0]
+      if layer > 0 { out["popup"] = true }
+      return out
     }
+  }
+
+  /// Resize a window (points), keeping its top-left.
+  static func resize(wid: Int, w: Double, h: Double) -> Bool {
+    guard let (win, _) = ax(for: wid) else { return false }
+    var s = CGSize(width: w, height: h)
+    guard let v = AXValueCreate(.cgSize, &s) else { return false }
+    return AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, v) == .success
   }
 
   private static func axWindows(_ pid: Int) -> [AXUIElement] {

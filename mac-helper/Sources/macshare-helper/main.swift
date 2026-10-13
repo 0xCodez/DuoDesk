@@ -177,7 +177,10 @@ func handle(_ line: String) {
     }
   case "appWindows":
     let pids = Set(((msg["pids"] as? [NSNumber]) ?? []).map { $0.intValue })
-    reply(id, ["windows": Apps.windows(pids: pids)])
+    reply(id, ["windows": Apps.windows(pids: pids, popups: (msg["popups"] as? Bool) ?? false)])
+  case "appResize":
+    reply(id, ["done": Apps.resize(wid: (msg["wid"] as? NSNumber)?.intValue ?? 0,
+                                   w: (msg["w"] as? NSNumber)?.doubleValue ?? 0, h: (msg["h"] as? NSNumber)?.doubleValue ?? 0)])
   case "appMove":
     if let b = msg["bounds"] as? [String: NSNumber] {
       Apps.moveOnto(pid: (msg["pid"] as? NSNumber)?.intValue ?? 0,

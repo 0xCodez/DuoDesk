@@ -526,7 +526,8 @@ function updateTray(s = buildState()) {
   const rtt = connected && s.link.rtt != null ? ' · ' + s.link.rtt + ' ms' : '';
   tray.setToolTip('MacShare: ' + statusLine(s));
   // Rebuild only when something in the menu changed (state pushes are frequent).
-  const key = JSON.stringify([name, rtt, away, kvm.linked, sharing, settings.monitor.autoOpen, k.driveOther, k.beDriven, settings.clipboard.enabled,
+  const watching = screen.sentAccept === true;
+  const key = JSON.stringify([name, rtt, away, kvm.linked, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
     settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os])]);
   if (key === trayKey) return;
   trayKey = key;
@@ -545,7 +546,8 @@ function updateTray(s = buildState()) {
     check('Cursor Sharing', kvm.linked, (i) => kvm.setLinked(i.checked)),
     { type: 'separator' },
     check('Share Screen', sharing, (i) => pcScreen.setMode(i.checked ? 'mirror' : 'off')),
-    check('Receive Screen', settings.monitor.autoOpen, (i) => set('monitor', { autoOpen: i.checked }, () => { if (i.checked && screen.state.state === 'on') screen.open(false); })),
+    // Revision 10: opens/closes the screen window (opening starts the other computer's sharing).
+    check('Receive Screen', watching, (i) => (i.checked ? screen.open(false) : screen.close())),
     check('Use Mouse and Keyboard on ' + other, k.driveOther, (i) => set('kvm', { driveOther: i.checked }, () => kvm.applyConfig())),
     check('Let ' + other + ' Control ' + device.name, k.beDriven, (i) => set('kvm', { beDriven: i.checked }, () => kvm.applyConfig())),
     check('Share Clipboard', settings.clipboard.enabled, (i) => set('clipboard', { enabled: i.checked }, () => clip.applySettings())),

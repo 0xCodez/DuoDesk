@@ -283,6 +283,7 @@ function setupIpc(ctx) {
     setApps(partial) {
       setGroup('apps', partial);
       ctx.apps.applySettings();
+      ctx.appSend.applySettings();
     },
     setReceive(partial) {
       setGroup('receive', partial);
@@ -303,6 +304,9 @@ function setupIpc(ctx) {
     },
     showPcView() {
       ctx.pcView.show();
+    },
+    closePcView() {
+      ctx.pcView.close();
     },
     setAudio(partial) {
       setGroup('audio', partial);

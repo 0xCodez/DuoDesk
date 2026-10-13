@@ -12,7 +12,8 @@ UI.tab({
   icon: 'receive',
   desc: 'See its screen in a window here.',
   color: 'linear-gradient(#5ac8fa, #0a84ff)',
-  master: { get: (s) => s.receive && s.receive.on, set: (v) => UI.api.setReceive({ on: v }) },
+  // Revision 10: the switch is the screen window (open = watching = the other side sends).
+  master: { get: (s) => !!(s.receive && s.receive.open), set: (v) => (v ? UI.api.showPcView() : UI.api.closePcView()) },
   badge: (s) => (s.receive && s.receive.status === 'live' ? 'on' : ''),
   build(body) {
     const { el, api } = UI;

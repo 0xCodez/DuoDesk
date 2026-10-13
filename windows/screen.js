@@ -3,9 +3,10 @@
 // link (main process) and the Monitor 2 renderer, which owns the RTCPeerConnection.
 // Revision 7: we tell the other computer whether anyone watches (`screen.policy {accept}`: Monitor 2
 // shown and not minimized, or a Mac-app window open); it captures only while that is true. Its
-// `screen.state` says whether its sharing is on, so Monitor 2 still opens by itself. When it lets us
-// (`remote`), opening Monitor 2 starts its sharing and closing it stops it again (`screen.ctl`); the
-// Receive tab switches Extend/Mirror there.
+// `screen.state` says whether its sharing is on. When it lets us (`remote`), opening Monitor 2 starts
+// its sharing and closing it stops it again (`screen.ctl`); the Receive tab switches Extend/Mirror.
+// Revision 10: Monitor 2 never opens by itself (no "Open automatically"): only the Receive tab, the
+// tray or a Mac-app window open it, and nothing is sent before that.
 const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const P = require('../shared/protocol.js');
@@ -23,7 +24,6 @@ class Screen {
     this.win = null;
     this.ready = false; // renderer loaded and listening
     this.replay = []; // messages of the current session, for a renderer that (re)loads
-    this.autoOpened = false; // opened once per connection on the first stream.info
     this.test = false;
     this.macInput = true; // the Mac's "Receive input" switch (stream.input); assumed on until told
     this.sentAccept = null; // the last screen.policy accept we sent on this connection
@@ -46,7 +46,6 @@ class Screen {
       this.policy();
     });
     link.on('closed', () => {
-      this.autoOpened = false;
       this.sentAccept = null;
       this.remote = null;
       this.startedByUs = false;
@@ -96,6 +95,11 @@ class Screen {
   }
 
 
+  // Tray "Receive Screen" off: like the window's close button (stops sharing we started there).
+  close() {
+    if (this.win && !this.win.isDestroyed() && this.win.isVisible()) this.win.close();
+  }
+
   // screen.ctl: start/stop the peer's sharing or switch its mode (it obeys when it lets us).
   control({ share, mode }) {
     if (this.link.status.state !== 'connected') return;
@@ -137,11 +141,6 @@ class Screen {
     if (this.wantStart && this.remote.remote && !this.remote.on) this.control({ share: true });
     this.wantStart = false;
     this._pushRemote();
-    // Sharing came on over there: open Monitor 2 once per connection (the picture follows from that).
-    if (this.remote.on && !this.autoOpened && this.settings.monitor.autoOpen) {
-      this.autoOpened = true;
-      this.open(false);
-    }
     this.onChange();
   }
 
@@ -154,10 +153,6 @@ class Screen {
     this._relay({ t: T.STREAM_INFO, name: this.state.name, width, height, audio: this.state.audio });
     this._title();
     if (this.win && !this.win.isDestroyed()) this.win.streamSize = { width, height };
-    if (!this.autoOpened && this.settings.monitor.autoOpen) {
-      this.autoOpened = true;
-      this.open(false);
-    }
     this.onChange();
   }
 

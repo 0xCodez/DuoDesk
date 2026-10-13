@@ -24,6 +24,7 @@ const { PcApps } = require('./pcapps');
 const { Notifs } = require('./notifs');
 const { FileClip } = require('./fclip');
 const { Wake } = require('./wake');
+const { AppSend } = require('./appsend');
 const store = require('./store');
 
 function startServices({ server, getSettings, pushState, onHelperReady }) {
@@ -54,10 +55,11 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   const notifs = new Notifs({ server, helper, getSettings: s, saveSettings: () => store.saveSettings(s()) });
   const fileClip = new FileClip({ server, helper, fileSend, drop, getSettings: s });
   kvm.fileClip = fileClip;
+  const appSend = new AppSend({ server, helper, getSettings: s }); // revision 10: this Mac's apps on another Mac
   const wake = new Wake({ server, getSettings: s, saveSettings: () => store.saveSettings(s()) });
   kvm.blockEdge = () => pcView.focused || pcApps.focused; // moving inside the PC window never crosses to the PC
 
-  for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio, pcView, pcApps, notifs, fileClip, wake]) x.on('change', pushState);
+  for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio, pcView, pcApps, notifs, fileClip, wake, appSend]) x.on('change', pushState);
   displays.on('change', () => {
     input.releaseAll(); // the shared display moved or changed size mid-press
     pushState();
@@ -97,10 +99,11 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   helper.start();
 
   return {
-    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, audio, pcView, pcApps, hub, fileSend, notifs, fileClip, wake, updateAwake,
+    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, audio, pcView, pcApps, hub, fileSend, notifs, fileClip, wake, appSend, updateAwake,
     shutdown() {
       pcView.shutdown();
       pcApps.shutdown();
+      appSend.shutdown();
       kvm.shutdown();
       hub.shutdown(); // unmute this Mac if we muted it while sending
       stream.stop('off');

@@ -4,6 +4,10 @@
 // (recvonly) in a visible viewer window, tuned for the lowest latency (jitter buffer 0, input sent
 // the moment it arrives). Keys are taken in main (before-input-event) so Cmd+Q/W/… reach the PC;
 // mouse input comes from the viewer page. Closing the window turns the switch off.
+// Revision 10: the window is the switch. It opens only when the person opens it (Receive tab, menu
+// bar, never because the other side started sharing); while it is open and not minimized we accept
+// (`screen.policy`), which is what makes the other computer send; opening it also starts the other
+// side's sharing when that's allowed, and closing it stops what we started.
 // Revision 7: minimizing pauses the picture (accept false: the PC stops capturing); the PC's
 // `screen.state` lets us start its sharing and switch Extend/Mirror from here (`screen.ctl`), from
 // the Receive tab or the window's toolbar; opening the window starts it when the PC allows that.
@@ -53,8 +57,9 @@ class PcView extends EventEmitter {
       if (!server.current) this._end('');
     });
     server.on(`t:${T.RTC2_OFFER}`, (m) => this._onOffer(m));
-    server.on(`t:${T.RTC2_ICE}`, (m) => m.session === this.session && this._toWin({ ...m }));
-    server.on(`t:${T.RTC2_STOP}`, (m) => (m.session === undefined || m.session === this.session) && this._end(`${this.server.current ? this.server.current.name : 'It'} stopped sharing`));
+    // App-window sessions carry `win` (pcapps.js / appsend.js): never the screen's.
+    server.on(`t:${T.RTC2_ICE}`, (m) => !m.win && m.session === this.session && this._toWin({ ...m }));
+    server.on(`t:${T.RTC2_STOP}`, (m) => !m.win && (m.session === undefined || m.session === this.session) && this._end(`${this.server.current ? this.server.current.name : 'It'} stopped sharing`));
     for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) screen.on(ev, () => this._policy());
 
     ipcMain.on('pcview:out', (e, m) => {
@@ -96,7 +101,7 @@ class PcView extends EventEmitter {
   _policy() {
     const d = screen.getPrimaryDisplay();
     const even = (v) => Math.round(v / 2) * 2;
-    const watching = !!this.cfg.on && !(this.win && !this.win.isDestroyed() && this.win.isMinimized());
+    const watching = this.isOpen && !this.win.isMinimized();
     this.server.sendToClient({ t: T.SCREEN_POLICY, accept: watching, width: even(d.size.width), height: even(d.size.height) });
   }
 
@@ -108,16 +113,13 @@ class PcView extends EventEmitter {
     if (mode === 'extend' || mode === 'mirror') m.mode = mode;
     if (m.share === undefined && !m.mode) return;
     if (m.share === true && !(this.remote && this.remote.on)) this.startedByUs = true;
-    if (m.share === true && !this.cfg.on) {
-      this.cfg.on = true;
-      this.saveSettings();
-      this._policy();
-    }
+    if (m.share === true && !this.isOpen) return this.show(); // starting it means watching it
     this.server.sendToClient(m);
   }
 
   _onOffer(m) {
-    if (!this.cfg.on || typeof m.sdp !== 'string' || !/^screen/.test(String(m.kind))) return;
+    // Only into an open window (an older app may offer before anyone opened it: ignored).
+    if (!this.isOpen || typeof m.sdp !== 'string' || !/^screen/.test(String(m.kind))) return;
     this.session = m.session;
     this.kind = m.kind;
     this.status = 'connecting';
@@ -131,23 +133,24 @@ class PcView extends EventEmitter {
     this.emit('change');
   }
 
-  // Session over (PC stopped, PC gone, switched off): close the window. When the PC stopped, wait
-  // a moment first — it restarts the session on a monitor or quality change (stop, then a new offer).
+  // Session over (the other side stopped or went away): the window stays (only the person closes
+  // it) and says so; it fills in again when a new offer comes.
   _end(why) {
     this._releaseKeys();
     this.session = null;
     this.status = why ? 'stopped' : 'off';
     this.stats = null;
-    clearTimeout(this.closeTimer);
-    this._toWin({ t: 'stop', why });
-    const close = () => {
-      if (!this.win || this.win.isDestroyed()) return;
-      this.closingByUs = true;
-      this.win.close();
-    };
-    if (why) this.closeTimer = setTimeout(close, 2500);
-    else close();
+    this._toWin({ t: 'stop', why: why || 'Waiting for the other computer…' });
     this.emit('change');
+  }
+
+  get isOpen() {
+    return !!(this.win && !this.win.isDestroyed());
+  }
+
+  // Close the window (Receive tab switch, menu bar): the same as the person closing it.
+  close() {
+    if (this.isOpen) this.win.close();
   }
 
   _open() {
@@ -202,10 +205,8 @@ class PcView extends EventEmitter {
       this._releaseKeys();
       if (this.win === win) this.win = null;
       this.ready = false;
-      if (!this.closingByUs && this.cfg.on) {
-        // The person closed it: same as switching "Show the PC's screen here" off.
-        this.getSettings().receive.on = false;
-        this.saveSettings();
+      if (!this.closingByUs) {
+        // Closed: stop watching, and stop the other side's sharing if we started it.
         this._policy();
         if (this.startedByUs) this.control({ share: false }); // we started it, so we stop it
         this.startedByUs = false;
@@ -252,7 +253,6 @@ class PcView extends EventEmitter {
   // After the PC → Mac tab changed.
   applySettings() {
     this._policy();
-    if (!this.cfg.on) this._end('');
     if (!this.cfg.input) this._releaseKeys();
     this._toWin({ t: 'input', on: !!this.cfg.input });
     this._toWin({ t: 'volume', volume: this.getSettings().audio.volume });
@@ -263,14 +263,9 @@ class PcView extends EventEmitter {
   // "Open the PC's screen" (PC → Mac tab): turn receiving on and open the window, also before the
   // PC shares — it then shows what to do on the PC and fills in when the offer comes.
   show() {
-    if (!this.cfg.on) {
-      this.cfg.on = true;
-      this.saveSettings();
-      this._policy();
-    }
-    clearTimeout(this.closeTimer);
-    const fresh = !this.win || this.win.isDestroyed();
+    const fresh = !this.isOpen;
     this._open();
+    this._policy(); // watching: the other side may send now
     // Nothing shared yet: start it from here (no need to touch the PC) when it allows that.
     const r = this.remote;
     if (r && !r.on && r.remote) this.control({ share: true });

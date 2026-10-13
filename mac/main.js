@@ -316,7 +316,7 @@ function updateTray() {
       check('Cursor Sharing', k.linked !== false, (i) => actions.setKvm({ linked: i.checked })),
       { type: 'separator' },
       check('Share Screen', settings.sharing.on, (i) => actions.setSharing(i.checked)),
-      check('Receive Screen', settings.receive.on, (i) => actions.setReceive({ on: i.checked })),
+      check('Receive Screen', svc && svc.pcView.isOpen, (i) => (i.checked ? actions.showPcView() : actions.closePcView())),
       check(`Use Mouse and Keyboard on ${c ? name : 'Other Computer'}`, k.driveOther, (i) => actions.setKvm({ driveOther: i.checked })),
       check(`Let ${c ? name : 'Other Computer'} Control ${id.macName}`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked })),
       check('Share Clipboard', settings.clipboard.enabled, (i) => actions.setClipboard({ enabled: i.checked })),

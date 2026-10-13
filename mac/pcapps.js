@@ -55,11 +55,14 @@ class PcApps extends EventEmitter {
     });
     server.on(`t:${T.PAPP_WINDOWS}`, (m) => this.cfg.on && Array.isArray(m.windows) && this._sync(m.windows));
     server.on(`t:${T.RTC2_OFFER}`, (m) => this._onOffer(m));
+    // `win: 'view'` is another Mac's viewer talking to our own sender (appsend.js), not for us.
     server.on(`t:${T.RTC2_ICE}`, (m) => {
+      if (m.win === 'view') return;
       const w = this._bySession(m.session);
       if (w) this._toWin(w, { ...m });
     });
     server.on(`t:${T.RTC2_STOP}`, (m) => {
+      if (m.win === 'view') return;
       const w = this._bySession(m.session);
       if (!w) return;
       w.session = null;
@@ -71,7 +74,7 @@ class PcApps extends EventEmitter {
     ipcMain.on('pcview:out', (e, m) => {
       const w = mine(e);
       if (!w || !m || !this.server.current) return;
-      if ((m.t === T.RTC2_ANSWER || m.t === T.RTC2_ICE) && m.session === w.session) this.server.sendToClient(m);
+      if ((m.t === T.RTC2_ANSWER || m.t === T.RTC2_ICE) && m.session === w.session) this.server.sendToClient({ ...m, win: 'view' });
       else if (POINTER.has(m.t) && (m.t === T.IN_UP || w.info.popup || w.win.isFocused())) this.server.sendToClient({ ...m, wid: w.info.wid });
     });
     ipcMain.on('pcview:state', () => {}); // stats of app windows aren't shown
@@ -288,7 +291,7 @@ class PcApps extends EventEmitter {
   }
 
   _onOffer(m) {
-    if (m.kind !== 'window' || typeof m.sdp !== 'string' || !this.cfg.on) return;
+    if (m.kind !== 'window' || m.win === 'view' || typeof m.sdp !== 'string' || !this.cfg.on) return;
     const w = this.wins.get(Number(m.wid));
     if (!w || w.win.isDestroyed()) return; // not listed (yet): the PC lists before it offers
     w.session = m.session;
