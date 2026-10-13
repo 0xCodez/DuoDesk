@@ -22,7 +22,7 @@ UI.setup = (() => {
   const page = el('section', { class: 'setup-page', hidden: true }, [
     el('div', { class: 'app-mark', attrs: { 'aria-hidden': 'true' } }),
     el('h1', { text: 'Set up MacShare' }),
-    el('p', { text: 'A few things before this PC can share with the other computer.' }),
+    el('p', { text: 'A few things before {me} can share with the other computer.' }),
     UI.card('', [fwRow, helperRow, drvRow]),
     el('div', { class: 'setup-foot' }, [
       el('span', { class: 'hint', text: 'You can change these later in General and Display.' }),

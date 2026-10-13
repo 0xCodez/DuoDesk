@@ -24,7 +24,7 @@ class FileRecv {
     this.last = null;       // {name, ok, text, at} for the Files tab
     this.batches = new Map(); // revision 5: batch → {kind, dir, count, done, ok, tops: Map, placed: []}
     this.bfiles = new Map();  // id → batch file {id, batch, name, size, final, tmp, got, seq, hash, out}
-    this.expected = new Map(); // batch (fclip id) → folder chosen when this PC pasted
+    this.expected = new Map(); // batch (fclip id) → {dir, bytes} chosen when this PC pasted
     const link = this.link;
     link.on(T.FILE_OFFER, (m) => this._offer(m));
     link.on(T.FILE_CHUNK, (m) => this._chunk(m));
@@ -64,6 +64,11 @@ class FileRecv {
     f.got += buf.length;
     f.hash.update(buf);
     f.out.write(buf);
+    const b = f.batch && this.batches.get(f.batch);
+    if (b) { // revision 7: copy/paste and Send files show progress like a drag
+      b.got += buf.length;
+      if (this.onBatchProgress) this.onBatchProgress(b);
+    }
   }
 
   _end(m) {
@@ -127,9 +132,10 @@ class FileRecv {
 
   // ---- revision 5: Send files / paste batches ----
 
-  // This PC pressed paste: the files of that batch go to `dir`.
-  expectBatch(batch, dir) {
-    this.expected.set(batch, dir);
+  // This PC pressed paste: the files of that batch go to `dir`. bytes: the batch's size from
+  // fclip.offer, for the progress popup (revision 7).
+  expectBatch(batch, dir, bytes = 0) {
+    this.expected.set(batch, { dir, bytes });
     setTimeout(() => this.expected.delete(batch), 10 * 60 * 1000);
   }
 
@@ -145,7 +151,9 @@ class FileRecv {
       const pasted = this.expected.get(m.batch);
       if (m.drop === 'paste' && !pasted) return refuse('not_allowed'); // we never asked for it
       if (m.drop === 'send' && !this.settings.files.acceptFromMac) return refuse('not_allowed');
-      b = { kind: m.drop, dir: pasted || app.getPath('downloads'), count, done: 0, ok: 0, tops: new Map(), placed: [] };
+      // total: the whole batch's bytes (file.offer `bytes`, or what fclip.offer said); 0 = unknown.
+      const total = Number(m.bytes) > 0 ? Number(m.bytes) : pasted ? pasted.bytes : 0;
+      b = { kind: m.drop, dir: pasted ? pasted.dir : app.getPath('downloads'), count, done: 0, ok: 0, tops: new Map(), placed: [], total, got: 0, at: Date.now() };
       this.batches.set(m.batch, b);
       this.expected.delete(m.batch);
     }

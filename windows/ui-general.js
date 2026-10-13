@@ -1,5 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// General tab: start with Windows, the switching popup, firewall self-check (+ Fix), helper, this PC, about.
+// General tab: start with Windows, the switching popup, firewall self-check (+ Fix), wake from the
+// network (revision 7), helper, this PC, about.
 'use strict';
 
 UI.tab({
@@ -18,6 +19,10 @@ UI.tab({
     const fwCheck = UI.button('Check again', () => api.checkFirewall(), 'small');
     const fwFix = UI.button('Fix', () => api.fixFirewall(), 'small primary');
     const fwRow = UI.row('Firewall', '', [fwPill, fwCheck, fwFix]);
+    // Revision 7b (as the Mac): wake is a switch; Send to sends files from Explorer.
+    const wakeSw = UI.switch((v) => api.setWake(v), { label: 'Wake from the network' });
+    const wakeRow = UI.row('Let the other computer wake {me}', '', [wakeSw]);
+    const sendToRow = UI.row('MacShare in Send to', '');
     const helperPill = el('span', { class: 'pill' });
     const helperRow = UI.row('Mouse and keyboard helper', '', [helperPill]);
     const deviceRow = UI.row('', '');
@@ -28,8 +33,8 @@ UI.tab({
         UI.row('Start with Windows', '', [startup]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Network', [fwRow]),
-      UI.card('This PC', [helperRow, deviceRow]),
+      UI.card('Network and sharing', [fwRow, wakeRow, sendToRow]),
+      UI.card('{me}', [helperRow, deviceRow]),
       UI.card('About', [
         versionRow,
         UI.row('Licence', 'Free and open source, GPL v3'),
@@ -45,6 +50,13 @@ UI.tab({
       fwRow.setHint(fw.ok === false ? fw.message || '' : '');
       fwCheck.disabled = !!fw.checking;
       fwFix.hidden = fw.checking || fw.ok !== false || !!fw.error;
+      const w = s.wake || {};
+      wakeSw.set(w.on === true);
+      wakeSw.disable(!w.checked || w.on == null || !!w.busy);
+      wakeRow.setHint(w.error ? w.error : w.busy ? 'Changing…' : !w.checked ? 'Checking…'
+        : w.on == null ? 'No network adapter here can wake {me}'
+          : 'Its network adapter wakes {me} on a magic packet. Asks for administrator rights to change it');
+      sendToRow.setHint(s.peer ? 'Right-click files › Send to › ' + s.peer.name + ' (MacShare)' : 'Shows up once a computer is paired');
       const h = s.kvmState.helper;
       helperPill.textContent = h ? (h === 'starting' ? 'Starting…' : 'Not running') : 'Running';
       helperPill.className = 'pill ' + (h ? (h === 'starting' ? 'muted' : 'bad') : 'good');

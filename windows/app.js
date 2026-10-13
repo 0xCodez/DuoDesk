@@ -72,7 +72,8 @@
     const limited = v.limitNote && s.peer ? UI.peer(s).limited : '';
     if (v.limitNote) v.limitNote.set(limited);
     if (v.master) {
-      v.master.disable(!!v.def.master.disabled || !!limited);
+      const d = v.def.master.disabled; // a boolean, or (s) => boolean
+      v.master.disable(!!(typeof d === 'function' ? d(s) : d) || !!limited);
       const on = !limited && !!v.def.master.get(s);
       v.master.set(on);
       v.page.classList.toggle('off', !on);
@@ -82,6 +83,7 @@
     } catch (e) {
       console.error('render ' + v.def.id + ':', e);
     }
+    UI.fillTree(v.page); // device names in whatever the render wrote (docs/UI.md "Device names")
   }
 
   function renderSidebar(s) {
@@ -116,9 +118,9 @@
     $('pair-cancel').textContent = host ? 'Deny' : p.phase === 'failed' ? 'Close' : 'Cancel';
     const hints = {
       connecting: 'Connecting to ' + p.address + '…',
-      starting: 'Waiting for the Mac…',
-      code: 'Check that the Mac shows the same code, then click Codes match.',
-      waiting: 'Waiting for Allow on the Mac…',
+      starting: 'Waiting for ' + p.macName + '…',
+      code: 'Check that ' + p.macName + ' shows the same code, then click Codes match.',
+      waiting: 'Waiting for Allow on ' + p.macName + '…',
       failed: p.error,
       request: !p.code ? 'Waiting for the code…' : p.allowed ? 'Waiting for ' + p.macName + '…' : 'Check that ' + p.macName + ' shows the same code, then click Allow.',
     };
@@ -132,24 +134,28 @@
   let peerKey = '';
   function renderPeer(s) {
     const p = UI.peer(s);
-    const key = p.toMe + '|' + p.fromMe + '|' + p.name;
+    const key = p.toMe + '|' + p.fromMe + '|' + p.os;
     if (key === peerKey) return;
     peerKey = key;
     // The Display tabs keep their names (Receive screen / Share screen); headings name the peer.
-    const The = p.the.charAt(0).toUpperCase() + p.the.slice(1);
-    const heads = { 'mac-pc': The + '’s screen on this PC', 'pc-mac': 'This PC’s screen on ' + p.the };
+    const heads = { 'mac-pc': p.Name + ' on ' + p.me, 'pc-mac': p.me + ' on ' + p.name }; // as the Mac: "Inuka on Inukas-MBA"
     for (const [id, text] of Object.entries(heads)) {
       const v = views.get(id);
       if (v) v.headText.textContent = text;
     }
     for (const e of document.querySelectorAll('[data-dir="m2p"]')) e.textContent = p.toMe;
     for (const e of document.querySelectorAll('[data-dir="p2m"]')) e.textContent = p.fromMe;
+    // Revision 7b: sentences and route heads with the real name ({name}, {the}, {them}).
+    for (const e of document.querySelectorAll('[data-peer]')) e.textContent = e.dataset.peer.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
+    for (const e of document.querySelectorAll('[data-os="peer"]')) e.className = 'os-ico ' + (p.os === 'mac' ? 'mac' : 'pc');
+    for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', [...e.querySelectorAll('.nm')].map((n) => n.textContent).join(' to '));
   }
 
   function render(s) {
     UI.state = s;
     renderPeer(s);
     UI.setup.render(s);
+    UI.fillTree(UI.setup.page);
     pages.hidden = !UI.setup.page.hidden;
     renderSidebar(s);
     renderBanner(s);

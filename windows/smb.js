@@ -172,7 +172,7 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
   async _onMacOffer(m) {
     if (typeof m.share !== 'string' || typeof m.user !== 'string' || typeof m.password !== 'string') return;
     this.mac = { share: m.share, user: m.user, password: m.password };
-    if (!this.cfg.mountMac) return this._state(m.share, false, 'Turned off on the PC');
+    if (!this.cfg.mountMac) return this._state(m.share, false, 'Turned off on the other computer');
     await this.mount();
   }
 
@@ -198,7 +198,7 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
       this._state(m.share, true);
     } catch (e) {
       this.drive = '';
-      this.mountMessage = 'Couldn’t connect the Mac’s folder: ' + e.message;
+      this.mountMessage = 'Couldn’t connect {name}’s folder: ' + e.message;
       this._state(m.share, false, e.message);
     }
     this._busy('');
@@ -206,7 +206,7 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
 
   // Name the mapped drive in This PC: "MacShare on <Mac>" instead of the share path.
   _label(addr, share) {
-    const mac = this.link.snapshot().link.macName || 'Mac';
+    const mac = this.link.snapshot().link.macName || 'the other computer';
     const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##' + addr + '#' + share;
     exec('reg.exe', ['add', key, '/v', '_LabelFromReg', '/t', 'REG_SZ', '/d', 'MacShare on ' + mac, '/f']).catch(() => {});
   }
@@ -223,7 +223,7 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
   // Switch "Connect the Mac's shared folder" changed.
   applyMount() {
     if (this.cfg.mountMac && this.mac) this.mount();
-    else if (!this.cfg.mountMac && this.drive) this._unmount(null).then(() => this.mac && this._state(this.mac.share, false, 'Turned off on the PC'));
+    else if (!this.cfg.mountMac && this.drive) this._unmount(null).then(() => this.mac && this._state(this.mac.share, false, 'Turned off on the other computer'));
   }
 
   _state(share, mounted, error) {

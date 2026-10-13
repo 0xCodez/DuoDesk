@@ -14,7 +14,7 @@ UI.tab({
   badge: (s) => (s.link.state === 'identity_changed' || (s.discovery && !s.discovery.on) || s.found.some((d) => d.invited) ? 'warn' : ''),
   build(body) {
     const { el, api } = UI;
-    const WHERE = { driving: 'You’re using {there}', driven: '{There} is using this PC' };
+    const WHERE = { driving: 'You’re using {there}', driven: '{There} is using {me}' };
 
     const linkLine = el('div', { class: 'hero-link' }, [el('span', { class: 'hero-pulse' })]);
     const linkText = el('div', { class: 'hero-link-text' });
@@ -70,7 +70,7 @@ UI.tab({
     // ---- this PC + connect by address (always visible) ----
     const addrVal = el('span', { class: 'value addr' });
     const copyBtn = UI.button('Copy', () => UI.state && api.copyText(UI.state.addresses[0] || ''), 'small');
-    const addrRow = UI.row('This PC', '', [addrVal, copyBtn]);
+    const addrRow = UI.row('{me}', '', [addrVal, copyBtn]);
     const ipInput = el('input', { type: 'text', placeholder: '192.168.1.20', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Address' } });
     let asking = '';
     const ipBtn = UI.button('Connect', async () => {
@@ -122,7 +122,7 @@ UI.tab({
       for (const r of m2p.concat(p2m)) r.update(s);
 
       // this PC
-      addrVal.textContent = s.addresses.length ? s.addresses.join(', ') : 'No network';
+      addrVal.textContent = s.addresses.length ? s.addresses[0] : 'No network'; // revision 7b: the one the other computer can reach
       copyBtn.hidden = !s.addresses.length;
       const busy = !!s.pairing && s.pairing.phase !== 'failed';
       ipBtn.disabled = busy || !!asking;
@@ -162,7 +162,8 @@ UI.tab({
       }
 
       // paired
-      const pk = JSON.stringify([s.paired, s.guests, live]);
+      const wk = s.wake || { peers: {} };
+      const pk = JSON.stringify([s.paired, s.guests, live, Object.keys(wk.peers), wk.waking]);
       if (pk === pairedKey) return;
       pairedKey = pk;
       const all = [
@@ -171,8 +172,13 @@ UI.tab({
       ];
       pairedList.replaceChildren(...(all.length ? all.map((x) => {
         const online = x.id === live;
-        const r = UI.row(x.name, online ? 'Connected' : x.hint, [
+        const waking = !online && wk.waking === x.id;
+        // Revision 7: an offline computer that told us how to wake it gets Wake.
+        const wakeBtn = !online && wk.peers[x.id] ? UI.button(waking ? 'Waking…' : 'Wake', () => api.wakePeer(x.id), 'small') : null;
+        if (wakeBtn) wakeBtn.disabled = waking;
+        const r = UI.row(x.name, online ? 'Connected' : waking ? 'Waking ' + x.name + '…' : x.hint, [
           online ? el('span', { class: 'pill good', text: 'Online' }) : null,
+          wakeBtn,
           UI.button('Forget', x.forget, 'small'),
         ]);
         r.querySelector('.text').prepend(UI.osIcon(x.os));

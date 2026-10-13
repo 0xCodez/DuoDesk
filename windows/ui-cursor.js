@@ -9,8 +9,10 @@ UI.tab({
   title: 'Cursor',
   color: 'linear-gradient(#ffb340, #ff9500)',
   desc: 'Move the pointer off the edge of the screen to go to the other computer.',
-  master: { get: (s) => s.kvm.mouse, set: (v) => UI.api.setKvm({ mouse: v }) },
-  badge: (s) => (s.kvm.mouse ? 'on' : ''),
+  // One switch (revision 7): cursor sharing, the same one the hotkey's double-tap and the other
+  // computer flip (kvm.link keeps both in step); on also turns the mouse on.
+  master: { get: (s) => s.kvm.mouse && s.kvm.linked, set: (v) => UI.api.setKvm(v ? { mouse: true, linked: true } : { linked: false }) },
+  badge: (s) => (s.kvm.mouse && s.kvm.linked ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
     const set = (partial) => api.setKvm(partial);
@@ -21,20 +23,12 @@ UI.tab({
     const speed = UI.slider({ min: 0.25, max: 3, step: 0.05, format: (v) => v.toFixed(2) + '×' }, (v) => set({ speed: v }));
     const reverse = UI.switch((v) => set({ reverseScroll: v }), { label: 'Reverse scrolling' });
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => (v ? v + ' px' : 'None') }, (v) => set({ resistancePx: v }));
-    // Cursor sharing as a whole (revision 4c): the hotkey's double-tap switches it (human, 2026-10-13:
-    // "add here that you can use Alt to toggle this").
-    const linkSw = UI.switch((v) => set({ linked: v }), { label: 'Cursor sharing' });
-    const linkRow = UI.row('Cursor sharing', '', [linkSw]);
-    const inRow = UI.row('Use the Mac’s mouse on this PC', 'Move it through the screen edge');
-    const outRow = UI.row('Use this PC’s mouse on the Mac', 'Move it through the screen edge');
     const pair = UI.dirCards(
-      { on: { get: (s) => s.kvm.beDriven, set: (v) => set({ beDriven: v }) }, rows: [
-        inRow,
+      { on: { get: (s) => s.kvm.beDriven, set: (v) => set({ beDriven: v }) }, label: 'Use {name}’s mouse and keyboard on {me}', hint: 'Push the pointer past the edge there', rows: [
         UI.row('Pointer speed here', '', [speed]),
         UI.row('Reverse scrolling', '', [reverse]),
       ] },
-      { on: { get: (s) => s.kvm.driveOther, set: (v) => set({ driveOther: v }) }, rows: [
-        outRow,
+      { on: { get: (s) => s.kvm.driveOther, set: (v) => set({ driveOther: v }) }, label: 'Use {me}’s mouse and keyboard on {name}', hint: 'Push the pointer past the edge', rows: [
         UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
       ] },
     );
@@ -43,7 +37,7 @@ UI.tab({
     const grid = el('div', { class: 'layout-grid' });
     const SIDE_OF = { 1: 'top', 3: 'left', 5: 'right', 7: 'bottom' };
     for (let i = 0; i < 9; i++) {
-      const c = el('div', { class: i === 4 ? 'screen pc-screen' : '', text: i === 4 ? 'This PC' : '' });
+      const c = el('div', { class: i === 4 ? 'screen pc-screen' : '', text: i === 4 ? '{me}' : '' });
       if (SIDE_OF[i]) c.onclick = () => api.setLayout(SIDE_OF[i]); // revision 4: kvm.layout from either side
       cells.push(c);
       grid.append(c);
@@ -52,7 +46,6 @@ UI.tab({
     const status = UI.inputStatus();
 
     body.append(
-      UI.card('', [linkRow], { cls: 'keep-on' }),
       pair.el,
       UI.card('Right now', [status], { cls: 'keep-on' }),
       el('div', { class: 'card-title', text: 'Where the other computer is' }),
@@ -61,12 +54,7 @@ UI.tab({
 
     return (s) => {
       const k = s.kvm;
-      const pp = UI.peer(s);
       pair.update(s);
-      linkSw.set(k.linked);
-      linkRow.setHint('Double-tap ' + UI.hotkeyName(s) + ' to turn it ' + (k.linked ? 'off' : 'on') + ' from anywhere');
-      inRow.label.textContent = 'Use ' + (pp.os === 'mac' ? 'the Mac’s' : pp.them + '’s') + ' mouse on this PC';
-      outRow.label.textContent = 'Use this PC’s mouse on ' + pp.the;
       status.update(s);
       speed.set(k.speed);
       reverse.set(k.reverseScroll);
@@ -81,7 +69,7 @@ UI.tab({
         c.title = here ? '' : 'Put ' + p.them + ' here';
       });
       const who = p.os === 'mac' ? 'Your Mac' : p.them;
-      layoutHint.textContent = (side ? who + ' is ' + { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[side] + ' this PC. ' : '')
+      layoutHint.textContent = (side ? who + ' is ' + { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[side] + ' {me}. ' : '')
         + 'Click a side to move it.';
     };
   },

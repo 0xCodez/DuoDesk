@@ -15,20 +15,18 @@ UI.tab({
   build(body) {
     const { el, api } = UI;
     const sw = (label, set) => UI.switch(set, { label });
-    const mount = sw('The Mac’s folder here', (v) => api.setFiles({ mountMac: v }));
+    const mount = sw('{Name}’s folder here', (v) => api.setFiles({ mountMac: v }));
     const openBtn = UI.button('Open', () => api.openMacDrive(), 'small');
-    const macDrive = UI.row('Open the Mac’s shared folder', '', [openBtn, mount]);
-    const share = sw('This PC’s folder on the Mac', (v) => api.setShareOn(v));
+    const macDrive = UI.row('Open {name}’s shared folder', '', [openBtn, mount]);
+    const share = sw('{me}’s folder on {name}', (v) => api.setShareOn(v));
     const chooseBtn = UI.button('Choose…', () => api.chooseShareFolder(), 'small');
     const sharePill = el('span', { class: 'pill' });
-    const pcShare = UI.row('Share a folder with the Mac', '', [sharePill, chooseBtn, share]);
+    const pcShare = UI.row('Share a folder with {name}', '', [sharePill, chooseBtn, share]);
     const pair = UI.dirCards(
-      { on: { get: (s) => s.files.acceptFromMac, set: (v) => api.setFiles({ acceptFromMac: v }) }, rows: [
-        UI.row('Accept files from the Mac', ''),
+      { on: { get: (s) => s.files.acceptFromMac, set: (v) => api.setFiles({ acceptFromMac: v }) }, label: 'Take files from {name} on {me}', rows: [
         macDrive,
       ] },
-      { on: { get: (s) => s.files.dropToMac, set: (v) => api.setFiles({ dropToMac: v }) }, rows: [
-        UI.row('Send files to the Mac', ''),
+      { on: { get: (s) => s.files.dropToMac, set: (v) => api.setFiles({ dropToMac: v }) }, label: 'Send files from {me} to {name}', rows: [
         pcShare,
       ] },
     );
@@ -101,14 +99,14 @@ UI.tab({
         : ck.incoming ? p.them + ' copied ' + (ck.incoming.name || ck.incoming.items + ' items') + ' · press ' + UI.keysLabel(f.pasteKeys)
           : 'Into the File Explorer window in front, else the Desktop');
       edgeDrag.set(f.edgeDrag);
-      edgeRow.setHint(f.edgeDrag && f.macDrags === false ? 'Turned off on the Mac' : f.edgeDrag ? 'Drag through the screen edge and drop anywhere' : '');
+      edgeRow.setHint(f.edgeDrag && f.macDrags === false ? 'Turned off on {name}' : f.edgeDrag ? 'Drag through the screen edge and drop anywhere' : '');
       mount.set(f.mountMac);
       openBtn.hidden = !m.drive;
-      macDrive.setHint(m.mountMessage || (!f.mountMac ? '' : m.drive ? 'Drive ' + m.drive : m.busy === 'mount' ? 'Connecting…' : 'Waiting for your Mac to share one'));
+      macDrive.setHint(m.mountMessage || (!f.mountMac ? '' : m.drive ? 'Drive ' + m.drive : m.busy === 'mount' ? 'Connecting…' : 'Waiting for {name} to share one'));
       share.set(f.shareOn);
       const busy = m.busy === 'setup' ? 'Setting up…' : m.busy === 'remove' ? 'Removing…' : '';
       sharePill.hidden = !f.shareOn && !busy;
-      sharePill.textContent = busy || (m.peer && m.peer.mounted ? 'On the Mac' : m.peer && m.peer.error ? 'Problem' : 'Shared');
+      sharePill.textContent = busy || (m.peer && m.peer.mounted ? 'On {name}' : m.peer && m.peer.error ? 'Problem' : 'Shared');
       sharePill.className = 'pill ' + (busy ? 'muted' : m.peer && m.peer.mounted ? 'good' : m.peer && m.peer.error ? 'bad' : 'muted');
       chooseBtn.disabled = !!m.busy;
       pcShare.setHint(m.message || (m.peer && m.peer.error) || m.folder);
@@ -130,11 +128,11 @@ UI.tab({
         return;
       }
       if (dr.last && (!inc.last || dr.last.at > inc.last.at)) {
-        inRow.label.textContent = dr.last.ok ? 'Received from the Mac' : 'Not received';
+        inRow.label.textContent = dr.last.ok ? 'Received from {name}' : 'Not received';
         inRow.setHint(dr.last.text + ' · ' + UI.ago(dr.last.at));
         return;
       }
-      inRow.label.textContent = inc.receiving ? 'Receiving ' + inc.receiving + ' file' + (inc.receiving > 1 ? 's' : '') + ' from the Mac'
+      inRow.label.textContent = inc.receiving ? 'Receiving ' + inc.receiving + ' file' + (inc.receiving > 1 ? 's' : '') + ' from {name}'
         : inc.last ? (inc.last.ok ? 'Received ' : 'Not received: ') + inc.last.name : 'Nothing received';
       inRow.setHint(inc.receiving ? '' : inc.last ? inc.last.text + ' · ' + UI.ago(inc.last.at) : '');
     };

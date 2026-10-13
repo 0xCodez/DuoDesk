@@ -25,10 +25,13 @@ function normalize(s) {
   const files = s.files || {};
   const pcs = s.pcScreen || {};
   const pca = s.pcApps || {};
+  const mca = s.macApps || {};
   const setup = s.setup || {};
   const appS = s.app || {};
   const nf = s.notifs || {};
+  const wk = s.wake || {};
   return {
+    rev: 7, // settings revision (upgrades in normalize, like the Mac's store.js)
     kvm: {
       mouse: bool(kvm.mouse, true),
       keyboard: bool(kvm.keyboard, true),
@@ -39,6 +42,9 @@ function normalize(s) {
       speed: Math.round(num(kvm.speed, 1.0, 0.25, 3) * 100) / 100,
       reverseScroll: bool(kvm.reverseScroll, false),
       linked: bool(kvm.linked, true), // cursor sharing on (the hotkey's double-tap switches it, kvm.link)
+      // revision 7: the last `linked` per paired device id, restored on connect
+      linkedBy: kvm.linkedBy && typeof kvm.linkedBy === 'object'
+        ? Object.fromEntries(Object.entries(kvm.linkedBy).filter(([, v]) => typeof v === 'boolean').slice(0, 50)) : {},
       hotkeySwitch: bool(kvm.hotkeySwitch, false), // keyboard only (Cursor off): double-tap moves the keyboard over and back
     },
     // hotkey: double-tap = mouse and keyboard home (docs/KVM.md "Hotkey (revision 4)")
@@ -48,12 +54,20 @@ function normalize(s) {
       enabled: bool(c.enabled, true),
       send: bool(c.send, true),
       receive: bool(c.receive, true),
-      mode: c.mode === 'instant' ? 'instant' : 'switch',
+      // revision 7: instant by default; files from before it (no rev) are upgraded once
+      mode: c.mode === 'switch' && (s.rev || 0) >= 7 ? 'switch' : 'instant',
       skipConcealed: bool(c.skipConcealed, true),
       maxKB: Math.round(num(c.maxKB, 256, 1, P.CLIP_MAX_BYTES / 1024)),
       historySize: Math.round(num(c.historySize, 20, 0, 100)),
     },
-    monitor: { autoOpen: bool(mon.autoOpen, true), volume: Math.round(num(mon.volume, 1, 0, 1) * 100) / 100, mute: bool(mon.mute, false) },
+    monitor: {
+      autoOpen: bool(mon.autoOpen, true),
+      volume: Math.round(num(mon.volume, 1, 0, 1) * 100) / 100,
+      mute: bool(mon.mute, false),
+      // revision 7: 'smooth' (about a frame of buffer, even motion) | 'fast' (shown the moment it is decoded)
+      pacing: mon.pacing === 'fast' ? 'fast' : 'smooth',
+      framegen: bool(mon.framegen, false), // in-between frames on the GPU (shared/framegen.js), off by default
+    },
     audio: {
       receive: bool(audio.receive, true), // play the Mac's sound here (audio.policy W→M)
       volume: Math.round(num(audio.volume, 1, 0, 1) * 100) / 100,
@@ -85,19 +99,51 @@ function normalize(s) {
     },
     pcScreen: { // Display › PC → Mac (phase 11); Off/Mirror/Extend itself is never saved
       monitor: typeof pcs.monitor === 'string' ? pcs.monitor : '', // Electron display id for Mirror ('' = main)
-      mbps: [10, 20, 30, 50].includes(pcs.mbps) ? pcs.mbps : 20, // same presets as the Mac
+      mbps: [10, 20, 30, 50].includes(pcs.mbps) ? pcs.mbps : 30, // same presets as the Mac
+      // revision 7: 'smooth' keeps the frame rate under pressure (quality gives) | 'sharp' keeps detail
+      priority: pcs.priority === 'sharp' ? 'sharp' : 'smooth',
       maxHeight: [0, 1080, 1440].includes(pcs.maxHeight) ? pcs.maxHeight : 1080, // stream size (0 = full pixels)
       extendSize: ['mac', '1920x1080', '2560x1440', '3840x2160'].includes(pcs.extendSize) ? pcs.extendSize : 'mac', // the virtual monitor
       sound: bool(pcs.sound, false), // the screen's sound in the same session
       input: bool(pcs.input, true), // the Mac's mouse and keyboard drive this PC
+      remote: bool(pcs.remote, true), // revision 7: the viewer may start/stop and switch it (screen.ctl)
     },
-    pcApps: { allow: bool(pca.allow, true) }, // phase 13: the Mac may open this PC's apps (it shows them only if it accepts)
+    pairSync: pairSync(s.pairSync), // revision 7b: {deviceId: {feature: {out, in}}} (pairsync.js)
+    wake: { peers: wakePeers(wk.peers) }, // revision 7: {deviceId: {name, os, macs, address, at}} from wol.info
+    pcApps: { allow: bool(pca.allow, true) },
+    macApps: { on: bool(mca.on, true) }, // revision 7b: the other computer's apps open here (pair.sync 'apps' in) // phase 13: the Mac may open this PC's apps (it shows them only if it accepts)
     // Setup screen 'Skip for now': the missing items it was skipped for (shown again when
     // something else goes missing).
     setup: { skipped: Array.isArray(setup.skipped) ? setup.skipped.filter((x) => typeof x === 'string').slice(0, 10) : [] },
     ui: { tab: OLD_TABS[ui.tab] || (TABS.includes(ui.tab) ? ui.tab : 'overview') },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };
+}
+
+// pair.sync values per paired device: booleans only, at most 20 devices.
+function pairSync(v) {
+  const out = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const [id, feats] of Object.entries(v).slice(0, 20)) {
+    if (!feats || typeof feats !== 'object') continue;
+    out[id] = {};
+    for (const [f, d] of Object.entries(feats).slice(0, 10)) {
+      if (d && typeof d === 'object') out[id][f] = { out: d.out === true, in: d.in === true };
+    }
+  }
+  return out;
+}
+
+// wol.info per paired device, as wake.js stored it (at most 20, MAC addresses checked).
+function wakePeers(v) {
+  const out = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const [id, p] of Object.entries(v).slice(0, 20)) {
+    const macs = p && Array.isArray(p.macs) ? p.macs.filter((m) => typeof m === 'string' && /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/.test(m)).slice(0, 8) : [];
+    if (!macs.length) continue;
+    out[id] = { name: String(p.name || '').slice(0, 200), os: String(p.os || ''), macs, address: typeof p.address === 'string' ? p.address.slice(0, 64) : '', at: Number(p.at) || 0 };
+  }
+  return out;
 }
 
 // Merge a partial change from the UI into one section and re-validate.

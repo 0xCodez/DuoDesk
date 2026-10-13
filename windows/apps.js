@@ -15,7 +15,8 @@ const P = require('../shared/protocol.js');
 const T = P.T;
 
 class Apps {
-  // opts: link, getMonitor() → BrowserWindow|null, popup(kind, text), peerName(), onChange()
+  // opts: link, allowed() (macApps.on), getMonitor() → BrowserWindow|null, popup(kind, text), peerName(), onChange(),
+  // onWatch() (an app window opened or closed: screen.policy may change, revision 7)
   constructor(opts) {
     Object.assign(this, opts);
     this.opening = new Map(); // id → placeholder window: the app's taskbar button until its first window
@@ -43,6 +44,7 @@ class Apps {
       this.windows = (Array.isArray(m.windows) ? m.windows : []).filter(validWindow);
       if (m.pw > 0 && m.ph > 0) this.picture = { width: Number(m.pw), height: Number(m.ph) };
       this._toMonitor();
+      this.onWatch();
     });
     this.link.on('closed', () => {
       this.windows = [];
@@ -52,11 +54,12 @@ class Apps {
   }
 
   refresh() {
+    if (!this.allowed()) return;
     if (this.link.send({ t: T.APPS_LIST })) { this.loading = true; this.onChange(); }
   }
 
   launch(id) {
-    if (typeof id !== 'string') return;
+    if (typeof id !== 'string' || !this.allowed()) return;
     this.message = '';
     if (!this.link.send({ t: T.APP_LAUNCH, id })) return;
     const a = this.list.find((x) => x.id === id);
@@ -78,15 +81,17 @@ class Apps {
     this._details(win, id, a);
     win.setProgressBar(2, { mode: 'indeterminate' });
     win.minimize(); // only its taskbar button shows
-    win.on('closed', () => { if (this.opening.get(id) === win) this.opening.delete(id); });
+    win.on('closed', () => { if (this.opening.get(id) === win) { this.opening.delete(id); this.onWatch(); } });
     this.opening.set(id, win);
+    this.onWatch();
     setTimeout(() => this._opened(id), 30000);
   }
 
   _opened(id) {
     const win = this.opening.get(id);
-    this.opening.delete(id);
+    if (!this.opening.delete(id)) return;
     if (win && !win.isDestroyed()) win.destroy();
+    this.onWatch();
   }
 
   // ---- pinning (revision 6) ----
@@ -132,7 +137,7 @@ class Apps {
     try {
       fs.mkdirSync(this.startDir, { recursive: true });
       const ok = shell.writeShortcutLink(file, fs.existsSync(file) ? 'replace' : 'create', {
-        target: r.target, args: r.args, description: a.name + ' on your Mac (MacShare)', appUserModelId: Apps.aumid(id),
+        target: r.target, args: r.args, description: a.name + ' on ' + this.peerName() + ' (MacShare)', appUserModelId: Apps.aumid(id),
         ...(ico ? { icon: ico, iconIndex: 0 } : {}),
       });
       if (!ok) throw new Error('Windows refused the shortcut');

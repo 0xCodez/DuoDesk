@@ -11,6 +11,7 @@ UI.tab({
   title: 'Apps',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
   desc: 'Use apps from the other computer in their own windows.',
+  master: { get: (s) => s.macApps.on || s.pcApps.allow, set: (v) => { UI.api.setMacApps({ on: v }); UI.api.setPcApps({ allow: v }); } }, // revision 7b
   badge: (s) => (s.apps.open + s.pcApps.streaming ? String(s.apps.open + s.pcApps.streaming) : ''),
   build(body) {
     const { el, api } = UI;
@@ -22,17 +23,11 @@ UI.tab({
     const openCount = UI.row('', '');
     const pcState = UI.row('', '');
     const pair = UI.dirCards(
-      { rows: [UI.row('Mac apps on this PC', 'Pick one below'), openCount] },
-      { on: { get: (s) => s.pcApps.allow, set: (v) => api.setPcApps({ allow: v }) }, rows: [
-        UI.row('PC apps on the Mac', 'Pick them on your Mac'),
-        pcState,
-      ] },
+      { on: { get: (s) => s.macApps.on, set: (v) => api.setMacApps({ on: v }) }, label: 'Open {name}’s apps on {me}', hint: 'Pick one below', rows: [openCount] },
+      { on: { get: (s) => s.pcApps.allow, set: (v) => api.setPcApps({ allow: v }) }, label: 'Open {me}’s apps on {name}', hint: 'Pick them over there', rows: [pcState] },
     );
-    body.append(
-      pair.el,
-      note,
-      UI.card('Mac apps', [UI.row('Search', '', [filter]), grid, status], { actions: [refresh] }),
-    );
+    const listCard = UI.card('Mac apps', [UI.row('Search', '', [filter]), grid, status], { actions: [refresh] });
+    body.append(pair.el, note, listCard);
     filter.oninput = () => { key = ''; if (UI.state) render(UI.state); };
 
     let key = '';
@@ -40,13 +35,15 @@ UI.tab({
     function render(s) {
       const a = s.apps;
       const connected = s.link.state === 'connected';
-      if (connected && !asked && !a.list.length) { asked = true; api.listApps(); }
+      listCard.hidden = !s.macApps.on;
+      listCard.querySelector('.card-title > span').textContent = UI.peer(s).name + '’s apps';
+      if (connected && s.macApps.on && !asked && !a.list.length) { asked = true; api.listApps(); }
       openCount.hidden = !a.open;
       openCount.label.textContent = a.open + ' open here';
       const pa = s.pcApps;
       pcState.hidden = !pa.allow;
-      pcState.label.textContent = pa.streaming ? pa.streaming + ' open on the Mac'
-        : !connected ? 'Waiting for your Mac' : !pa.macAccepts ? 'Turned off on the Mac' : pa.open ? 'Connecting…' : 'None open';
+      pcState.label.textContent = pa.streaming ? pa.streaming + ' open on {name}'
+        : !connected ? 'Waiting for {name}' : !pa.macAccepts ? 'Turned off on {name}' : pa.open ? 'Connecting…' : 'None open';
       pcState.setHint(pa.message || '');
       if (!connected) asked = false;
       note.set(a.message || '');
@@ -58,7 +55,7 @@ UI.tab({
       key = k;
       const items = a.list.filter((x) => !q || x.name.toLowerCase().includes(q));
       grid.replaceChildren(...items.map((x) => {
-        const b = el('button', { class: 'app-tile', title: 'Open ' + x.name + ' on the Mac' }, [
+        const b = el('button', { class: 'app-tile', title: 'Open ' + x.name + ' on {name}' }, [
           x.icon ? el('img', { src: x.icon, alt: '' }) : el('span', { class: 'app-noicon', text: x.name.slice(0, 1) }),
           el('span', { class: 'app-name', text: x.name }),
         ]);
@@ -72,8 +69,8 @@ UI.tab({
         return b;
       }));
       status.hidden = items.length > 0;
-      status.label.textContent = !connected ? 'Waiting for your Mac' : a.loading ? 'Loading…' : q ? 'No app matches' : 'No apps yet';
-      status.setHint(!connected || a.loading || q ? '' : 'Click Refresh to ask the Mac for its apps.');
+      status.label.textContent = !connected ? 'Waiting for {name}' : a.loading ? 'Loading…' : q ? 'No app matches' : 'No apps yet';
+      status.setHint(!connected || a.loading || q ? '' : 'Click Refresh to ask {name} for its apps.');
     }
     return render;
   },

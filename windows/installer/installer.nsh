@@ -25,5 +25,7 @@
   ; Revision 6: the pinned Mac apps' Start menu folder is per user (the app makes it in Roaming).
   SetShellVarContext current
   RMDir /r "$APPDATA\Microsoft\Windows\Start Menu\Programs\MacShare Apps"
+  ; Revision 7: Explorer › Send to › "<peer> (MacShare)" (sendto.js).
+  Delete "$APPDATA\Microsoft\Windows\SendTo\* (MacShare).lnk"
   SetShellVarContext all
 !macroend

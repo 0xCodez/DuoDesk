@@ -31,7 +31,7 @@ class FileDrop {
     this.batches = new Map(); // revision 5: batch → {kind, name, files, bytes}
     this.link.on(T.FILES_DONE, (m) => this._batchDone(m));
     this.link.on('closed', () => {
-      this._abortAll('The Mac disconnected');
+      this._abortAll('{Name} disconnected');
       for (const batch of [...this.batches.keys()]) this._batchDone({ batch, ok: false });
     });
   }
@@ -84,6 +84,7 @@ class FileDrop {
     if (!b) return;
     this.batches.delete(m.batch);
     this.queue = this.queue.filter((j) => j.batch !== m.batch);
+    if (this.onBatchProgress) this.onBatchProgress({ ...b, done: true, ok: !!m.ok });
     this._report(b.name, !!m.ok, m.ok ? 'Sent' + (typeof m.where === 'string' && m.where ? ' to ' + m.where.slice(0, 300) : '') : 'Not everything arrived');
   }
 
@@ -102,10 +103,10 @@ class FileDrop {
     if (!this.drag || m.drag !== this.drag.drag) return;
     const d = this.drag;
     this.drag = null;
-    if (m.result === 'dropped') this._report(d.name, true, 'Dropped on the Mac' + (typeof m.where === 'string' && m.where ? ' in ' + m.where : ''));
+    if (m.result === 'dropped') this._report(d.name, true, 'Dropped on {name}' + (typeof m.where === 'string' && m.where ? ' in ' + m.where : ''));
     else {
       this._stopDrag(d.drag, false);
-      this._report(d.name, false, m.result === 'failed' ? 'The Mac couldn’t take the drag' : 'Drag cancelled');
+      this._report(d.name, false, m.result === 'failed' ? '{Name} couldn’t take the drag' : 'Drag cancelled');
     }
   }
 
@@ -138,14 +139,14 @@ class FileDrop {
 
   async _send(job) {
     const name = path.basename(job.path);
-    if (this.link.status.state !== 'connected') throw new Error('Not connected to the Mac');
+    if (this.link.status.state !== 'connected') throw new Error('Not connected to {name}');
     if (job.size > P.FILE_MAX_BYTES) throw new Error('Too big');
     const id = crypto.randomBytes(8).toString('hex');
     this.current = { id, name, size: job.size, sent: 0, index: job.index, count: job.count, release: job.release, drag: job.drag, batch: job.batch };
     this._progress();
     const offer = { t: T.FILE_OFFER, id, name, size: job.size, index: job.index, count: job.count };
     if (job.drag) Object.assign(offer, { drop: 'drag', drag: job.drag, rel: job.rel });
-    else if (job.batch) Object.assign(offer, { drop: job.kind, batch: job.batch, rel: job.rel });
+    else if (job.batch) Object.assign(offer, { drop: job.kind, batch: job.batch, rel: job.rel, bytes: (this.batches.get(job.batch) || {}).bytes }); // bytes: the batch, for the receiver's progress
     else if (job.release) offer.drop = 'release';
     else { offer.drop = 'point'; if (typeof job.x === 'number') { offer.x = job.x; offer.y = job.y; } }
     this.link.send(offer);
@@ -163,11 +164,15 @@ class FileDrop {
       for await (const chunk of stream) {
         if (!this.current || this.current.id !== id) throw new Error('Cancelled');
         while (this.link.bufferedAmount > HIGH_WATER) await sleep(15);
-        if (this.link.status.state !== 'connected') throw new Error('The Mac disconnected');
+        if (this.link.status.state !== 'connected') throw new Error('{Name} disconnected');
         hash.update(chunk);
         this.link.send({ t: T.FILE_CHUNK, id, seq: seq++, data: chunk.toString('base64') });
         this.current.sent += chunk.length;
-        if (job.batch && this.batches.has(job.batch)) this.batches.get(job.batch).sent += chunk.length;
+        if (job.batch && this.batches.has(job.batch)) {
+          const b = this.batches.get(job.batch);
+          b.sent += chunk.length;
+          if (this.onBatchProgress) this.onBatchProgress(b); // revision 7: the popup for big batches
+        }
         this._progress();
       }
     } finally {
@@ -176,14 +181,14 @@ class FileDrop {
     this.link.send({ t: T.FILE_END, id, sha256: hash.digest('hex') });
     if (job.drag) return; // the Mac answers file.done when the drop target has it; drag.end says how it went
     const d = await this._wait(id, [T.FILE_DONE, T.FILE_CANCEL], DONE_MS);
-    if (d.t !== T.FILE_DONE || !d.ok) throw new Error(d.error || 'The Mac couldn’t save it');
+    if (d.t !== T.FILE_DONE || !d.ok) throw new Error(d.error || '{Name} couldn’t save it');
     if (job.batch) return; // listed once, on files.done
-    this._report(name, true, d.path ? 'Saved on the Mac: ' + d.path : 'Saved on the Mac');
+    this._report(name, true, d.path ? 'Saved on {name}: ' + d.path : 'Saved on {name}');
   }
 
   _wait(id, types, ms) {
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.waiters.delete(id); reject(new Error('The Mac didn’t answer')); }, ms);
+      const timer = setTimeout(() => { this.waiters.delete(id); reject(new Error('{Name} didn’t answer')); }, ms);
       this.waiters.set(id, { types, resolve: (m) => { clearTimeout(timer); this.waiters.delete(id); resolve(m); }, reject: (e) => { clearTimeout(timer); this.waiters.delete(id); reject(e); } });
     });
   }
@@ -279,7 +284,7 @@ function plan(paths) {
 }
 
 function refuseText(why) {
-  return { not_allowed: 'The Mac doesn’t accept dropped files (its Files tab)', too_big: 'Too big for the Mac', busy: 'The Mac is busy with another file' }[why] || 'The Mac refused it';
+  return { not_allowed: '{Name} doesn’t accept dropped files (its Files tab)', too_big: 'Too big for {name}', busy: '{Name} is busy with another file' }[why] || '{Name} refused it';
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -1,8 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Low-level hooks (capture + hotkey), Raw Input (edge push at home, local return-edge motion),
 // dead-man timer and the safety rules of docs/KVM.md. Hook callbacks only decide and enqueue.
-// Portions adapted from Beamer (https://github.com/kalkman-code/beamer), Copyright (C) Kalkman Code,
-// GPL-3.0. Changed: C# port of win_app/capture_win.py hooks and raw-mouse edge push.
 using System;
 using System.Collections.Generic;
 using System.Drawing;

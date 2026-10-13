@@ -105,7 +105,7 @@ class Clip {
   async sendIfChanged(why) {
     const c = this.cfg;
     if (!c.enabled || !c.send || this.link.status.state !== 'connected') return;
-    if (!this.peerAccepts) return this._skip("the Mac doesn't accept the PC's clipboard");
+    if (!this.peerAccepts) return this._skip("{name} doesn't accept {me}’s clipboard");
     const text = await readText();
     if (!text || text === this.lastSync.sent || text === this.lastSync.received) return;
     if (c.skipConcealed && isConcealed()) {

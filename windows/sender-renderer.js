@@ -43,14 +43,18 @@ function withOpus(sdp) {
     : sdp.replace(m[0], m[0] + '\r\na=fmtp:' + m[1] + ' ' + extra);
 }
 
-// m: {session, sourceId, width, height, follow?, mbps, audio, offer: {kind, wid?}}
+// m: {session, sourceId, width, height, follow?, mbps, fps?, priority?, audio, offer: {kind, wid?}}
 // follow: the picture follows the source's size (an app window), up to width × height.
+// priority 'smooth' (default, revision 7): under pressure the encoder lowers quality, never the frame
+// rate (dropped frames are what feels jagged). 'sharp': text stays crisp, the frame rate gives way.
 async function start(m) {
   stop(m.session);
   const me = { session: m.session, pending: [], mbps: m.mbps };
+  const fps = m.fps || 60;
+  const smooth = m.priority !== 'sharp';
   sessions.set(me.session, me);
   try {
-    const video = { chromeMediaSource: 'desktop', chromeMediaSourceId: m.sourceId, maxWidth: m.width, maxHeight: m.height, maxFrameRate: 60 };
+    const video = { chromeMediaSource: 'desktop', chromeMediaSourceId: m.sourceId, maxWidth: m.width, maxHeight: m.height, maxFrameRate: fps };
     if (m.follow) Object.assign(video, { minWidth: 2, minHeight: 2 }); // min ≠ max: any size within the limit, no scaling
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: m.audio ? { mandatory: { chromeMediaSource: 'desktop' } } : false,
@@ -59,7 +63,7 @@ async function start(m) {
     if (!alive(me)) return stream.getTracks().forEach((t) => t.stop());
     me.stream = stream;
     const track = stream.getVideoTracks()[0];
-    track.contentHint = 'detail';
+    track.contentHint = smooth ? 'motion' : 'detail';
     track.onended = () => alive(me) && report(me, 'ended', 'The captured ' + (m.offer.kind === 'window' ? 'window' : 'monitor') + ' went away');
     const pc = (me.pc = new RTCPeerConnection({ iceServers: [] }));
     const tr = pc.addTransceiver(track, { direction: 'sendonly', streams: [stream] });
@@ -79,9 +83,11 @@ async function start(m) {
     await pc.setLocalDescription({ type: 'offer', sdp: withOpus(withBitrate(offer.sdp, m.mbps)) });
     const p = tr.sender.getParameters();
     if (!p.encodings || !p.encodings.length) p.encodings = [{}];
-    p.encodings[0].maxBitrate = m.mbps * 1e6;
-    p.encodings[0].maxFramerate = 60;
-    p.degradationPreference = 'maintain-resolution';
+    Object.assign(p.encodings[0], {
+      maxBitrate: m.mbps * 1e6, maxFramerate: fps, scaleResolutionDownBy: 1,
+      priority: 'high', networkPriority: 'high', // DSCP: Wi-Fi puts it in the video queue
+    });
+    p.degradationPreference = smooth ? 'maintain-framerate' : 'maintain-resolution';
     await tr.sender.setParameters(p);
     if (!alive(me)) return;
     const kind = m.offer.kind === 'screen' && audio ? 'screen+audio' : m.offer.kind;
@@ -144,7 +150,7 @@ async function onAnswer(m) {
     for (const c of me.pending.splice(0)) await me.pc.addIceCandidate(c).catch(() => {});
     me.pending = null;
   } catch (e) {
-    report(me, 'failed', 'The Mac’s answer: ' + e.message);
+    report(me, 'failed', '{Name}’s answer: ' + e.message);
   }
 }
 

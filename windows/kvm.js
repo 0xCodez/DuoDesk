@@ -34,10 +34,10 @@ class Kvm {
     });
     link.on(T.KVM_REFUSE, (m) => {
       if (this.mode !== 'driving' || m.route !== this.route) return;
-      this._goHome(m.why === P.REFUSE.BUSY ? 'The Mac is driving this PC' : m.why === P.REFUSE.NOT_ALLOWED ? "The Mac doesn't accept input from this PC" : 'The Mac refused');
+      this._goHome(m.why === P.REFUSE.BUSY ? '{Name} is driving {me}' : m.why === P.REFUSE.NOT_ALLOWED ? "{Name} doesn't accept input from {me}" : '{Name} refused');
     });
     link.on(T.KVM_RELEASE, (m) => {
-      if (this.mode === 'driven' && m.route >= this.peerRoute) this._drivenHome('The Mac took its input back', false);
+      if (this.mode === 'driven' && m.route >= this.peerRoute) this._drivenHome('{Name} took its input back', false);
     });
     link.on(T.KVM_HOME, (m) => {
       if (this.mode !== 'driving' || m.route !== this.route) return;
@@ -53,11 +53,17 @@ class Kvm {
       // As the host this PC sends the layout (a Mac host sends its own). Default: the other one on the right.
       if (link.hosting) link.send({ t: T.KVM_LAYOUT, pcSide: this.crossingSide || 'right' });
       if (link.hosting && !this.pcSide) this._setPcSide('left');
+      // Revision 7: cursor sharing is remembered per paired device; take this pair's value, and as
+      // the host tell it so both computers agree (kvm.link keeps them in step after that).
+      const id = this._peerId();
+      const by = this.cfg.linkedBy;
+      if (id && id in by && by[id] !== this.linked) this.setLinked(by[id], false, false);
+      if (link.hosting) link.send({ t: T.KVM_LINK, on: this.linked });
     });
     this.peerDrags = true; // the Mac's drag.policy (assume yes until told)
     link.on(T.DRAG_POLICY, (m) => { this.peerDrags = m.accept !== false; this.applyConfig(); });
     link.on('closed', () => {
-      this._linkLost('The Mac disconnected');
+      this._linkLost('{Name} disconnected');
       this.applyConfig();
     });
 
@@ -132,15 +138,27 @@ class Kvm {
     return this.cfg.linked !== false;
   }
 
-  setLinked(on, tell = true) {
-    if (on === this.linked) return;
+  // card: show the big on/off card (not when a connect restores this pair's value).
+  setLinked(on, tell = true, card = true) {
+    const id = this.connected && this._peerId();
+    if (id) this.cfg.linkedBy = { ...this.cfg.linkedBy, [id]: on }; // revision 7: per pair
+    if (on === this.linked) {
+      if (id && this.save) this.save();
+      return;
+    }
     if (!on) this.home();
     this.cfg.linked = on;
+    if (on) this.cfg.mouse = true; // the one Cursor switch turns the mouse on with it
     if (this.save) this.save();
     if (tell && this.connected) this.link.send({ t: T.KVM_LINK, on });
     this.applyConfig();
-    if (this.onLinked) this.onLinked(on, tell); // main.js: the big card
+    if (card && this.onLinked) this.onLinked(on, tell); // main.js: the big card
     this.onChange();
+  }
+
+  _peerId() {
+    const s = this.link.snapshot().session;
+    return s && s.id ? String(s.id) : '';
   }
 
   view() {
@@ -187,7 +205,16 @@ class Kvm {
           }
           break;
         }
-        this.setLinked(!this.linked);
+        // Revision 7b: off (by the switch, the hotkey or the other computer) → on, mouse included: the
+        // state the Cursor tab's one switch shows. On → off.
+        if (this.linked && k.mouse) this.setLinked(false);
+        else if (this.linked) { // linked but the mouse was off: turn the mouse on, show the card
+          this.settings.kvm = { ...k, mouse: true };
+          if (this.save) this.save();
+          this.applyConfig();
+          if (this.onLinked) this.onLinked(true, true);
+          this.onChange();
+        } else this.setLinked(true); // also turns the mouse on
         break;
       }
       case 'return': // row 8c
@@ -256,7 +283,7 @@ class Kvm {
     }
     if (!this.cfg.beDriven || !this.linked) { // row 7 (and cursor sharing off)
       this.link.send({ t: T.KVM_REFUSE, route, why: P.REFUSE.NOT_ALLOWED });
-      this._note('The Mac tried to use this PC. It’s turned off here.');
+      this._note('{Name} tried to use {me}. It’s turned off here.');
       return;
     }
     this.peerRoute = route;
@@ -345,7 +372,7 @@ class Kvm {
     this.silence = null;
     if (mode !== 'home') {
       this.silence = setInterval(() => {
-        if (Date.now() - (this.link.lastRx || 0) > P.KVM_SILENCE_MS) this._linkLost('The Mac stopped answering');
+        if (Date.now() - (this.link.lastRx || 0) > P.KVM_SILENCE_MS) this._linkLost('{Name} stopped answering');
       }, 250);
     }
     this.onChange();

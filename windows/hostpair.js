@@ -45,7 +45,7 @@ class Pairing extends EventEmitter {
   forget(id) {
     this.paired = this.paired.filter((x) => x.id !== id);
     this._save();
-    this.server.closeDevice(id, P.E.BAD_TOKEN, 'This PC forgot the pairing');
+    this.server.closeDevice(id, P.E.BAD_TOKEN, 'This computer forgot the pairing');
     this.emit('change');
   }
 
@@ -144,7 +144,7 @@ class Pairing extends EventEmitter {
     }
     const e = this.paired.find((x) => x.id === msg.id);
     if (!e || !P.tokenMatches(msg.token, e.tokenHash)) {
-      return this.server.fail(ctx, P.E.BAD_TOKEN, 'Not paired with this PC');
+      return this.server.fail(ctx, P.E.BAD_TOKEN, 'Not paired with this computer');
     }
     if (this.busy()) return this.server.fail(ctx, P.E.BUSY, 'Connected to another device');
     if (typeof msg.name === 'string' && msg.name && msg.name !== e.name) e.name = msg.name.slice(0, 64);

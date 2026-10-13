@@ -11,6 +11,7 @@ const path = require('path');
 const P = require('../shared/protocol.js');
 const { run } = require('./ps');
 const RemoteInput = require('./remote-input');
+const PcScreen = require('./pcscreen'); // fps()
 
 const T = P.T;
 const POLL_MS = 250;
@@ -155,7 +156,7 @@ class PcApps {
 
   async _launch(id) {
     const reply = (ok, why) => this.link.send(why ? { t: T.PAPP_LAUNCHED, id, ok, why } : { t: T.PAPP_LAUNCHED, id, ok });
-    if (!this.allowed) return reply(false, 'This PC doesn’t let the Mac open its apps (Apps tab on the PC)');
+    if (!this.allowed) return reply(false, 'This computer doesn’t let you open its apps (its Apps tab)');
     const app = (await this._apps().catch(() => [])).find((a) => a.id === id);
     if (!app) return reply(false, 'No such app on this PC');
     const open = this.windows.find((w) => w.id === id);
@@ -265,7 +266,8 @@ class PcApps {
         const src = sources.find((s) => s.id.startsWith('window:' + wid + ':'));
         const session = this.sender.start({
           sourceId: src ? src.id : 'window:' + wid + ':0', width: MAX_W, height: MAX_H, follow: true,
-          mbps: this.settings.pcScreen.mbps, offer: { kind: 'window', wid },
+          mbps: this.settings.pcScreen.mbps, fps: PcScreen.fps(displays.getPrimaryDisplay()), priority: this.settings.pcScreen.priority,
+          offer: { kind: 'window', wid },
         });
         this.streams.set(wid, session);
       }

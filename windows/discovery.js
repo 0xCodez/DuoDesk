@@ -21,7 +21,7 @@ function intToIp(n) {
   return [24, 16, 8, 0].map((s) => (n >>> s) & 255).join('.');
 }
 
-// Non-internal IPv4 interfaces: [{name, address, broadcast}]
+// Non-internal IPv4 interfaces: [{name, address, netmask, broadcast}]
 function interfaces() {
   const out = [];
   for (const [name, list] of Object.entries(os.networkInterfaces())) {
@@ -29,7 +29,7 @@ function interfaces() {
       if (i.family !== 'IPv4' || i.internal) continue;
       if (/^169\.254\./.test(i.address)) continue; // link-local: no DHCP answer, nobody to find
       const bc = (ipToInt(i.address) | ~ipToInt(i.netmask)) >>> 0;
-      out.push({ name, address: i.address, broadcast: intToIp(bc) });
+      out.push({ name, address: i.address, netmask: i.netmask, broadcast: intToIp(bc) });
     }
   }
   return out;
@@ -206,4 +206,4 @@ class Discovery extends EventEmitter {
   }
 }
 
-module.exports = { Discovery, interfaces, isIPv4 };
+module.exports = { Discovery, interfaces, isIPv4, ipToInt };

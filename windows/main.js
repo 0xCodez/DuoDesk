@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 const P = require('../shared/protocol.js');
 const store = require('./store');
-const { Discovery, interfaces } = require('./discovery');
+const { Discovery, interfaces, isIPv4, ipToInt } = require('./discovery');
 const Link = require('./link');
 const Peer = require('./peer');
 const { Server } = require('./server');
@@ -34,6 +34,9 @@ const Vdd = require('./vdd');
 const Hud = require('./hud');
 const Notifs = require('./notifs');
 const FileClip = require('./fclip');
+const Wake = require('./wake');
+const SendTo = require('./sendto');
+const { PairSync } = require('./pairsync');
 const { normalize, apply: applySettings } = require('./settings');
 
 // Packaged: electron-builder's appId is the shortcut's AppUserModelID. In development Windows
@@ -41,16 +44,21 @@ const { normalize, apply: applySettings } = require('./settings');
 const AUMID = app.isPackaged ? 'org.macshare.windows' : process.execPath;
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
-// Lowest latency for what we send (phase 11/13): frames are tagged with playout delay 0/0, so the
-// Mac renders each one as soon as it is decoded (the Mac sender uses the same switch).
-app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/');
+// Revision 7, smoothness: no forced playout delay 0/0 any more (the receiver showed each frame the
+// instant it was decoded, so Wi-Fi jitter came out as stutter); each viewer picks its own pacing
+// (`monitor.pacing`). FlexFEC repairs lost packets without a resend round trip; it costs bandwidth
+// only while packets are lost. The Mac sets the same trial (negotiated in SDP).
+app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the Mac
   app.setAppUserModelId(AUMID); // toasts need it (revision 5); the installer's shortcut carries the same id
   // A pinned Mac app (revision 6) starts "MacShare.exe --mac-app=<id>": open it, else show the window.
-  app.on('second-instance', (_e, argv) => { if (!openMacAppArg(argv)) showMain(); });
+  app.on('second-instance', (_e, argv) => {
+    if (sendTo && sendTo.handle(argv)) return; // Explorer › Send to (revision 7)
+    if (!openMacAppArg(argv)) showMain();
+  });
   app.whenReady().then(start);
 }
 
@@ -75,6 +83,9 @@ let sound = null;
 let pcScreen = null;
 let pcApps = null;
 let vdd = null;
+let wake = null;
+let sendTo = null;
+let pairSync = null;
 let fileRecv = null;
 let notifs = null;
 let fileClip = null;
@@ -138,9 +149,9 @@ function start() {
   });
   terminal = new Terminal({ link, settings, onChange: pushState });
   sshd = new Sshd({ link, settings, save: saveSettings, onChange: pushState });
-  fileDrop = new FileDrop({ link, settings, onProgress: (v) => { screen.sendDropProgress(v); pushState(); } });
+  fileDrop = new FileDrop({ link, settings, onProgress: (v) => { screen.sendDropProgress(fillAll(v)); pushState(); } });
   screen.fileDrop = fileDrop;
-  apps = new Apps({ link, getMonitor: () => screen.win, popup: (kind, text) => hud && hud.show(kind, text), peerName, onChange: pushState });
+  apps = new Apps({ link, allowed: () => settings.macApps.on, getMonitor: () => screen.win, popup: (kind, text) => hud && hud.show(kind, text), peerName, onChange: pushState, onWatch: () => screen.policy() });
   screen.apps = apps;
   sound = new Sound({ link, settings, onChange: pushState });
   smb = new Smb({ link, settings, save: saveSettings, onChange: pushState });
@@ -149,6 +160,8 @@ function start() {
   const dragRecv = new DragRecv({ link, helper, settings, isDriven: () => kvm && kvm.mode === 'driven', onChange: pushState });
   kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, dragRecv, settings, save: saveSettings, onChange: onKvmChange });
   hud = new Hud(() => settings);
+  const hudShow = hud.show.bind(hud);
+  hud.show = (kind, text, sub) => hudShow(kind, fillNames(text), fillNames(sub || '')); // device names in popups
   // Cursor sharing switched on/off (hotkey double-tap, tray, or the other computer): the big card.
   kvm.onLinked = (on, here) => {
     const p = peerView();
@@ -161,26 +174,50 @@ function start() {
   kvm.onWhere = (mode) => { // the switching popup (docs/KVM.md "Hotkey (revision 4)")
     const name = peerName();
     if (mode === 'driving') hud.show('away', (kvm.keyboardOnly ? 'Typing on ' : 'Using ') + name);
-    else if (mode === 'driven') hud.show('driven', name + ' is using this PC');
-    else hud.show('home', 'Back on this PC');
+    else if (mode === 'driven') hud.show('driven', name + ' is using {me}');
+    else hud.show('home', 'Back on {me}');
   };
   vdd = new Vdd({ helper, onChange: pushState });
   // revision 5: notifications both ways, Send files, copy/paste files with shortcuts
   notifs = new Notifs({ link, helper, settings, save: saveSettings, selfIds: [AUMID, 'org.macshare.windows'], peerName, onChange: pushState });
   fileClip = new FileClip({ link, helper, fileDrop, fileRecv, settings, peerName, popup: (kind, text) => hud.show(kind, text), onChange: pushState });
   kvm.fileClip = fileClip; // revision 6: our copy/paste shortcut while driving → fclip.key
+  sendTo = new SendTo({ link, fileDrop, peerName: () => (peerView() || {}).name || '', popup: (kind, text, sub) => hud.show(kind, text, sub) });
+  // Revision 7: copy/paste and Send files show progress in the popup, like a drag. Receiving: every
+  // batch that takes longer than a moment; sending: batches over 5 MB.
+  const pct = (n, total) => Math.min(99, Math.floor((n / total) * 100));
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  let lastPopup = 0;
+  const progressPopup = (kind, text, done) => {
+    const now = Date.now();
+    if (!done && now - lastPopup < 250) return;
+    lastPopup = now;
+    hud.show(kind, text);
+  };
+  fileRecv.onBatchProgress = (b) => {
+    if (Date.now() - b.at < 400) return; // small batches: only the "Pasted" / "Received" popup
+    const part = b.total ? pct(b.got, b.total) : pct(b.done, b.count);
+    progressPopup('driven', (b.kind === 'paste' ? 'Pasting ' : 'Receiving ') + plural(b.count, 'file') + ' from ' + peerName() + ' · ' + part + ' %');
+  };
+  fileDrop.onBatchProgress = (b) => {
+    if (!(b.bytes > 5 * 1024 * 1024)) return;
+    if (b.done) return progressPopup('away', b.ok ? 'Sent ' + b.name + ' to ' + peerName() : 'Not everything arrived on ' + peerName(), true);
+    progressPopup('away', 'Sending ' + b.name + ' to ' + peerName() + ' · ' + pct(b.sent, b.bytes) + ' %');
+  };
   fileRecv.onBatch = (b) => {
     if (b.kind === 'paste') fileClip.pasted(b);
     else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
   };
+  wake = new Wake({ link, settings, save: saveSettings, onChange: pushState, address: () => ownAddresses()[0] }); // revision 7: wake over the network
   const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
   pcScreen = new PcScreen({ link, helper, sender, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   pcApps = new PcApps({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   helper.on('exit', pushState);
   helper.start();
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
-  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, settings, save: saveSettings, push: pushState, buildState,
+  const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, wake, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
+  pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // revision 7b: two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
   link.start();
 
@@ -190,7 +227,7 @@ function start() {
   });
   createTray();
   createMainWindow();
-  openMacAppArg(process.argv);
+  if (!sendTo.handle(process.argv)) openMacAppArg(process.argv);
   setTimeout(checkFirewall, 3000);
   if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
 }
@@ -228,7 +265,7 @@ function openMacApp(id) {
     screen.ensureHidden(); // the app windows come from the Mac's screen stream
   } else {
     pendingMacApp = { id, until: Date.now() + 2 * 60 * 1000 };
-    if (hud) hud.show('home', 'Opening it when your Mac connects…');
+    if (hud) hud.show('home', 'Opening it when {name} connects…');
   }
 }
 
@@ -241,6 +278,9 @@ function pushState() {
   setImmediate(() => {
     pushQueued = false;
     const s = buildState();
+    if (pcScreen) pcScreen.sendState(); // revision 7: the viewer learns what we share
+    if (sendTo) sendTo.sync(s.peer && s.peer.name);
+    if (pairSync) pairSync.check(); // revision 7b: tell the other computer what changed here // the Send to entry follows the peer's name
     // A pairing code to compare: bring the window to the front (docs/UI.md).
     const phase = s.pairing ? s.pairing.phase : null;
     if (phase === 'code' && lastPairPhase !== 'code') showMain();
@@ -249,6 +289,17 @@ function pushState() {
     updateTray(s);
   });
 }
+
+// Device names everywhere (docs/UI.md "Device names, not Mac / PC"): fill {me} (this PC's name),
+// {name} / {Name} (the other computer's) in a message shown outside the main window.
+function fillNames(t) {
+  if (!t || !String(t).includes('{')) return t || '';
+  const name = peerName();
+  const v = { me: (device && device.name) || 'This PC', name, Name: name.charAt(0).toUpperCase() + name.slice(1) };
+  return String(t).replace(/\{(me|name|Name)\}/g, (m, k) => v[k]);
+}
+const fillAll = (o) => (typeof o === 'string' ? fillNames(o) : Array.isArray(o) ? o.map(fillAll)
+  : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, fillAll(v)])) : o);
 
 // The other computer's name for popups and the tray ("PC2" when it has none yet).
 function peerName() {
@@ -286,7 +337,8 @@ function buildState() {
     found: discovery.list(),
     discovery: { ...discovery.status },
     addresses: ownAddresses(),
-    stream: screen.state,
+    stream: { ...screen.state, remote: screen.remote, watching: screen.sentAccept === true },
+    wake: wake.view(),
     macInput: screen.macInput, // the Mac's "Receive input" switch
     input: kvm.mode,
     kvmState: kvm.view(),
@@ -301,6 +353,7 @@ function buildState() {
     audio: { ...settings.audio, ...sound.view() },
     pcScreen: pcScreen.view(),
     pcApps: pcApps.view(),
+    macApps: settings.macApps,
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
     files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags, clip: fileClip.view() },
     notifs: { ...settings.notifs, ...notifs.view() },
@@ -312,9 +365,14 @@ function buildState() {
 
 // This PC's addresses for the Overview: Wi-Fi and Ethernet first, VPN/WSL/VM adapters last
 // (Copy takes the first one).
+// Revision 7b: the address the other computer can reach comes first (Overview shows only that one):
+// on the peer's network, then physical adapters, never a VPN / Hyper-V / WSL adapter if avoidable.
 function ownAddresses() {
-  const rank = (n) => (/vEthernet|tun|tap|VirtualBox|VMware|Hyper-V|WSL/i.test(n) ? 3 : /^Wi-?Fi/i.test(n) ? 0 : /^Ethernet/i.test(n) ? 1 : 2);
-  return interfaces().sort((a, b) => rank(a.name) - rank(b.name)).map((i) => i.address);
+  const peer = String(link.snapshot().link.address || '').replace(/^::ffff:/, '');
+  const onPeerNet = (i) => isIPv4(peer) && ((ipToInt(i.address) ^ ipToInt(peer)) & ipToInt(i.netmask)) === 0;
+  const virt = /vEthernet|Hyper-V|WSL|VirtualBox|VMware|Loopback|tun|tap|TAP|VPN|WireGuard|Tailscale|ZeroTier|OpenVPN|Npcap|Bluetooth/i;
+  const rank = (i) => (onPeerNet(i) ? 0 : virt.test(i.name) ? 4 : /^Ethernet/i.test(i.name) ? 1 : /^Wi-?Fi/i.test(i.name) ? 2 : 3);
+  return interfaces().sort((a, b) => rank(a) - rank(b)).map((i) => i.address);
 }
 
 // KVM mode changed: Monitor 2 stops/starts sending input, and the UI updates.
@@ -483,7 +541,7 @@ function updateTray(s = buildState()) {
     check('Share Screen', sharing, (i) => pcScreen.setMode(i.checked ? 'mirror' : 'off')),
     check('Receive Screen', settings.monitor.autoOpen, (i) => set('monitor', { autoOpen: i.checked }, () => { if (i.checked && screen.state.state === 'on') screen.open(false); })),
     check('Use Mouse and Keyboard on ' + other, k.driveOther, (i) => set('kvm', { driveOther: i.checked }, () => kvm.applyConfig())),
-    check('Let ' + other + ' Control This PC', k.beDriven, (i) => set('kvm', { beDriven: i.checked }, () => kvm.applyConfig())),
+    check('Let ' + other + ' Control ' + device.name, k.beDriven, (i) => set('kvm', { beDriven: i.checked }, () => kvm.applyConfig())),
     check('Share Clipboard', settings.clipboard.enabled, (i) => set('clipboard', { enabled: i.checked }, () => clip.applySettings())),
     check('Send Sound', settings.audio.send, (i) => set('audio', { send: i.checked }, () => sound.apply())),
     { type: 'separator' },

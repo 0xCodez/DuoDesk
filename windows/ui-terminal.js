@@ -21,23 +21,21 @@ UI.tab({
     // PC → Mac (client here)
     const pill = el('span', { class: 'pill' });
     const openBtn = UI.button('Open Terminal', () => api.openTerminal(), 'small primary');
-    const status = UI.row('Shell on the Mac', '', [pill, openBtn]);
+    const status = UI.row('Shell on {name}', '', [pill, openBtn]);
     const pathBtn = UI.button('Add to PATH', () => api.addToPath(), 'small');
     const cmdRow = UI.row('Command', '', [pathBtn]);
     const pair = UI.dirCards(
-      { on: { get: (s) => s.terminal.allowMac, set: (v) => api.setTerminal({ allowMac: v }) }, rows: [
-        UI.row('Let the Mac open a terminal here', ''),
+      { on: { get: (s) => s.terminal.allowMac, set: (v) => api.setTerminal({ allowMac: v }) }, label: 'Let {name} open a terminal on {me}', rows: [
         srvRow,
         macRow,
       ] },
-      { on: { get: (s) => s.terminal.enabled, set: (v) => api.setTerminal({ enabled: v }) }, rows: [
-        UI.row('Open a terminal on the Mac', ''),
+      { on: { get: (s) => s.terminal.enabled, set: (v) => api.setTerminal({ enabled: v }) }, label: 'Open a terminal on {name} from {me}', rows: [
         status,
         cmdRow,
       ] },
     );
     body.append(pair.el);
-    const TEXT = { off: 'Off', no_mac: 'Waiting for the Mac', waiting: 'Asking the Mac…', ready: 'Ready', unavailable: 'Not available', error: 'Problem' };
+    const TEXT = { off: 'Off', no_mac: 'Waiting for {name}', waiting: 'Asking {name}…', ready: 'Ready', unavailable: 'Not available', error: 'Problem' };
     const SRV = { running: 'Running', stopped: 'Stopped', missing: 'Not installed', unknown: '' };
     return (s) => {
       const t = s.terminal;
@@ -48,13 +46,13 @@ UI.tab({
       setupBtn.hidden = v.service === 'running' || v.busy || !t.allowMac;
       srvRow.setHint(v.message || (v.service === 'running' ? '' : 'Asks for administrator rights once'));
       macRow.hidden = !t.allowMac;
-      macRow.label.textContent = v.info && v.info.enabled ? 'Ready' : v.macAsked ? 'Not ready yet' : 'Waiting for your Mac';
+      macRow.label.textContent = v.info && v.info.enabled ? 'Ready' : v.macAsked ? 'Not ready yet' : 'Waiting for {name}';
       macRow.setHint(v.macAsked && !(v.info && v.info.enabled) && v.service !== 'running' ? 'Set up the SSH server first' : '');
 
       pill.textContent = TEXT[t.status] || t.status;
       pill.className = 'pill ' + (t.status === 'ready' ? 'good' : t.status === 'unavailable' || t.status === 'error' ? 'bad' : 'muted');
       openBtn.disabled = t.status !== 'ready';
-      status.setHint(t.message || (t.status === 'ready' ? 'As ' + t.user : t.status === 'unavailable' ? 'Turn on Remote Login on the Mac' : ''));
+      status.setHint(t.message || (t.status === 'ready' ? 'As ' + t.user : t.status === 'unavailable' ? 'Turn on Remote Login on {name}' : ''));
       cmdRow.setHint(t.onPath ? 'Type macshare in a new terminal' : 'So macshare works in any terminal');
       pathBtn.hidden = t.onPath;
     };

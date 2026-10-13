@@ -142,10 +142,20 @@ input[type="text"]:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-sof
 .dir-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; align-items: start; }
 @media (max-width: 900px) { .dir-pair { grid-template-columns: 1fr; } }
 .dir-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
-.dir-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--row-line); font-weight: 600; }
-.dir-title { flex: 1; }
-.dir-head .me { color: var(--muted); font-weight: 400; }
-.dir-card.off > .row, .dir-card.soon-card > .row { opacity: 0.5; }
+.dir-head { display: flex; align-items: center; gap: 12px; padding: 13px 16px 12px; border-bottom: 1px solid var(--row-line); }
+/* Revision 7b: route head — device + name, a line ending in an arrowhead, the other device. */
+.route { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.route .node { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; font-weight: 600; }
+.route .node .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+.route .node .os-ico { flex: none; margin: 0 2px 3px; }
+.route .node.here .os-ico, .route .node.here .os-ico::after { border-color: var(--accent); }
+.route .node.here .os-ico.mac::after { background: var(--accent); }
+.route .node.here .nm { color: var(--accent); }
+.route .flow { flex: 1; min-width: 24px; height: 1.5px; position: relative; border-radius: 1px;
+  background: linear-gradient(90deg, transparent, var(--line) 30%, var(--muted)); }
+.route .flow::after { content: ""; position: absolute; right: -1px; top: -3.5px; width: 7px; height: 7px;
+  border-top: 1.5px solid var(--muted); border-right: 1.5px solid var(--muted); transform: rotate(45deg); }
+.dir-card.off > .row:not(.dir-main), .dir-card.soon-card > .row { opacity: 0.5; }
 .dir-card .row .hint { overflow-wrap: anywhere; }
 
 /* ---------- motion (docs/UI.md "Voice and motion"; same as the Mac app) ---------- */

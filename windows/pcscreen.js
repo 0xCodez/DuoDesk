@@ -4,6 +4,10 @@
 // time the app starts. We offer an `rtc2` session (kind `screen` / `screen+audio`) while sharing is
 // on and the Mac's `screen.policy` accepts (sender.js); `in.*` without `wid` from the Mac are
 // injected by the helper (remote-input.js).
+// Revision 7: `screen.policy` means "a viewer is open and watching" (any peer); nothing is captured
+// while it is false. A peer that never sends one (an older app) counts as watching, after a moment
+// for its first policy to arrive. We tell the viewer what we share (`screen.state`) and, when
+// "Let <peer> start and switch this screen" is on (pcScreen.remote), obey its `screen.ctl`.
 const { desktopCapturer, screen: displays } = require('electron');
 const P = require('../shared/protocol.js');
 const RemoteInput = require('./remote-input');
@@ -15,19 +19,33 @@ class PcScreen {
   constructor(opts) {
     Object.assign(this, opts);
     this.mode = 'off'; // 'off' | 'mirror' | 'extend' — never saved
-    this.mac = { accept: false, width: 0, height: 0 }; // the Mac's screen.policy
+    this.mac = { accept: false, width: 0, height: 0, told: false }; // the viewer's screen.policy (told: it sent one)
     this.sending = null; // {session, displayId, rect (physical px), key}
     this.status = { status: 'off', error: '', name: '', width: 0, height: 0 };
     this.input = new RemoteInput(opts);
     this.busy = false;
+    this.lastMode = 'mirror'; // what screen.ctl {share:true} starts (the last mode used)
+    this.stateKey = ''; // the last screen.state sent on this connection
 
     const link = this.link;
-    link.on('welcome', () => { this.mac.accept = false; this.apply(); });
-    link.on('closed', () => { this.mac.accept = false; this.apply(); });
+    link.on('welcome', () => {
+      this.mac = { accept: false, width: 0, height: 0, told: false };
+      this.stateKey = '';
+      clearTimeout(this.policyTimer);
+      this.policyTimer = setTimeout(() => { // never told: an older app, always watching
+        if (!this.mac.told) { this.mac.accept = true; this.apply(); }
+      }, 1500);
+      this.apply();
+    });
+    link.on('closed', () => { clearTimeout(this.policyTimer); this.mac.accept = false; this.stateKey = ''; this.apply(); });
+    link.on(T.SCREEN_CTL, (m) => this._onCtl(m));
     link.on(T.SCREEN_POLICY, (m) => {
       const n = (v) => (Number.isInteger(v) && v >= 320 && v <= 7680 ? v : 0);
       const size = this.mac.width + 'x' + this.mac.height;
-      this.mac = { accept: m.accept === true, width: n(m.width), height: n(m.height) };
+      // A viewer that only says accept keeps the size it told before (Windows viewers send no size).
+      const width = n(m.width) || (m.width === undefined ? this.mac.width : 0);
+      const height = n(m.height) || (m.height === undefined ? this.mac.height : 0);
+      this.mac = { accept: m.accept === true, width, height, told: true };
       if (this.mode === 'extend' && this.cfg.extendSize === 'mac' && size !== this.mac.width + 'x' + this.mac.height) this.sizeExtend();
       else this.apply();
     });
@@ -54,7 +72,9 @@ class PcScreen {
 
   async setMode(mode) {
     if (!['off', 'mirror', 'extend'].includes(mode) || this.busy) return;
+    if (mode === 'extend' && !this.vdd.state.installed) mode = 'mirror'; // no virtual display driver
     const was = this.mode;
+    if (mode !== 'off') this.lastMode = mode;
     this.mode = mode;
     this.status.error = '';
     this.onChange();
@@ -145,7 +165,8 @@ class PcScreen {
     if (!d) return this._stopSend(true);
     const rect = displays.dipToScreenRect(null, d.bounds);
     const [width, height] = this._streamSize(rect);
-    const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound].join(',');
+    const fps = PcScreen.fps(d);
+    const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound, this.cfg.priority, fps].join(',');
     if (this.sending && this.sending.key === key) return;
     const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
     const src = sources.find((s) => s.display_id === String(d.id));
@@ -154,10 +175,43 @@ class PcScreen {
       return this._stopSend(true);
     }
     this._stopSend(true);
-    const session = this.sender.start({ sourceId: src.id, width, height, mbps: this.cfg.mbps, audio: this.cfg.sound, offer: { kind: 'screen' } });
+    const session = this.sender.start({ sourceId: src.id, width, height, mbps: this.cfg.mbps, fps, priority: this.cfg.priority, audio: this.cfg.sound, offer: { kind: 'screen' } });
     this.sending = { session, displayId: d.id, rect, key };
     this.stats = null;
     Object.assign(this.status, { status: 'starting', error: '', name: d.label || src.name, width: rect.width, height: rect.height });
+  }
+
+  // What we offer the viewer: Extend only with the virtual display driver.
+  _modes() {
+    return this.vdd.state.installed ? ['extend', 'mirror'] : ['mirror'];
+  }
+
+  // screen.state after welcome and whenever any of it changes (called with every state push).
+  sendState() {
+    if (this.link.status.state !== 'connected') return void (this.stateKey = '');
+    const msg = { t: T.SCREEN_STATE, on: this.mode !== 'off', mode: this.mode, remote: this.cfg.remote, modes: this._modes() };
+    const key = JSON.stringify(msg);
+    if (key === this.stateKey) return;
+    this.stateKey = key;
+    this.link.send(msg);
+  }
+
+  // The viewer starts/stops our sharing or switches Extend/Mirror, if we let it.
+  _onCtl(m) {
+    if (!this.cfg.remote) {
+      this.stateKey = ''; // re-send: remote false
+      return this.onChange();
+    }
+    const mode = m.mode === 'extend' || m.mode === 'mirror' ? m.mode : null;
+    if (m.share === false) return this.setMode('off');
+    if (mode && (m.share === true || this.mode !== 'off')) return this.setMode(mode);
+    if (mode) { this.lastMode = mode; return this.onChange(); }
+    if (m.share === true && this.mode === 'off') return this.setMode(this.lastMode);
+  }
+
+  // Frames per second to send: the display's refresh rate (30–120), so motion is never decimated.
+  static fps(d) {
+    return Math.min(120, Math.max(30, Math.round((d && d.displayFrequency) || 60)));
   }
 
   _stopSend(tellMac) {

@@ -11,18 +11,20 @@ UI.tab({
   icon: 'bell',
   color: 'linear-gradient(#ff6961, #ff3b30)',
   desc: 'See one computer’s notifications on the other.',
+  // Revision 7b: one switch for the whole tab (both directions); each direction is shared with the
+  // other computer per pair (pair.sync), so flipping it there flips it here.
+  master: { get: (s) => s.notifs.send || s.notifs.receive, set: (v) => UI.api.setNotifs({ send: v, receive: v }) },
   badge: (s) => (s.notifs.send || s.notifs.receive ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
-    const recvRow = UI.row('Show them here', '');
     const hideSw = UI.switch((v) => api.setNotifs({ hideText: v }), { label: 'Hide message text' });
-    const sendRow = UI.row('Send this PC’s notifications', '');
     const hideRow = UI.row('Hide message text', 'Only the app and the title', [hideSw]);
     const note = UI.note('info', '');
     const pair = UI.dirCards(
-      { on: { get: (s) => s.notifs.receive, set: (v) => api.setNotifs({ receive: v }) }, rows: [recvRow] },
-      { on: { get: (s) => s.notifs.send, set: (v) => api.setNotifs({ send: v }) }, rows: [sendRow, hideRow] },
+      { on: { get: (s) => s.notifs.receive, set: (v) => api.setNotifs({ receive: v }) }, label: 'Show {name}’s notifications on {me}', rows: [] },
+      { on: { get: (s) => s.notifs.send, set: (v) => api.setNotifs({ send: v }) }, label: 'Show {me}’s notifications on {name}', rows: [hideRow] },
     );
+    const recvRow = pair.a.main, sendRow = pair.b.main;
     const apps = el('div');
 
     body.append(note, pair.el, UI.card('Apps', [apps]));
@@ -35,10 +37,9 @@ UI.tab({
       pair.update(s);
       note.set(p.os === 'linux' ? 'Not on Linux yet.' : '');
       hideSw.set(n.hideText);
-      recvRow.setHint(n.receive && n.shown ? n.shown + ' shown' : 'From ' + p.the + ', as notifications from MacShare');
+      recvRow.setHint(n.receive && n.shown ? n.shown + ' shown' : 'As Windows notifications, from MacShare');
       sendRow.setHint(n.readable === false ? 'Windows’ notification list can’t be read'
-        : !n.send || !connected ? 'To ' + p.the
-          : !n.peerAccepts ? 'Turned off on ' + p.the : n.sent ? n.sent + ' sent' : 'To ' + p.the);
+        : !n.send ? '' : !connected ? 'Also switches it on the other computer' : n.sent ? n.sent + ' sent' : 'As native notifications there');
 
       const k = JSON.stringify([n.apps.map((a) => a.app), n.muted]);
       if (k === key) return;

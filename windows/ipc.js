@@ -8,7 +8,7 @@ const { apply } = require('./settings');
 // ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, wake, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -51,7 +51,11 @@ function setupIpc(ctx) {
   handle('forget', () => link.forget());
   handle('respondPair', (allow) => link.respondPair(allow === true)); // host: Allow / Deny
   handle('forgetGuest', (id) => typeof id === 'string' && link.forgetGuest(id));
+  handle('wakePeer', (id) => typeof id === 'string' && wake.wake(id)); // revision 7
+  handle('setWake', (on) => wake.set(on === true)); // revision 7b: a switch
+  handle('checkWake', () => wake.check());
   handle('openMonitor', () => screen.open(false));
+  handle('remoteScreen', (arg) => arg && typeof arg === 'object' && screen.control({ share: arg.share, mode: arg.mode })); // revision 7: screen.ctl
 
   handle('setKvm', (partial) => {
     if (partial && typeof partial.linked === 'boolean') kvm.setLinked(partial.linked); // home first, tells the other side
@@ -102,7 +106,7 @@ function setupIpc(ctx) {
   handle('setShareOn', (on) => smb.setShareOn(on === true));
   handle('chooseShareFolder', async () => {
     const win = BrowserWindow.getFocusedWindow();
-    const r = await dialog.showOpenDialog(win, { title: 'Folder to share with the Mac', properties: ['openDirectory', 'createDirectory'] });
+    const r = await dialog.showOpenDialog(win, { title: 'Folder to share with the other computer', properties: ['openDirectory', 'createDirectory'] });
     if (!r.canceled && r.filePaths[0]) await smb.chooseFolder(r.filePaths[0]);
   });
   handle('removeShare', () => smb.unshare());
@@ -115,6 +119,7 @@ function setupIpc(ctx) {
     const size = settings.pcScreen.extendSize;
     change('pcScreen', partial, () => { pcScreen.applyInput(); if (!settings.pcScreen.input) pcApps.input.release(); if (settings.pcScreen.extendSize !== size) pcScreen.sizeExtend(); else pcScreen.apply(); });
   });
+  handle('setMacApps', (partial) => change('macApps', partial)); // revision 7b
   handle('setPcApps', (partial) => change('pcApps', partial, () => { pcApps.apply(); pcApps.input.release(); }));
   handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
   handle('installVdd', () => vdd.install());
@@ -123,6 +128,16 @@ function setupIpc(ctx) {
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));
+
+  // Revision 7b: pairsync.js applies a value the other computer changed, with the same side effects.
+  const AFTER = {
+    clipboard: () => clip.applySettings(),
+    notifs: () => notifs.applySettings(),
+    audio: () => sound.apply(),
+    kvm: () => kvm.applyConfig(),
+    pcApps: () => { pcApps.apply(); pcApps.input.release(); },
+  };
+  return { set: (section, partial) => change(section, partial, AFTER[section]) };
 }
 
 module.exports = setupIpc;

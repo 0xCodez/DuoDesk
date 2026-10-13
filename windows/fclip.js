@@ -148,7 +148,7 @@ class FileClip {
       dir = (await this.helper.request('frontFolder')).path || '';
     } catch (_) { /* Desktop */ }
     if (!dir || !fs.existsSync(dir)) dir = app.getPath('desktop');
-    this.fileRecv.expectBatch(inc.id, dir);
+    this.fileRecv.expectBatch(inc.id, dir, inc.bytes);
     this.pasting = { id: inc.id, files: inc.files };
     this.link.send({ t: T.FCLIP_PASTE, id: inc.id });
     this.popup('driven', 'Pasting ' + plural(inc.files, 'file') + '…');

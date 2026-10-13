@@ -2,9 +2,6 @@
 // Firewall self-check (phase 6): the network must be Private, an enabled inbound allow rule for
 // this electron.exe must cover it, and no block rule may apply. Fix adds the rule (and makes the
 // LAN Private) with one elevated PowerShell (one UAC prompt).
-// Portions adapted from Beamer (https://github.com/kalkman-code/beamer), Copyright (C) Kalkman Code,
-// GPL-3.0. Changed: JS port of win_app/firewall_win.py (status script + interpret), simplified to
-// one program rule and no ports.
 const { run: powershell, runElevated, q } = require('./ps');
 
 const statusScript = (exe) => `
@@ -27,7 +24,7 @@ const arr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 const profilesOf = (s) => (/any/i.test(s) || !s ? null : String(s).split(/,\s*/));
 const touches = (set, wanted) => set === null || wanted.some((w) => set.includes(w));
 
-// Same reading as Beamer's interpret(): a block rule on a connected profile wins over allows.
+// A block rule on a connected profile wins over allows.
 function interpret(payload) {
   const rules = arr(payload.rules).filter((r) => /true/i.test(r.enabled) && /^(any|udp)$/i.test(r.protocol || 'Any'));
   const nets = arr(payload.networks);
@@ -42,7 +39,7 @@ function interpret(payload) {
   const publicNets = lan.filter((n) => n.category === 'Public').map((n) => ({ index: n.index, alias: n.alias }));
   let message = 'OK';
   if (!lan.length) message = 'No network connection.';
-  else if (publicNets.length) message = 'The network "' + publicNets[0].alias + '" is Public, so Windows blocks the Mac’s broadcasts.';
+  else if (publicNets.length) message = 'The network "' + publicNets[0].alias + '" is Public, so Windows blocks {name}’s broadcasts.';
   else if (blocked) message = 'A Windows Firewall rule blocks MacShare.';
   else if (!covered) message = 'MacShare isn’t allowed through Windows Firewall on this network.';
   return { ok: lan.length > 0 && !publicNets.length && !blocked && covered, message, publicNets, blocked, covered };

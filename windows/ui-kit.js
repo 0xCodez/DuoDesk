@@ -126,9 +126,13 @@ const UI = {
   },
 
   // A row: label (+ hint) on the left, controls on the right. Returns the row with .hint/.label.
+  // Labels and hints may name the computers: {me} (this PC's name), {name} / {Name} (the other
+  // one's, or "the other computer"); app.js fills them in again whenever a name changes.
   row(label, hint, controls = [], { onClick } = {}) {
-    const lab = UI.el('span', { class: 'label', text: label });
-    const hintEl = UI.el('span', { class: 'hint', text: hint || '' });
+    const lab = UI.el('span', { class: 'label', text: UI.fill(label) });
+    if (String(label).includes('{')) lab.dataset.peer = label;
+    const hintEl = UI.el('span', { class: 'hint', text: UI.fill(hint || '') });
+    if (String(hint || '').includes('{')) hintEl.dataset.peer = hint;
     if (!hint) hintEl.hidden = true;
     const row = UI.el('div', { class: 'row' }, [
       UI.el('div', { class: 'text' }, [lab, hintEl]),
@@ -136,7 +140,12 @@ const UI = {
     ]);
     row.label = lab;
     row.hint = hintEl;
-    row.setHint = (t) => { hintEl.textContent = t || ''; hintEl.hidden = !t; };
+    row.setHint = (t) => {
+      if (String(t || '').includes('{')) hintEl.dataset.peer = t;
+      else delete hintEl.dataset.peer;
+      hintEl.textContent = UI.fill(t || '');
+      hintEl.hidden = !t;
+    };
     if (onClick) {
       row.classList.add('clickable');
       row.onclick = (e) => { if (!e.target.closest('input,button,select')) onClick(); };
@@ -146,7 +155,9 @@ const UI = {
 
   card(title, rows, { actions, cls = '' } = {}) {
     const wrap = UI.el('div', { class: 'card-wrap' });
-    if (title) wrap.append(UI.el('div', { class: 'card-title' }, [UI.el('span', { text: title }), actions ? UI.el('span', { class: 'actions' }, actions) : null]));
+    const tEl = title ? UI.el('span', { text: UI.fill(title) }) : null;
+    if (title && title.includes('{')) tEl.dataset.peer = title;
+    if (title) wrap.append(UI.el('div', { class: 'card-title' }, [tEl, actions ? UI.el('span', { class: 'actions' }, actions) : null]));
     const card = UI.el('div', { class: `card ${cls}`.trim() }, rows);
     wrap.append(card);
     wrap.card = card;
@@ -154,8 +165,8 @@ const UI = {
   },
 
   note(kind, text) {
-    const n = UI.el('div', { class: `note ${kind}`, text });
-    n.set = (t) => { n.textContent = t || ''; n.hidden = !t; };
+    const n = UI.el('div', { class: `note ${kind}`, text: UI.fill(text) });
+    n.set = (t) => { n.textContent = UI.fill(t || ''); n.hidden = !t; };
     return n;
   },
 
@@ -173,7 +184,7 @@ const UI = {
     return n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
   },
 
-  // Register a tab: { id, title, desc, color, phase?, bottom?, master?: {get(s), set(v)},
+  // Register a tab: { id, title, desc, color, phase?, bottom?, master?: {get(s), set(v), disabled?: bool | (s) => bool},
   //   badge?(s) -> 'on' | text | '', build(body, page) -> render(state) }
   tab(def) {
     UI.tabs.push(def);
@@ -242,18 +253,44 @@ const UI = {
     const os = p ? p.os : 'win';
     const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux' };
     const same = os === 'win';
-    const them = same ? 'PC2' : KIND[os];
-    const us = same ? 'PC1' : 'PC';
+    // Device names everywhere (docs/UI.md "Device names, not Mac / PC"): this PC by its own name,
+    // the other computer by its name (or "the other computer" before anything was paired).
+    const me = (s && s.device && s.device.name) || 'This PC';
+    const name = (p && p.name) || 'the other computer';
+    const Name = name.charAt(0).toUpperCase() + name.slice(1);
     return {
-      os, same, them, us,
+      os, same, me, name, Name,
       kind: KIND[os],
-      // In sentences: "the Mac" / "PC2".
-      the: same ? 'PC2' : 'the ' + KIND[os],
-      name: p ? p.name : 'PC2',
-      toMe: them + ' → ' + us,
-      fromMe: us + ' → ' + them,
+      them: name, us: me, the: name, there: name, There: Name, // older templates
+      toMe: name + ' → ' + me,
+      fromMe: me + ' → ' + name,
       limited: os !== 'mac' ? 'Only between a Mac and a PC for now' : '',
     };
+  },
+
+  // After a render: any {me} / {name} / … still in text or a title under root gets filled. A text
+  // node that is its element's only child keeps its template (data-peer), so a new name refills it.
+  fillTree(root) {
+    if (!root) return;
+    const re = /\{(me|name|Name|there|There)\}/;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    for (let n = w.nextNode(); n; n = w.nextNode()) if (re.test(n.nodeValue)) nodes.push(n);
+    for (const n of nodes) {
+      const el = n.parentElement;
+      if (el && el.childNodes.length === 1 && !el.dataset.peer) el.dataset.peer = n.nodeValue;
+      n.nodeValue = UI.fill(n.nodeValue);
+    }
+    for (const el of root.querySelectorAll('[title*="{"], [aria-label*="{"]')) {
+      for (const a of ['title', 'aria-label']) if (el.hasAttribute(a)) el.setAttribute(a, UI.fill(el.getAttribute(a)));
+    }
+  },
+
+  // A template with {me}, {name}, {Name}, … filled from the current state.
+  fill(t) {
+    if (!t || !String(t).includes('{')) return t || '';
+    const p = UI.peer(UI.state);
+    return String(t).replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
   },
 
   // Small computer glyph by OS (Revision 4 lists).
@@ -262,13 +299,32 @@ const UI = {
   },
 
   // Two equal direction cards (docs/UI.md "Tabs — equal places"), always Mac → PC then PC → Mac.
-  // Each def: { on?: {get(s), set(v), disabled?}, rows: [], soon?: 'phase N' }. Returns { el, update(s) }.
+  // Each def: { on?: {get(s), set(v), disabled?}, label?, hint?, rows: [], soon?: 'phase N' }.
+  // Revision 7b (as the Mac): the head is a route — device icon + real name, a line with an
+  // arrowhead, the other device; this PC's side tinted. The switch sits in the first row, whose
+  // label is a sentence with real names ({name} = the other computer, filled in by app.js).
+  // Returns { el, update(s) }; each card has .main (that first row, when there is a switch).
   dirCards(m2p, p2m) {
+    const node = (me) => {
+      const ico = UI.el('span', { class: 'os-ico ' + (me ? 'pc' : 'mac') });
+      if (!me) ico.dataset.os = 'peer';
+      const nm = UI.el('span', { class: 'nm', text: UI.fill(me ? '{me}' : '{name}') });
+      nm.dataset.peer = me ? '{me}' : '{name}';
+      return UI.el('span', { class: 'node' + (me ? ' here' : '') }, [ico, nm]);
+    };
     const make = (dir, def) => {
-      const title = [UI.el('span', { text: dir === 'm2p' ? 'Mac → PC' : 'PC → Mac', attrs: { 'data-dir': dir } })]; // renamed by app.js per peer
-      const sw = def.on ? UI.switch((v) => def.on.set(v), { label: dir === 'm2p' ? 'Mac to PC' : 'PC to Mac', disabled: !!def.on.disabled || !!def.soon }) : null;
-      const head = UI.el('div', { class: 'dir-head' }, [UI.el('div', { class: 'dir-title' }, title), def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null, sw ? sw.el : null]);
-      const card = UI.el('div', { class: 'dir-card' + (def.soon ? ' soon-card' : '') }, [head].concat(def.rows || []));
+      const toMe = dir === 'm2p';
+      const route = UI.el('span', { class: 'route', attrs: { role: 'img' } }, [node(!toMe), UI.el('span', { class: 'flow' }), node(toMe)]);
+      const head = UI.el('div', { class: 'dir-head' }, [route, def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null]);
+      let sw = null, main = null;
+      if (def.on) {
+        const label = def.label || (toMe ? '{name} on {me}' : '{me} on {name}');
+        sw = UI.switch((v) => def.on.set(v), { label: UI.fill(label), disabled: !!def.on.disabled || !!def.soon });
+        main = UI.row(label, def.hint || '', [sw.el]);
+        main.classList.add('dir-main');
+      }
+      const card = UI.el('div', { class: 'dir-card' + (def.soon ? ' soon-card' : '') }, [head].concat(main ? [main] : [], def.rows || []));
+      card.main = main;
       card.update = (s) => {
         if (!sw) return;
         const on = !def.soon && !!def.on.get(s);
@@ -278,7 +334,7 @@ const UI = {
       return card;
     };
     const a = make('m2p', m2p), b = make('p2m', p2m);
-    return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), update: (s) => { a.update(s); b.update(s); } };
+    return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), a, b, update: (s) => { a.update(s); b.update(s); } };
   },
 
   // "Control+Alt+C" → "Ctrl+Alt+C" (Electron accelerator → how Windows writes it).
@@ -334,7 +390,7 @@ const UI = {
     row.update = (s) => {
       const k = s.kvmState;
       const p = UI.peer(s);
-      const WHERE = { home: 'On this PC', driving: 'On ' + p.the, driven: p.them + ' is using this PC' };
+      const WHERE = { home: 'On ' + p.me, driving: 'On ' + p.name, driven: p.Name + ' is using ' + p.me };
       pill.textContent = k.linked === false ? 'Sharing off' : WHERE[k.mode] || WHERE.home;
       pill.className = 'pill ' + (k.linked === false ? 'bad' : k.mode === 'home' ? 'muted' : 'good');
       row.setHint(k.helper && k.helper !== 'starting' ? k.helper

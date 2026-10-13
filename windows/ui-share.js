@@ -8,10 +8,10 @@ UI.tab({
   group: 'Display',
   order: 11,
   title: 'Share screen',
-  heading: 'This PC’s screen on the Mac',
+  heading: '{me}’s screen on {name}',
   icon: 'display',
   color: 'linear-gradient(#5ac8fa, #0a84ff)',
-  desc: 'See this PC in a window on the other computer.',
+  desc: 'See {me} in a window on the other computer.',
   master: { get: (s) => s.pcScreen.mode !== 'off', set: (v) => UI.api.setPcScreenMode(v ? 'mirror' : 'off') },
   badge: (s) => (s.pcScreen.status === 'live' ? 'on' : ''),
   build(body) {
@@ -40,9 +40,16 @@ UI.tab({
       { value: 30, label: 'High, 30 Mbps' },
       { value: 50, label: 'Best, 50 Mbps (wired)' },
     ], (v) => set({ mbps: Number(v) }));
+    const priority = UI.segmented([
+      { value: 'smooth', label: 'Smoothness' },
+      { value: 'sharp', label: 'Sharpness' },
+    ], (v) => set({ priority: v }));
+    const priorityRow = UI.row('Priority', '', [priority]);
     const sound = UI.switch((v) => set({ sound: v }), { label: 'Include sound' });
     const input = UI.switch((v) => set({ input: v }), { label: 'Receive input' });
     const inputRow = UI.row('Receive input', '', [input]); // "Receive input from Mac" / "from PC2"
+    const remote = UI.switch((v) => set({ remote: v }), { label: 'Remote start' });
+    const remoteRow = UI.row('Let the other computer start and switch this screen', '', [remote]); // revision 7: screen.ctl
 
     const monitorRow = UI.row('Display', '', [monitor]);
     const extendRow = UI.row('Size', '', [extendSize]);
@@ -55,8 +62,9 @@ UI.tab({
 
     body.append(
       UI.card('Screen', [UI.row('Mode', '', [mode]), monitorRow, extendRow]),
-      UI.card('Picture', [UI.row('Resolution', '', [streamSize]), UI.row('Quality', '', [quality])]),
+      UI.card('Picture', [UI.row('Resolution', '', [streamSize]), UI.row('Quality', '', [quality]), priorityRow]),
       UI.card('Sound and control', [UI.row('Include sound', '', [sound]), inputRow], { cls: 'keep-on' }),
+      UI.card('Remote', [remoteRow], { cls: 'keep-on' }),
       details,
       UI.card('', [driver, note], { cls: 'keep-on' }),
     );
@@ -75,8 +83,11 @@ UI.tab({
       extendRow.setHint(p.extendSize === 'mac' ? p.extendPx[0] + ' × ' + p.extendPx[1] : '');
       streamSize.set(p.maxHeight);
       quality.set(p.mbps);
+      priority.set(p.priority);
+      priorityRow.setHint(p.priority === 'sharp' ? 'Text stays crisp; motion may drop frames on a busy network.' : 'Every frame arrives; detail softens a little on a busy network.');
       sound.set(p.sound);
       input.set(p.input);
+      remote.set(p.remote);
 
       const on = p.mode !== 'off';
       const st = p.status === 'live' && p.stats;
@@ -84,7 +95,7 @@ UI.tab({
       const mon = p.monitors.find((m) => m.id === p.monitor) || p.monitors.find((m) => /\(main\)$/.test(m.label)) || p.monitors[0];
       details.set({
         Status: (!on ? 'Off' : p.busy ? 'Starting the extra screen…' : p.status === 'live' ? 'On ' + who
-          : !connected ? 'Waiting for ' + who : !p.mac.accept ? 'Turned off on ' + who : 'Connecting…') + (p.error ? ': ' + p.error : ''),
+          : !connected ? 'Waiting for ' + who : !p.mac.accept ? 'Ready, starts when ' + who + ' opens it' : 'Connecting…') + (p.error ? ': ' + p.error : ''),
         Display: !on ? '' : p.mode === 'extend' ? `MacShare virtual display, ${p.extendPx[0]} × ${p.extendPx[1]}` : mon ? mon.label : '',
         Picture: st ? `${st.width} × ${st.height}, ${st.fps} fps` : '',
         Speed: st ? `${st.mbps} Mbps sent` + (st.targetMbps ? `, network allows ${st.targetMbps}` : '') : '',
@@ -101,6 +112,8 @@ UI.tab({
       removeBtn.disabled = !!v.busy || p.mode === 'extend';
       driver.setHint(v.busy === 'remove' ? 'Removing…' : v.busy === 'install' ? 'Installing…' : v.installed ? 'Installed. Adds the extra screen for Extend.' : 'Adds an extra screen for Extend. Installs a display driver and asks for administrator rights once.');
       inputRow.label.textContent = 'Receive input from ' + UI.peer(s).them;
+      remoteRow.label.textContent = 'Let ' + UI.peer(s).the + ' start and switch this screen';
+      remoteRow.setHint(p.remote ? 'Opening the screen window there starts sharing; Extend and Mirror can be switched from there.' : '');
       note.set(v.message);
     };
   },

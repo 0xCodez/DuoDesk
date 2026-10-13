@@ -19,13 +19,13 @@ UI.tab({
     const switchSw = UI.switch((v) => api.setKvm({ hotkeySwitch: v }), { label: 'Switch the keyboard with the hotkey' });
     const switchRow = UI.row('Switch the keyboard with the hotkey', '', [switchSw]);
     const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Command' });
-    const otherHotkey = UI.row('Hotkey on the Mac', '');
+    const otherHotkey = UI.row('Hotkey on {name}', '');
     const swapRow = UI.row('⌘ works as Ctrl', 'So ⌘C copies here', [swap]);
-    const shortcutsRow = UI.row('Shortcuts on the Mac', 'Ctrl works as ⌘, so Ctrl+C copies there');
+    const shortcutsRow = UI.row('Shortcuts on {name}', 'Ctrl works as ⌘, so Ctrl+C copies there');
     const status = UI.inputStatus();
     const pair = UI.dirCards(
-      { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, rows: [otherHotkey, swapRow] },
-      { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, rows: [shortcutsRow] },
+      { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, label: 'Type on {me} with {name}’s keyboard', rows: [otherHotkey, swapRow] },
+      { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, label: 'Type on {name} with {me}’s keyboard', rows: [shortcutsRow] },
     );
 
     body.append(

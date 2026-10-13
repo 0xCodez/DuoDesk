@@ -2,8 +2,6 @@
 // SendInput injection of k.* events (docs/KVM.md "Scaling, keys and scroll"). Every input carries
 // dwExtraInfo = MARK so our own capture/edge code skips it. Held keys/buttons are tracked for
 // releaseAll.
-// Portions adapted from Beamer (https://github.com/kalkman-code/beamer), Copyright (C) Kalkman Code,
-// GPL-3.0. Changed: C# port of the SendInput absolute-move and scan-code key approach.
 using System;
 using System.Collections.Generic;
 using System.Drawing;

@@ -15,8 +15,8 @@ const SSH_DIR = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', '
 const SSH = path.join(SSH_DIR, 'ssh.exe');
 const KEYGEN = path.join(SSH_DIR, 'ssh-keygen.exe');
 const WHY = {
-  remote_login_off: 'Remote Login is off on the Mac (System Settings → General → Sharing).',
-  not_allowed: 'The Mac doesn’t allow shells from this PC (its Terminal tab).',
+  remote_login_off: 'Remote Login is off on {name} (System Settings → General → Sharing).',
+  not_allowed: '{Name} doesn’t allow shells from {me} (its Terminal tab).',
 };
 
 class Terminal {
@@ -76,11 +76,11 @@ class Terminal {
   _onInfo(m) {
     if (!this.cfg.enabled) return;
     this.info = m;
-    if (!m.enabled) return this._set('unavailable', WHY[m.why] || 'The Mac can’t open a shell right now.');
+    if (!m.enabled) return this._set('unavailable', WHY[m.why] || '{Name} can’t open a shell right now.');
     const keys = (Array.isArray(m.hostKeys) ? m.hostKeys : [])
       .map((k) => String(k).trim().split(/\s+/).slice(0, 2).join(' '))
       .filter((k) => /^(ssh|ecdsa)-\S+ [A-Za-z0-9+/=]+$/.test(k));
-    if (!keys.length || typeof m.user !== 'string' || !/^[\w.-]+$/.test(m.user)) return this._set('error', 'The Mac sent no usable host key or user name.');
+    if (!keys.length || typeof m.user !== 'string' || !/^[\w.-]+$/.test(m.user)) return this._set('error', '{Name} sent no usable host key or user name.');
     fs.mkdirSync(this.dir, { recursive: true });
     fs.writeFileSync(this.knownHosts, keys.map((k) => 'macshare ' + k).join('\n') + '\n');
     this._writeCommand();

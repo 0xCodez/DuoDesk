@@ -70,7 +70,7 @@ class Sshd {
         this.save();
         this.message = '';
       } catch (e) {
-        this.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined' : 'Couldn’t add the Mac’s key: ' + e.message;
+        this.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined' : 'Couldn’t add {name}’s key: ' + e.message;
         return this._info(false, 'not_allowed');
       }
     }
@@ -114,7 +114,7 @@ icacls $f /inheritance:r /grant 'Administrators:F' /grant 'SYSTEM:F' | Out-Null
       this.cfg.installedKey = '';
       this.save();
     } catch (e) {
-      this.message = 'The Mac’s key is still installed: ' + e.message;
+      this.message = '{Name}’s key is still installed: ' + e.message;
     }
     this.onChange();
   }
