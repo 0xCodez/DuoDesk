@@ -22,6 +22,8 @@ UI.tab({
 
     const speed = UI.slider({ min: 0.25, max: 3, step: 0.05, format: (v) => v.toFixed(2) + '×' }, (v) => set({ speed: v }));
     const reverse = UI.switch((v) => set({ reverseScroll: v }), { label: 'Reverse scrolling' });
+    const gestures = UI.switch((v) => set({ gestures: v }), { label: 'Trackpad gestures' }); // revision 8
+    const gestureRow = UI.row('Trackpad gestures', 'Pinch to zoom, swipe between desktops, Task View / Mission Control, back and forward — done the native way on {name}. The same on both', [gestures]);
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => (v ? v + ' px' : 'None') }, (v) => set({ resistancePx: v }));
     const pair = UI.dirCards(
       { on: { get: (s) => s.kvm.beDriven, set: (v) => set({ beDriven: v }) }, label: 'Use {name}’s mouse and keyboard on {me}', hint: 'Push the pointer past the edge there', rows: [
@@ -47,6 +49,7 @@ UI.tab({
 
     body.append(
       pair.el,
+      UI.card('Feel', [gestureRow]),
       UI.card('Right now', [status], { cls: 'keep-on' }),
       el('div', { class: 'card-title', text: 'Where the other computer is' }),
       el('div', { class: 'card layout' }, [grid, layoutHint]),
@@ -58,6 +61,7 @@ UI.tab({
       status.update(s);
       speed.set(k.speed);
       reverse.set(k.reverseScroll);
+      gestures.set(k.gestures !== false);
       resistance.set(k.resistancePx);
       const p = UI.peer(s);
       const side = k.pcSide ? MAC_SIDE[k.pcSide] : null;

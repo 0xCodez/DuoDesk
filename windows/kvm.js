@@ -46,6 +46,7 @@ class Kvm {
       this._setMode('home', '');
     });
     for (const t of K_TYPES) link.on(t, (m) => this._inject(m));
+    link.on(T.K_GESTURE, (m) => this._onGesture(m)); // revision 8: trackpad gestures
     link.on('welcome', () => {
       this.peerDrags = true;
       this.sentDragPolicy = undefined;
@@ -123,6 +124,7 @@ class Kvm {
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
       dragFiles: this._dragsOut(), // the edge strip that picks up file drags
+      gestures: k.gestures !== false, // revision 8: touchpad gestures go over as k.ge while capturing
     });
     // Our switch, for the Mac (it doesn't pick up drags towards us while it's off).
     const accept = !!this.settings.files.edgeDrag;
@@ -221,7 +223,7 @@ class Kvm {
         if (this.mode === 'driven') this._sendHome(msg.offset);
         break;
       case 'ev':
-        if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) {
+        if (this.mode === 'driving' && msg.ev && (K_TYPES.has(msg.ev.t) || (msg.ev.t === T.K_GESTURE && this.cfg.gestures !== false))) {
           if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there (revision 6)
           this.link.send(msg.ev);
           if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released on the Mac
@@ -315,6 +317,46 @@ class Kvm {
     this.helper.send('inject', { ev });
     // The Mac released its left button here: its drag drops where the pointer is.
     if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) { this.fileRecv.onRelease(); if (this.dragRecv) this.dragRecv.onRelease(); }
+  }
+
+  // Revision 8 (docs/ROADMAP.md "Revision 8"): a trackpad gesture from the other computer, done the
+  // Windows way. There is no virtual precision touchpad we could feed (WINDOWS.md 25), so each one is
+  // its Windows shortcut; the Mac's system swipes (`dock`) act once, at their end, on what they meant.
+  _onGesture(m) {
+    if (this.mode !== 'driven' || this.cfg.gestures === false || !m || typeof m.g !== 'string') return;
+    if (m.g === 'dock') {
+      if (m.phase === 'end' && typeof m.mean === 'string' && m.mean !== 'dock') this._onGesture({ g: m.mean });
+      return;
+    }
+    const inj = (ev) => this.helper.send('inject', { ev });
+    const combo = (...codes) => { // Windows codes as they are: no Ctrl/Cmd swap for these
+      for (const code of codes) inj({ t: T.K_KEY_DOWN, code });
+      for (const code of codes.slice().reverse()) inj({ t: T.K_KEY_UP, code });
+    };
+    const click = (b) => { inj({ t: T.K_DOWN, b }); inj({ t: T.K_UP, b }); };
+    switch (m.g) {
+      case 'zoom': { // pinch: Ctrl + one wheel notch for every 0.15 of magnification
+        if (m.phase === 'begin') this.zoomAcc = 0;
+        this.zoomAcc = (this.zoomAcc || 0) + (Number.isFinite(m.v) ? m.v : 0);
+        let notches = 0;
+        while (this.zoomAcc >= 0.15) { notches--; this.zoomAcc -= 0.15; } // wheel up = zoom in
+        while (this.zoomAcc <= -0.15) { notches++; this.zoomAcc += 0.15; }
+        if (!notches) break;
+        inj({ t: T.K_KEY_DOWN, code: 'ControlLeft' });
+        inj({ t: T.K_WHEEL, dx: 0, dy: notches, mode: 'line' });
+        inj({ t: T.K_KEY_UP, code: 'ControlLeft' });
+        break;
+      }
+      case 'smartZoom': combo('ControlLeft', 'Digit0'); break;
+      case 'back': click(P.BUTTON.BACK); break;
+      case 'forward': click(P.BUTTON.FORWARD); break;
+      case 'overview': combo('MetaLeft', 'Tab'); break; // Task View
+      case 'appWindows': case 'desktop': combo('MetaLeft', 'KeyD'); break; // 4 fingers down on Windows: show desktop (human)
+      case 'spaceLeft': combo('ControlLeft', 'MetaLeft', 'ArrowLeft'); break;
+      case 'spaceRight': combo('ControlLeft', 'MetaLeft', 'ArrowRight'); break;
+      case 'launcher': combo('MetaLeft'); break; // Start
+      default: break; // rotate: no Windows-wide meaning
+    }
   }
 
   // Row 8c: we send the input home (return edge or hotkey).

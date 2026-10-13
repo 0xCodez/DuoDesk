@@ -45,6 +45,7 @@ function normalize(s) {
       // revision 7: the last `linked` per paired device id, restored on connect
       linkedBy: kvm.linkedBy && typeof kvm.linkedBy === 'object'
         ? Object.fromEntries(Object.entries(kvm.linkedBy).filter(([, v]) => typeof v === 'boolean').slice(0, 50)) : {},
+      gestures: bool(kvm.gestures, true), // revision 8: trackpad gestures work on the other computer (pair.sync 'gestures')
       hotkeySwitch: bool(kvm.hotkeySwitch, false), // keyboard only (Cursor off): double-tap moves the keyboard over and back
     },
     // hotkey: double-tap = mouse and keyboard home (docs/KVM.md "Hotkey (revision 4)")
@@ -127,7 +128,11 @@ function pairSync(v) {
     if (!feats || typeof feats !== 'object') continue;
     out[id] = {};
     for (const [f, d] of Object.entries(feats).slice(0, 10)) {
-      if (f === 'values') out[id].values = d && ['fast', 'smooth'].includes(d.pace) ? { pace: d.pace } : {};
+      if (f === 'values') {
+        out[id].values = {};
+        if (d && ['fast', 'smooth'].includes(d.pace)) out[id].values.pace = d.pace;
+        if (d && typeof d.gestures === 'boolean') out[id].values.gestures = d.gestures;
+      }
       else if (d && typeof d === 'object') out[id][f] = { out: d.out === true, in: d.in === true };
     }
   }

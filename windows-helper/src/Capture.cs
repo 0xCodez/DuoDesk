@@ -20,6 +20,9 @@ namespace MacShare
         public bool EdgeKeyboard = true; // an edge crossing also captures the keyboard
         public bool DragFiles = true; // file drags at the edge go to the Mac (drag.policy + the Files switches)
         public int DeadmanMs = 1500, DoubleTapMs = 400;
+        public bool Gestures = true; // revision 8: touchpad gestures go over as k.ge (Touchpad.cs)
+        Touchpad pad;
+        readonly HashSet<uint> padCtrl = new HashSet<uint>(); // Ctrl that Windows made from a pinch, swallowed
 
         // capture state
         bool capturing, capMouse, capKeys;
@@ -57,7 +60,12 @@ namespace MacShare
             mouseProc = MouseHook;
             keyProc = KeyHook;
             Hook();
-            raw = new RawWindow(OnRawMove);
+            pad = new Touchpad(OnGesture);
+            raw = new RawWindow(OnRawMove, (buf, header) =>
+            {
+                pad.Active = capturing && capMouse && Gestures;
+                pad.OnRaw(buf, header);
+            });
             timer.Interval = 100;
             timer.Tick += delegate { Tick(); };
             timer.Start();
@@ -115,6 +123,17 @@ namespace MacShare
             Dictionary<string, object> d = new Dictionary<string, object>();
             d["t"] = t;
             return d;
+        }
+
+        // A touchpad gesture recognised while capturing: over it goes, by meaning.
+        void OnGesture(string g, string phase, double v)
+        {
+            if (!capturing || !capMouse || !Gestures) return;
+            Dictionary<string, object> k = K("k.ge");
+            k["g"] = g;
+            if (phase != null) k["phase"] = phase;
+            if (g == "zoom") k["v"] = v;
+            Forward(k);
         }
 
         // ---- capture on/off ----
@@ -220,6 +239,10 @@ namespace MacShare
                 k["b"] = button;
                 Forward(k);
             }
+            else if ((msg == Native.WM_MOUSEWHEEL || msg == Native.WM_MOUSEHWHEEL) && pad != null && (pad.Pinching || pad.Fingers >= 3))
+            {
+                // Windows' own wheel from a pinch or a three/four-finger swipe: the gesture goes as k.ge.
+            }
             else if (msg == Native.WM_MOUSEWHEEL || msg == Native.WM_MOUSEHWHEEL)
             {
                 double notches = (short)((m.mouseData >> 16) & 0xFFFF) / 120.0;
@@ -262,6 +285,10 @@ namespace MacShare
             bool hotkey = !fakeCtrl && DetectHotkey(k.vkCode, down);
 
             if (!down && swallowVks.Remove(k.vkCode)) return (IntPtr)1;
+            // Revision 8: the Ctrl Windows injects for a touchpad pinch (Ctrl+wheel) stays here.
+            bool ctrl = k.vkCode == 0xA2 || k.vkCode == 0xA3 || k.vkCode == 0x11;
+            if (ctrl && !down && padCtrl.Remove(k.vkCode)) return (IntPtr)1;
+            if (ctrl && down && capturing && (k.flags & Native.LLKHF_INJECTED) != 0 && pad != null && pad.Pinching) { padCtrl.Add(k.vkCode); return (IntPtr)1; }
 
             bool isHk = HotkeyVks.Contains(k.vkCode);
             if (capturing && capKeys)
@@ -391,23 +418,31 @@ namespace MacShare
             emit(d);
         }
 
-        // Message-only window that receives WM_INPUT for the mouse (usage page 1, usage 2).
+        // Message-only window that receives WM_INPUT for the mouse (usage page 1, usage 2) and, since
+        // revision 8, the precision touchpad (digitizer page 0x0D, usage 5) for Touchpad.cs.
         class RawWindow : NativeWindow
         {
             readonly Action<int, int> onMove;
+            readonly Action<IntPtr, int> onTouchpad;
 
-            public RawWindow(Action<int, int> onMove)
+            public RawWindow(Action<int, int> onMove, Action<IntPtr, int> onTouchpad)
             {
                 this.onMove = onMove;
+                this.onTouchpad = onTouchpad;
                 CreateParams cp = new CreateParams();
                 cp.Parent = new IntPtr(-3); // HWND_MESSAGE
                 CreateHandle(cp);
-                Native.RAWINPUTDEVICE[] d = new Native.RAWINPUTDEVICE[1];
+                Native.RAWINPUTDEVICE[] d = new Native.RAWINPUTDEVICE[2];
                 d[0].usUsagePage = 1;
                 d[0].usUsage = 2;
                 d[0].dwFlags = Native.RIDEV_INPUTSINK;
                 d[0].hwndTarget = Handle;
-                Native.RegisterRawInputDevices(d, 1, (uint)Marshal.SizeOf(typeof(Native.RAWINPUTDEVICE)));
+                d[1].usUsagePage = 0x0D;
+                d[1].usUsage = 0x05;
+                d[1].dwFlags = Native.RIDEV_INPUTSINK;
+                d[1].hwndTarget = Handle;
+                if (!Native.RegisterRawInputDevices(d, 2, (uint)Marshal.SizeOf(typeof(Native.RAWINPUTDEVICE))))
+                    Native.RegisterRawInputDevices(d, 1, (uint)Marshal.SizeOf(typeof(Native.RAWINPUTDEVICE))); // the mouse at least
             }
 
             protected override void WndProc(ref Message m)
@@ -421,12 +456,14 @@ namespace MacShare
                 const uint header = 24; // RAWINPUTHEADER on x64
                 uint size = 0;
                 Native.GetRawInputData(hRaw, Native.RID_INPUT, IntPtr.Zero, ref size, header);
-                if (size < header + 24) return;
+                if (size < header + 8) return; // the smallest HID packet; a mouse one is checked below
                 IntPtr buf = Marshal.AllocHGlobal((int)size);
                 try
                 {
                     if (Native.GetRawInputData(hRaw, Native.RID_INPUT, buf, ref size, header) == uint.MaxValue) return;
-                    if (Marshal.ReadInt32(buf, 0) != 0) return; // RIM_TYPEMOUSE
+                    int type = Marshal.ReadInt32(buf, 0);
+                    if (type == 2) { onTouchpad(buf, (int)header); return; } // RIM_TYPEHID: the touchpad
+                    if (type != 0 || size < header + 24) return; // RIM_TYPEMOUSE, a whole RAWMOUSE
                     int rm = (int)header;
                     ushort flags = (ushort)Marshal.ReadInt16(buf, rm);
                     int lx = Marshal.ReadInt32(buf, rm + 12), ly = Marshal.ReadInt32(buf, rm + 16);

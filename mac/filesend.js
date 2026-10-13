@@ -145,7 +145,7 @@ class FileSend extends EventEmitter {
       const id = crypto.randomUUID();
       const name = f.rel.slice(f.rel.lastIndexOf('/') + 1);
       this.outgoing.set(id, { id, name, size: f.size, path: f.path, sent: 0, state: 'offered', batch });
-      this.server.sendToClient({ t: P.T.FILE_OFFER, id, name, size: f.size, drop: kind, batch, rel: f.rel, index, count: plan.files });
+      this.server.sendToClient({ t: P.T.FILE_OFFER, id, name, size: f.size, drop: kind, batch, rel: f.rel, index, count: plan.files, bytes: plan.bytes }); // bytes: batch total, for the receiver's progress
     });
     this.emit('change');
     return { batch, files: plan.files, bytes: plan.bytes, name: this.batches.get(batch).name };

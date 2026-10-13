@@ -297,7 +297,7 @@ final class Capture {
         out["exit"] = e.getDoubleValueField(Capture.fExit)
         if ProcessInfo.processInfo.environment["MACSHARE_DEBUG_GESTURES"] != nil { log("dock swipe motion \(m) progress \(p)") }
         if abs(p) > 0.1 {
-          out["mean"] = m == 1 ? (p < 0 ? "spaceRight" : "spaceLeft") // fingers left: the desktop on the right
+          out["mean"] = m == 1 ? (p < 0 ? "spaceLeft" : "spaceRight") // sign swapped 2026-10-13: the human saw the PC go the wrong way
             : m == 2 ? (p < 0 ? "overview" : "appWindows") // up: Mission Control; down: App Exposé
             : (p < 0 ? "launcher" : "desktop") // pinch in: Launchpad; spread: desktop
         }

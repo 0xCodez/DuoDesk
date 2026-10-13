@@ -24,6 +24,7 @@ const FEATURES = {
 // Revision 7c: shared values, the same on both computers (no direction): key → settings path + values.
 const VALUES = {
   pace: { path: ['monitor', 'pacing'], allowed: ['fast', 'smooth'] },
+  gestures: { path: ['kvm', 'gestures'], allowed: [true, false] }, // revision 8
 };
 
 class PairSync {
