@@ -15,15 +15,15 @@ UI.tab({
     const tilde = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
 
     // Mac -> PC
-        const shareSw = UI.switch((v) => api.setShareMac(v), { label: 'This Mac’s folder as a drive on the PC' });
+        const shareSw = UI.switch((v) => api.setShareMac(v), { label: 'Share a folder' });
     const chooseBtn = UI.button('Choose…', () => api.chooseShareFolder(), 'small');
-    const shareRow = UI.row('Share a folder with the PC', '', [chooseBtn, shareSw]);
+    const shareRow = UI.row('Share a folder with {name}', '', [chooseBtn, shareSw]);
     // PC -> Mac
-    const acceptSw = UI.switch((v) => api.setFiles({ acceptDrops: v }), { label: 'Accept files from the PC' });
-    const acceptRow = UI.row('Accept files from the PC', '', [acceptSw]);
-    const pcSw = UI.switch((v) => api.setSmb({ connectPc: v }), { label: 'The PC’s folder as a drive here' });
+    const acceptSw = UI.switch((v) => api.setFiles({ acceptDrops: v }), { label: 'Accept files' });
+    const acceptRow = UI.row('Accept files from {name}', '', [acceptSw]);
+    const pcSw = UI.switch((v) => api.setSmb({ connectPc: v }), { label: 'Connect the shared folder' });
     const openBtn = UI.button('Open', () => api.openPcShare(), 'small');
-    const pcRow = UI.row('Open the PC’s shared folder', '', [openBtn, pcSw]);
+    const pcRow = UI.row('Open {name}’s shared folder', '', [openBtn, pcSw]);
     // shared
     const dragSw = UI.switch((v) => api.setFiles({ dragEdge: v }), { label: 'Drag files across the screen edge' });
     const dragRow = UI.row('Drag files between computers', 'Drag through the screen edge and drop anywhere', [dragSw]);
@@ -81,7 +81,7 @@ UI.tab({
       const f = s.files;
       const m = s.smb;
       if (!f || !m) return;
-      const pc = s.client ? s.client.name : 'the PC';
+      const pc = UI.peer(s).name;
       // Send files
       canSend = !!s.client;
       zone.classList.toggle('off', !canSend);
@@ -129,7 +129,7 @@ UI.tab({
       key = k;
       list.replaceChildren(...(items.length
         ? items.map((r) => el('div', { class: 'hist-item' }, [
-          el('span', { class: `hist-dir ${r.dir}`, title: r.dir === 'out' ? 'Sent to the PC' : 'From the PC' }, [UI.icon(r.dir === 'out' ? 'up' : 'down')]),
+          el('span', { class: `hist-dir ${r.dir}`, title: UI.fill(r.dir === 'out' ? 'Sent to {name}' : 'From {name}') }, [UI.icon(r.dir === 'out' ? 'up' : 'down')]),
           el('div', { class: 'hist-text' }, [
             el('div', { class: 'hist-preview', text: r.name }),
             el('div', { class: 'hint', text: `${r.ok ? (r.dir === 'in' ? tilde(r.path) : r.where || pc) : `Failed: ${r.error}`} · ${UI.ago(r.at)}` }),

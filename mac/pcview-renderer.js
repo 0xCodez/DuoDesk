@@ -2,6 +2,10 @@
 // PC-screen viewer (phase 11): answers the PC's rtc2 offer (recvonly) and plays it at the lowest
 // latency (jitter buffer target 0, H.264 decoded by VideoToolbox); sends mouse input over the drawn
 // picture as in.* (normalized 0–1, phase 3 semantics). Keys are sent by main.
+// Revision 7: pacing 'smooth' (≈ one frame of buffer, even motion) or 'fast' (shown the moment it
+// is decoded); optional frame generation (shared/framegen.js) on a canvas over the video; a
+// toolbar at the top edge to switch the other computer's Extend/Mirror, frame generation, full
+// screen, and stop.
 'use strict';
 
 const P = window.MacShareProtocol;
@@ -21,6 +25,69 @@ let statsTimer = null;
 let last = null;
 const heldButtons = new Set();
 let lastPos = { x: 0.5, y: 0.5 };
+let pacing = 'smooth';
+let receivers = [];
+let fg = null; // FrameGen while frame generation is on
+const bar = document.getElementById('bar');
+const btn = (id) => document.getElementById(id);
+
+function applyPacing() {
+  for (const r of receivers) {
+    if (r.track.kind !== 'video') continue;
+    if ('jitterBufferTarget' in r) r.jitterBufferTarget = pacing === 'fast' ? 0 : 16;
+    if ('playoutDelayHint' in r) r.playoutDelayHint = pacing === 'fast' ? 0 : null;
+  }
+}
+
+function setFrameGen(on) {
+  btn('b-fg').classList.toggle('on', !!on);
+  if (on && !fg && window.FrameGen && 'requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    try {
+      fg = new window.FrameGen(video, document.getElementById('fg'));
+      fg.start();
+      document.body.classList.add('fg');
+    } catch (e) {
+      console.error('frame generation unavailable: ' + e.message);
+      fg = null;
+    }
+  } else if (!on && fg) {
+    fg.stop();
+    fg = null;
+    document.body.classList.remove('fg');
+  }
+}
+
+// Toolbar: the other computer's screen.state decides what it shows.
+let remote = null;
+function showRemote(r) {
+  remote = r;
+  bar.classList.toggle('hidden', !r);
+  if (!r) return;
+  const can = r.remote && r.on;
+  for (const m of ['extend', 'mirror']) {
+    const b = btn(`b-${m}`);
+    b.hidden = !(r.modes || []).includes(m);
+    b.disabled = !can;
+    b.classList.toggle('on', r.on && r.mode === m);
+  }
+  btn('b-stop').disabled = !can;
+  btn('b-stop').hidden = !r.on;
+}
+btn('b-extend').onclick = () => api.ctl({ mode: 'extend' });
+btn('b-mirror').onclick = () => api.ctl({ mode: 'mirror' });
+btn('b-stop').onclick = () => api.ctl({ share: false });
+btn('b-fg').onclick = () => api.ctl({ framegen: !btn('b-fg').classList.contains('on') });
+btn('b-full').onclick = () => api.ctl({ fullScreen: true });
+let barTimer = null;
+function pokeBar(y) {
+  if (y > 48 && !bar.matches(':hover')) return;
+  bar.classList.add('show');
+  clearTimeout(barTimer);
+  barTimer = setTimeout(() => !bar.matches(':hover') && bar.classList.remove('show'), 2000);
+}
+bar.addEventListener('mouseleave', () => pokeBar(0));
+// Clicks on the toolbar stay here (never sent to the other computer).
+for (const ev of ['mousedown', 'mouseup', 'wheel']) bar.addEventListener(ev, (e) => e.stopPropagation());
 
 function setOverlay(text) {
   overlay.textContent = text || '';
@@ -44,6 +111,9 @@ async function onOffer(m) {
   closePc();
   session = m.session;
   inputOn = m.input;
+  pacing = m.pacing === 'fast' ? 'fast' : 'smooth';
+  receivers = [];
+  setFrameGen(!!m.framegen);
   document.body.classList.toggle('input-off', !inputOn);
   video.muted = !m.audio;
   video.volume = Math.max(0, Math.min(1, Number(m.volume)));
@@ -53,8 +123,8 @@ async function onOffer(m) {
   setOverlay('Connecting…');
 
   my.ontrack = (e) => {
-    if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0;
-    if ('playoutDelayHint' in e.receiver) e.receiver.playoutDelayHint = 0;
+    receivers.push(e.receiver);
+    applyPacing();
     ms.addTrack(e.track);
     if (video.srcObject !== ms) video.srcObject = ms;
     video.play().catch(() => {});
@@ -85,7 +155,7 @@ async function onOffer(m) {
     statsTimer = setInterval(() => stats(my).catch(() => {}), 1000);
   } catch (e) {
     if (my === pc) {
-      setOverlay('Could not show the PC’s screen: ' + e.message);
+      setOverlay('Could not show the screen: ' + e.message);
       report('failed');
     }
   }
@@ -122,6 +192,9 @@ async function stats(my) {
     codec: codec ? codec.mimeType.replace('video/', '') : '',
     decoder: (inb.decoderImplementation || '') + (inb.powerEfficientDecoder ? ' (hw)' : ''),
     bufferMs: Math.round(per('jitterBufferDelay', 'jitterBufferEmittedCount')),
+    dropped: inb.framesDropped || 0,
+    freezes: inb.freezeCount || 0,
+    framegen: !!(fg && fg.active),
     decodeMs: Number(per('totalDecodeTime', 'framesDecoded').toFixed(1)),
   };
   last = { at: now, ...inb };
@@ -154,6 +227,8 @@ const send = (m) => inputOn && session !== null && api.send(m);
 
 // pointerrawupdate fires as soon as the OS delivers the move (not aligned to frames): lowest latency.
 function onMove(e) {
+  pokeBar(e.clientY);
+  if (e.target && bar.contains(e.target)) return;
   if (!inputOn) return;
   const p = norm(e, heldButtons.size > 0);
   if (!p) return;
@@ -216,6 +291,12 @@ api.on((m) => {
       document.body.classList.toggle('input-off', !inputOn);
       break;
     case 'volume': video.volume = Math.max(0, Math.min(1, Number(m.volume))); break;
+    case 'pacing':
+      pacing = m.pacing === 'fast' ? 'fast' : 'smooth';
+      applyPacing();
+      setFrameGen(!!m.framegen);
+      break;
+    case 'remote': showRemote(m); break;
   }
 });
 api.ready();

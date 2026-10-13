@@ -120,7 +120,7 @@
       $('pair-deny').textContent = 'Deny';
       $('pair-allow').hidden = false;
       $('pair-allow').disabled = !p.code || p.allowed;
-      const other = p.os === 'mac' ? 'the other Mac' : 'the PC';
+      const other = p.name;
       let hint = `Check that ${other} shows the same code.`;
       if (!p.code) hint = 'Waiting for the code…';
       else if (p.allowed && !p.confirmed) hint = `Allowed. Waiting for “Codes match” on ${other}…`;

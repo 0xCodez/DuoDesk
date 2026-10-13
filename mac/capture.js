@@ -63,30 +63,34 @@ async function audioTrack(me) {
   return dest.stream.getAudioTracks()[0];
 }
 
-async function getStream(sourceId, width, height) {
+async function getStream(sourceId, width, height, fps) {
   try {
     return await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: { ideal: 60, max: 60 }, width: { max: width }, height: { max: height } },
+      video: { frameRate: { ideal: fps, max: fps }, width: { max: width }, height: { max: height } },
       audio: false,
     });
   } catch (e) {
     console.warn('getDisplayMedia failed, falling back to getUserMedia:', e.message);
     return navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sourceId, maxFrameRate: 60, maxWidth: width, maxHeight: height } },
+      video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: sourceId, maxFrameRate: fps, maxWidth: width, maxHeight: height } },
     });
   }
 }
 
-async function start({ session, bitrateMbps, sourceId, width, height, audio }) {
+// priority 'smooth' (default): every frame matters more than the last bit of sharpness, so under
+// pressure the encoder lowers quality, never the frame rate (dropped frames are what feels jagged).
+// 'sharp': text stays crisp and the frame rate gives way instead (the old behaviour).
+async function start({ session, bitrateMbps, sourceId, width, height, audio, fps = 60, priority = 'smooth' }) {
   close();
   const me = { session, pendingIce: [], remoteSet: false, last: null };
   cur = me;
   try {
-    me.stream = await getStream(sourceId, width, height);
+    me.stream = await getStream(sourceId, width, height, fps);
     if (cur !== me) return me.stream.getTracks().forEach((t) => t.stop());
     const track = me.stream.getVideoTracks()[0];
-    track.contentHint = 'detail';
+    const smooth = priority !== 'sharp';
+    track.contentHint = smooth ? 'motion' : 'detail';
     track.onended = () => cur === me && api.state({ session, status: 'error: capture ended' });
 
     const pc = new RTCPeerConnection({ iceServers: [] });
@@ -117,9 +121,11 @@ async function start({ session, bitrateMbps, sourceId, width, height, audio }) {
     me.bitrateMbps = bitrateMbps;
     const p = tr.sender.getParameters();
     if (!p.encodings || !p.encodings.length) p.encodings = [{}];
-    p.encodings[0].maxBitrate = bitrateMbps * 1e6;
-    p.encodings[0].maxFramerate = 60;
-    p.degradationPreference = 'maintain-resolution';
+    Object.assign(p.encodings[0], {
+      maxBitrate: bitrateMbps * 1e6, maxFramerate: fps, scaleResolutionDownBy: 1,
+      priority: 'high', networkPriority: 'high', // DSCP: Wi-Fi puts it in the video queue
+    });
+    p.degradationPreference = smooth ? 'maintain-framerate' : 'maintain-resolution';
     await tr.sender.setParameters(p);
     if (cur !== me) return;
     api.send({ t: P.T.RTC_OFFER, session, sdp: pc.localDescription.sdp });

@@ -10,32 +10,33 @@ UI.tab({
   title: 'Cursor',
   desc: 'Move the pointer off the edge of the screen to go to the other computer.',
   color: 'linear-gradient(#ffb340, #ff9500)',
-  master: { get: (s) => s.kvm && s.kvm.mouse, set: (v) => UI.api.setKvm({ mouse: v }) },
-  badge: (s) => (s.kvm && s.kvm.mouse ? 'on' : ''),
+  // One switch (revision 7): cursor sharing, the same one the hotkey's double-tap and the other
+  // computer flip (kvm.link keeps both in step).
+  master: { get: (s) => !!(s.kvm && s.kvm.mouse && s.kvm.linked !== false), set: (v) => UI.api.setKvm(v ? { mouse: true, linked: true } : { linked: false }) },
+  badge: (s) => (s.kvm && s.kvm.mouse && s.kvm.linked !== false ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
     const status = UI.note('info', '');
 
     // Layout picker: the Mac in the middle, a slot on each side for the PC.
     const slots = {};
+    let meLabel = null;
     const grid = el('div', { class: 'layout-grid' });
     const cell = (side) => {
-      const b = el('button', { class: 'slot', title: `PC ${side === 'top' ? 'above' : side === 'bottom' ? 'below' : `on the ${side}`}`, attrs: { 'aria-label': `PC is ${side}` } });
+      const b = el('button', { class: 'slot', title: `Put it ${side === 'top' ? 'above' : side === 'bottom' ? 'below' : `on the ${side}`}`, attrs: { 'aria-label': `Other computer ${side}` } });
       b.onclick = () => api.setKvm({ pcSide: side });
       slots[side] = b;
       return b;
     };
     grid.append(
       el('span'), cell('top'), el('span'),
-      cell('left'), el('div', { class: 'screen mac-screen' }, [el('span', { text: 'This Mac' })]), cell('right'),
+      cell('left'), el('div', { class: 'screen mac-screen' }, [meLabel = el('span', { text: 'This Mac' })]), cell('right'),
       el('span'), cell('bottom'), el('span'),
     );
     const layoutHint = el('div', { class: 'layout-hint' });
 
-    const linkSw = UI.switch((v) => api.setKvm({ linked: v }), { label: 'Cursor sharing' });
-    const linkRow = UI.row('Cursor sharing', '', [linkSw]);
-    const drive = UI.switch((v) => api.setKvm({ driveOther: v }), { label: 'Mac to PC' });
-    const driven = UI.switch((v) => api.setKvm({ beDriven: v }), { label: 'PC to Mac' });
+    const drive = UI.switch((v) => api.setKvm({ driveOther: v }), { label: 'Use here, control there' });
+    const driven = UI.switch((v) => api.setKvm({ beDriven: v }), { label: 'Let it control this computer' });
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => `${v} px` }, (v) => api.setKvm({ resistancePx: v }));
     const speed = UI.slider({ min: 0.25, max: 4, step: 0.25, format: (v) => `${v.toFixed(2)}×` }, (v) => api.setKvm({ speed: v }));
     const reverse = UI.switch((v) => api.setKvm({ reverseScroll: v }), { label: 'Reverse scrolling' });
@@ -49,16 +50,15 @@ UI.tab({
     let driven2 = null;
     body.append(
       status,
-      UI.card('', [linkRow], { cls: 'keep-on' }),
       UI.pair(
-        UI.dir('m2w', [peerRow('Use this Mac’s mouse on {there}', 'Push the pointer past the edge', [drive])]),
-        UI.dir('w2m', [driven2 = peerRow('Use {there}’s mouse on this Mac', '', [driven])]),
+        UI.dir('m2w', [peerRow('Use {me}’s mouse and keyboard on {name}', 'Push the pointer past the edge', [drive])]),
+        UI.dir('w2m', [driven2 = peerRow('Use {name}’s mouse and keyboard on {me}', '', [driven])]),
       ),
       UI.card('Where the other computer is', [el('div', { class: 'layout' }, [grid, layoutHint])]),
       UI.card('Feel', [
         UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
-        peerRow('Pointer speed on {there}', '', [speed]),
-        peerRow('Reverse scrolling from {there}', '', [reverse]),
+        peerRow('Pointer speed on {name}', '', [speed]),
+        peerRow('Reverse scrolling from {name}', '', [reverse]),
       ]),
     );
 
@@ -66,17 +66,16 @@ UI.tab({
       const k = s.kvm;
       if (!k) return;
       const p = UI.peer(s);
-      linkSw.set(k.linked !== false);
-      linkRow.setHint(`Double-tap ${UI.hotkeyName(s)} to turn it ${k.linked !== false ? 'off' : 'on'} from anywhere`);
       const [kind, text] = UI.kvmStatus(s);
       status.className = `note ${kind}`;
       status.set(text);
       for (const [side, b] of Object.entries(slots)) {
         b.classList.toggle('on', k.pcSide === side);
-        b.textContent = k.pcSide === side ? p.there : '';
+        b.textContent = k.pcSide === side ? p.name : '';
+        meLabel.textContent = p.me;
       }
       const where = { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[k.pcSide];
-      layoutHint.textContent = `${p.same ? p.there : 'Your PC'} is ${where} this Mac. Click a side to move it.`;
+      layoutHint.textContent = `${p.Name} is ${where} ${p.me}. Click a side to move it.`;
       driven2.setHint('Double-tap the hotkey to take everything back');
       drive.set(k.driveOther);
       driven.set(k.beDriven);

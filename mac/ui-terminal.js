@@ -13,14 +13,14 @@ UI.tab({
   badge: (s) => (s.terminal && (s.terminal.allowPc || s.terminal.connectPc) ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
-    const outSw = UI.switch((v) => api.setTerminal({ connectPc: v }), { label: 'Open shells on the PC from here' });
+    const outSw = UI.switch((v) => api.setTerminal({ connectPc: v }), { label: 'Open shells there' });
     const shellBtn = UI.button('Open', () => api.openPcShell(), 'small');
-    const outRow = UI.row('Open shells on the PC', '', [outSw]);
+    const outRow = UI.row('Open shells on {name} from {me}', '', [outSw]);
     const cmdRow = UI.row('In Terminal', '', [el('code', { class: 'mono', text: 'ssh macshare-pc' }), shellBtn]);
-    const inSw = UI.switch((v) => api.setTerminal({ allowPc: v }), { label: 'Let the PC open shells here' });
-    const inRow = UI.row('Let the PC open shells here', '', [inSw]);
+    const inSw = UI.switch((v) => api.setTerminal({ allowPc: v }), { label: 'Allow shells here' });
+    const inRow = UI.row('Let {name} open shells on {me}', '', [inSw]);
     const rl = UI.row('Remote Login', '', [UI.button('Settings', () => api.openSharingSettings(), 'small')]);
-    const how = UI.row('On the PC', '', [el('code', { class: 'mono', text: 'macshare' })]);
+    const how = UI.row('On {name}', '', [el('code', { class: 'mono', text: 'macshare' })]);
     body.append(
       UI.pair(
         UI.dir('m2w', [outRow, cmdRow]),
@@ -30,12 +30,12 @@ UI.tab({
     return (s) => {
       const t = s.terminal;
       if (!t) return;
-      const pc = s.client ? s.client.name : 'the PC';
+      const pc = UI.peer(s).name;
       const o = t.toPc || {};
       outSw.set(t.connectPc);
       shellBtn.hidden = !o.ready;
       const WHY = { waiting: `Waiting for ${pc}…`, not_allowed: `Turned off on ${pc}`, remote_login_off: `Turn on SSH in MacShare on ${pc}` };
-      outRow.setHint(!t.connectPc ? '' : o.ready ? `Ready, signed in as ${o.user}` : WHY[o.why] || (o.why ? `Not ready: ${o.why}` : 'Waiting for your PC'));
+      outRow.setHint(!t.connectPc ? '' : o.ready ? `Ready, signed in as ${o.user}` : WHY[o.why] || (o.why ? `Not ready: ${o.why}` : `Waiting for ${pc}`));
       cmdRow.setHint('');
       inSw.set(t.allowPc);
       inRow.setHint(!t.allowPc ? '' : t.installed ? 'Ready' : `Turn on Terminal in MacShare on ${pc}`);

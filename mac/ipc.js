@@ -12,6 +12,7 @@ const SETTINGS_URLS = {
   inputMonitoring: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent',
   localNetwork: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork',
   fullDisk: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
+  extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
 const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general'];
 
@@ -40,10 +41,11 @@ const SCHEMA = {
   notifs: { send: bool, receive: bool, hideText: bool },
   smb: { connectPc: bool },
   apps: { offer: bool },
-  receive: { on: bool, fullScreen: bool, input: bool },
+  receive: { on: bool, fullScreen: bool, input: bool, pacing: oneOf(['smooth', 'fast'], 'smooth'), framegen: bool },
+  sharing: { remote: bool, priority: oneOf(['smooth', 'sharp'], 'smooth') },
   papps: { on: bool },
   clipboard: {
-    enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'switch'),
+    enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'instant'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
   },
 };
@@ -74,7 +76,7 @@ function setupIpc(ctx) {
     if (dev && dev.os !== 'mac') {
       if (pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired. Open MacShare on it to connect.`);
       discovery.invite(dev.address);
-      return report(`Asked ${dev.name} to connect. Confirm on the PC.`);
+      return report(`Asked ${dev.name} to connect. Confirm on ${dev.name}.`);
     }
     if (dev && pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired and connects to this Mac by itself.`);
     if (dev && link.hosts.some((h) => h.id === dev.id)) {
@@ -141,6 +143,23 @@ function setupIpc(ctx) {
         ctx.input.releaseAll();
         ctx.displays.applyVirtual(); // removes the virtual display
       }
+    },
+    // Revision 7: who may start our sharing, and smoothness vs. sharpness.
+    setSharingOpts(partial) {
+      const prev = settings.sharing.priority;
+      setGroup('sharing', partial);
+      if (settings.sharing.priority !== prev) ctx.stream.restart('priority');
+    },
+    // Revision 7: start/stop the other computer's sharing or switch its Extend/Mirror from here.
+    remoteScreen(arg) {
+      ctx.pcView.control(arg || {});
+    },
+    wakePeer(id) {
+      ctx.wake.wake(String(id));
+      setTimeout(() => ctx.link.poke(), 8000); // a Mac host: try again once it had time to wake
+    },
+    setWakeOnLan(on) {
+      ctx.wake.setWomp(!!on);
     },
     setStreamInput(on) {
       settings.streamInput = !!on;

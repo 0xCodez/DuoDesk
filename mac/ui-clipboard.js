@@ -17,8 +17,8 @@ UI.tab({
 
     const peerNote = UI.note('warn', '');
     const skipNote = UI.note('info', '');
-    const send = UI.switch((v) => set({ send: v }), { label: 'This Mac to PC' });
-    const receive = UI.switch((v) => set({ receive: v }), { label: 'PC to this Mac' });
+    const send = UI.switch((v) => set({ send: v }), { label: 'Send' });
+    const receive = UI.switch((v) => set({ receive: v }), { label: 'Receive' });
     const mode = UI.segmented([
       { value: 'switch', label: 'When you switch' },
       { value: 'instant', label: 'Instantly' },
@@ -33,14 +33,19 @@ UI.tab({
       { value: 50, label: '50 items' }, { value: 100, label: '100 items' },
     ], (v) => set({ historySize: Number(v) }));
 
+    const peerRow = (label, hint, controls) => {
+      const r = UI.row(label, hint, controls);
+      r.label.dataset.peer = label;
+      return r;
+    };
     const list = el('div', { class: 'history' });
     const clearBtn = UI.button('Clear', () => api.clearHistory(), 'small');
 
     body.append(
       peerNote,
       UI.pair(
-        UI.dir('m2w', [UI.row('Send what you copy here', '', [send])]),
-        UI.dir('w2m', [UI.row('Paste what you copy on the PC', '', [receive])]),
+        UI.dir('m2w', [peerRow('Copy on {me}, paste on {name}', '', [send])]),
+        UI.dir('w2m', [peerRow('Copy on {name}, paste on {me}', '', [receive])]),
       ),
       UI.card('Options', [
         modeRow,
@@ -73,10 +78,10 @@ UI.tab({
       lastKey = key;
       list.replaceChildren(...(c.history.length
         ? c.history.map((h, i) => el('div', { class: 'hist-item' }, [
-          el('span', { class: `hist-dir ${h.dir}`, title: h.dir === 'out' ? 'Sent to the PC' : 'From the PC' }, [UI.icon(h.dir === 'out' ? 'up' : 'down')]),
+          el('span', { class: `hist-dir ${h.dir}`, title: UI.fill(h.dir === 'out' ? 'Sent to {name}' : 'From {name}') }, [UI.icon(h.dir === 'out' ? 'up' : 'down')]),
           el('div', { class: 'hist-text' }, [
             el('div', { class: 'hist-preview selectable', text: h.text.replace(/\s+/g, ' ').trim() || '(whitespace)' }),
-            el('div', { class: 'hint', text: `${h.dir === 'out' ? 'To the PC' : 'From the PC'} · ${UI.ago(h.at)} · ${UI.bytes(h.size)}` }),
+            el('div', { class: 'hint', text: `${UI.fill(h.dir === 'out' ? 'To {name}' : 'From {name}')} · ${UI.ago(h.at)} · ${UI.bytes(h.size)}` }),
           ]),
           UI.button('Copy', () => api.copyHistory(i), 'small'),
         ]))

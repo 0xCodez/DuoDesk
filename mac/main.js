@@ -30,6 +30,7 @@
 //   receive: { on, fullScreen, input, session, kind, status, stats, open },   // phase 11 (pcview.js)
 //   papps: { on, apps: [{id, name, icon}], listing, launch: {id: ''|'ok'|why}, windows: [{wid, id, title, live}] },   // phase 13
 //   ui: { tab }, app: { openAtLogin, keepAwake },
+//   wake: { womp, peers: {id: {name, os, at}}, last },   // revision 7 (wake.js)
 // }
 'use strict';
 
@@ -37,11 +38,13 @@ const path = require('path');
 const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences } = require('electron');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
-// Tag every sent video frame with playout delay 0/0 (RTP playout-delay extension): the receiver
-// renders frames as soon as they are decoded instead of building up a smoothing jitter buffer.
 // The hidden capture window plays system audio into WebRTC without any user gesture.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/');
+// Revision 7, smoothness: we no longer force playout delay 0/0 on every frame (the receiver showed
+// frames the instant they were decoded, so Wi-Fi jitter came out as stutter); the viewer picks its
+// own pacing (`receive.pacing`). FlexFEC repairs lost packets without waiting a round trip for a
+// resend; it costs bandwidth only while packets are being lost.
+app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
@@ -59,13 +62,14 @@ const { startServices } = require('./services');
 const { setupIpc } = require('./ipc');
 const login = require('./login');
 const { Hud } = require('./hud');
+const { PairSync } = require('./pairsync');
 
 let win = null;
 let tray = null;
 let hud = null;
 let quitting = false;
 let startHidden = process.argv.includes('--hidden');
-let settings, id, server, pairing, discovery, link, peer, svc, actions;
+let settings, id, server, pairing, discovery, link, peer, svc, actions, pairSync;
 
 const state = {
   macName: '',
@@ -93,6 +97,7 @@ const state = {
 let linkQueue = [];
 function handleLink(url) {
   if (!svc) return linkQueue.push(url);
+  if (/^macshare:\/\/send\b/.test(String(url))) return handleSendLink(String(url));
   const m = /^macshare:\/\/pc-app\/(.+)$/.exec(String(url));
   if (!m) return;
   const id = decodeURIComponent(m[1]).slice(0, 1024);
@@ -104,13 +109,30 @@ app.on('open-url', (e, url) => {
   handleLink(url);
 });
 
+let defaultIf = '';
+function readDefaultIf() {
+  require('child_process').execFile('/sbin/route', ['-n', 'get', 'default'], (err, out) => {
+    const m = !err && /interface:\s*(\S+)/.exec(out);
+    const name = m ? m[1] : '';
+    if (name !== defaultIf) {
+      defaultIf = name;
+      pushState();
+    }
+  });
+}
+
 let pushQueued = false;
 function pushState() {
   if (pushQueued) return;
   pushQueued = true;
   setImmediate(() => {
     pushQueued = false;
-    state.addresses = interfaces().map((i) => i.address);
+    // The address the other computer can reach, first (revision 7b: the UI shows only this one):
+    // on the peer's network, then real adapters (en*), the default route, VPN tunnels and bridges last.
+    const peerNet = String((peer && peer.current && peer.current.address) || '').replace(/^::ffff:/, '').split('.').slice(0, 3).join('.');
+    const rank = (i) => (peerNet && i.address.startsWith(`${peerNet}.`) ? 0 : /^en\d/.test(i.name) ? 1
+      : /^(utun|bridge|vmnet|vnic|llw|awdl)/.test(i.name) ? 4 : i.name === defaultIf ? 2 : 3);
+    state.addresses = interfaces().sort((a, b) => rank(a) - rank(b)).map((i) => i.address);
     state.pairing = pairing ? pairing.pendingView() : null;
     state.paired = pairing ? pairing.list() : [];
     if (discovery) {
@@ -157,9 +179,45 @@ function pushState() {
       state.receive = { ...settings.receive, ...svc.pcView.view };
       state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
+    if (svc) state.wake = svc.wake.view;
+    if (pairSync) pairSync.check();
+    sendScreenState();
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
     updateTray();
   });
+}
+
+// Revision 7: tell the viewer what we share, so it can show Start / Extend / Mirror itself
+// (screen.state); only when something changed or the peer is new.
+let screenStateKey = '';
+function sendScreenState() {
+  const c = peer && peer.current;
+  if (!c || !svc) return void (screenStateKey = '');
+  const msg = { t: P.T.SCREEN_STATE, on: !!settings.sharing.on, mode: displayMode(), remote: settings.sharing.remote !== false, modes: ['extend', 'mirror'] };
+  const key = JSON.stringify([c.deviceId, msg]);
+  if (key === screenStateKey) return;
+  screenStateKey = key;
+  peer.sendToClient(msg);
+}
+
+// Revision 7: the viewer on the other computer starts/stops our sharing or switches Extend/Mirror.
+function onScreenCtl(m) {
+  if (settings.sharing.remote === false) return void (screenStateKey = '', pushState()); // re-send: remote false
+  if (m.mode === 'extend' || m.mode === 'mirror') {
+    if (displayMode() !== m.mode) actions.setDisplayMode(m.mode);
+  }
+  if (typeof m.share === 'boolean' && m.share !== !!settings.sharing.on) actions.setSharing(m.share, 'remote');
+}
+
+// macshare://send?p=<path>&p=… from the Share menu extension (revision 7): Send files to the peer.
+function handleSendLink(url) {
+  let u;
+  try { u = new URL(url); } catch { return; }
+  const paths = u.searchParams.getAll('p').filter((x) => x.startsWith('/')).slice(0, 1000);
+  if (!paths.length) return;
+  if (!peer.current) return hud && hud.show('away', 'Not connected', 'Open MacShare on the other computer first');
+  actions.sendFiles(paths);
+  hud && hud.show('away', `Sending ${paths.length} item${paths.length === 1 ? '' : 's'} to ${peer.current.name}`);
 }
 
 function displayMode() {
@@ -260,7 +318,7 @@ function updateTray() {
       check('Share Screen', settings.sharing.on, (i) => actions.setSharing(i.checked)),
       check('Receive Screen', settings.receive.on, (i) => actions.setReceive({ on: i.checked })),
       check(`Use Mouse and Keyboard on ${c ? name : 'Other Computer'}`, k.driveOther, (i) => actions.setKvm({ driveOther: i.checked })),
-      check(`Let ${c ? name : 'Other Computer'} Control This Mac`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked })),
+      check(`Let ${c ? name : 'Other Computer'} Control ${id.macName}`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked })),
       check('Share Clipboard', settings.clipboard.enabled, (i) => actions.setClipboard({ enabled: i.checked })),
       check('Send Sound', settings.audio.send, (i) => actions.setAudio({ send: i.checked })),
       { type: 'separator' },
@@ -335,14 +393,25 @@ app.whenReady().then(() => {
   if (settings.app.openAtLogin !== login.isOn()) login.apply(settings.app.openAtLogin);
 
   svc.apps.setSharing = (on, by) => actions.setSharing(on, by);
+  peer.on(`t:${P.T.SCREEN_CTL}`, (m) => onScreenCtl(m));
+  // Two-way switches shared with the other computer, per pair (pairsync.js).
+  const SYNC_ACTIONS = {
+    clipboard: (dir, on) => actions.setClipboard({ [dir === 'out' ? 'send' : 'receive']: on }),
+    notifs: (dir, on) => actions.setNotifs({ [dir === 'out' ? 'send' : 'receive']: on }),
+    apps: (dir, on) => (dir === 'out' ? actions.setApps({ offer: on }) : actions.setPcApps({ on })),
+    audio: (dir, on) => actions.setAudio({ [dir === 'out' ? 'send' : 'receive']: on }),
+    cursor: (dir, on) => actions.setKvm({ [dir === 'out' ? 'driveOther' : 'beDriven']: on }),
+  };
+  pairSync = new PairSync({ server: peer, getSettings: () => settings, saveSettings: () => store.saveSettings(settings),
+    apply: (f, dir, on) => SYNC_ACTIONS[f](dir, on) });
   actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions });
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
   hud = new Hud(() => settings);
   svc.kvm.on('where', (mode) => {
     const name = peer.current ? peer.current.name : 'the other computer';
     if (mode === 'driving') hud.show('away', settings.kvm.mouse ? `Using ${name}` : `Typing on ${name}`);
-    else if (mode === 'driven') hud.show('driven', `${name} is using this Mac`);
-    else hud.show('home', 'Back on this Mac');
+    else if (mode === 'driven') hud.show('driven', `${name} is using ${id.macName}`);
+    else hud.show('home', `Back on ${id.macName}`);
   });
   svc.fileClip.on('popup', (kind, text) => hud.show(kind, text));
   svc.pcApps.on('popup', (kind, text) => hud.show(kind, text));
@@ -361,7 +430,11 @@ app.whenReady().then(() => {
   });
   createWindow();
   refreshPermissions();
-  setInterval(pushState, 5000); // addresses change when the network does
+  readDefaultIf();
+  setInterval(() => {
+    readDefaultIf();
+    pushState();
+  }, 5000); // addresses change when the network does
   // While Setup shows something missing, notice the grant without waiting for a window focus.
   setInterval(() => {
     const p = state.permissions;

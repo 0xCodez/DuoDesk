@@ -111,7 +111,7 @@ class Smb extends EventEmitter {
     this.emit('change');
     let err = null;
     if (!(await portOpen(o.host, o.port))) {
-      err = `can’t reach ${o.host}. Check the PC’s firewall.`;
+      err = `can’t reach ${o.host}. Check its firewall.`;
     } else {
       const url = `smb://${o.host}${o.port === 445 ? '' : `:${o.port}`}/${encodeURIComponent(o.share)}`;
       try {
@@ -170,7 +170,7 @@ class Smb extends EventEmitter {
     const pwFile = path.join(os.tmpdir(), `macshare-${crypto.randomBytes(6).toString('hex')}`);
     fs.writeFileSync(pwFile, pw, { mode: 0o600 });
     try {
-      await runScript('smb-share.sh', [folder, pwFile], 'MacShare wants to share a folder with your PC.');
+      await runScript('smb-share.sh', [folder, pwFile], 'MacShare wants to share a folder with the other computer.');
       const c = this.cfg;
       c.sharing = true;
       c.folder = folder;

@@ -23,6 +23,7 @@ const { PcView } = require('./pcview');
 const { PcApps } = require('./pcapps');
 const { Notifs } = require('./notifs');
 const { FileClip } = require('./fclip');
+const { Wake } = require('./wake');
 const store = require('./store');
 
 function startServices({ server, getSettings, pushState, onHelperReady }) {
@@ -53,9 +54,10 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   const notifs = new Notifs({ server, helper, getSettings: s, saveSettings: () => store.saveSettings(s()) });
   const fileClip = new FileClip({ server, helper, fileSend, drop, getSettings: s });
   kvm.fileClip = fileClip;
+  const wake = new Wake({ server, getSettings: s, saveSettings: () => store.saveSettings(s()) });
   kvm.blockEdge = () => pcView.focused || pcApps.focused; // moving inside the PC window never crosses to the PC
 
-  for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio, pcView, pcApps, notifs, fileClip]) x.on('change', pushState);
+  for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio, pcView, pcApps, notifs, fileClip, wake]) x.on('change', pushState);
   displays.on('change', () => {
     input.releaseAll(); // the shared display moved or changed size mid-press
     pushState();
@@ -95,7 +97,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   helper.start();
 
   return {
-    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, audio, pcView, pcApps, hub, fileSend, notifs, fileClip, updateAwake,
+    helper, displays, stream, input, clipboard, kvm, terminal, drop, smb, apps, sshClient, audio, pcView, pcApps, hub, fileSend, notifs, fileClip, wake, updateAwake,
     shutdown() {
       pcView.shutdown();
       pcApps.shutdown();

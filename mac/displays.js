@@ -100,6 +100,7 @@ class Displays extends EventEmitter {
       bounds: d.bounds,
       virtual: d.id === this.virtualId,
       primary: d.id === primary,
+      hz: d.displayFrequency || 60,
     }));
   }
 

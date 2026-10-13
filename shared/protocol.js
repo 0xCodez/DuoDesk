@@ -126,7 +126,11 @@
       AUDIO_ANSWER: 'audio.answer', // receiver->sender {dir, session, sdp}
       AUDIO_ICE: 'audio.ice', // either {dir, session, candidate}
       AUDIO_STOP: 'audio.stop', // sender->receiver {dir}
-      SCREEN_POLICY: 'screen.policy', // M->W {accept, width?, height?}: the Mac shows the PC's screen (phase 11)
+      SCREEN_POLICY: 'screen.policy', // either, viewer->sharer {accept, width?, height?}: a viewer is open and wants the picture (revision 7: senders capture only while it is true)
+      SCREEN_CTL: 'screen.ctl', // either, viewer->sharer {share?, mode?: 'mirror'|'extend'}: start/stop or switch the other's sharing (revision 7)
+      SCREEN_STATE: 'screen.state', // either, sharer->viewer {on, mode, remote, modes}: what this side shares; remote = it takes screen.ctl (revision 7)
+      PAIR_SYNC: 'pair.sync', // either {feature, dir: 'out'|'in', on} or {all: {feature: {out, in}}} (host, after welcome): two-way switches shared per pair, dirs from the sender's side (revision 7b)
+      WOL_INFO: 'wol.info', // either {macs: ['aa:bb:cc:dd:ee:ff'], address}: how to wake this computer over the network (revision 7)
       SMB_OFFER: 'smb.offer', // sharer->other {share, user, password, port}
       SMB_REVOKE: 'smb.revoke', // sharer->other {share}
       SMB_STATE: 'smb.state', // other->sharer {share, mounted, error?}
@@ -229,7 +233,7 @@
     // Keys travel as physical DOM KeyboardEvent.code names; "Meta" is Command on the Mac and
     // the Windows key on the PC. The RECEIVER applies this swap to every key that came from
     // the other platform, so Cmd+C on the Mac arrives as Ctrl+C on the PC and the reverse
-    // (Beamer's "semantic" mapping). Alt stays Alt (= Option).
+    // (shortcuts keep their meaning). Alt stays Alt (= Option).
     mapKeyFromOtherPlatform(code) {
       const swap = {
         ControlLeft: 'MetaLeft',

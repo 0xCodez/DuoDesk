@@ -1,6 +1,8 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Screen sharing: hidden capture window (getDisplayMedia + RTCPeerConnection, the offerer),
 // session numbering, rtc.* relay between the capture window and the Windows client, stats.
+// Revision 7: we capture only while a viewer is open on the other side (its `screen.policy
+// {accept}`); a peer that never sends one is an older app and always gets the picture.
 //
 // Events: 'change' — this.view changed (pushed to the control window as state.stream).
 'use strict';
@@ -24,6 +26,7 @@ class Stream extends EventEmitter {
     this.session = 0;
     this.active = null; // {session, displayId, width, height} while a session runs
     this.retryTimer = null;
+    this.viewer = null; // the peer's screen.policy accept; null = never said (older app: always watching)
     this.view = { status: 'off', display: null, width: 0, height: 0, fps: 0, mbps: 0, encoder: '', codec: '' };
 
     session.defaultSession.setDisplayMediaRequestHandler(async (_req, cb) => {
@@ -35,9 +38,20 @@ class Stream extends EventEmitter {
       }
     });
 
-    server.on('client', () => this.restart('client'));
+    server.on('client', () => {
+      this.viewer = null;
+      this.restart('client');
+    });
+    server.on(`t:${P.T.SCREEN_POLICY}`, (msg) => {
+      const on = !!msg.accept;
+      if (on === this.viewer) return;
+      this.viewer = on;
+      if (on) this.restart('viewer open');
+      else if (this.active) this._stopWindow('no viewer');
+      else this._setStatus(this.getSettings().sharing.on ? 'no viewer' : 'off');
+    });
     server.on('closed', () => {
-      if (!server.current) this._stopWindow('no PC connected');
+      if (!server.current) this._stopWindow('nothing connected');
     });
     server.on(`t:${P.T.RTC_ANSWER}`, (msg) => this._toWindow('remote', msg));
     server.on(`t:${P.T.RTC_ICE}`, (msg) => this._toWindow('remote', msg));
@@ -112,7 +126,8 @@ class Stream extends EventEmitter {
   async restart(reason) {
     clearTimeout(this.retryTimer);
     if (!this.getSettings().sharing.on) return this.stop('off');
-    if (!this.server.current) return this._stopWindow('no PC connected');
+    if (!this.server.current) return this._stopWindow('nothing connected');
+    if (this.viewer === false) return this._stopWindow('no viewer');
     const target = this.displays.target();
     if (!target) return this._stopWindow('no display to share');
 
@@ -138,7 +153,11 @@ class Stream extends EventEmitter {
       await this._ensureWindow();
       if (!this.active || this.active.session !== s) return;
       const src = await this._source();
-      this._toWindow('start', { session: s, bitrateMbps: this.getSettings().bitrateMbps, sourceId: src.id, width, height, audio });
+      const set = this.getSettings();
+      this._toWindow('start', {
+        session: s, bitrateMbps: set.bitrateMbps, sourceId: src.id, width, height, audio,
+        fps: Math.min(120, Math.max(30, Math.round(target.hz || 60))), priority: set.sharing.priority || 'smooth',
+      });
     } catch (e) {
       console.error(`[stream] start failed: ${e.message}`);
       this._setStatus(`error: ${e.message}`);

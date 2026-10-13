@@ -2,7 +2,7 @@
 // Shared cursor + keyboard (docs/KVM.md): the state machine for both roles.
 //   driving: this Mac's input goes to the PC (owner, rows 1–6, 9)
 //   driven:  the PC's input drives this Mac (rows 7–9b)
-// Ownership model adapted from Beamer's WIRE.md sections 4–5.
+// Ownership model: docs/KVM.md (one owner of the input at a time, routes, fail open).
 //
 // Events: 'change' — this.view changed.
 'use strict';
@@ -11,7 +11,8 @@ const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const store = require('./store');
 
-const REFUSED = { busy: 'The PC is driving this Mac right now', not_allowed: 'The PC doesn’t accept input from this Mac' };
+// {them} = the other computer's name (Kvm._them).
+const REFUSED = { busy: '{them} is using this computer right now', not_allowed: '{them} doesn’t accept input from here' };
 
 class Kvm extends EventEmitter {
   constructor({ server, helper, getSettings, clipboard, input, drop, fileSend }) {
@@ -33,15 +34,23 @@ class Kvm extends EventEmitter {
 
     setInterval(() => this._tick(), 250);
     // The host tells the layout on connect; after that either side sends it when its user changes it.
+    // Cursor sharing is remembered per pair (revision 7): on connect take this pair's value, and the
+    // host tells it so both computers agree; after that kvm.link keeps them in step.
     server.on('client', (ctx) => {
-      if (ctx.role !== 'host') this._sendLayout();
+      this.lastName = ctx.name;
+      const by = this.cfg.linkedBy || {};
+      if (ctx.deviceId in by && by[ctx.deviceId] !== this.linked) this.setLinked(by[ctx.deviceId], false, false);
+      if (ctx.role !== 'host') {
+        this._sendLayout();
+        server.sendToClient({ t: P.T.KVM_LINK, on: this.linked });
+      }
       this.config();
     });
     server.on('closed', () => {
       if (server.current) return;
       this.config();
-      if (this.mode === 'driving') this.goHome('The PC disconnected');
-      else if (this.mode === 'driven') this._drivenHome('The PC disconnected');
+      if (this.mode === 'driving') this.goHome(this._them('{them} disconnected'));
+      else if (this.mode === 'driven') this._drivenHome(this._them('{them} disconnected'));
     });
     const on = (t, fn) => server.on(`t:${t}`, fn);
     on(P.T.KVM_TAKE, (m) => this._onTake(m));
@@ -59,7 +68,7 @@ class Kvm extends EventEmitter {
       if (this.mode === 'driving' && m.route === this.route) clearTimeout(this.acceptTimer);
     });
     on(P.T.KVM_REFUSE, (m) => {
-      if (this.mode === 'driving' && m.route === this.route) this.goHome(REFUSED[m.why] || 'The PC refused', false);
+      if (this.mode === 'driving' && m.route === this.route) this.goHome(this._them(REFUSED[m.why] || '{them} refused'), false);
     });
     on(P.T.KVM_HOME, (m) => {
       if (this.mode !== 'driving' || m.route !== this.route) return;
@@ -82,6 +91,12 @@ class Kvm extends EventEmitter {
 
   get cfg() {
     return this.getSettings().kvm;
+  }
+
+  // Messages name the other computer (it may be gone already: the last name we knew).
+  _them(text) {
+    if (this.server.current) this.lastName = this.server.current.name;
+    return text.replace(/\{them\}/g, this.lastName || 'The other computer');
   }
 
   get view() {
@@ -108,14 +123,19 @@ class Kvm extends EventEmitter {
     return this.cfg.linked !== false;
   }
 
-  setLinked(on, tell = true) {
-    if (on === this.linked) return;
+  setLinked(on, tell = true, card = true) {
+    const c = this.server.current;
+    if (c) this.cfg.linkedBy = { ...(this.cfg.linkedBy || {}), [c.deviceId]: on };
+    if (on === this.linked) {
+      if (c) store.saveSettings(this.getSettings());
+      return;
+    }
     if (!on) this.home();
     this.cfg.linked = on;
     store.saveSettings(this.getSettings());
     if (tell) this.server.sendToClient({ t: P.T.KVM_LINK, on });
     this.config();
-    this.emit('linked', on, tell); // hud.js: the big card
+    if (card) this.emit('linked', on, tell); // hud.js: the big card
     this.emit('change');
   }
 
@@ -159,8 +179,8 @@ class Kvm extends EventEmitter {
     if (this.mode === 'driving') this.helper.send('keepalive');
     const c = this.server.current;
     if (!c || Date.now() - c.lastRx > P.KVM_SILENCE_MS) {
-      if (this.mode === 'driving') this.goHome('The PC stopped answering');
-      else this._drivenHome('The PC stopped answering');
+      if (this.mode === 'driving') this.goHome(this._them('{them} stopped answering'));
+      else this._drivenHome(this._them('{them} stopped answering'));
     }
   }
 
@@ -187,7 +207,7 @@ class Kvm extends EventEmitter {
     clearTimeout(this.acceptTimer);
     const route = this.route;
     this.acceptTimer = setTimeout(() => {
-      if (this.mode === 'driving' && this.route === route) this.goHome('The PC didn’t answer');
+      if (this.mode === 'driving' && this.route === route) this.goHome(this._them('{them} didn’t answer'));
     }, P.KVM_TAKE_TIMEOUT_MS);
   }
 
@@ -216,7 +236,7 @@ class Kvm extends EventEmitter {
         // The helper already captures (it started at the edge); undo that if we can't cross.
         if (!this._canDrive() || !k.mouse || (this.blockEdge && this.blockEdge())) {
           this.helper.send('capture', { on: false });
-          if (!this.server.current) this._setMode('home', 'No PC connected');
+          if (!this.server.current) this._setMode('home', 'Nothing connected');
           return;
         }
         this._take({ mouse: true, where: { side: P.opposite(k.pcSide), offset: ev.offset }, paths: ev.drag && ev.drag.paths });
@@ -233,7 +253,20 @@ class Kvm extends EventEmitter {
           } else this.home();
           break;
         }
-        this.setLinked(!this.linked);
+        // Off (by the switch, the hotkey or the other computer) → on, cursor included: the same
+        // state the Cursor tab's one switch shows. On → off.
+        if (this.linked && k.mouse) this.setLinked(false);
+        else {
+          if (!k.mouse) {
+            k.mouse = true;
+            this.config();
+          }
+          if (this.linked) {
+            store.saveSettings(this.getSettings());
+            this.emit('linked', true, true);
+            this.emit('change');
+          } else this.setLinked(true);
+        }
         break;
       case 'ev': {
         if (this.mode !== 'driving' || !ev.ev) return;

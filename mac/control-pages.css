@@ -63,11 +63,17 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; align-items: start; }
 .pair .card { margin-bottom: 0; }
 @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
-.dir-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px 8px; border-bottom: 1px solid var(--row-line); }
-.dir-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; }
-.dir-title .dev { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 8px; border-radius: 6px; background: var(--track-off); }
-.dir-title .dev.here { background: var(--accent-soft); color: var(--accent); }
-.dir-title .arrow { color: var(--muted); }
+.dir-head { display: flex; align-items: center; gap: 12px; padding: 13px 16px 12px; border-bottom: 1px solid var(--row-line); }
+.route { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.route .node { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+.route .node .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+.route .node .os-ico { flex: none; margin: 0 2px 3px; }
+.route .node.here .os-ico, .route .node.here .os-ico::after { border-color: var(--accent); }
+.route .node.here .os-ico.mac::after { background: var(--accent); }
+.route .flow { flex: 1; min-width: 24px; height: 1.5px; position: relative; border-radius: 1px;
+  background: linear-gradient(90deg, transparent, var(--faint) 30%, var(--muted)); }
+.route .flow::after { content: ""; position: absolute; right: -1px; top: -3.5px; width: 7px; height: 7px;
+  border-top: 1.5px solid var(--muted); border-right: 1.5px solid var(--muted); transform: rotate(45deg); }
 .dir-role { color: var(--muted); font-size: 11px; }
 .soon-card .row { opacity: 0.55; }
 .soon-card .dir-role { color: var(--accent); font-weight: 600; }

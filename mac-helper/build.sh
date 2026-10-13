@@ -13,3 +13,8 @@ echo "built .build/release/macshare-helper"
 swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13.0" -framework AppKit \
   Sources/macshare-dockstub/main.swift -o .build/release/macshare-dockstub
 echo "built .build/release/macshare-dockstub"
+# Revision 7: Share menu extension (packed into MacShare.app/Contents/PlugIns by mac/build-app.sh).
+swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13.0" -application-extension -parse-as-library \
+  -module-name MacShareShare -framework AppKit -Xlinker -e -Xlinker _NSExtensionMain \
+  Sources/macshare-share/ShareViewController.swift -o .build/release/macshare-share
+echo "built .build/release/macshare-share"

@@ -4,6 +4,7 @@
 # Contents/Resources/app (mac/, shared/, mac-helper/.build/release/) so every `../` path still works;
 # no asar, because mac-helper and scripts/*.sh are run straight from there.
 set -e
+unset ELECTRON_RUN_AS_NODE
 cd "$(dirname "$0")"
 ROOT=..
 STAGE=dist/stage
@@ -15,8 +16,10 @@ EV=$(node -p "require('./node_modules/electron/package.json').version")
 
 rm -rf "$STAGE" && mkdir -p "$STAGE/mac" "$STAGE/shared" "$STAGE/mac-helper/.build/release" "$STAGE/node_modules"
 rsync -a --exclude node_modules --exclude dist --exclude dev --exclude build-app.sh ./ "$STAGE/mac/"
-cp "$ROOT/shared/protocol.js" "$STAGE/shared/"
+cp "$ROOT"/shared/*.js "$STAGE/shared/"
 cp "$ROOT"/mac-helper/.build/release/macshare-helper "$ROOT"/mac-helper/.build/release/macshare-dockstub "$STAGE/mac-helper/.build/release/"
+cp -R node_modules/ws "$STAGE/node_modules/"
+mkdir -p "$STAGE/mac/node_modules" && cp -R node_modules/ws "$STAGE/mac/node_modules/"
 cp "$ROOT/LICENSE" "$STAGE/"
 [ -f "$ROOT/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/THIRD_PARTY_NOTICES.md" "$STAGE/" || [ -f "$ROOT/md/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/md/THIRD_PARTY_NOTICES.md" "$STAGE/" || true
 node -e "
@@ -58,7 +61,47 @@ EOF
 
 APP="dist/MacShare-darwin-$ARCH/MacShare.app"
 rm -rf dist/MacShare.app && mv "$APP" dist/ && rm -rf "dist/MacShare-darwin-$ARCH" "$STAGE" "$ICONSET" dist/extra.plist
+# Revision 7: the Share menu extension (mac-helper/Sources/macshare-share), sandboxed as macOS requires.
+APPEX=dist/MacShare.app/Contents/PlugIns/MacShareShare.appex
+VER="$(node -p "require('./package.json').version")"
+mkdir -p "$APPEX/Contents/MacOS"
+cp "$ROOT/mac-helper/.build/release/macshare-share" "$APPEX/Contents/MacOS/MacShareShare"
+cat > "$APPEX/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>org.macshare.mac.share</string>
+  <key>CFBundleName</key><string>MacShare</string>
+  <key>CFBundleDisplayName</key><string>MacShare</string>
+  <key>CFBundleExecutable</key><string>MacShareShare</string>
+  <key>CFBundlePackageType</key><string>XPC!</string>
+  <key>CFBundleShortVersionString</key><string>$VER</string>
+  <key>CFBundleVersion</key><string>$VER</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>NSExtension</key><dict>
+    <key>NSExtensionPointIdentifier</key><string>com.apple.share-services</string>
+    <key>NSExtensionPrincipalClass</key><string>ShareViewController</string>
+    <key>NSExtensionAttributes</key><dict>
+      <key>NSExtensionActivationRule</key><dict>
+        <key>NSExtensionActivationSupportsFileWithMaxCount</key><integer>1000</integer>
+      </dict>
+    </dict>
+  </dict>
+</dict></plist>
+PLIST
+cat > dist/share.entitlements <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.security.files.user-selected.read-only</key><true/>
+</dict></plist>
+PLIST
+
 # Ad-hoc signature over the whole bundle (helpers first), so the edited Info.plist is sealed.
 for b in dist/MacShare.app/Contents/Resources/app/mac-helper/.build/release/*; do codesign --force --sign - "$b"; done
 codesign --force --deep --sign - dist/MacShare.app
+codesign --force --sign - --entitlements dist/share.entitlements "$APPEX" # --deep dropped its sandbox
+codesign --force --sign - dist/MacShare.app && rm -f dist/share.entitlements
 echo "built mac/dist/MacShare.app"

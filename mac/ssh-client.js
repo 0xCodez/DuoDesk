@@ -89,7 +89,7 @@ class SshClient extends EventEmitter {
     const port = Number(m.port) || 22;
     const keys = (Array.isArray(m.hostKeys) ? m.hostKeys : []).map(String).filter((k) => /^[a-z0-9-]+ [A-Za-z0-9+/=]+$/.test(k));
     if (!safe(user) || !keys.length) {
-      this.status = { ready: false, why: 'bad answer from the PC', user: null };
+      this.status = { ready: false, why: 'bad answer from the other computer', user: null };
       return this.emit('change');
     }
     fs.writeFileSync(KNOWN, keys.map((k) => `${ALIAS} ${k}`).join('\n') + '\n', { mode: 0o600 });

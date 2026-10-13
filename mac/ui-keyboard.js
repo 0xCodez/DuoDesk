@@ -20,9 +20,9 @@ UI.tab({
     const switchSw = UI.switch((v) => api.setKvm({ hotkeySwitch: v }), { label: 'Switch the keyboard with the hotkey' });
     const switchRow = UI.row('Switch the keyboard with the hotkey', '', [switchSw]);
     const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Command' });
-    const shortcutsRow = UI.row('Shortcuts on the PC', '⌘ works as Ctrl, so ⌘C copies there');
+    const shortcutsRow = UI.row('Shortcuts on {name}', '⌘ works as Ctrl, so ⌘C copies there');
     const swapRow = UI.row('Ctrl works as ⌘', 'So Ctrl+C copies here', [swap]);
-    const otherHotkey = UI.row('Hotkey on the PC', '');
+    const otherHotkey = UI.row('Hotkey on {name}', '');
 
     body.append(
       status,
@@ -40,14 +40,12 @@ UI.tab({
       // Keyboard-only switching exists only while the pointer isn't shared (Cursor off).
       switchSw.set(s.kvm.hotkeySwitch);
       switchSw.disable(!!s.kvm.mouse);
-      switchRow.setHint(s.kvm.mouse ? 'Only when Cursor is off' : `Double-tap to type on ${p.there} and back`);
+      switchRow.setHint(s.kvm.mouse ? 'Only when Cursor is off' : `Double-tap to type on ${p.name} and back`);
       // Ctrl/Cmd swapping only between a Mac and a PC or Linux.
       shortcutsRow.hidden = p.same;
       swapRow.hidden = p.same;
-      shortcutsRow.label.textContent = `Shortcuts on ${p.same ? p.there : `the ${p.kind}`}`;
       swap.set(s.keys && s.keys.swapCtrlCmd);
-      otherHotkey.label.textContent = `Hotkey on ${p.there}`;
-      otherHotkey.setHint(`Set in MacShare on ${p.there}`);
+      otherHotkey.setHint(`Set in MacShare on ${p.name}`);
     };
   },
 });

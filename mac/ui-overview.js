@@ -18,7 +18,7 @@ UI.tab({
     // ---- this Mac + connect by address ----
     const addrVal = el('span', { class: 'value addr' });
     const copyBtn = UI.button('Copy', () => UI.state && api.copyText(UI.state.addresses[0] || ''), 'small');
-    const addrRow = UI.row('This Mac', '', [addrVal, copyBtn]);
+    const addrRow = UI.row('{me}', 'Its address', [addrVal, copyBtn]);
     const ipInput = el('input', { type: 'text', placeholder: '192.168.1.20', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Address' } });
     const ipBtn = UI.button('Connect', () => api.connectAddress(ipInput.value), 'small primary');
     ipInput.onkeydown = (e) => { if (e.key === 'Enter') ipBtn.click(); };
@@ -32,7 +32,7 @@ UI.tab({
     const refresh = UI.button('Refresh', () => api.refreshDiscovery(), 'small');
 
     // ---- hero ----
-    const WHERE = { driving: 'You’re using {there}', driven: '{there} is using this Mac' };
+    const WHERE = { driving: 'You’re using {name}', driven: '{name} is using {me}' };
     const linkLine = el('div', { class: 'hero-link' }, [el('span', { class: 'hero-pulse' })]);
     const linkText = el('div', { class: 'hero-link-text' });
     const peerName = el('div', { class: 'hero-name' });
@@ -93,7 +93,7 @@ UI.tab({
       const g = s.guest || { status: {}, hosts: [] };
 
       // this Mac
-      addrVal.textContent = s.addresses.length ? s.addresses.join(', ') : 'No network';
+      addrVal.textContent = s.addresses.length ? s.addresses[0] : 'No network';
       copyBtn.hidden = !s.addresses.length;
       const cn = s.connect || {};
       const gp = g.pairing;
@@ -129,7 +129,7 @@ UI.tab({
 
       // hero
       macName.textContent = s.macName;
-      peerName.textContent = c ? c.name : ['PC', 'Linux', 'Mac2'].includes(p.name) ? `Your ${p.same ? 'other Mac' : p.kind}` : p.name;
+      peerName.textContent = c ? c.name : p.Name;
       peerDev.className = `device ${p.os === 'mac' ? 'mac' : 'pc'}`;
       linkLine.className = `hero-link ${c ? 'up' : ''}`;
       const connecting = ['connecting', 'reconnecting'].includes(g.status.state);
@@ -138,7 +138,7 @@ UI.tab({
       const inp = s.input || { where: 'home' };
       const bad = s.serverError || (g.status.state === 'identity_changed' && g.status.message);
       status.textContent = bad
-        || (c ? (WHERE[inp.where] || 'Connected').replace('{there}', c.name)
+        || (c ? UI.fill(WHERE[inp.where] || 'Connected')
           : pairedIds.size ? 'Open MacShare on the other computer to connect.'
             : 'Pick a computer above, or connect by address.');
       status.classList.toggle('bad', !!bad);
@@ -151,7 +151,8 @@ UI.tab({
       }
 
       // paired: guests (they connect to us) and hosts (we connect to them)
-      const pk = JSON.stringify([s.paired, g.hosts, c && c.id]);
+      const wk = (s.wake && s.wake.peers) || {};
+      const pk = JSON.stringify([s.paired, g.hosts, c && c.id, Object.keys(wk), s.wake && s.wake.last]);
       if (pk === pairedKey) return;
       pairedKey = pk;
       const all = [...s.paired, ...g.hosts.map((h) => ({ ...h, host: true }))];
@@ -159,7 +160,10 @@ UI.tab({
         ? all.map((x) => {
           const online = c && c.id === x.id;
           const r = UI.row(x.name, online ? 'Connected' : `Last seen ${UI.ago(x.lastSeen)}`,
-            [online ? el('span', { class: 'pill good', text: 'Online' }) : null, UI.button('Forget', () => api.forget(x.id), 'small')]);
+            [online ? el('span', { class: 'pill good', text: 'Online' }) : null,
+              // Revision 7: wake it over the network (it told us how while connected).
+              !online && wk[x.id] ? UI.button(s.wake.last && s.wake.last.id === x.id && Date.now() - s.wake.last.at < 20000 ? 'Waking…' : 'Wake', () => api.wakePeer(x.id), 'small') : null,
+              UI.button('Forget', () => api.forget(x.id), 'small')]);
           r.querySelector('.text').prepend(UI.osIcon(x.os));
           r.classList.add('with-ico');
           return r;

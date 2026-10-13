@@ -8,9 +8,9 @@ UI.tab({
   group: 'Display',
   order: 10,
   title: 'Share screen',
-  heading: 'This Mac’s screen on {there}',
+  heading: '{me} on {name}',
   icon: 'display',
-  desc: 'Use this Mac as a second screen for {there}.',
+  desc: 'Use {me} as a second screen for {name}.',
   color: 'linear-gradient(#5ac8fa, #0a84ff)',
   master: { get: (s) => s.sharing && s.sharing.on, set: (v) => UI.api.setSharing(v) },
   badge: (s) => (s.sharing && s.sharing.on ? 'on' : ''),
@@ -24,8 +24,8 @@ UI.tab({
       { label: '2560 × 1440 HiDPI (5120 × 2880 px)', width: 2560, height: 1440, hiDPI: true },
     ];
     const STATUS = {
-      off: 'Off', starting: 'Starting…', 'waiting for answer': 'Waiting for the PC…', new: 'Connecting…',
-      connecting: 'Connecting…', live: 'Live', disconnected: 'Reconnecting…', failed: 'Retrying…', closed: 'Closed',
+      off: 'Off', starting: 'Starting…', 'waiting for answer': 'Waiting for {name}…', new: 'Connecting…',
+      connecting: 'Connecting…', live: 'Live', 'no viewer': 'Ready — starts when {name} opens it', 'nothing connected': 'Waiting for {name}', 'no display to share': 'No display to share', disconnected: 'Reconnecting…', failed: 'Retrying…', closed: 'Closed',
     };
 
     const helperNote = UI.note('bad', 'Something went wrong in the background. Restart MacShare.');
@@ -62,11 +62,18 @@ UI.tab({
       { value: 80, label: 'Max, 80 Mbps (wired)' },
     ], (v) => api.setBitrate(Number(v)));
 
+    const priority = UI.segmented([
+      { value: 'smooth', label: 'Smoothness' },
+      { value: 'sharp', label: 'Sharpness' },
+    ], (v) => api.setSharingOpts({ priority: v }));
+    const priorityRow = UI.row('Priority', '', [priority]);
+    const remoteSw = UI.switch((v) => api.setSharingOpts({ remote: v }), { label: 'Remote start' });
+    const remoteRow = UI.row('Let {name} start and switch this screen', 'Open it on {name} — no need to touch {me}', [remoteSw]);
+
     const soundSw = UI.switch((v) => api.setScreenSound(v), { label: 'Share sound with the screen' });
     const soundRow = UI.row('Include sound', '', [soundSw]);
     const inputSw = UI.switch((v) => api.setStreamInput(v), { label: 'Receive input' });
-    const inputRow = UI.row('Receive input from {there}', '', [inputSw]);
-    inputRow.label.dataset.peer = 'Receive input from {there}';
+    const inputRow = UI.row('Let {name} use {me} in its window', '', [inputSw]);
 
     const stats = {
       status: UI.row('Status', ''),
@@ -91,8 +98,9 @@ UI.tab({
       UI.card('Picture', [
         UI.row('Resolution', '', [streamSize]),
         UI.row('Quality', '', [quality]),
+        priorityRow,
       ]),
-      UI.card('Sound and control', [soundRow, inputRow], { cls: 'keep-on' }),
+      UI.card('Sound and control', [remoteRow, soundRow, inputRow], { cls: 'keep-on' }),
       UI.card('Details', Object.values(stats), { cls: 'keep-on' }),
     );
 
@@ -101,7 +109,7 @@ UI.tab({
       const sh = s.sharing;
       if (!sh) return;
       mode.set(s.displayMode);
-      modeRow.setHint({ extend: 'Shows the MacShare virtual display', mirror: 'Shows this Mac’s main screen', custom: '' }[s.displayMode]);
+      modeRow.setHint({ extend: 'Shows the MacShare virtual display', mirror: 'Shows {me}’s main screen', custom: '' }[s.displayMode]);
 
       display.options([
         { value: 'virtual', label: 'MacShare virtual display' },
@@ -124,13 +132,16 @@ UI.tab({
       quality.set(sh.bitrateMbps);
 
       soundSw.set(sh.audio);
+      remoteSw.set(sh.remote !== false);
+      priority.set(sh.priority || 'smooth');
+      priorityRow.setHint(sh.priority === 'sharp' ? 'Text stays crisp; motion may skip frames when busy' : 'Every frame arrives; detail eases off a little when busy');
       inputSw.set(s.streamInput);
       const c = s.client;
 
       const st = s.stream || { status: 'off' };
       const live = st.status === 'live';
       const p = UI.peer(s);
-      statVals.status.textContent = !sh.on ? 'Off' : !c ? `Waiting for ${p.same ? p.there : 'your PC'}` : (STATUS[st.status] || st.status).replace('the PC', c.name);
+      statVals.status.textContent = !sh.on ? 'Off' : !c ? `Waiting for ${p.name}` : UI.fill(STATUS[st.status] || st.status);
       const shown = sh.displays.find((d) => d.id === sh.targetId);
       statVals.display.textContent = shown ? `${shown.virtual ? 'MacShare virtual display' : shown.label} · ${shown.pixelWidth} × ${shown.pixelHeight}` : '';
       statVals.picture.textContent = live ? `${st.width} × ${st.height} · ${st.fps} fps` : '';

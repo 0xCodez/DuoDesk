@@ -26,11 +26,11 @@ function intToIp(n) {
 // Non-internal IPv4 interfaces: [{address, broadcast}]
 function interfaces() {
   const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
     for (const i of list || []) {
       if (i.family !== 'IPv4' || i.internal) continue;
       const bc = (ipToInt(i.address) | ~ipToInt(i.netmask)) >>> 0;
-      out.push({ address: i.address, broadcast: intToIp(bc) });
+      out.push({ name, address: i.address, broadcast: intToIp(bc) });
     }
   }
   return out;

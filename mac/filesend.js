@@ -92,10 +92,10 @@ class FileSend extends EventEmitter {
     server.on(`t:${P.T.FILES_DONE}`, (m) => this._batchDone(m));
     server.on(`t:${P.T.FILE_REFUSE}`, (m) => this._finish(m.id, false, `refused (${m.why || 'no reason'})`));
     server.on(`t:${P.T.FILE_DONE}`, (m) => this._finish(m.id, !!m.ok, m.ok ? m.path : m.error));
-    server.on(`t:${P.T.FILE_CANCEL}`, (m) => this._finish(m.id, false, 'cancelled on the PC'));
+    server.on(`t:${P.T.FILE_CANCEL}`, (m) => this._finish(m.id, false, `cancelled on ${this.server.current ? this.server.current.name : 'the other computer'}`));
     server.on('closed', () => {
       if (!server.current) {
-        for (const id of [...this.outgoing.keys()]) this._finish(id, false, 'the PC disconnected');
+        for (const id of [...this.outgoing.keys()]) this._finish(id, false, 'the other computer disconnected');
         for (const drag of [...this.drags.keys()]) this._dragEnd({ drag, result: 'failed' });
         for (const batch of [...this.batches.keys()]) this._batchDone({ batch, ok: false });
       }
@@ -182,7 +182,7 @@ class FileSend extends EventEmitter {
     const ok = m.result === 'dropped';
     if (!ok) this.cancelDrag(m.drag, false);
     const where = typeof m.where === 'string' ? m.where.slice(0, 300) : '';
-    this.recent.unshift({ name: d.name, size: d.bytes, at: Date.now(), ok, ...(ok ? { where } : { error: m.result === 'failed' ? 'the PC couldn’t take it' : 'cancelled' }) });
+    this.recent.unshift({ name: d.name, size: d.bytes, at: Date.now(), ok, ...(ok ? { where } : { error: m.result === 'failed' ? `${this.server.current ? this.server.current.name : 'the other computer'} couldn’t take it` : 'cancelled' }) });
     this.recent.length = Math.min(this.recent.length, 20);
     this.emit('dragEnd', m.drag);
     this.emit('change');

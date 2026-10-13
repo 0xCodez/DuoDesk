@@ -4,6 +4,9 @@
 // (recvonly) in a visible viewer window, tuned for the lowest latency (jitter buffer 0, input sent
 // the moment it arrives). Keys are taken in main (before-input-event) so Cmd+Q/W/… reach the PC;
 // mouse input comes from the viewer page. Closing the window turns the switch off.
+// Revision 7: minimizing pauses the picture (accept false: the PC stops capturing); the PC's
+// `screen.state` lets us start its sharing and switch Extend/Mirror from here (`screen.ctl`), from
+// the Receive tab or the window's toolbar; opening the window starts it when the PC allows that.
 //
 // Events: 'change' — this.view changed.
 'use strict';
@@ -30,14 +33,28 @@ class PcView extends EventEmitter {
     this.stats = null; // {width, height, fps, mbps, decoder, codec, delayMs}
     this.keys = null;
     this.sized = false;
+    this.remote = null; // the peer's screen.state {on, mode, remote, modes}
+    this.startedByUs = false; // we switched the PC's sharing on (switch it off again when we close)
 
-    server.on('client', () => this._policy());
+    server.on('client', () => {
+      this.remote = null;
+      this.startedByUs = false;
+      this._policy();
+    });
+    server.on(`t:${T.SCREEN_STATE}`, (m) => {
+      this.remote = { on: !!m.on, mode: String(m.mode || ''), remote: m.remote !== false, modes: Array.isArray(m.modes) ? m.modes.slice(0, 4).map(String) : [] };
+      if (!this.remote.on) this.startedByUs = false;
+      this._toWin({ t: 'remote', ...this.remote });
+      if (this.wantStart && this.remote.remote && !this.remote.on) this.control({ share: true });
+      this.wantStart = false;
+      this.emit('change');
+    });
     server.on('closed', () => {
       if (!server.current) this._end('');
     });
     server.on(`t:${T.RTC2_OFFER}`, (m) => this._onOffer(m));
     server.on(`t:${T.RTC2_ICE}`, (m) => m.session === this.session && this._toWin({ ...m }));
-    server.on(`t:${T.RTC2_STOP}`, (m) => (m.session === undefined || m.session === this.session) && this._end('The PC stopped sharing'));
+    server.on(`t:${T.RTC2_STOP}`, (m) => (m.session === undefined || m.session === this.session) && this._end(`${this.server.current ? this.server.current.name : 'It'} stopped sharing`));
     for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) screen.on(ev, () => this._policy());
 
     ipcMain.on('pcview:out', (e, m) => {
@@ -51,6 +68,17 @@ class PcView extends EventEmitter {
       if (s.stats) this.stats = s.stats;
       if (s.size) this._fit(s.size.width, s.size.height);
       this.emit('change');
+    });
+    ipcMain.on('pcview:ctl', (e, m) => {
+      if (!this._fromWin(e) || !m) return;
+      if (m.framegen !== undefined) {
+        this.cfg.framegen = !!m.framegen;
+        this.saveSettings();
+        this._toWin({ t: 'pacing', pacing: this.cfg.pacing, framegen: !!this.cfg.framegen });
+        this.emit('change');
+      }
+      if (m.fullScreen && this.win) this.win.setFullScreen(!this.win.isFullScreen());
+      if (m.share !== undefined || m.mode) this.control({ share: m.share, mode: m.mode });
     });
     ipcMain.on('pcview:ready', (e) => {
       if (!this._fromWin(e)) return;
@@ -68,7 +96,24 @@ class PcView extends EventEmitter {
   _policy() {
     const d = screen.getPrimaryDisplay();
     const even = (v) => Math.round(v / 2) * 2;
-    this.server.sendToClient({ t: T.SCREEN_POLICY, accept: !!this.cfg.on, width: even(d.size.width), height: even(d.size.height) });
+    const watching = !!this.cfg.on && !(this.win && !this.win.isDestroyed() && this.win.isMinimized());
+    this.server.sendToClient({ t: T.SCREEN_POLICY, accept: watching, width: even(d.size.width), height: even(d.size.height) });
+  }
+
+  // Start/stop the PC's sharing or switch its mode (it obeys when its "remote" setting allows).
+  control({ share, mode }) {
+    if (!this.server.current) return;
+    const m = { t: T.SCREEN_CTL };
+    if (typeof share === 'boolean') m.share = share;
+    if (mode === 'extend' || mode === 'mirror') m.mode = mode;
+    if (m.share === undefined && !m.mode) return;
+    if (m.share === true && !(this.remote && this.remote.on)) this.startedByUs = true;
+    if (m.share === true && !this.cfg.on) {
+      this.cfg.on = true;
+      this.saveSettings();
+      this._policy();
+    }
+    this.server.sendToClient(m);
   }
 
   _onOffer(m) {
@@ -80,7 +125,9 @@ class PcView extends EventEmitter {
     this.sized = false;
     clearTimeout(this.closeTimer);
     this._open();
-    this._toWin({ t: 'offer', session: m.session, sdp: m.sdp, audio: m.kind === 'screen+audio', volume: this.getSettings().audio.volume, input: !!this.cfg.input });
+    this._toWin({ t: 'offer', session: m.session, sdp: m.sdp, audio: m.kind === 'screen+audio', volume: this.getSettings().audio.volume, input: !!this.cfg.input,
+      pacing: this.cfg.pacing || 'smooth', framegen: !!this.cfg.framegen });
+    if (this.remote) this._toWin({ t: 'remote', ...this.remote });
     this.emit('change');
   }
 
@@ -145,6 +192,8 @@ class PcView extends EventEmitter {
         return true;
       },
     });
+    win.on('minimize', () => this._policy()); // paused: the PC stops capturing
+    win.on('restore', () => this._policy());
     win.on('blur', () => {
       this._releaseKeys();
       this._toWin({ t: 'blur' });
@@ -158,6 +207,8 @@ class PcView extends EventEmitter {
         this.getSettings().receive.on = false;
         this.saveSettings();
         this._policy();
+        if (this.startedByUs) this.control({ share: false }); // we started it, so we stop it
+        this.startedByUs = false;
         this.session = null;
         this.status = 'off';
         this.emit('change');
@@ -205,6 +256,7 @@ class PcView extends EventEmitter {
     if (!this.cfg.input) this._releaseKeys();
     this._toWin({ t: 'input', on: !!this.cfg.input });
     this._toWin({ t: 'volume', volume: this.getSettings().audio.volume });
+    this._toWin({ t: 'pacing', pacing: this.cfg.pacing || 'smooth', framegen: !!this.cfg.framegen });
     if (this.win && !this.win.isDestroyed() && this.win.isFullScreen() !== !!this.cfg.fullScreen) this.win.setFullScreen(!!this.cfg.fullScreen);
   }
 
@@ -219,9 +271,16 @@ class PcView extends EventEmitter {
     clearTimeout(this.closeTimer);
     const fresh = !this.win || this.win.isDestroyed();
     this._open();
+    // Nothing shared yet: start it from here (no need to touch the PC) when it allows that.
+    const r = this.remote;
+    if (r && !r.on && r.remote) this.control({ share: true });
+    else if (!r) this.wantStart = true; // an older PC app or state not here yet
     if (fresh && !this.session) {
-      const pc = this.server.current ? this.server.current.name : 'your PC';
-      this._toWin({ t: 'stop', why: this.server.current ? `Choose what to share in MacShare on ${pc}` : 'Waiting for your PC…' });
+      const pc = this.server.current ? this.server.current.name : 'the other computer';
+      const why = !this.server.current ? 'Waiting for the other computer…'
+        : r && !r.on && r.remote ? `Starting ${pc}’s screen…` : `Choose what to share in MacShare on ${pc}`;
+      this._toWin({ t: 'stop', why });
+      if (this.remote) this._toWin({ t: 'remote', ...this.remote });
     }
     this.win.focus();
     this.emit('change');
@@ -234,7 +293,7 @@ class PcView extends EventEmitter {
   }
 
   get view() {
-    return { session: this.session, kind: this.kind, status: this.status, stats: this.stats, open: !!(this.win && !this.win.isDestroyed()) };
+    return { session: this.session, kind: this.kind, status: this.status, stats: this.stats, open: !!(this.win && !this.win.isDestroyed()), remote: this.remote };
   }
 }
 

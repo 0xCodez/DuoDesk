@@ -345,7 +345,7 @@ class PcApps extends EventEmitter {
   openFromLink(id) {
     if (this.server.current && this.cfg.on) return this.open(id);
     this.pendingLink = { id, at: Date.now() };
-    this.emit('popup', 'driven', 'Opening it when your PC connects…');
+    this.emit('popup', 'driven', 'Opening it when the other computer connects…');
   }
 
   // Apps tab: put a PC app in the Dock (and in ~/Applications/MacShare Apps for Launchpad).

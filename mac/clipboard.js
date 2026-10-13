@@ -84,7 +84,7 @@ class Clipboard extends EventEmitter {
   async sendIfChanged(why) {
     const c = this.cfg;
     if (!c.enabled || !c.send || !this.server.current) return;
-    if (!this.peerAccepts) return this._skip('the PC does not accept the clipboard');
+    if (!this.peerAccepts) return this._skip(`${this.server.current ? this.server.current.name : 'the other computer'} doesn’t take the clipboard`);
     const text = await readText();
     if (!text || text === this.lastSent || text === this.lastReceived) return;
     if (c.skipConcealed) {

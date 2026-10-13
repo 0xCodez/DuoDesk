@@ -17,8 +17,8 @@ UI.tab({
     const { el, api } = UI;
     const PERMS = [
       { kind: 'screen', label: 'Screen Recording', note: 'To share your screen' },
-      { kind: 'accessibility', label: 'Accessibility', note: 'So the PC can control this Mac' },
-      { kind: 'inputMonitoring', label: 'Input Monitoring', note: 'To use this keyboard on the PC' },
+      { kind: 'accessibility', label: 'Accessibility', note: 'So the other computer can control this one' },
+      { kind: 'inputMonitoring', label: 'Input Monitoring', note: 'To use this keyboard on the other computer' },
     ];
     const perms = PERMS.map((p) => {
       const pill = el('span', { class: 'pill' });
@@ -32,6 +32,11 @@ UI.tab({
     const loginSw = UI.switch((v) => api.setApp({ openAtLogin: v }), { label: 'Open at login' });
     const awakeSw = UI.switch((v) => api.setApp({ keepAwake: v }), { label: 'Keep the display awake' });
     const hudSw = UI.switch((v) => api.setApp({ hud: v }), { label: 'Show a popup when switching' });
+    // Revision 7: wake this Mac from the other computer; the Share menu entry.
+    const wakeSw = UI.switch((v) => api.setWakeOnLan(v), { label: 'Wake from the network' });
+    const wakeRow = UI.row('Let {name} wake {me}', '', [wakeSw]);
+    const shareRow = UI.row('MacShare in the Share menu', 'Share › MacShare sends files to the other computer',
+      [UI.button('Extensions…', () => api.openSettings('extensions'), 'small')]);
 
     body.append(
       UI.card('Permissions', [
@@ -44,9 +49,10 @@ UI.tab({
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
         helperRow,
       ]),
+      UI.card('Network and sharing', [wakeRow, shareRow]),
       UI.card('About', [
         UI.row('MacShare', 'Free and open source (GPL v3)', [version]),
-        UI.row('Thanks', 'Beamer by Kalkman Code, DeskPad'),
+        UI.row('Thanks', 'DeskPad (virtual display header, MIT)'),
       ]),
     );
 
@@ -63,6 +69,10 @@ UI.tab({
         awakeSw.set(s.app.keepAwake);
         hudSw.set(s.app.hud !== false);
       }
+      const w = s.wake || {};
+      wakeSw.set(w.womp === true);
+      wakeSw.disable(w.womp == null);
+      wakeRow.setHint(w.womp == null ? 'Checking…' : 'Wake for network access. Asks for your password to change it');
       helperVal.textContent = s.helper && s.helper.running ? 'Running' : 'Not running';
       version.textContent = s.version ? `Version ${s.version}` : '';
     };

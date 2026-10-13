@@ -75,6 +75,7 @@ const UI = {
           b.setAttribute('aria-checked', String(val === v));
         }
       },
+      disable: (d) => { for (const [, b] of btns) b.disabled = !!d; },
     };
   },
 
@@ -127,9 +128,13 @@ const UI = {
   },
 
   // A row: label (+ hint) on the left, controls on the right. Returns the row with .hint/.label.
+  // Labels and hints may name the computers: {me} (this computer's name), {name} / {Name} (the
+  // other one's, or "the other computer"). UI.names fills them in again on every render.
   row(label, hint, controls = [], { onClick } = {}) {
-    const lab = UI.el('span', { class: 'label', text: label });
-    const hintEl = UI.el('span', { class: 'hint', text: hint || '' });
+    const lab = UI.el('span', { class: 'label', text: UI.fill(label) });
+    if (String(label).includes('{')) lab.dataset.peer = label;
+    const hintEl = UI.el('span', { class: 'hint', text: UI.fill(hint || '') });
+    if (String(hint || '').includes('{')) hintEl.dataset.peer = hint;
     if (!hint) hintEl.hidden = true;
     const row = UI.el('div', { class: 'row' }, [
       UI.el('div', { class: 'text' }, [lab, hintEl]),
@@ -137,7 +142,12 @@ const UI = {
     ]);
     row.label = lab;
     row.hint = hintEl;
-    row.setHint = (t) => { hintEl.textContent = t || ''; hintEl.hidden = !t; };
+    row.setHint = (t) => {
+      if (String(t || '').includes('{')) hintEl.dataset.peer = t;
+      else delete hintEl.dataset.peer;
+      hintEl.textContent = UI.fill(t || '');
+      hintEl.hidden = !t;
+    };
     if (onClick) {
       row.classList.add('clickable');
       row.onclick = (e) => { if (!e.target.closest('input,button,select')) onClick(); };
@@ -147,7 +157,9 @@ const UI = {
 
   card(title, rows, { actions, cls = '' } = {}) {
     const wrap = UI.el('div', { class: 'card-wrap' });
-    if (title) wrap.append(UI.el('div', { class: 'card-title' }, [UI.el('span', { text: title }), actions ? UI.el('span', { class: 'actions' }, actions) : null]));
+    const tEl = title ? UI.el('span', { text: UI.fill(title) }) : null;
+    if (title && title.includes('{')) tEl.dataset.peer = title;
+    if (title) wrap.append(UI.el('div', { class: 'card-title' }, [tEl, actions ? UI.el('span', { class: 'actions' }, actions) : null]));
     const card = UI.el('div', { class: `card ${cls}`.trim() }, rows);
     wrap.append(card);
     wrap.card = card;
@@ -165,32 +177,46 @@ const UI = {
     }
     os = os || 'win';
     const same = os === 'mac';
-    const kind = os === 'linux' ? 'Linux' : 'PC';
-    // Two Macs: this one is "Mac1", the other "Mac2" (human review 2026-10-13, like PC1/PC2 on
-    // the PC); real names show in the overview and the paired list.
-    const there = same ? 'Mac2' : kind;
+    const kind = os === 'linux' ? 'Linux' : same ? 'Mac' : 'PC';
+    // Revision 7b: computers are called by their names everywhere — this one by its own name, the
+    // other by its name (or "the other computer" before anything was paired).
+    const me = (s && s.macName) || 'This Mac';
+    name = name || 'the other computer';
+    const Name = name.charAt(0).toUpperCase() + name.slice(1);
     return {
-      os, same, there, kind, name: name || (same ? 'Mac2' : kind), here: same ? 'This Mac' : 'Mac',
+      os, same, kind, me, name, Name,
+      there: name, here: me, meName: me, // older templates
       // Terminal, Apps: only Mac ↔ PC so far (docs/ROADMAP.md "Revision 4", docs/LINUX.md).
       limited: os !== 'win' ? (os === 'linux' ? 'Not on Linux yet' : 'Only between a Mac and a PC for now') : '',
-      // Titles name what is connected: "Mac → PC", or both names when the two are the same kind.
-      me: same ? 'Mac1' : 'Mac',
-      out: same ? 'Mac1 → Mac2' : `Mac → ${kind}`,
-      in: same ? 'Mac2 → Mac1' : `${kind} → Mac`,
-      thereScreen: same ? `${there}’s screen` : `the ${kind}’s screen`,
+      out: `${me} → ${name}`,
+      in: `${name} → ${me}`,
+      thereScreen: `${name}’s screen`,
     };
+  },
+
+  // A template with {me}, {name}, {Name}, … filled from the current state.
+  fill(t) {
+    if (!t || !String(t).includes('{')) return t || '';
+    const p = UI.peer(UI.state);
+    return String(t).replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
   },
 
   // A direction card for the symmetric layout (docs/UI.md "equal places"). dir: 'm2w' | 'w2m'
   // (m2w = from this Mac). The names follow the peer (UI.peer) on every render.
+  // Revision 7b: the head is a route — device icon + real name, a line with an arrowhead, the
+  // other device — so which way things go is clear without reading.
   dir(dir, rows, { role = '', soon = '' } = {}) {
-    const a = UI.el('span', { class: dir === 'm2w' ? 'dev here' : 'dev' });
-    const b = UI.el('span', { class: dir === 'w2m' ? 'dev here' : 'dev' });
-    a.dataset.side = dir === 'm2w' ? 'me' : 'there';
-    b.dataset.side = dir === 'm2w' ? 'there' : 'me';
+    const node = (me) => {
+      const ico = UI.el('span', { class: `os-ico ${me ? 'mac' : 'pc'}` });
+      if (!me) ico.dataset.os = 'there';
+      const nm = UI.el('span', { class: 'nm' });
+      nm.dataset.side = me ? 'meName' : 'name';
+      return UI.el('span', { class: `node${me ? ' here' : ''}` }, [ico, nm]);
+    };
+    const from = dir === 'm2w';
     const head = UI.el('div', { class: 'dir-head' }, [
-      UI.el('span', { class: 'dir-title' }, [a, UI.el('span', { class: 'arrow', text: '→' }), b]),
-      UI.el('span', { class: 'dir-role', text: soon ? `Coming in phase ${soon}` : role }),
+      UI.el('span', { class: 'route', attrs: { role: 'img' } }, [node(from), UI.el('span', { class: 'flow' }), node(!from)]),
+      soon || role ? UI.el('span', { class: 'dir-role', text: soon ? `Coming in phase ${soon}` : role }) : null,
     ]);
     const card = UI.el('div', { class: `card dir-card${soon ? ' soon-card' : ''}` }, [head, ...rows]);
     UI.names(UI.state);
@@ -201,6 +227,8 @@ const UI = {
   names(s) {
     const p = UI.peer(s);
     for (const e of document.querySelectorAll('[data-side]')) e.textContent = p[e.dataset.side];
+    for (const e of document.querySelectorAll('[data-os]')) e.className = `os-ico ${p.os === 'mac' ? 'mac' : 'pc'}`;
+    for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', `From ${e.firstChild.textContent} to ${e.lastChild.textContent}`);
     for (const e of document.querySelectorAll('[data-peer]')) {
       e.textContent = e.dataset.peer.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
     }
@@ -273,10 +301,10 @@ const UI = {
     const i = s.input || { where: 'home' };
     if (i.tapError) return ['bad', 'macOS is blocking the mouse and keyboard. Allow Accessibility and Input Monitoring in General, then restart.'];
     if (s.kvm && s.kvm.linked === false) return ['warn', `Cursor sharing is off. Double-tap ${UI.hotkeyName(s)} to turn it on.`];
-    if (!s.client) return ['info', `Waiting for ${UI.peer(s).same ? 'your other Mac' : 'your PC'}.`];
+    if (!s.client) return ['info', `Waiting for ${UI.peer(s).name}.`];
     const hk = UI.hotkeyName(s);
     if (i.where === 'driving') return ['info', `You’re using ${s.client.name}. Double-tap ${hk} to come back and turn cursor sharing off.`];
-    if (i.where === 'driven') return ['info', `${s.client.name} is using this Mac. Double-tap ${hk} to take it back.`];
+    if (i.where === 'driven') return ['info', `${s.client.name} is using ${UI.peer(s).me}. Double-tap ${hk} to take it back.`];
     return [i.message ? 'warn' : 'info', i.message ? `${i.message}.` : `Connected to ${s.client.name}. Double-tap ${hk} to turn cursor sharing off.`];
   },
 

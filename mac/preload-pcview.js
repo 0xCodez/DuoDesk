@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('pcview', {
   send: (msg) => ipcRenderer.send('pcview:out', msg),
   state: (s) => ipcRenderer.send('pcview:state', s),
   ready: () => ipcRenderer.send('pcview:ready'),
+  ctl: (m) => ipcRenderer.send('pcview:ctl', m), // revision 7 toolbar: {share?, mode?, framegen?, fullScreen?}
 });
