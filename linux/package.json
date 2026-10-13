@@ -1,0 +1,19 @@
+{
+  "name": "macshare-linux",
+  "productName": "MacShare",
+  "version": "0.1.0",
+  "description": "MacShare for Linux: pair with a Mac, view its screen, share the clipboard.",
+  "license": "GPL-3.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test:monitor": "electron . --test-monitor"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}
