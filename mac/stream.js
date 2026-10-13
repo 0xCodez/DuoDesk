@@ -156,7 +156,7 @@ class Stream extends EventEmitter {
       const set = this.getSettings();
       this._toWindow('start', {
         session: s, bitrateMbps: set.bitrateMbps, sourceId: src.id, width, height, audio,
-        fps: Math.min(120, Math.max(30, Math.round(target.hz || 60))), priority: set.sharing.priority || 'smooth',
+        fps: Math.min(120, Math.max(30, Math.round(target.hz || 60))),
       });
     } catch (e) {
       console.error(`[stream] start failed: ${e.message}`);

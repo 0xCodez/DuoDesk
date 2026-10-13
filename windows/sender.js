@@ -41,7 +41,7 @@ class Sender extends EventEmitter {
     });
   }
 
-  // opts: {sourceId, width, height, follow?, mbps, fps?, priority?, audio?, offer: {kind, wid?}} → session number
+  // opts: {sourceId, width, height, follow?, mbps, fps?, audio?, offer: {kind, wid?}} → session number
   start(opts) {
     const session = ++this.counter;
     this.live.add(session);

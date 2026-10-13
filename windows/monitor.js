@@ -16,7 +16,7 @@ let pc = null;
 let session = null;
 let pending = null; // remote candidates queued until the remote description is set
 let streamName = '';
-let pacing = 'smooth';
+let pacing = 'fast';
 const fgCanvas = document.getElementById('framegen');
 let fg = null; // FrameGen, made the first time frame generation is switched on
 let fgOn = false;
@@ -36,7 +36,7 @@ api.onRemote((r) => {
 });
 api.onPacing((p) => {
   const was = pacing;
-  pacing = p && p.pacing === 'fast' ? 'fast' : 'smooth';
+  pacing = p && p.pacing === 'smooth' ? 'smooth' : 'fast';
   if (pacing !== was && pc) for (const r of pc.getReceivers()) if (r.track.kind === 'video') pace(r);
   frameGen(!!(p && p.framegen));
 });

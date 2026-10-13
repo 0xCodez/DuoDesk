@@ -30,16 +30,11 @@ UI.tab({
       { value: 'mirror', label: 'Mirror' },
       { value: 'extend', label: 'Extend' },
     ], (v) => api.remoteScreen(v === 'off' ? { share: false } : { share: true, mode: v }));
-    const modeRow = UI.row('{name} shares', '', [mode]);
-    modeRow.label.dataset.peer = '{name} shares';
+    const modeRow = UI.row('{Name} shares', '', [mode]);
     const autoOpen = UI.switch((v) => api.setMonitor({ autoOpen: v }), { label: 'Open automatically' });
     const volume = UI.slider({ min: 0, max: 1, step: 0.05, format: (v) => Math.round(v * 100) + '%' }, (v) => api.setMonitor({ volume: v }));
     const mute = UI.switch((v) => api.setMonitor({ mute: !v }), { label: 'Play sound' });
-    const pacing = UI.segmented([
-      { value: 'smooth', label: 'Smooth' },
-      { value: 'fast', label: 'Fastest' },
-    ], (v) => api.setMonitor({ pacing: v }));
-    const pacingRow = UI.row('Playback', '', [pacing]);
+    const paceRow = UI.paceRow(); // revision 7c: one Playback setting, synced with the other computer
     const framegen = UI.switch((v) => api.setMonitor({ framegen: v }), { label: 'Frame generation' });
 
     const details = UI.details(['Status', 'Display', 'Picture', 'Speed', 'Round trip', 'Codec', 'Decoder', 'Delay', 'Frames dropped', 'Freezes']);
@@ -48,13 +43,11 @@ UI.tab({
       UI.card('', [
         winRow,
         modeRow,
+        paceRow,
+        UI.row('Frame generation', 'Fills in late or dropped frames, and adds in-between frames when this screen is faster than the stream', [framegen]),
         UI.row('Open automatically', '', [autoOpen]),
         UI.row('Sound', '', [mute, volume]),
         UI.row('Full screen', '', [el('kbd', { text: 'F11' })]),
-      ], { cls: 'keep-on' }),
-      UI.card('Motion', [
-        pacingRow,
-        UI.row('Frame generation', 'Smoother motion when the stream is slower than this screen. Adds one refresh of delay', [framegen]),
       ], { cls: 'keep-on' }),
       details,
     );
@@ -80,9 +73,8 @@ UI.tab({
       autoOpen.set(s.monitor.autoOpen);
       mute.set(!s.monitor.mute);
       volume.set(s.monitor.volume);
-      pacing.set(s.monitor.pacing);
+      paceRow.render(s);
       framegen.set(s.monitor.framegen);
-      pacingRow.setHint(s.monitor.pacing === 'fast' ? 'Each frame the moment it arrives; may judder on Wi-Fi' : 'Even motion, about one frame of buffer');
       const x = on && st.stats;
       details.set({
         Status: !connected ? 'Not connected' : !on ? (sharing ? 'Paused, nobody watching' : 'Off') : s.macInput ? 'Live' : 'Live, view only',

@@ -32,13 +32,9 @@ UI.tab({
     ], (v) => api.remoteScreen(v === 'off' ? { share: false } : { share: true, mode: v }));
     const rRow = UI.row('{name} shares', '', [rMode]);
     rRow.label.dataset.peer = '{name} shares';
-    const pacing = UI.segmented([
-      { value: 'smooth', label: 'Smooth' },
-      { value: 'fast', label: 'Fastest' },
-    ], (v) => api.setReceive({ pacing: v }));
-    const pacingRow = UI.row('Playback', '', [pacing]);
+    const paceRow = UI.paceRow();
     const fgSw = UI.switch((v) => api.setReceive({ framegen: v }), { label: 'Frame generation' });
-    const fgRow = UI.row('Frame generation', 'Smoother motion when the stream is slower than this screen. Adds one refresh of delay', [fgSw]);
+    const fgRow = UI.row('Frame generation', 'Fills in late or dropped frames, and adds in-between frames when this screen is faster than the stream', [fgSw]);
 
     const live = {
       status: UI.row('Status', ''), picture: UI.row('Picture', ''), rate: UI.row('Speed', ''), rtt: UI.row('Round trip', ''),
@@ -56,8 +52,9 @@ UI.tab({
         rRow,
         UI.row('Open full screen', 'Ctrl ⌘ F switches', [fullSw]),
         ctlRow,
+        paceRow,
+        fgRow,
       ], { cls: 'keep-on' }),
-      UI.card('Motion', [pacingRow, fgRow], { cls: 'keep-on' }),
       UI.card('Details', Object.values(live), { cls: 'keep-on' }),
     );
 
@@ -65,8 +62,7 @@ UI.tab({
       const r = s.receive;
       if (!r) return;
       fullSw.set(r.fullScreen);
-      pacing.set(r.pacing || 'smooth');
-      pacingRow.setHint(r.pacing === 'fast' ? 'Each frame the moment it arrives; may judder on Wi-Fi' : 'Even motion, about one frame of buffer');
+      paceRow.render(s);
       fgSw.set(!!r.framegen);
       const rs = r.remote;
       rMode.set(rs ? (rs.on ? rs.mode : 'off') : '');

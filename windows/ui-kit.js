@@ -286,6 +286,23 @@ const UI = {
     }
   },
 
+  // Playback of shared screens (revision 7c, both directions, the same on both computers via
+  // pair.sync): one row used by Share and Receive. Returns the row with .render(state).
+  paceRow() {
+    const seg = UI.segmented([
+      { value: 'fast', label: 'Fastest' },
+      { value: 'smooth', label: 'Smooth' },
+    ], (v) => UI.api.setMonitor({ pacing: v }));
+    const row = UI.row('Playback', '', [seg]);
+    row.render = (s) => {
+      const pace = (s.monitor && s.monitor.pacing) || 'fast';
+      seg.set(pace);
+      row.setHint(pace === 'smooth' ? 'Even motion, about one frame later. The same on {name}'
+        : 'Each frame the moment it arrives. The same on {name}');
+    };
+    return row;
+  },
+
   // A template with {me}, {name}, {Name}, … filled from the current state.
   fill(t) {
     if (!t || !String(t).includes('{')) return t || '';

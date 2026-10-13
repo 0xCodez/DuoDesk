@@ -40,11 +40,11 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences } = requi
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 // The hidden capture window plays system audio into WebRTC without any user gesture.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-// Revision 7, smoothness: we no longer force playout delay 0/0 on every frame (the receiver showed
-// frames the instant they were decoded, so Wi-Fi jitter came out as stutter); the viewer picks its
-// own pacing (`receive.pacing`). FlexFEC repairs lost packets without waiting a round trip for a
-// resend; it costs bandwidth only while packets are being lost.
-app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
+// Every sent video frame says "show me now" (RTP playout delay 0/0): the lowest latency, whatever
+// the viewer app does. A viewer in "Smooth" playback adds its own small buffer on top
+// (jitterBufferTarget). FlexFEC repairs lost packets without waiting a round trip for a resend; it
+// costs bandwidth only while packets are being lost.
+app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
@@ -403,7 +403,8 @@ app.whenReady().then(() => {
     cursor: (dir, on) => actions.setKvm({ [dir === 'out' ? 'driveOther' : 'beDriven']: on }),
   };
   pairSync = new PairSync({ server: peer, getSettings: () => settings, saveSettings: () => store.saveSettings(settings),
-    apply: (f, dir, on) => SYNC_ACTIONS[f](dir, on) });
+    apply: (f, dir, on) => (f !== 'value' ? SYNC_ACTIONS[f](dir, on)
+      : dir === 'gestures' ? actions.setKvm({ gestures: on }) : actions.setSharingOpts({ [dir]: on })) });
   actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions });
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
   hud = new Hud(() => settings);

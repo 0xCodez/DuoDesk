@@ -62,11 +62,7 @@ UI.tab({
       { value: 80, label: 'Max, 80 Mbps (wired)' },
     ], (v) => api.setBitrate(Number(v)));
 
-    const priority = UI.segmented([
-      { value: 'smooth', label: 'Smoothness' },
-      { value: 'sharp', label: 'Sharpness' },
-    ], (v) => api.setSharingOpts({ priority: v }));
-    const priorityRow = UI.row('Priority', '', [priority]);
+    const paceRow = UI.paceRow();
     const remoteSw = UI.switch((v) => api.setSharingOpts({ remote: v }), { label: 'Remote start' });
     const remoteRow = UI.row('Let {name} start and switch this screen', 'Open it on {name} — no need to touch {me}', [remoteSw]);
 
@@ -98,7 +94,7 @@ UI.tab({
       UI.card('Picture', [
         UI.row('Resolution', '', [streamSize]),
         UI.row('Quality', '', [quality]),
-        priorityRow,
+        paceRow,
       ]),
       UI.card('Sound and control', [remoteRow, soundRow, inputRow], { cls: 'keep-on' }),
       UI.card('Details', Object.values(stats), { cls: 'keep-on' }),
@@ -133,8 +129,7 @@ UI.tab({
 
       soundSw.set(sh.audio);
       remoteSw.set(sh.remote !== false);
-      priority.set(sh.priority || 'smooth');
-      priorityRow.setHint(sh.priority === 'sharp' ? 'Text stays crisp; motion may skip frames when busy' : 'Every frame arrives; detail eases off a little when busy');
+      paceRow.render(s);
       inputSw.set(s.streamInput);
       const c = s.client;
 

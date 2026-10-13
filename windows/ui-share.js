@@ -40,11 +40,7 @@ UI.tab({
       { value: 30, label: 'High, 30 Mbps' },
       { value: 50, label: 'Best, 50 Mbps (wired)' },
     ], (v) => set({ mbps: Number(v) }));
-    const priority = UI.segmented([
-      { value: 'smooth', label: 'Smoothness' },
-      { value: 'sharp', label: 'Sharpness' },
-    ], (v) => set({ priority: v }));
-    const priorityRow = UI.row('Priority', '', [priority]);
+    const paceRow = UI.paceRow(); // revision 7c: one Playback setting, synced with the other computer
     const sound = UI.switch((v) => set({ sound: v }), { label: 'Include sound' });
     const input = UI.switch((v) => set({ input: v }), { label: 'Receive input' });
     const inputRow = UI.row('Receive input', '', [input]); // "Receive input from Mac" / "from PC2"
@@ -62,7 +58,7 @@ UI.tab({
 
     body.append(
       UI.card('Screen', [UI.row('Mode', '', [mode]), monitorRow, extendRow]),
-      UI.card('Picture', [UI.row('Resolution', '', [streamSize]), UI.row('Quality', '', [quality]), priorityRow]),
+      UI.card('Picture', [UI.row('Resolution', '', [streamSize]), UI.row('Quality', '', [quality]), paceRow], { cls: 'keep-on' }),
       UI.card('Sound and control', [UI.row('Include sound', '', [sound]), inputRow], { cls: 'keep-on' }),
       UI.card('Remote', [remoteRow], { cls: 'keep-on' }),
       details,
@@ -83,8 +79,7 @@ UI.tab({
       extendRow.setHint(p.extendSize === 'mac' ? p.extendPx[0] + ' × ' + p.extendPx[1] : '');
       streamSize.set(p.maxHeight);
       quality.set(p.mbps);
-      priority.set(p.priority);
-      priorityRow.setHint(p.priority === 'sharp' ? 'Text stays crisp; motion may drop frames on a busy network.' : 'Every frame arrives; detail softens a little on a busy network.');
+      paceRow.render(s);
       sound.set(p.sound);
       input.set(p.input);
       remote.set(p.remote);

@@ -80,6 +80,7 @@ class Kvm extends EventEmitter {
       if (this.mode === 'driven' && m.route >= this.peerRoute) this._drivenHome('');
     });
     for (const t of [P.T.K_MOVE, P.T.K_DOWN, P.T.K_UP, P.T.K_WHEEL, P.T.K_KEY_DOWN, P.T.K_KEY_UP]) on(t, (m) => this._onK(m));
+    on(P.T.K_GESTURE, (m) => this._onGesture(m));
 
     helper.on('ready', () => setTimeout(() => this.config(), 150));
     helper.on('exit', () => {
@@ -112,6 +113,7 @@ class Kvm extends EventEmitter {
         side: k.pcSide, resistancePx: k.resistancePx, keyboard: !!k.keyboard,
         driveOther: !!(this.linked && k.driveOther && k.mouse && this.server.current),
         hotkey: this.getSettings().keys.hotkey || P.HOTKEY_MAC,
+        gestures: k.gestures !== false, // revision 8: trackpad gestures go over as k.ge
         dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
       })
       .then(() => this._setTapError(null), (e) => this._setTapError(e.message));
@@ -346,6 +348,71 @@ class Kvm extends EventEmitter {
         ev = { t: m.t, code: this.server.keySwap(this.getSettings()) ? P.mapKeyFromOtherPlatform(m.code) : m.code };
     }
     this.helper.send('inject', { ev });
+  }
+
+  // Revision 8: a trackpad gesture from the other computer, done the Mac way. 8b: pinches and
+  // system swipes become real macOS gesture events (Gesture.swift), so macOS itself zooms and
+  // moves Spaces / Mission Control with the fingers. One-off gestures (from a PC), and everything
+  // when MACSHARE_GESTURE_KEYS=1, use Mac keys (no Ctrl/Cmd swap) and Mission Control's own app.
+  _onGesture(m) {
+    if (this.mode !== 'driven' || this.cfg.gestures === false || typeof m.g !== 'string') return;
+    const native = !process.env.MACSHARE_GESTURE_KEYS;
+    const num = (v) => (Number.isFinite(v) ? v : 0);
+    const PH = ['begin', 'change', 'end', 'cancel'];
+    if (native && m.g === 'dock') {
+      const motion = [1, 2, 3, 4].includes(m.motion) ? (m.motion === 4 ? 3 : m.motion) : 0;
+      if (!motion) return;
+      this.helper.send('gesture', { kind: 'dock', motion, v: num(m.v), exit: num(m.exit), phase: PH.includes(m.phase) ? m.phase : 'change' });
+      return;
+    }
+    if (native && m.g === 'zoom') {
+      // A pinch from a PC may come without phases: begin it, and end it when the steps stop.
+      if (!this.pinching || m.phase === 'begin') {
+        this.pinching = true;
+        this.helper.send('gesture', { kind: 'zoom', v: 0, phase: 'begin' });
+      }
+      if (m.phase !== 'begin') this.helper.send('gesture', { kind: 'zoom', v: num(m.v), phase: 'change' });
+      clearTimeout(this.pinchTimer);
+      const end = () => {
+        this.pinching = false;
+        this.helper.send('gesture', { kind: 'zoom', v: 0, phase: 'end' });
+      };
+      if (m.phase === 'end') end();
+      else this.pinchTimer = setTimeout(end, 250);
+      return;
+    }
+    if (m.g === 'dock') { // keys mode: only the meaning, at the end
+      if (m.phase !== 'end' || typeof m.mean !== 'string') return;
+      return this._onGesture({ g: m.mean });
+    }
+    const combo = (...codes) => {
+      for (const code of codes) this.helper.send('inject', { ev: { t: P.T.K_KEY_DOWN, code } });
+      for (const code of codes.slice().reverse()) this.helper.send('inject', { ev: { t: P.T.K_KEY_UP, code } });
+    };
+    const mc = (arg) => require('child_process').execFile('/System/Applications/Mission Control.app/Contents/MacOS/Mission Control', arg ? [arg] : [], () => {});
+    switch (m.g) {
+      case 'zoom': { // pinch: ⌘+ / ⌘− for every 0.15 of magnification
+        if (m.phase === 'begin') this.zoomAcc = 0;
+        this.zoomAcc = (this.zoomAcc || 0) + (Number.isFinite(m.v) ? m.v : 0);
+        while (this.zoomAcc >= 0.15) { combo('MetaLeft', 'Equal'); this.zoomAcc -= 0.15; }
+        while (this.zoomAcc <= -0.15) { combo('MetaLeft', 'Minus'); this.zoomAcc += 0.15; }
+        break;
+      }
+      case 'smartZoom': combo('MetaLeft', 'Digit0'); break;
+      case 'back': combo('MetaLeft', 'BracketLeft'); break;
+      case 'forward': combo('MetaLeft', 'BracketRight'); break;
+      case 'overview': mc(); break;
+      case 'appWindows': mc('2'); break;
+      case 'desktop': mc('1'); break;
+      case 'spaceLeft': combo('ControlLeft', 'ArrowLeft'); break;
+      case 'spaceRight': combo('ControlLeft', 'ArrowRight'); break;
+      case 'launcher': { // Apps (macOS 26+), else Launchpad, else Spotlight
+        const open = (app, next) => require('child_process').execFile('/usr/bin/open', ['-a', app], (err) => err && next());
+        open('Apps', () => open('Launchpad', () => combo('MetaLeft', 'Space')));
+        break;
+      }
+      default: break; // rotate: no Mac-wide meaning
+    }
   }
 
   // Rows 8c: send the input home to the PC (return edge or hotkey).

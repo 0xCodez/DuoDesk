@@ -54,6 +54,8 @@ final class Capture {
   // capture
   private(set) var capturing = false
   private var capMouse = false, capKeyboard = false
+  var gestures = true // revision 8: send trackpad gestures (k.ge) while capturing
+  private var dock: (motion: Int64, progress: Double)? = nil // the dock swipe in progress
   private var pinnedAt: CGPoint?            // where the pointer stays (hidden) while it is on the other computer
   private var lastCommand = 0.0
   private var deadman: Timer?
@@ -83,7 +85,8 @@ final class Capture {
     let types: [CGEventType] = [.mouseMoved, .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
                                 .otherMouseDown, .otherMouseUp, .leftMouseDragged, .rightMouseDragged,
                                 .otherMouseDragged, .scrollWheel, .keyDown, .keyUp, .flagsChanged]
-    let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+    var mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+    for raw in Capture.gestureTypes { mask |= CGEventMask(1) << CGEventMask(raw) } // trackpad gestures (revision 8)
     guard let t = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap,
                                     eventsOfInterest: mask, callback: tapCallback, userInfo: nil) else {
       log("event tap failed: Accessibility / Input Monitoring not granted?")
@@ -204,6 +207,7 @@ final class Capture {
       return pass
     }
     if event.getIntegerValueField(.eventSourceUserData) == injectedMark { return pass }
+    if Capture.gestureTypes.contains(type.rawValue) { return onGesture(event) ? nil : pass }
     switch type {
     case .flagsChanged: return onFlags(event) ? nil : pass
     case .keyDown, .keyUp: return onKey(event, down: type == .keyDown) ? nil : pass
@@ -262,6 +266,56 @@ final class Capture {
     }
     if down { localDown.insert(kc) } else { localDown.remove(kc); swallowUps.remove(kc) }
     return false
+  }
+
+  // Revision 8: trackpad gestures. Event types outside CGEventType: 18 rotate, 19/20 begin/end
+  // gesture, 29 gesture (pinch, smart zoom, swipe), 30 dock control (the system's 3/4-finger swipes
+  // and pinches: Mission Control, Spaces, App Exposé, Launchpad, Show Desktop), 31 swipe, 32 smart zoom.
+  static let gestureTypes: Set<UInt32> = [18, 19, 20, 29, 30, 31, 32]
+  // Private gesture fields (as WindowServer fills them for dock swipes).
+  private static let fHidType = CGEventField(rawValue: 110)!, fMotion = CGEventField(rawValue: 123)!,
+    fProgress = CGEventField(rawValue: 124)!, fPhase = CGEventField(rawValue: 132)!, fExit = CGEventField(rawValue: 129)!
+
+  /// While capturing: send what the gesture means (k.ge) and swallow it, so it doesn't also act on
+  /// this Mac. At home: pass it through.
+  private func onGesture(_ e: CGEvent) -> Bool {
+    guard capturing && capMouse else { return false }
+    guard gestures else { return true }
+    if e.getIntegerValueField(Capture.fHidType) == 23 { // dock swipe
+      // Streamed as it happens (a Mac on the other side replays it, so Spaces and Mission Control
+      // follow the fingers); the end also says what it meant, for a PC (`mean`).
+      let ph = e.getIntegerValueField(Capture.fPhase) // 1 began, 2 changed, 4 ended, 8 cancelled
+      let motion = e.getIntegerValueField(Capture.fMotion) // 1 horizontal, 2 vertical, 3/4 pinch
+      let progress = e.getDoubleValueField(Capture.fProgress)
+      if ph == 1 || dock == nil { dock = (motion, 0) }
+      let m = dock?.motion ?? motion
+      var out: [String: Any] = ["t": "k.ge", "g": "dock", "motion": m, "v": progress,
+                                "phase": ph == 1 ? "begin" : ph == 4 ? "end" : ph == 8 ? "cancel" : "change"]
+      if ph == 1 || ph == 2 { dock = (m, progress) }
+      if ph == 4 || ph == 8 {
+        let p = ph == 4 ? progress : 0
+        out["exit"] = e.getDoubleValueField(Capture.fExit)
+        if ProcessInfo.processInfo.environment["MACSHARE_DEBUG_GESTURES"] != nil { log("dock swipe motion \(m) progress \(p)") }
+        if abs(p) > 0.1 {
+          out["mean"] = m == 1 ? (p < 0 ? "spaceRight" : "spaceLeft") // fingers left: the desktop on the right
+            : m == 2 ? (p < 0 ? "overview" : "appWindows") // up: Mission Control; down: App Exposé
+            : (p < 0 ? "launcher" : "desktop") // pinch in: Launchpad; spread: desktop
+        }
+        dock = nil
+      }
+      ev(out)
+      return true
+    }
+    guard let n = NSEvent(cgEvent: e) else { return true }
+    let phase = n.phase.contains(.began) ? "begin" : n.phase.contains(.ended) || n.phase.contains(.cancelled) ? "end" : "change"
+    switch n.type {
+    case .magnify: ev(["t": "k.ge", "g": "zoom", "v": Double(n.magnification), "phase": phase])
+    case .smartMagnify: ev(["t": "k.ge", "g": "smartZoom"])
+    case .rotate: ev(["t": "k.ge", "g": "rotate", "v": Double(n.rotation), "phase": phase])
+    case .swipe: if n.deltaX != 0 { ev(["t": "k.ge", "g": n.deltaX > 0 ? "back" : "forward"]) }
+    default: break
+    }
+    return true
   }
 
   /// The held hotkey turned out to be part of a shortcut: send its press now, before the key.

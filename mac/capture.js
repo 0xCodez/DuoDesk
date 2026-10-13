@@ -78,10 +78,9 @@ async function getStream(sourceId, width, height, fps) {
   }
 }
 
-// priority 'smooth' (default): every frame matters more than the last bit of sharpness, so under
-// pressure the encoder lowers quality, never the frame rate (dropped frames are what feels jagged).
-// 'sharp': text stays crisp and the frame rate gives way instead (the old behaviour).
-async function start({ session, bitrateMbps, sourceId, width, height, audio, fps = 60, priority = 'smooth' }) {
+// Every frame matters more than the last bit of sharpness: under pressure the encoder lowers
+// quality, never the frame rate (dropped frames are what feels jagged and what adds lag).
+async function start({ session, bitrateMbps, sourceId, width, height, audio, fps = 60 }) {
   close();
   const me = { session, pendingIce: [], remoteSet: false, last: null };
   cur = me;
@@ -89,8 +88,7 @@ async function start({ session, bitrateMbps, sourceId, width, height, audio, fps
     me.stream = await getStream(sourceId, width, height, fps);
     if (cur !== me) return me.stream.getTracks().forEach((t) => t.stop());
     const track = me.stream.getVideoTracks()[0];
-    const smooth = priority !== 'sharp';
-    track.contentHint = smooth ? 'motion' : 'detail';
+    track.contentHint = 'motion';
     track.onended = () => cur === me && api.state({ session, status: 'error: capture ended' });
 
     const pc = new RTCPeerConnection({ iceServers: [] });
@@ -125,7 +123,7 @@ async function start({ session, bitrateMbps, sourceId, width, height, audio, fps
       maxBitrate: bitrateMbps * 1e6, maxFramerate: fps, scaleResolutionDownBy: 1,
       priority: 'high', networkPriority: 'high', // DSCP: Wi-Fi puts it in the video queue
     });
-    p.degradationPreference = smooth ? 'maintain-framerate' : 'maintain-resolution';
+    p.degradationPreference = 'maintain-framerate';
     await tr.sender.setParameters(p);
     if (cur !== me) return;
     api.send({ t: P.T.RTC_OFFER, session, sdp: pc.localDescription.sdp });

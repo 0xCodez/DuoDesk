@@ -166,7 +166,7 @@ class PcScreen {
     const rect = displays.dipToScreenRect(null, d.bounds);
     const [width, height] = this._streamSize(rect);
     const fps = PcScreen.fps(d);
-    const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound, this.cfg.priority, fps].join(',');
+    const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound, fps].join(',');
     if (this.sending && this.sending.key === key) return;
     const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
     const src = sources.find((s) => s.display_id === String(d.id));
@@ -175,7 +175,7 @@ class PcScreen {
       return this._stopSend(true);
     }
     this._stopSend(true);
-    const session = this.sender.start({ sourceId: src.id, width, height, mbps: this.cfg.mbps, fps, priority: this.cfg.priority, audio: this.cfg.sound, offer: { kind: 'screen' } });
+    const session = this.sender.start({ sourceId: src.id, width, height, mbps: this.cfg.mbps, fps, audio: this.cfg.sound, offer: { kind: 'screen' } });
     this.sending = { session, displayId: d.id, rect, key };
     this.stats = null;
     Object.assign(this.status, { status: 'starting', error: '', name: d.label || src.name, width: rect.width, height: rect.height });

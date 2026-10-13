@@ -9,7 +9,10 @@
 //      (bilinear) vector field and blends by time; where the two disagree (things appearing or
 //      disappearing) it takes the frame nearer in time instead of a ghost.
 // It shows the picture one screen refresh late (≈ 8 ms at 120 Hz), the price of having the next
-// frame to aim at. With frames as fast as the screen it only copies frames (no extra delay).
+// frame to aim at. With frames as fast as the screen (60 fps on 60 Hz) it adds no delay and only
+// steps in when a frame is late or lost: it moves the last frame on along its motion (no ghosting
+// where it isn't sure), so a drop doesn't show as a stutter.
+// It runs on any GPU through WebGL2 (Apple, NVIDIA, AMD, Intel); it is not a driver feature.
 //
 // Use: const fg = new FrameGen(video, canvas); fg.start(); … fg.stop(); fg.active -> drawing now.
 // The <canvas> sits over the <video> with the same CSS box and `object-fit: contain`.
@@ -78,6 +81,17 @@
     o.a = 1.0;
   }`;
 
+  // A late frame: the newest one moved on by k frames of its motion (k ≤ 1).
+  const EXTRAP = `#version 300 es
+  precision highp float; in vec2 uv; out vec4 o;
+  uniform sampler2D cur; uniform sampler2D mv; uniform vec2 size; uniform float k;
+  const float R = 16.0;
+  void main() {
+    vec4 m = texture(mv, uv);
+    vec2 v = (m.rg - 0.5) * 2.0 * R * 4.0 / size;
+    o = vec4(texture(cur, uv - v * k * step(0.5, m.b)).rgb, 1.0);
+  }`;
+
   const COPY = `#version 300 es
   precision highp float; in vec2 uv; out vec4 o; uniform sampler2D cur;
   void main() { o = vec4(texture(cur, uv).rgb, 1.0); }`;
@@ -111,7 +125,7 @@
         if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
         return p;
       };
-      this.p = { luma: prog(LUMA), motion: prog(MOTION), interp: prog(INTERP), copy: prog(COPY) };
+      this.p = { luma: prog(LUMA), motion: prog(MOTION), interp: prog(INTERP), extrap: prog(EXTRAP), copy: prog(COPY) };
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -244,9 +258,22 @@
         const [t0, t1] = this.times;
         t = Math.max(0, Math.min(1, (now - this.vsyncMs - t0) / Math.max(1, t1 - t0)));
       }
-      const key = this.count * 1000 + Math.round(t * 100);
+      // Frames as fast as the screen, but this one is late: carry the newest one forward.
+      const late = !gen && this.count >= 2 ? (now - this.times[1]) / this.frameMs : 0;
+      const k = late > 1.5 ? Math.min(1, late - 1) : 0;
+      const key = this.count * 1000 + Math.round(t * 100) + k * 0.5;
       if (key === this.drawn) return; // nothing new to draw
       this.drawn = key;
+      if (k > 0) {
+        const p = this.p.extrap;
+        gl.useProgram(p);
+        this._bind(p, 0, 'cur', this.frames[1]);
+        this._bind(p, 1, 'mv', this.mv.tex);
+        gl.uniform2f(gl.getUniformLocation(p, 'size'), this.w, this.h);
+        gl.uniform1f(gl.getUniformLocation(p, 'k'), k);
+        this._draw(p, null, this.w, this.h);
+        return;
+      }
       if (gen && t > 0.02 && t < 0.98) {
         const p = this.p.interp;
         gl.useProgram(p);

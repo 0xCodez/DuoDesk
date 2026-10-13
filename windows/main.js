@@ -44,11 +44,11 @@ const { normalize, apply: applySettings } = require('./settings');
 const AUMID = app.isPackaged ? 'org.macshare.windows' : process.execPath;
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
-// Revision 7, smoothness: no forced playout delay 0/0 any more (the receiver showed each frame the
-// instant it was decoded, so Wi-Fi jitter came out as stutter); each viewer picks its own pacing
-// (`monitor.pacing`). FlexFEC repairs lost packets without a resend round trip; it costs bandwidth
-// only while packets are lost. The Mac sets the same trial (negotiated in SDP).
-app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
+// Revision 7c: every sent video frame says "show me now" (RTP playout delay 0/0), the lowest latency
+// whatever the viewer app does; a viewer in "Smooth" playback adds its own small buffer on top
+// (jitterBufferTarget). FlexFEC repairs lost packets without a resend round trip; it costs bandwidth
+// only while packets are lost. The Mac sets the same trials.
+app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {

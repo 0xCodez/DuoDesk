@@ -88,6 +88,11 @@
       K_WHEEL: 'k.wh',
       K_KEY_DOWN: 'k.kd',
       K_KEY_UP: 'k.ku',
+      // revision 8: a trackpad gesture by what it means, done natively by the driven computer:
+      // {g: 'zoom' (v = magnification step, + = in) | 'smartZoom' | 'rotate' (v degrees) | 'back' |
+      //  'forward' | 'overview' (Mission Control / Task View) | 'appWindows' | 'desktop' |
+      //  'spaceLeft' | 'spaceRight' (the desktop to the left / right) | 'launcher', phase?: 'begin'|'change'|'end'}
+      K_GESTURE: 'k.ge',
       // clipboard text
       CLIP: 'clip',
       CLIP_REQUEST: 'clip.request',
@@ -129,7 +134,7 @@
       SCREEN_POLICY: 'screen.policy', // either, viewer->sharer {accept, width?, height?}: a viewer is open and wants the picture (revision 7: senders capture only while it is true)
       SCREEN_CTL: 'screen.ctl', // either, viewer->sharer {share?, mode?: 'mirror'|'extend'}: start/stop or switch the other's sharing (revision 7)
       SCREEN_STATE: 'screen.state', // either, sharer->viewer {on, mode, remote, modes}: what this side shares; remote = it takes screen.ctl (revision 7)
-      PAIR_SYNC: 'pair.sync', // either {feature, dir: 'out'|'in', on} or {all: {feature: {out, in}}} (host, after welcome): two-way switches shared per pair, dirs from the sender's side (revision 7b)
+      PAIR_SYNC: 'pair.sync', // either {feature, dir: 'out'|'in', on} | {key, value} (shared value, e.g. pace) | {all: {feature: {out, in}, values: {key: value}}} (host, after welcome): two-way switches shared per pair, dirs from the sender's side (revision 7b)
       WOL_INFO: 'wol.info', // either {macs: ['aa:bb:cc:dd:ee:ff'], address}: how to wake this computer over the network (revision 7)
       SMB_OFFER: 'smb.offer', // sharer->other {share, user, password, port}
       SMB_REVOKE: 'smb.revoke', // sharer->other {share}

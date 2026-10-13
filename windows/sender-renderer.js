@@ -43,15 +43,14 @@ function withOpus(sdp) {
     : sdp.replace(m[0], m[0] + '\r\na=fmtp:' + m[1] + ' ' + extra);
 }
 
-// m: {session, sourceId, width, height, follow?, mbps, fps?, priority?, audio, offer: {kind, wid?}}
+// m: {session, sourceId, width, height, follow?, mbps, fps?, audio, offer: {kind, wid?}}
 // follow: the picture follows the source's size (an app window), up to width × height.
-// priority 'smooth' (default, revision 7): under pressure the encoder lowers quality, never the frame
-// rate (dropped frames are what feels jagged). 'sharp': text stays crisp, the frame rate gives way.
+// Every frame matters more than the last bit of sharpness (revision 7c): under pressure the encoder
+// lowers quality, never the frame rate (dropped frames are what feels jagged and adds lag).
 async function start(m) {
   stop(m.session);
   const me = { session: m.session, pending: [], mbps: m.mbps };
   const fps = m.fps || 60;
-  const smooth = m.priority !== 'sharp';
   sessions.set(me.session, me);
   try {
     const video = { chromeMediaSource: 'desktop', chromeMediaSourceId: m.sourceId, maxWidth: m.width, maxHeight: m.height, maxFrameRate: fps };
@@ -63,7 +62,7 @@ async function start(m) {
     if (!alive(me)) return stream.getTracks().forEach((t) => t.stop());
     me.stream = stream;
     const track = stream.getVideoTracks()[0];
-    track.contentHint = smooth ? 'motion' : 'detail';
+    track.contentHint = 'motion';
     track.onended = () => alive(me) && report(me, 'ended', 'The captured ' + (m.offer.kind === 'window' ? 'window' : 'monitor') + ' went away');
     const pc = (me.pc = new RTCPeerConnection({ iceServers: [] }));
     const tr = pc.addTransceiver(track, { direction: 'sendonly', streams: [stream] });
@@ -87,7 +86,7 @@ async function start(m) {
       maxBitrate: m.mbps * 1e6, maxFramerate: fps, scaleResolutionDownBy: 1,
       priority: 'high', networkPriority: 'high', // DSCP: Wi-Fi puts it in the video queue
     });
-    p.degradationPreference = smooth ? 'maintain-framerate' : 'maintain-resolution';
+    p.degradationPreference = 'maintain-framerate';
     await tr.sender.setParameters(p);
     if (!alive(me)) return;
     const kind = m.offer.kind === 'screen' && audio ? 'screen+audio' : m.offer.kind;

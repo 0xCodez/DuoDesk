@@ -40,6 +40,8 @@ UI.tab({
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => `${v} px` }, (v) => api.setKvm({ resistancePx: v }));
     const speed = UI.slider({ min: 0.25, max: 4, step: 0.25, format: (v) => `${v.toFixed(2)}×` }, (v) => api.setKvm({ speed: v }));
     const reverse = UI.switch((v) => api.setKvm({ reverseScroll: v }), { label: 'Reverse scrolling' });
+    const gestures = UI.switch((v) => api.setKvm({ gestures: v }), { label: 'Trackpad gestures' });
+    const gestureRow = UI.row('Trackpad gestures', 'Pinch to zoom, swipe between desktops, Mission Control / Task View, back and forward — done the native way on {name}. The same on both', [gestures]);
 
     // A row whose label follows the other computer's name (UI.names fills it on render).
     const peerRow = (label, hint, controls) => {
@@ -59,6 +61,7 @@ UI.tab({
         UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
         peerRow('Pointer speed on {name}', '', [speed]),
         peerRow('Reverse scrolling from {name}', '', [reverse]),
+        gestureRow,
       ]),
     );
 
@@ -82,6 +85,7 @@ UI.tab({
       resistance.set(k.resistancePx);
       speed.set(k.speed);
       reverse.set(k.reverseScroll);
+      gestures.set(k.gestures !== false);
     };
   },
 });

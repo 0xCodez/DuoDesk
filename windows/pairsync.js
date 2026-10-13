@@ -21,6 +21,10 @@ const FEATURES = {
   audio: { out: ['audio', 'send'], in: ['audio', 'receive'] },
   cursor: { out: ['kvm', 'driveOther'], in: ['kvm', 'beDriven'] },
 };
+// Revision 7c: shared values, the same on both computers (no direction): key → settings path + values.
+const VALUES = {
+  pace: { path: ['monitor', 'pacing'], allowed: ['fast', 'smooth'] },
+};
 
 class PairSync {
   // opts: link, settings (shared; .pairSync is kept here), save(), set(section, partial) (ipc.js:
@@ -42,8 +46,10 @@ class PairSync {
     this.link.on('closed', () => { this.last = null; this.peerId = ''; });
     this.link.on(T.PAIR_SYNC, (m) => {
       if (!this.last) return;
+      if (VALUES[m.key] && VALUES[m.key].allowed.includes(m.value)) return this._adopt({ values: { [m.key]: m.value } });
       if (m.all && typeof m.all === 'object') {
-        const mine = {};
+        const mine = { values: {} };
+        for (const [k, d] of Object.entries(VALUES)) if (m.all.values && d.allowed.includes(m.all.values[k])) mine.values[k] = m.all.values[k];
         for (const f of Object.keys(FEATURES)) {
           const v = m.all[f];
           if (v && typeof v === 'object') mine[f] = { out: v.in, in: v.out }; // their in = our out
@@ -60,14 +66,23 @@ class PairSync {
     for (const [f, d] of Object.entries(FEATURES)) {
       out[f] = { out: !!this.settings[d.out[0]][d.out[1]], in: !!this.settings[d.in[0]][d.in[1]] };
     }
+    out.values = {};
+    for (const [k, d] of Object.entries(VALUES)) out.values[k] = this.settings[d.path[0]][d.path[1]];
     return out;
   }
 
   // Take values from the peer (or our saved ones) without sending them back.
   _adopt(vals) {
     const now = this.values();
+    for (const [k, v] of Object.entries(vals.values || {})) {
+      const d = VALUES[k];
+      if (!d || !d.allowed.includes(v) || now.values[k] === v) continue;
+      now.values[k] = v;
+      this.last = now;
+      this.set(d.path[0], { [d.path[1]]: v });
+    }
     for (const [f, v] of Object.entries(vals)) {
-      if (!FEATURES[f] || !v) continue;
+      if (f === 'values' || !FEATURES[f] || !v) continue;
       for (const dir of ['out', 'in']) {
         if (typeof v[dir] !== 'boolean' || now[f][dir] === v[dir]) continue;
         const [section, key] = FEATURES[f][dir];
@@ -97,9 +112,14 @@ class PairSync {
         this.link.send({ t: T.PAIR_SYNC, feature: f, dir, on: now[f][dir] });
       }
     }
+    for (const k of Object.keys(VALUES)) {
+      if (now.values[k] === (this.last.values || {})[k]) continue;
+      changed = true;
+      this.link.send({ t: T.PAIR_SYNC, key: k, value: now.values[k] });
+    }
     this.last = now;
     if (changed) this._remember(now);
   }
 }
 
-module.exports = { PairSync, FEATURES };
+module.exports = { PairSync, FEATURES, VALUES };

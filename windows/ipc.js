@@ -132,6 +132,7 @@ function setupIpc(ctx) {
   // Revision 7b: pairsync.js applies a value the other computer changed, with the same side effects.
   const AFTER = {
     clipboard: () => clip.applySettings(),
+    monitor: () => screen.applyAudio(), // pacing (pair.sync 'pace')
     notifs: () => notifs.applySettings(),
     audio: () => sound.apply(),
     kvm: () => kvm.applyConfig(),

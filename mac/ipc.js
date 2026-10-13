@@ -31,7 +31,7 @@ const SCHEMA = {
   virtual: { enabled: bool, width: (v) => Math.round(clamp(640, 3840, 1920)(v)), height: (v) => Math.round(clamp(480, 2160, 1080)(v)), hiDPI: bool, hz: oneOf([30, 60], 60) },
   kvm: {
     pcSide: oneOf(P.SIDES, 'right'), mouse: bool, keyboard: bool, driveOther: bool, beDriven: bool,
-    resistancePx: (v) => Math.round(clamp(0, 400, 120)(v)), speed: clamp(0.25, 4, 1), reverseScroll: bool, hotkeySwitch: bool, linked: bool,
+    resistancePx: (v) => Math.round(clamp(0, 400, 120)(v)), speed: clamp(0.25, 4, 1), reverseScroll: bool, hotkeySwitch: bool, linked: bool, gestures: bool,
   },
   keys: { swapCtrlCmd: bool, hotkey: oneOf(P.HOTKEYS, 'AltRight') },
   app: { openAtLogin: bool, keepAwake: bool, hud: bool },
@@ -41,8 +41,8 @@ const SCHEMA = {
   notifs: { send: bool, receive: bool, hideText: bool },
   smb: { connectPc: bool },
   apps: { offer: bool },
-  receive: { on: bool, fullScreen: bool, input: bool, pacing: oneOf(['smooth', 'fast'], 'smooth'), framegen: bool },
-  sharing: { remote: bool, priority: oneOf(['smooth', 'sharp'], 'smooth') },
+  receive: { on: bool, fullScreen: bool, input: bool, framegen: bool },
+  sharing: { remote: bool, pace: oneOf(['fast', 'smooth'], 'fast') },
   papps: { on: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'instant'),
@@ -146,9 +146,8 @@ function setupIpc(ctx) {
     },
     // Revision 7: who may start our sharing, and smoothness vs. sharpness.
     setSharingOpts(partial) {
-      const prev = settings.sharing.priority;
       setGroup('sharing', partial);
-      if (settings.sharing.priority !== prev) ctx.stream.restart('priority');
+      ctx.pcView.applySettings(); // playback pace in the open viewer
     },
     // Revision 7: start/stop the other computer's sharing or switch its Extend/Mirror from here.
     remoteScreen(arg) {

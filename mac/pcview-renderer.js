@@ -25,7 +25,7 @@ let statsTimer = null;
 let last = null;
 const heldButtons = new Set();
 let lastPos = { x: 0.5, y: 0.5 };
-let pacing = 'smooth';
+let pacing = 'fast';
 let receivers = [];
 let fg = null; // FrameGen while frame generation is on
 const bar = document.getElementById('bar');
@@ -111,7 +111,7 @@ async function onOffer(m) {
   closePc();
   session = m.session;
   inputOn = m.input;
-  pacing = m.pacing === 'fast' ? 'fast' : 'smooth';
+  pacing = m.pacing === 'smooth' ? 'smooth' : 'fast';
   receivers = [];
   setFrameGen(!!m.framegen);
   document.body.classList.toggle('input-off', !inputOn);
@@ -292,7 +292,7 @@ api.on((m) => {
       break;
     case 'volume': video.volume = Math.max(0, Math.min(1, Number(m.volume))); break;
     case 'pacing':
-      pacing = m.pacing === 'fast' ? 'fast' : 'smooth';
+      pacing = m.pacing === 'smooth' ? 'smooth' : 'fast';
       applyPacing();
       setFrameGen(!!m.framegen);
       break;

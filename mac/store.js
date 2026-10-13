@@ -39,8 +39,10 @@ const DEFAULT_SETTINGS = {
   macName: null,
   rev: 7, // settings revision: older files are upgraded once in loadSettings
   // `on` is reset to false at every start (revision 2). remote: the other computer may start/stop
-  // sharing and switch Extend/Mirror (screen.ctl). priority: 'smooth' (frame rate first) | 'sharp'.
-  sharing: { on: false, displayId: null, audio: false, remote: true, priority: 'smooth' },
+  // sharing and switch Extend/Mirror (screen.ctl). pace: playback of shared screens, both
+  // directions, the same on both computers (pair.sync): 'fast' (shown the moment it arrives) |
+  // 'smooth' (about one frame of buffer, even motion).
+  sharing: { on: false, displayId: null, audio: false, remote: true, pace: 'fast' },
   virtual: { enabled: true, width: 1920, height: 1080, hiDPI: false, hz: 60 },
   bitrateMbps: 30,
   streamInput: true, // accept mouse/keyboard from Monitor 2
@@ -56,6 +58,7 @@ const DEFAULT_SETTINGS = {
     reverseScroll: false,
     linked: true, // mouse and keyboard sharing on (the hotkey's double-tap switches it); synced with the peer
     linkedBy: {}, // revision 7: the last `linked` per paired device id, restored on connect
+    gestures: true, // revision 8: trackpad gestures work on the other computer (synced per pair)
     hotkeySwitch: false, // keyboard only (mouse off): double-tap the hotkey to move the keyboard over and back
   },
   keys: { swapCtrlCmd: true, hotkey: 'AltRight' }, // swap: keys from the PC, Ctrl -> Cmd, Win -> Control. hotkey: double-tap = everything home
@@ -77,9 +80,8 @@ const DEFAULT_SETTINGS = {
   notifs: { send: false, receive: true, hideText: false, muted: [] }, // revision 5
   apps: { offer: true }, // phase 12: the PC can list and open this Mac's apps
   papps: { on: true }, // phase 13: PC apps on this Mac, each window here with its own Dock icon
-  // phase 11: the PC's screen in a window here. pacing: 'smooth' (a frame of buffer, even motion) |
-  // 'fast' (shown the moment it is decoded). smooth: frame generation (shared/framegen.js).
-  receive: { on: true, fullScreen: false, input: true, pacing: 'smooth', framegen: false },
+  // phase 11: the other computer's screen in a window here; framegen: shared/framegen.js.
+  receive: { on: true, fullScreen: false, input: true, framegen: false },
   wake: { peers: {} }, // revision 7: {deviceId: {name, macs, address, at}} from wol.info, for Wake
   pairSync: {}, // revision 7b: {deviceId: {feature: {out, in}}} two-way switches per pair (pairsync.js)
   smb: { connectPc: true, sharing: false, folder: '', secret: '' }, // phase 7; secret = safeStorage

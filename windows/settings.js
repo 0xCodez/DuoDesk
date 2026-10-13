@@ -31,7 +31,7 @@ function normalize(s) {
   const nf = s.notifs || {};
   const wk = s.wake || {};
   return {
-    rev: 7, // settings revision (upgrades in normalize, like the Mac's store.js)
+    rev: 8, // settings revision (upgrades in normalize, like the Mac's store.js)
     kvm: {
       mouse: bool(kvm.mouse, true),
       keyboard: bool(kvm.keyboard, true),
@@ -64,8 +64,9 @@ function normalize(s) {
       autoOpen: bool(mon.autoOpen, true),
       volume: Math.round(num(mon.volume, 1, 0, 1) * 100) / 100,
       mute: bool(mon.mute, false),
-      // revision 7: 'smooth' (about a frame of buffer, even motion) | 'fast' (shown the moment it is decoded)
-      pacing: mon.pacing === 'fast' ? 'fast' : 'smooth',
+      // revision 7c: Playback of shared screens, both directions, the same on both computers (pair.sync
+      // 'pace'): 'fast' (default, shown the moment it is decoded) | 'smooth' (about a frame of buffer)
+      pacing: mon.pacing === 'smooth' && (s.rev || 0) >= 8 ? 'smooth' : 'fast', // rev 8: back to Fastest once
       framegen: bool(mon.framegen, false), // in-between frames on the GPU (shared/framegen.js), off by default
     },
     audio: {
@@ -100,8 +101,6 @@ function normalize(s) {
     pcScreen: { // Display › PC → Mac (phase 11); Off/Mirror/Extend itself is never saved
       monitor: typeof pcs.monitor === 'string' ? pcs.monitor : '', // Electron display id for Mirror ('' = main)
       mbps: [10, 20, 30, 50].includes(pcs.mbps) ? pcs.mbps : 30, // same presets as the Mac
-      // revision 7: 'smooth' keeps the frame rate under pressure (quality gives) | 'sharp' keeps detail
-      priority: pcs.priority === 'sharp' ? 'sharp' : 'smooth',
       maxHeight: [0, 1080, 1440].includes(pcs.maxHeight) ? pcs.maxHeight : 1080, // stream size (0 = full pixels)
       extendSize: ['mac', '1920x1080', '2560x1440', '3840x2160'].includes(pcs.extendSize) ? pcs.extendSize : 'mac', // the virtual monitor
       sound: bool(pcs.sound, false), // the screen's sound in the same session
@@ -128,7 +127,8 @@ function pairSync(v) {
     if (!feats || typeof feats !== 'object') continue;
     out[id] = {};
     for (const [f, d] of Object.entries(feats).slice(0, 10)) {
-      if (d && typeof d === 'object') out[id][f] = { out: d.out === true, in: d.in === true };
+      if (f === 'values') out[id].values = d && ['fast', 'smooth'].includes(d.pace) ? { pace: d.pace } : {};
+      else if (d && typeof d === 'object') out[id][f] = { out: d.out === true, in: d.in === true };
     }
   }
   return out;

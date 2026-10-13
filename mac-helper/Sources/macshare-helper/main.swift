@@ -58,7 +58,10 @@ func handle(_ line: String) {
     Capture.shared.configure(side: (msg["side"] as? String) ?? "right", resistance: num("resistancePx", 120),
                              edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
                              dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight")
+    Capture.shared.gestures = (msg["gestures"] as? Bool) ?? true
     reply(id)
+  case "gesture": // revision 8b: a gesture from the other computer, done by macOS itself
+    GesturePost.handle(msg)
   case "capture":
     if (msg["on"] as? Bool) == true {
       Capture.shared.startCapture(mouse: (msg["mouse"] as? Bool) ?? true, keyboard: (msg["keyboard"] as? Bool) ?? true)
