@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // General tab (Linux): desktop session, firewall (+ Fix), helper, this computer, about, Quit (some
 // desktops show no tray icon, so Quit lives here too).
 'use strict';
@@ -22,17 +22,19 @@ UI.tab({
     const helperPill = el('span', { class: 'pill' });
     const helperRow = UI.row('Mouse and keyboard helper', '', [helperPill]);
     const hudSw = UI.switch((v) => api.setApp({ hud: v }), { label: 'Show a popup when switching' });
-    const deviceRow = UI.row('', '');
-    const versionRow = UI.row('MacShare for Linux', '');
+    const deviceName = el('span', { class: 'value' });
+    const deviceRow = UI.row('Computer name', 'How other computers see this one', [deviceName]);
+    const versionRow = UI.row('TwinDesk for Linux', '');
 
     body.append(
       UI.card('Network', [fwRow]),
-      UI.card('This computer', [sessRow, helperRow, deviceRow]),
+      UI.card('This computer', [deviceRow, sessRow, helperRow]),
       UI.card('Popups', [UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw])]),
       UI.card('About', [
         versionRow,
-        UI.row('Licence', 'Free and open source, GPL v3'),
-        UI.row('Quit MacShare', '', [UI.button('Quit', () => api.quit(), 'small')]),
+        UI.row('Made by', 'inukaasith'),
+        UI.row('Licence', 'Free and open source, GPL v3. Copyright © 2026 inukaasith'),
+        UI.row('Quit TwinDesk', '', [UI.button('Quit', () => api.quit(), 'small')]),
       ], { cls: 'keep-on' }),
     );
 
@@ -52,7 +54,7 @@ UI.tab({
       helperPill.className = 'pill ' + (h ? (h === 'starting' ? 'muted' : 'bad') : 'good');
       helperRow.setHint(h && h !== 'starting' ? h : '');
       hudSw.set(s.app.hud);
-      deviceRow.label.textContent = s.device.name;
+      deviceName.textContent = s.device.name;
       versionRow.setHint('Version ' + s.version);
     };
   },

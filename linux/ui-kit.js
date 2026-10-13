@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main window UI kit (window.UI): same API as the Mac's mac/control.js so the tab scripts match;
 // app.js boots the shell. Controls are built once per tab; render(state) only updates values,
 // so a state push never interrupts a drag, an open menu or keyboard focus.

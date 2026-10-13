@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // xt: fake input through XTest for helper-test.js (xdotool misplaces the pointer on some
 // displays, and `xdotool key Control_R` also presses other keys). Commands, one or more:
 //   move X Y | rel DX DY | key XKEYCODE | tap XKEYCODE TIMES GAP_MS | click XBUTTON | sleep MS

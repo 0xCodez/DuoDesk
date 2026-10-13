@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // WSS client to the Mac: certificate pinning, pairing, hello, liveness, reconnect.
 // After `welcome`, messages are delivered by type through on(type, fn).
 const WebSocket = require('ws');
@@ -11,7 +11,7 @@ const PAIR_ERRORS = {
   [P.E.PAIR_REFUSED]: 'The Mac refused pairing.',
   [P.E.PAIR_TIMEOUT]: 'Pairing timed out.',
   [P.E.BUSY]: 'The Mac is already pairing with another device.',
-  [P.E.VERSION_MISMATCH]: 'The Mac runs a different MacShare version. Update both apps.',
+  [P.E.VERSION_MISMATCH]: 'The Mac runs a different TwinDesk version. Update both apps.',
 };
 
 class Link {
@@ -275,7 +275,7 @@ class Link {
       if (ps && ps.phase !== 'failed') {
         const nobody = /^(ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/.test(this.lastError);
         this._pairFailed(ps.phase === 'connecting'
-          ? (nobody ? 'No MacShare at ' + ps.address + '.' : 'Could not connect to ' + ps.address + (this.lastError ? ' (' + this.lastError + ')' : '') + '.')
+          ? (nobody ? 'No TwinDesk at ' + ps.address + '.' : 'Could not connect to ' + ps.address + (this.lastError ? ' (' + this.lastError + ')' : '') + '.')
           : 'The connection to the Mac closed.');
       }
       return;

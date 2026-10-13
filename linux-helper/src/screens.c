@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Monitors from XRandR (physical pixels), outer edges, offsets along a side (docs/KVM.md
 // "Words"), landing points and clamping. Port of windows-helper/src/Screens.cs.
 #include "helper.h"

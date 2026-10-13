@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Phase 13, PC apps on the Mac (docs/ROADMAP.md): the Start-menu apps with icons, opened on the
 // Mac's request; every visible window of an app opened that way is streamed on its own (`rtc2`
 // kind 'window', sender.js) while the Mac's `papp.policy` accepts and "Let the Mac open this PC's

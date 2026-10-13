@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Audio both ways (revision 2, docs/ROADMAP.md "Audio"): its own peer connections in a hidden
 // window, independent of the screen. Mac → PC: we answer `audio.offer {dir:'m2w'}` while "Play the
 // Mac's sound" is on (our `audio.policy`). PC → Mac: we offer `dir:'w2m'` while "Send this PC's

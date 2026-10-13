@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main process: lifecycle, windows, tray, IPC and the state pushed to the main window.
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme } = require('electron');
 const { execFile } = require('child_process');
@@ -50,12 +50,15 @@ app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 // (jitterBufferTarget). FlexFEC repairs lost packets without a resend round trip; it costs bandwidth
 // only while packets are lost. The Mac sets the same trials.
 app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
+// Renamed MacShare → TwinDesk: settings, pairing and keys stay in the folder they've always been
+// in (Electron would follow the new product name). A dev copy's --user-data-dir still wins.
+if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), 'MacShare'));
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the Mac
   app.setAppUserModelId(AUMID); // toasts need it (revision 5); the installer's shortcut carries the same id
-  // A pinned Mac app (revision 6) starts "MacShare.exe --mac-app=<id>": open it, else show the window.
+  // A pinned Mac app (revision 6) starts "TwinDesk.exe --mac-app=<id>": open it, else show the window.
   app.on('second-instance', (_e, argv) => {
     if (sendTo && sendTo.handle(argv)) return; // Explorer › Send to (revision 7)
     if (!openMacAppArg(argv)) showMain();
@@ -447,8 +450,8 @@ function createMainWindow() {
     y: b.y,
     minWidth: 720,
     minHeight: 480,
-    title: 'MacShare',
-    icon: path.join(__dirname, 'assets', 'tray@2x.png'),
+    title: 'TwinDesk',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#2b2b2e' : '#e9e9ee',
     show: false,
     webPreferences: {
@@ -509,7 +512,7 @@ function checkTaskbar() {
 
 function createTray() {
   tray = new Tray(trayIcon());
-  tray.setToolTip('MacShare');
+  tray.setToolTip('TwinDesk');
   tray.on('click', showMain);
   checkTaskbar();
   updateTray();
@@ -524,7 +527,7 @@ function updateTray(s = buildState()) {
   const sharing = s.pcScreen.mode !== 'off';
   const found = s.found.filter((d) => !s.peer || d.id !== s.peer.id);
   const rtt = connected && s.link.rtt != null ? ' · ' + s.link.rtt + ' ms' : '';
-  tray.setToolTip('MacShare: ' + statusLine(s));
+  tray.setToolTip('TwinDesk: ' + statusLine(s));
   // Rebuild only when something in the menu changed (state pushes are frequent).
   const watching = screen.sentAccept === true;
   const key = JSON.stringify([name, rtt, away, kvm.linked, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
@@ -565,8 +568,8 @@ function updateTray(s = buildState()) {
     ] },
     check('Show a Popup When Switching', settings.app.hud, (i) => set('app', { hud: i.checked })),
     { type: 'separator' },
-    { label: 'Open MacShare…', click: showMain },
-    { label: 'Quit MacShare', click: () => app.quit() },
+    { label: 'Open TwinDesk…', click: showMain },
+    { label: 'Quit TwinDesk', click: () => app.quit() },
   ]));
 }
 

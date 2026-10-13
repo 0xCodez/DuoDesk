@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Revision 8 (docs/ROADMAP.md "Revision 8"): this PC's precision touchpad while we drive the other
 // computer. Raw Input from HID usage page 0x0D / usage 0x05 (the touchpad collection) gives the
 // contacts; the HID parser (hid.dll HidP_*) reads tip switch, contact id, X and Y per finger. Frames

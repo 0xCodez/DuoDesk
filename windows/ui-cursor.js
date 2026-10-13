@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Cursor tab: share the pointer across the screen edge. Two direction cards (docs/UI.md), the
 // layout (pick where the other computer is; either side can change it) and the live state below. Behaviour: docs/KVM.md (kvm.js + windows-helper).
 'use strict';

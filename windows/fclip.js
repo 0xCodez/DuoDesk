@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Revision 5, copy and paste files between the computers with two global shortcuts (default
 // Ctrl+Alt+C / Ctrl+Alt+V, Files tab; docs/ROADMAP.md "Copy and paste files with shortcuts").
 // Copy announces the files selected in the Explorer window in front (else the files on the

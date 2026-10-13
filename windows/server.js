@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Host role (revision 4, PC ↔ PC): HTTPS + WebSocket server on PORT: sessions, liveness, routing
 // of authenticated messages. Port of mac/server.js; the certificate comes from identity.js (PKCS#12).
 //

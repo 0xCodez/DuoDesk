@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Monitor 2 renderer: answers the Mac's WebRTC offer and plays the video, paced as the Receive tab
 // says (revision 7: 'smooth' = about a frame of buffer, even motion; 'fast' = lowest latency).
 // With ?test=1 it plays a local moving test pattern instead (dev only, no Mac needed).
@@ -241,7 +241,7 @@ function startTestPattern() {
     g.fillRect(x, h / 2 - 100, 200, 200);
     g.fillStyle = '#ffffff';
     g.font = '48px Segoe UI, sans-serif';
-    g.fillText('MacShare test pattern, 1920×1080, frame ' + frame, 60, 100);
+    g.fillText('TwinDesk test pattern, 1920×1080, frame ' + frame, 60, 100);
     g.font = '20px Consolas, monospace';
     g.fillText('The quick brown fox jumps over the lazy dog 0123456789', 60, 150);
     frame++;

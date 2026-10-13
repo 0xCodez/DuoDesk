@@ -1,7 +1,7 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Discovery v2 (docs/ROADMAP.md "Revision 4"): one UDP socket on DISCOVERY_PORT that sends our
 // beacon to every broadcast address, answers probes, sends probes, takes invites, and keeps the
-// list of other MacShare computers nearby (Macs, PCs, other Linux computers).
+// list of other TwinDesk computers nearby (Macs, PCs, other Linux computers).
 //
 // Events: 'change' (found list or status changed); 'invite' (device): a Mac asked us to connect.
 'use strict';

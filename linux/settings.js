@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // settings.json: defaults and validation (BUILD_PLAN "Settings and storage"), the parts of
 // windows/settings.js the Linux app has so far. Every value from disk or the UI goes through
 // normalize(), so main never stores anything out of range.

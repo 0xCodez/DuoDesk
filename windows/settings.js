@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // settings.json: defaults and validation (BUILD_PLAN "Settings and storage"). Every value from
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');

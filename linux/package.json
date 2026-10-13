@@ -1,8 +1,8 @@
 {
   "name": "macshare-linux",
-  "productName": "MacShare",
+  "productName": "TwinDesk",
   "version": "0.1.0",
-  "description": "MacShare for Linux: pair with a Mac, view its screen, share the clipboard.",
+  "description": "TwinDesk for Linux: pair with a Mac, view its screen, share the clipboard.",
   "license": "GPL-3.0",
   "private": true,
   "main": "main.js",

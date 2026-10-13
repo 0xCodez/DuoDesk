@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // A tiny JSON reader/writer for our messages: objects of strings, numbers, booleans and nested
 // objects (arrays are skipped). No library.
 #include "helper.h"

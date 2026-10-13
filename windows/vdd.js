@@ -1,9 +1,9 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Phase 11 Extend: a virtual monitor for this PC that only the Mac shows, from the Virtual Display
 // Driver (https://github.com/VirtualDrivers/Virtual-Display-Driver — MIT, signed by SignPath
 // Foundation; an IddCx driver). Installed once, elevated (scripts\vdd-install.ps1); after that the
 // monitor is switched on/off without a prompt through two SYSTEM scheduled tasks the user may run.
-// It is on only while Extend is on, like the Mac's MacShare display.
+// It is on only while Extend is on, like the Mac's TwinDesk display.
 const { app } = require('electron');
 const { execFile } = require('child_process');
 const fs = require('fs');

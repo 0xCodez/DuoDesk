@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Terminal Mac → PC, PC side (docs/ROADMAP.md "Terminal Mac → PC"): the Mac sends `ssh.key`; with
 // "Let the Mac open a shell here" on and Windows' OpenSSH Server running, its key goes into
 // authorized_keys (administrators_authorized_keys for admin accounts, written elevated) with the

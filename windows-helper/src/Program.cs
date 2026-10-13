@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // macshare-winhelper: JSON lines on stdin (commands) / stdout (replies and events), docs/KVM.md
 // "Helper interface". The main thread runs the WinForms message loop (hooks and raw input need
 // it); a reader thread hands each line to it; one writer thread does all stdout I/O.

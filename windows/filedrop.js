@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Files dropped onto Monitor 2 → the Mac (phase 9, BUILD_PLAN "Roadmap messages"), and files and
 // folders dragged across the edge (revision 3: `drag.start` + `file.offer {drop:'drag', rel}`, the
 // Mac shows a real drag and the drop target pulls the data): one file at a time over the control

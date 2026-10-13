@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Network drives (phase 7, docs/ROADMAP.md): this PC shares one folder with the Mac (a hidden,
 // network-only local account with a random password, made once with administrator rights), and
 // maps the Mac's shared folder as a drive. Credentials only travel over the paired link; ours are
@@ -53,7 +53,7 @@ class Smb {
     if (this.cfg.shareOn && c) this.link.send({ t: T.SMB_OFFER, share: SHARE, user: c.user, password: c.password, port: 445 });
   }
 
-  // One switch (revision 2): on → share the folder (default %USERPROFILE%\MacShare); the admin
+  // One switch (revision 2): on → share the folder (default %USERPROFILE%\TwinDesk); the admin
   // prompt only comes the first time or after the folder changed. Off → the Mac unmounts; the share
   // and account stay, so switching on again needs no prompt.
   async setShareOn(on) {
@@ -105,7 +105,7 @@ try {
   $pw = ConvertTo-SecureString (Get-Content -Raw ${q(pwFile)}).Trim() -AsPlainText -Force
   Remove-Item ${q(pwFile)} -Force
   if (Get-LocalUser -Name ${q(USER)} -ErrorAction SilentlyContinue) { Set-LocalUser -Name ${q(USER)} -Password $pw -PasswordNeverExpires $true }
-  else { New-LocalUser -Name ${q(USER)} -Password $pw -PasswordNeverExpires -UserMayNotChangePassword -Description 'MacShare file sharing (network only)' | Out-Null }
+  else { New-LocalUser -Name ${q(USER)} -Password $pw -PasswordNeverExpires -UserMayNotChangePassword -Description 'TwinDesk file sharing (network only)' | Out-Null }
   $k = 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\SpecialAccounts\\UserList'
   New-Item -Path $k -Force | Out-Null
   New-ItemProperty -Path $k -Name ${q(USER)} -Value 0 -PropertyType DWord -Force | Out-Null
@@ -204,11 +204,11 @@ Remove-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersio
     this._busy('');
   }
 
-  // Name the mapped drive in This PC: "MacShare on <Mac>" instead of the share path.
+  // Name the mapped drive in This PC: "TwinDesk on <Mac>" instead of the share path.
   _label(addr, share) {
     const mac = this.link.snapshot().link.macName || 'the other computer';
     const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##' + addr + '#' + share;
-    exec('reg.exe', ['add', key, '/v', '_LabelFromReg', '/t', 'REG_SZ', '/d', 'MacShare on ' + mac, '/f']).catch(() => {});
+    exec('reg.exe', ['add', key, '/v', '_LabelFromReg', '/t', 'REG_SZ', '/d', 'TwinDesk on ' + mac, '/f']).catch(() => {});
   }
 
   async _unmount(share) {

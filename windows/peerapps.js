@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Apps between two PCs (docs/ROADMAP.md "Phase 13", "Revision 9"): the other PC's apps on this
 // one. Port of mac/pcapps.js: list and open the other PC's Start-menu apps (papps.list /
 // papp.launch); each of their windows arrives as its own `rtc2` session (kind 'window') and is

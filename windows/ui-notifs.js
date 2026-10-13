@@ -1,6 +1,6 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Notifications tab (revision 5, docs/UI.md): the other computer's notifications here as Windows
-// toasts from MacShare, and this PC's on the other computer (read from Windows' notification
+// toasts from TwinDesk, and this PC's on the other computer (read from Windows' notification
 // database by the helper). Two direction cards, then the apps seen sending.
 'use strict';
 
@@ -37,7 +37,7 @@ UI.tab({
       pair.update(s);
       note.set(p.os === 'linux' ? 'Not on Linux yet.' : '');
       hideSw.set(n.hideText);
-      recvRow.setHint(n.receive && n.shown ? n.shown + ' shown' : 'As Windows notifications, from MacShare');
+      recvRow.setHint(n.receive && n.shown ? n.shown + ' shown' : 'As Windows notifications, from TwinDesk');
       sendRow.setHint(n.readable === false ? 'Windows’ notification list can’t be read'
         : !n.send ? '' : !connected ? 'Also switches it on the other computer' : n.sent ? n.sent + ' sent' : 'As native notifications there');
 

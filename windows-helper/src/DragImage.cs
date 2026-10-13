@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The picture under the pointer while a drag from the Mac is on this PC: the shell icon of the
 // first item (a folder or the file type, 48 px, others stacked behind it), its name or "N items",
 // handed to the shell's drag-image helper (which also shows the target's "Copy to …" text).

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Builds the Windows installer (npm run dist): the helper, a staging folder with the same layout
 // as the repo (windows/, shared/protocol.js, windows-helper/bin/), then electron-builder → NSIS.
 // The layout is kept so '../shared/protocol.js' and the helper path work unchanged; no asar, so
@@ -56,7 +56,7 @@ async function main() {
   copyDeps(Object.keys(pkg.dependencies || {}));
   fs.writeFileSync(path.join(STAGE, 'package.json'), JSON.stringify({
     name: pkg.name, productName: pkg.productName, version: pkg.version, description: pkg.description,
-    license: pkg.license, author: 'MacShare contributors', main: 'windows/main.js', dependencies: pkg.dependencies,
+    license: pkg.license, author: 'inukaasith', main: 'windows/main.js', dependencies: pkg.dependencies,
   }, null, 2));
 
   console.log('Packaging…');
@@ -65,13 +65,13 @@ async function main() {
     projectDir: WIN,
     config: {
       appId: 'org.macshare.windows',
-      productName: 'MacShare',
-      copyright: 'Copyright (C) 2026 MacShare contributors',
+      productName: 'TwinDesk',
+      copyright: 'Copyright (C) 2026 inukaasith',
       electronVersion,
       directories: { app: STAGE, output: path.join(WIN, 'dist') },
       asar: false,
       npmRebuild: false,
-      win: { icon: path.join(__dirname, 'icon.ico'), executableName: 'MacShare' },
+      win: { icon: path.join(__dirname, 'icon.ico'), executableName: 'TwinDesk' },
       nsis: {
         oneClick: false,
         perMachine: true,
@@ -81,15 +81,15 @@ async function main() {
         uninstallerIcon: path.join(__dirname, 'icon.ico'),
         license: path.join(ROOT, 'LICENSE'),
         include: path.join(__dirname, 'installer.nsh'),
-        shortcutName: 'MacShare',
+        shortcutName: 'TwinDesk',
         createDesktopShortcut: true,
         createStartMenuShortcut: true,
         runAfterFinish: true,
-        artifactName: 'MacShare-Setup-${version}.exe',
+        artifactName: 'TwinDesk-Setup-${version}.exe',
       },
     },
   });
-  console.log('Done: ' + path.join(WIN, 'dist', 'MacShare-Setup-' + pkg.version + '.exe'));
+  console.log('Done: ' + path.join(WIN, 'dist', 'TwinDesk-Setup-' + pkg.version + '.exe'));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

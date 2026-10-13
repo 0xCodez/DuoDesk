@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Linux checks for Setup and General (docs/LINUX.md): the desktop session (X11 needed for input
 // sharing until the Wayland phase) and the firewall (ufw or firewalld must let 47800/tcp and
 // 47801/udp in). Fix asks for the password once through pkexec.
@@ -33,15 +33,15 @@ function session() {
 async function checkFirewall(fixed) {
   const ufw = await run('systemctl', ['is-active', 'ufw']);
   if (ufw.out === 'active') {
-    return fixed ? { ok: true, tool: 'ufw', message: 'ufw lets MacShare in' }
-      : { ok: false, tool: 'ufw', message: 'ufw is on and may block MacShare.' };
+    return fixed ? { ok: true, tool: 'ufw', message: 'ufw lets TwinDesk in' }
+      : { ok: false, tool: 'ufw', message: 'ufw is on and may block TwinDesk.' };
   }
   const fwd = await run('firewall-cmd', ['--state']);
   if (fwd.out === 'running') {
     const tcp = await run('firewall-cmd', ['--query-port=' + PORTS.tcp + '/tcp']);
     const udp = await run('firewall-cmd', ['--query-port=' + PORTS.udp + '/udp']);
     const ok = tcp.out === 'yes' && udp.out === 'yes';
-    return { ok, tool: 'firewalld', message: ok ? 'firewalld lets MacShare in' : 'firewalld blocks MacShare.' };
+    return { ok, tool: 'firewalld', message: ok ? 'firewalld lets TwinDesk in' : 'firewalld blocks TwinDesk.' };
   }
   return { ok: true, tool: '', message: 'No firewall is on' };
 }

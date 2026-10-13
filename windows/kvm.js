@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Shared cursor and keyboard: the docs/KVM.md state machine, Windows side, both roles
 // (rows 1–6 + 9: this PC drives the Mac; rows 7–8c + 9b: the Mac drives this PC).
 const P = require('../shared/protocol.js');
@@ -73,7 +73,7 @@ class Kvm {
       this.applyConfig();
       // A restarted helper has lost its state: nothing is captured or armed any more.
       if (this.mode === 'driving') this._release('');
-      else if (this.mode === 'driven') this._drivenHome('MacShare’s helper restarted', true);
+      else if (this.mode === 'driven') this._drivenHome('TwinDesk’s helper restarted', true);
     });
     helper.on('event', (name, msg) => this._onHelper(name, msg));
   }

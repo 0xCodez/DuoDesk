@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // One app window of the other PC (peerapps.js): answers its rtc2 offer (kind 'window', recvonly)
 // and plays it at the lowest latency; mouse input over the drawn picture goes out as in.*
 // (normalized 0–1 over this window's picture, main adds the `wid`). Keys are sent by main.

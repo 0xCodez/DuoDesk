@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Screen sharing (copied from windows/screen.js): stream state, the Monitor 2 window, and relaying stream.*/rtc.* between the
 // link (main process) and the Monitor 2 renderer, which owns the RTCPeerConnection.
 const { BrowserWindow, ipcMain } = require('electron');

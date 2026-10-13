@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Files dragged from the Mac across the edge (revision 2 R4, docs/ROADMAP.md): `file.offer
 // {drop:'release'}` from the Mac → a temp folder; when the Mac's left button comes up on this PC
 // (k.mu b:0 while driven, see kvm.js) they go to the Explorer folder under the pointer, else the

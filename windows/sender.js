@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Every `rtc2` video session this PC sends (phase 11: its screen; phase 13: one per app window)
 // runs in one hidden window (sender.html). Session numbers come from one counter, since the Mac
 // routes `rtc2.ice` / `rtc2.stop` by session. Answers and candidates from the Mac are routed here.

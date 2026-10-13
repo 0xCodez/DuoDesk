@@ -1,7 +1,7 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Revision 5, notifications both ways (docs/ROADMAP.md "Notifications"): this PC's notifications
 // go to the other computer while it accepts them (`notif.policy`); the helper reads them from the
-// Windows notification database. The other computer's show here as Windows toasts from MacShare
+// Windows notification database. The other computer's show here as Windows toasts from TwinDesk
 // (main.js sets the AppUserModelID, or Windows shows none). Port of mac/notifs.js.
 const { Notification } = require('electron');
 const P = require('../shared/protocol.js');

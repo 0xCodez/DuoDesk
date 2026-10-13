@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The small API the Monitor 2 window gets: stream/rtc messages in, rtc answers/candidates out.
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The switching popup (docs/UI.md "Popups and the menu bar"): a small pill at the bottom centre of
 // the screen under the pointer. Click-through, never focused, top-most, excluded from screen
 // capture where the desktop supports it (not on X11), off with General › "Show a popup".

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // SendInput injection of k.* events (docs/KVM.md "Scaling, keys and scroll"). Every input carries
 // dwExtraInfo = MARK so our own capture/edge code skips it. Held keys/buttons are tracked for
 // releaseAll.

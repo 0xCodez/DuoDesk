@@ -1,5 +1,5 @@
 #!/bin/sh
-# MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+# TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 # Builds bin/macshare-linuxhelper. Needs gcc and the X11 dev packages (docs/LINUX.md):
 #   sudo apt install build-essential libx11-dev libxi-dev libxtst-dev libxrandr-dev libxfixes-dev
 set -e

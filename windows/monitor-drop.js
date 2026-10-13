@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Monitor 2: drop files onto the Mac's screen (phase 9). Paths come from the preload
 // (webUtils.getPathForFile); main sends them; progress comes back for the little status line.
 (function () {

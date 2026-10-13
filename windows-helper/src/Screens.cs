@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Monitors (physical pixels; the process is per-monitor DPI aware), outer edges, offsets along a
 // side (docs/KVM.md "Words"), landing points, clamping and the DPI scale under a point.
 using System;

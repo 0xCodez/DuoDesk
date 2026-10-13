@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Phase 11: the monitors as GDI sees them (name, adapter, physical rect) so main can tell the
 // virtual PC monitor (Virtual Display Driver) apart, and setting a monitor's resolution.
 // Also `--add-root-device <inf> <hwid>` (run elevated by scripts\vdd-install.ps1): creates a

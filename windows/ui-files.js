@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Files tab: Send files (drop zone + Choose…) and copy/paste files with shortcuts (revision 5),
 // then two direction cards (docs/UI.md) — files and the Mac's folder coming here, files and
 // this PC's folder going to the Mac — then transfers. Drags across the edge (revision 2 R4),

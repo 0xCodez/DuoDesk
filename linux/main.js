@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main process (Linux, docs/LINUX.md): lifecycle, windows, tray, IPC and the state pushed to the
 // main window. Follows windows/main.js; phases L0–L2: discovery, pairing with the Mac as its
 // guest, clipboard, the Mac's screen in a window; L3: mouse and keyboard (kvm.js + linux-helper).
@@ -20,11 +20,14 @@ const system = require('./system');
 const { normalize } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
+// Renamed MacShare → TwinDesk: settings, pairing and keys stay in the folder they've always been
+// in (Electron would follow the new product name). A dev copy's --user-data-dir still wins.
+if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), 'MacShare'));
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the Mac
-  app.on('second-instance', () => showMain()); // starting MacShare again shows the window (no tray on some desktops)
+  app.on('second-instance', () => showMain()); // starting TwinDesk again shows the window (no tray on some desktops)
   app.whenReady().then(start);
 }
 
@@ -134,7 +137,7 @@ function pushState() {
     if (phase === 'code' && lastPairPhase !== 'code') showMain(); // a code to compare: to the front
     lastPairPhase = phase;
     if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('state', s);
-    if (tray) tray.setToolTip('MacShare: ' + statusLine(s));
+    if (tray) tray.setToolTip('TwinDesk: ' + statusLine(s));
     updateTray(s);
   });
 }
@@ -249,8 +252,8 @@ function createMainWindow() {
     y: b.y,
     minWidth: 720,
     minHeight: 480,
-    title: 'MacShare',
-    icon: path.join(__dirname, 'assets', 'tray@2x.png'),
+    title: 'TwinDesk',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#2b2b2e' : '#e9e9ee',
     show: false,
     webPreferences: {
@@ -288,10 +291,10 @@ function createTray() {
   try {
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray@2x.png')));
   } catch (e) {
-    console.error('[tray]', e.message); // no tray on this desktop: start MacShare again to show the window
+    console.error('[tray]', e.message); // no tray on this desktop: start TwinDesk again to show the window
     return;
   }
-  tray.setToolTip('MacShare');
+  tray.setToolTip('TwinDesk');
   tray.on('click', showMain);
   updateTray(buildState());
 }
@@ -307,7 +310,7 @@ function updateTray(s) {
   if (key === trayKey) return;
   trayKey = key;
   trayMenu = Menu.buildFromTemplate([
-    { label: 'Open MacShare', click: showMain },
+    { label: 'Open TwinDesk', click: showMain },
     { id: 'monitor', label: 'Show the Mac’s screen', enabled: connected, click: () => screen.open(false) },
     { type: 'separator' },
     { label: 'Cursor Sharing', type: 'checkbox', checked: linked, click: (i) => kvm.setLinked(i.checked) },

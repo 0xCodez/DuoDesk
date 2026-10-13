@@ -1,4 +1,4 @@
-/* MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE. */
+/* TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
 /* Same look as the Mac app (mac/control.css, System Settings style) so both windows match;
    Linux: copied from windows/app.css with a Linux font stack. */
 :root {
@@ -31,18 +31,15 @@ button, input, select { font: inherit; color: inherit; }
 
 /* ---------- sidebar ---------- */
 #sidebar { width: 220px; flex: none; padding: 16px 10px 12px; overflow-y: auto; border-right: 1px solid var(--line); }
-.identity { display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px; }
-.app-mark {
-  width: 34px; height: 34px; border-radius: 8px; flex: none;
-  background: linear-gradient(135deg, #5ac8fa, #0a84ff 55%, #5e5ce6);
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.35), 0 1px 2px rgba(0, 0, 0, 0.2);
-  position: relative;
+.identity { display: flex; align-items: center; gap: 14px; padding: 6px 8px 20px 4px; }
+.app-mark { /* the TwinDesk icon (shared/icon/teindesk-dark.png) */
+  width: 60px; height: 60px; flex: none;
+  /* the whole icon, rendered from the 1024 px master at the exact size for each display scale */
+  background: image-set(url(assets/sidebar-icon@1x.png) 1x, url(assets/sidebar-icon@2x.png) 2x,
+    url(assets/sidebar-icon@3x.png) 3x, url(assets/sidebar-icon@4x.png) 4x) center / contain no-repeat;
 }
-.app-mark::before, .app-mark::after {
-  content: ""; position: absolute; top: 10px; width: 11px; height: 9px; border: 2px solid #fff; border-radius: 2px;
-}
-.app-mark::before { left: 5px; } .app-mark::after { right: 5px; opacity: 0.8; }
-.app-name { font-weight: 600; font-size: 14px; }
+.who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.app-name { font-weight: 700; font-size: 18px; line-height: 1.2; text-align: left; letter-spacing: -0.2px; }
 .peer { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--idle); flex: none; }
 .dot.good { background: var(--good); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }

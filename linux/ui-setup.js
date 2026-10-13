@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Setup screen (docs/ROADMAP.md "Setup screen", docs/UI.md "Revision 4"): a full page before the
 // tabs while something isn't ready: the desktop session (X11 for mouse and keyboard sharing) and
 // the firewall (Fix asks for the password once) and the mouse and keyboard helper. "Skip for now" is remembered until something
@@ -19,7 +19,7 @@ UI.setup = (() => {
 
   const page = el('section', { class: 'setup-page', hidden: true }, [
     el('div', { class: 'app-mark', attrs: { 'aria-hidden': 'true' } }),
-    el('h1', { text: 'Set up MacShare' }),
+    el('h1', { text: 'Set up TwinDesk' }),
     el('p', { text: 'A few things before this computer can share with your Mac.' }),
     UI.card('', [sessRow, fwRow, helperRow]),
     el('div', { class: 'setup-foot' }, [
@@ -46,7 +46,7 @@ UI.setup = (() => {
     fwDone.hidden = !fwOk || fw.checking;
     const helperBad = s.setup.missing.includes('helper');
     helperRow.hidden = !helperBad;
-    helperRow.setHint(helperBad ? s.kvmState.helper + '. Restart MacShare if it stays like this.' : '');
+    helperRow.setHint(helperBad ? s.kvmState.helper + '. Restart TwinDesk if it stays like this.' : '');
   }
 
   return { page, render };

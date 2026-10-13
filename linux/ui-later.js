@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Tabs that aren't on Linux yet (docs/LINUX.md "Phases"): same places, names and colours as the
 // other apps, each a short page saying what is coming and when.
 'use strict';

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // A drag from the Mac across the edge, revision 3 (docs/ROADMAP.md): on `drag.start` while the Mac
 // drives this PC, the helper starts a real Windows drag at the pointer (virtual files: the whole
 // tree described up front, contents streamed from temp files as `file.*` chunks arrive). The Mac's

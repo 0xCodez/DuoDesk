@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Keyboard tab: typing follows the pointer. The Hotkey card (double-tap = mouse and keyboard back
 // here; keyboard-only switching), then two direction cards (docs/UI.md); the directions are the
 // same switches as on the Cursor tab. Behaviour: docs/KVM.md (kvm.js + windows-helper).
@@ -44,7 +44,7 @@ UI.tab({
       switchSw.disable(!!s.kvm.mouse);
       switchRow.setHint(s.kvm.mouse ? 'Only when Cursor is off' : 'Double-tap to type on ' + p.the + ' and back');
       otherHotkey.label.textContent = 'Hotkey on ' + p.the;
-      otherHotkey.setHint('Set in MacShare on ' + p.the);
+      otherHotkey.setHint('Set in TwinDesk on ' + p.the);
       // Ctrl/Cmd swapping only between a Mac and a PC.
       swapRow.hidden = p.os !== 'mac';
       shortcutsRow.hidden = p.os !== 'mac';

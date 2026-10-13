@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Display › Mac → Linux (copied from windows/ui-receive.js): the Mac's screen in a window. Sharing is switched on the Mac,
 // so the switch here only shows it; this computer owns the window, the screen sound volume and F11/F9.
 'use strict';

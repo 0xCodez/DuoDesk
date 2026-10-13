@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main window shell: sidebar + one page per registered tab (ui-*.js), pairing banner, accent
 // rendering of the state pushed by main (docs/UI.md). Copied from windows/app.js; adds the Setup
 // screen (ui-setup.js) in place of the tabs while something isn't ready.

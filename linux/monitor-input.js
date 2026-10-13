@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Monitor 2 input: mouse, wheel and keys over the drawn video rectangle → in.* (normalized 0–1).
 // F9/F11 are handled in main (before-input-event) and never reach this page.
 (function () {

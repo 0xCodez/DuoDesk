@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Display › PC → Mac (phase 11): this PC's screen in a window on the Mac, controlled from there.
 // Mirror shows an existing monitor; Extend adds an extra (virtual) screen (vdd.js).
 'use strict';
@@ -53,7 +53,7 @@ UI.tab({
 
     const installBtn = UI.button('Install', () => api.installVdd(), 'small primary');
     const removeBtn = UI.button('Remove', () => api.removeVdd(), 'small');
-    const driver = UI.row('MacShare virtual display', '', [installBtn, removeBtn]); // Extend's screen, from the Virtual Display Driver (vdd.js)
+    const driver = UI.row('TwinDesk virtual display', '', [installBtn, removeBtn]); // Extend's screen, from the Virtual Display Driver (vdd.js)
     const note = UI.note('bad', '');
 
     body.append(
@@ -91,7 +91,7 @@ UI.tab({
       details.set({
         Status: (!on ? 'Off' : p.busy ? 'Starting the extra screen…' : p.status === 'live' ? 'On ' + who
           : !connected ? 'Waiting for ' + who : !p.mac.accept ? 'Ready, starts when ' + who + ' opens it' : 'Connecting…') + (p.error ? ': ' + p.error : ''),
-        Display: !on ? '' : p.mode === 'extend' ? `MacShare virtual display, ${p.extendPx[0]} × ${p.extendPx[1]}` : mon ? mon.label : '',
+        Display: !on ? '' : p.mode === 'extend' ? `TwinDesk virtual display, ${p.extendPx[0]} × ${p.extendPx[1]}` : mon ? mon.label : '',
         Picture: st ? `${st.width} × ${st.height}, ${st.fps} fps` : '',
         Speed: st ? `${st.mbps} Mbps sent` + (st.targetMbps ? `, network allows ${st.targetMbps}` : '') : '',
         'Round trip': st && st.rttMs != null ? st.rttMs + ' ms' : '',

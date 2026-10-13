@@ -1,10 +1,10 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Mac apps on the PC (phase 12, docs/ROADMAP.md), main-process side: the app list and launching
 // for the Apps tab, and the per-app windows. Those windows are opened by the Monitor 2 renderer
 // (window.open, so they can show the same video stream, cropped); here they get the app's title,
 // icon and their own AppUserModelID, so each Mac app has its own taskbar button.
-// Revision 6: each Mac app gets a Start menu shortcut (folder "MacShare Apps") that starts
-// `MacShare.exe --mac-app=<id>`, and its windows carry the same AppUserModelID and relaunch
+// Revision 6: each Mac app gets a Start menu shortcut (folder "TwinDesk Apps") that starts
+// `TwinDesk.exe --mac-app=<id>`, and its windows carry the same AppUserModelID and relaunch
 // command, so Pin to Start / Pin to taskbar work. Its windows never go full screen or past 1:1.
 const { app, BrowserWindow, nativeImage, shell, screen: displays } = require('electron');
 const crypto = require('crypto');
@@ -100,14 +100,14 @@ class Apps {
     return 'org.macshare.macapp.' + crypto.createHash('sha1').update(id).digest('hex').slice(0, 10);
   }
 
-  // How this copy of MacShare opens one Mac app: "MacShare.exe --mac-app=<id>".
+  // How this copy of TwinDesk opens one Mac app: "TwinDesk.exe --mac-app=<id>".
   static relaunch(id) {
     const args = (app.isPackaged ? [] : [app.getAppPath()]).concat('--mac-app=' + id);
     return { target: process.execPath, args: args.map((x) => (/\s/.test(x) ? '"' + x + '"' : x)).join(' ') };
   }
 
   get startDir() {
-    return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'MacShare Apps');
+    return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'TwinDesk Apps');
   }
 
   _lnk(name) {
@@ -137,7 +137,7 @@ class Apps {
     try {
       fs.mkdirSync(this.startDir, { recursive: true });
       const ok = shell.writeShortcutLink(file, fs.existsSync(file) ? 'replace' : 'create', {
-        target: r.target, args: r.args, description: a.name + ' on ' + this.peerName() + ' (MacShare)', appUserModelId: Apps.aumid(id),
+        target: r.target, args: r.args, description: a.name + ' on ' + this.peerName() + ' (TwinDesk)', appUserModelId: Apps.aumid(id),
         ...(ico ? { icon: ico, iconIndex: 0 } : {}),
       });
       if (!ok) throw new Error('Windows refused the shortcut');
@@ -147,7 +147,7 @@ class Apps {
       return false;
     }
     if (tell) {
-      this.message = a.name + ' is in Start › MacShare Apps. Right-click it there to pin it to Start or the taskbar.';
+      this.message = a.name + ' is in Start › TwinDesk Apps. Right-click it there to pin it to Start or the taskbar.';
       this.onChange();
     }
     return true;

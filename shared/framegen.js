@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Frame generation for screen viewers (revision 7, optional, both apps). When the screen refreshes
 // faster than the stream delivers frames (a 60 fps stream on a 120 Hz screen, or a stream that
 // dropped to 30 fps), it draws motion-compensated in-between frames on the GPU (WebGL2):

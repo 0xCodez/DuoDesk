@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Keyboard tab: typing follows the pointer. The Hotkey card (double-tap = cursor sharing on/off;
 // keyboard-only switching), then two direction cards (docs/UI.md); the directions are the same
 // switches as on the Cursor tab. Copy of windows/ui-keyboard.js. Behaviour: docs/KVM.md.
@@ -22,7 +22,7 @@ UI.tab({
     const status = UI.inputStatus();
     const pair = UI.dirCards(
       { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, rows: [
-        UI.row('Hotkey on the Mac', 'Set in MacShare on the Mac'),
+        UI.row('Hotkey on the Mac', 'Set in TwinDesk on the Mac'),
         UI.row('⌘ works as Ctrl', 'So ⌘C copies here', [swap]),
       ] },
       { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, rows: [

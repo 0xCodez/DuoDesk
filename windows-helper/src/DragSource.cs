@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Drag across the edge, revision 3 (docs/ROADMAP.md): files and folders dragged from the Mac become
 // a real Windows drag at the pointer — OLE DoDragDrop with *virtual files* (FileGroupDescriptorW +
 // FileContents streams), so any drop target works (Explorer, Desktop, mail, browsers) and Explorer

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Hidden sender window (phases 11, 13): each `rtc2` session captures one monitor of this PC (phase
 // 11, optionally with its sound) or one app window (phase 13) and sends it to the Mac (we offer, the
 // Mac answers recvonly). Low-latency settings as mac/capture.js.

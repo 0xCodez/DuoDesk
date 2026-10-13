@@ -1,7 +1,7 @@
 @echo off
-rem MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+rem TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 rem Builds bin\macshare-winhelper.exe with the .NET Framework C# compiler (C# 5 only).
-rem Works while MacShare is running: a running .exe can be renamed, so the new build is swapped
+rem Works while TwinDesk is running: a running .exe can be renamed, so the new build is swapped
 rem in and the app picks it up the next time it starts the helper.
 setlocal
 set CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Terminal tab: shells both ways as two direction cards (docs/UI.md). Mac → PC: the Mac opens a
 // shell here (Windows' OpenSSH Server, sshd.js). PC → Mac: a shell on the Mac (terminal.js).
 'use strict';

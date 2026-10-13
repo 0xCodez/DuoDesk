@@ -1,4 +1,4 @@
-# MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+# TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 # Phase 11, run elevated once (vdd.js): installs the Virtual Display Driver
 # (https://github.com/VirtualDrivers/Virtual-Display-Driver, MIT, signed by SignPath Foundation)
 # for Display › PC → Mac › Extend, leaves its monitor switched off, and adds two scheduled tasks

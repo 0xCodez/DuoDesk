@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Where is the pointer, file-wise? The folder of the Explorer window under it, or the Desktop
 // (docs/ROADMAP.md "Drag files across the screen edge": the receiver places files there).
 using System;

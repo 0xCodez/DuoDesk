@@ -1,5 +1,5 @@
-// MacShare — a Mac and a Windows PC that work as one.
-// Copyright (C) 2026 MacShare contributors. Licensed under the GNU GPL v3 (see LICENSE).
+// TwinDesk — a Mac and a Windows PC that work as one.
+// Copyright (C) 2026 inukaasith. Licensed under the GNU GPL v3 (see LICENSE).
 //
 // Protocol v1 — single source of truth for both apps (see BUILD_PLAN.md and docs/KVM.md).
 // Works as a CommonJS module in main processes (require('../shared/protocol.js'))

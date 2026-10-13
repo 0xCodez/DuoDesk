@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Overview tab (docs/UI.md "Revision 4", copied from windows/ui-overview.js): this computer's address and Connect by address on top, the
 // computers found nearby (always visible), the two computers, one switch per feature and
 // direction, and what is paired.
@@ -8,7 +8,7 @@ UI.tab({
   id: 'overview',
   order: 0,
   title: 'Overview',
-  heading: 'MacShare',
+  heading: 'TwinDesk',
   desc: '',
   color: 'linear-gradient(#8e8e93, #636366)',
   badge: (s) => (s.link.state === 'identity_changed' || (s.discovery && !s.discovery.on) || s.found.some((d) => d.invited) ? 'warn' : ''),
@@ -103,7 +103,7 @@ UI.tab({
       const bad = l.state === 'identity_changed';
       status.textContent = bad ? 'This Mac looks different now. Forget it and pair again.'
         : connected ? 'Connected'
-          : s.paired ? 'Open MacShare on your Mac.'
+          : s.paired ? 'Open TwinDesk on your Mac.'
             : 'Pick a computer below, or connect by address.';
       status.classList.toggle('bad', bad);
 
@@ -115,7 +115,7 @@ UI.tab({
       const busy = !!s.pairing && s.pairing.phase !== 'failed';
       ipBtn.disabled = busy || !!asking;
       const failed = s.pairing && s.pairing.phase === 'failed';
-      ipRow.setHint(asking ? 'Looking for MacShare at ' + asking + '…' : failed ? s.pairing.error : '');
+      ipRow.setHint(asking ? 'Looking for TwinDesk at ' + asking + '…' : failed ? s.pairing.error : '');
       ipRow.hint.classList.toggle('bad', !asking && !!failed);
 
       // found nearby
@@ -143,7 +143,7 @@ UI.tab({
           r.classList.add('with-ico');
           return r;
         });
-        if (!rows.length && !blocked) rows.push(UI.row('Looking for computers…', 'Open MacShare on the other computer.'));
+        if (!rows.length && !blocked) rows.push(UI.row('Looking for computers…', 'Open TwinDesk on the other computer.'));
         foundList.replaceChildren(...rows);
         if (focus) focus.focus();
       }

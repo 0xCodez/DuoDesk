@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Run PowerShell scripts: normally, or elevated (one UAC prompt, waits for it to finish). Scripts
 // go in as -EncodedCommand so nothing needs quoting.
 const { execFile } = require('child_process');

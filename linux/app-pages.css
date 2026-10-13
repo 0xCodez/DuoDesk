@@ -1,4 +1,4 @@
-/* MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE. */
+/* TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
 /* Page-specific pieces: overview hero, layout picker, clipboard history, roadmap pages. */
 
 /* Overview hero */
@@ -74,7 +74,7 @@ kbd, kbd.key { font: 12px system-ui, "Ubuntu", "Cantarell", "Noto Sans", sans-se
 .app-tile:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 .app-tile img, .app-noicon { width: 48px; height: 48px; }
 .app-noicon { display: grid; place-items: center; border-radius: 12px; background: var(--track-off); font-size: 20px; font-weight: 600; }
-.app-name { font-size: 12px; text-align: center; line-height: 1.25; max-width: 92px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.app-tile .app-name { font-size: 12px; text-align: center; line-height: 1.25; max-width: 92px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 
 /* Revision 4: overview address, nearby list, OS glyphs */
 .row .value.addr { color: var(--text); user-select: text; }
@@ -90,6 +90,6 @@ body.setup #sidebar { display: none; }
 .setup-page { max-width: 560px; margin: 0 auto; padding: 56px 28px 40px; }
 .setup-page h1 { font-size: 24px; margin: 14px 0 4px; text-align: center; }
 .setup-page > p { text-align: center; color: var(--muted); margin: 0 0 24px; }
-.setup-page .app-mark { margin: 18px auto 26px; transform: scale(1.8); }
+.setup-page .app-mark { margin: 26px auto 36px; transform: scale(1.5); }
 .setup-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 12px; }
 .setup-foot .hint { color: var(--muted); font-size: 12px; }

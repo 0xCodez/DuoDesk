@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // macshare-linuxhelper: shared declarations. JSON lines on stdin/stdout, the same commands and
 // events as windows-helper (docs/KVM.md "Helper interface", docs/LINUX.md "Helper").
 #ifndef MACSHARE_HELPER_H

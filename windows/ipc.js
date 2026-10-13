@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main-window actions (preload-app.js → here). Every value is validated by settings.apply().
 const { ipcMain, dialog, shell, BrowserWindow, clipboard } = require('electron');
 const path = require('path');
@@ -35,7 +35,7 @@ function setupIpc(ctx) {
     link.startPairing({ address: m[1], port, macName: m[1] });
   });
   // Connect by address: ask who is there (unicast probe works where broadcast is blocked); no
-  // answer in PROBE_REPLY_MS → try WSS on that address directly ("No MacShare at …" if nothing).
+  // answer in PROBE_REPLY_MS → try WSS on that address directly ("No TwinDesk at …" if nothing).
   handle('connectAddress', async (text) => {
     const m = typeof text === 'string' && /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(text);
     if (!m) return;

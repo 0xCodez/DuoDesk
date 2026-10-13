@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Display › Mac → PC: the Mac's screen in the Monitor 2 window; this PC owns the window, the screen
 // sound volume and F11/F9. Revision 7: when the other computer lets us (its screen.state `remote`),
 // Open and the switch start/stop its sharing there and Extend | Mirror switches it (screen.ctl).
@@ -66,7 +66,7 @@ UI.tab({
       const MODES = ['off', 'mirror', 'extend'];
       mode.el.querySelectorAll('button').forEach((b, i) => { b.disabled = !connected || !r || !r.remote || (i > 0 && !(r.modes || []).includes(MODES[i])); });
       modeRow.setHint(!connected ? 'Connect to choose from here'
-        : !r ? 'Update MacShare on the other computer to choose from here'
+        : !r ? 'Update TwinDesk on the other computer to choose from here'
           : !r.remote ? 'The other computer doesn’t allow choosing from here'
             : r.on ? (r.mode === 'extend' ? 'An extra screen for it, shown here' : 'Its main screen, shown here') : 'Pick Mirror or Extend, or just press Open');
       mute.set(!s.monitor.mute);

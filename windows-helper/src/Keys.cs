@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // DOM KeyboardEvent.code ↔ Windows scan code (set 1), 0xE0xx = extended key.
 // Values follow Chromium's keycode_converter table (US/ISO/JIS physical positions).
 using System.Collections.Generic;

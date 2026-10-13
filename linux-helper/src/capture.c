@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // XInput2 raw events on the root window: edge push at home, the return edge, the hotkey, and
 // capture (pointer/keyboard grabs, the pointer hidden and parked) with the safety rules of
 // docs/KVM.md. Port of windows-helper/src/Capture.cs. Raw events reach us even while another

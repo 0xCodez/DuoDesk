@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The crossing animation (docs/UI.md "Crossing between the computers"): where the pointer leaves
 // or arrives, a soft accent glow along the crossing edge (~360 px at 100 %, fades in 0.14 s, out by
 // 0.7 s) and a ring at the pointer that closes in when leaving (0.4 s) and spreads out when

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Apps tab. Mac → PC (phase 12): the Mac's apps with their icons; click one and it opens on the Mac,
 // its windows appearing here as their own windows with their own taskbar buttons. PC → Mac (phase
 // 13): the Mac opens this PC's apps; each of their windows is streamed on its own to a Mac window.
@@ -62,7 +62,7 @@ UI.tab({
         ]);
         b.onclick = () => api.launchApp(x.id);
         if (a.peerPc) return b; // apps of another PC: no Start shortcut yet
-        // Revision 6: Pin to Start (a shortcut in Start › MacShare Apps), on hover or right-click.
+        // Revision 6: Pin to Start (a shortcut in Start › TwinDesk Apps), on hover or right-click.
         const pin = el('span', { class: 'app-pin', title: 'Pin to Start', attrs: { role: 'button', tabindex: '0', 'aria-label': 'Pin ' + x.name + ' to Start' } }, [UI.icon('pin')]);
         pin.onclick = (e) => { e.stopPropagation(); api.pinApp(x.id); };
         pin.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); api.pinApp(x.id); } };

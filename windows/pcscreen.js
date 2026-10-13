@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Phase 11, Display › PC → Mac (docs/ROADMAP.md): this PC's screen in a window on the Mac.
 // Mirror = one existing monitor; Extend = the virtual monitor (vdd.js). Sharing starts off every
 // time the app starts. We offer an `rtc2` session (kind `screen` / `screen+audio`) while sharing is

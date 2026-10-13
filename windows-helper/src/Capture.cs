@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Low-level hooks (capture + hotkey), Raw Input (edge push at home, local return-edge motion),
 // dead-man timer and the safety rules of docs/KVM.md. Hook callbacks only decide and enqueue.
 using System;
