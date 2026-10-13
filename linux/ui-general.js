@@ -1,5 +1,5 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// General tab (Linux): desktop session, firewall (+ Fix), this computer, about, Quit (some
+// General tab (Linux): desktop session, firewall (+ Fix), helper, this computer, about, Quit (some
 // desktops show no tray icon, so Quit lives here too).
 'use strict';
 
@@ -19,12 +19,16 @@ UI.tab({
     const fwRow = UI.row('Firewall', '', [fwPill, fwCheck, fwFix]);
     const sessPill = el('span', { class: 'pill' });
     const sessRow = UI.row('Desktop session', '', [sessPill]);
+    const helperPill = el('span', { class: 'pill' });
+    const helperRow = UI.row('Mouse and keyboard helper', '', [helperPill]);
+    const hudSw = UI.switch((v) => api.setApp({ hud: v }), { label: 'Show a popup when switching' });
     const deviceRow = UI.row('', '');
     const versionRow = UI.row('MacShare for Linux', '');
 
     body.append(
       UI.card('Network', [fwRow]),
-      UI.card('This computer', [sessRow, deviceRow]),
+      UI.card('This computer', [sessRow, helperRow, deviceRow]),
+      UI.card('Popups', [UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw])]),
       UI.card('About', [
         versionRow,
         UI.row('Licence', 'Free and open source, GPL v3'),
@@ -43,6 +47,11 @@ UI.tab({
       sessPill.textContent = x11 ? 'X11' : s.session.type === 'wayland' ? 'Wayland' : 'Unknown';
       sessPill.className = 'pill ' + (x11 ? 'good' : 'muted');
       sessRow.setHint((s.session.wsl ? 'WSL. ' : '') + (x11 ? '' : 'Mouse and keyboard sharing will need Xorg.'));
+      const h = s.kvmState.helper;
+      helperPill.textContent = h ? (h === 'starting' ? 'Starting…' : 'Not running') : 'Running';
+      helperPill.className = 'pill ' + (h ? (h === 'starting' ? 'muted' : 'bad') : 'good');
+      helperRow.setHint(h && h !== 'starting' ? h : '');
+      hudSw.set(s.app.hud);
       deviceRow.label.textContent = s.device.name;
       versionRow.setHint('Version ' + s.version);
     };

@@ -19,10 +19,6 @@
   later({ id: 'pc-mac', group: 'Display', order: 11, title: 'Linux → Mac', heading: 'This screen on the Mac', icon: 'display',
     color: 'linear-gradient(#5ac8fa, #0a84ff)', desc: 'Show this computer’s screen on your Mac.' },
   'This screen in a window on the Mac.', 'Coming with sound in a later Linux version.');
-  later({ id: 'cursor', order: 20, title: 'Cursor', color: 'linear-gradient(#ffb340, #ff9500)', desc: 'One mouse for both computers.' },
-    'Move the pointer across the screen edge to the Mac and back.', 'Coming next. Needs an X11 session (Log in with Xorg).');
-  later({ id: 'keyboard', order: 30, title: 'Keyboard', color: 'linear-gradient(#d1d1d6, #8e8e93)', desc: 'One keyboard for both computers.' },
-    'Type on the Mac with this keyboard, Ctrl acting as Command.', 'Coming next, with the cursor.');
   later({ id: 'files', order: 50, title: 'Files', color: 'linear-gradient(#64d2ff, #0a84ff)', desc: 'Move files between the two computers.' },
     'Drag files across the edge and drop them on the Mac’s screen.', 'Not on Linux yet.');
   later({ id: 'terminal', order: 60, title: 'Terminal', color: 'linear-gradient(#3a3a3c, #1c1c1e)', desc: 'A shell on the other computer.' },

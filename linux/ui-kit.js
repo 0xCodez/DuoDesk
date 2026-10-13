@@ -232,6 +232,13 @@ const UI = {
     return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), update: (s) => { a.update(s); b.update(s); } };
   },
 
+  // The hotkey choices (P.HOTKEYS, docs/KVM.md "Hotkey (revision 4)") in Linux words
+  // ("Right Alt", "Ctrl (either side)", "Left Super").
+  HOTKEYS: Object.fromEntries(window.MacShareProtocol.HOTKEYS.map((c) => [c, window.MacShareProtocol.hotkeyName(c, 'win').replace('Windows key', 'Super')])),
+  hotkeyName(s) {
+    return UI.HOTKEYS[(s && s.keys && s.keys.hotkey) || 'AltRight'] || 'Right Alt';
+  },
+
   // "Right now" row for the Cursor/Keyboard tabs: where input is + the last KVM event.
   inputStatus() {
     const WHERE = { home: 'On this computer', driving: 'On the Mac', driven: 'The Mac is using this computer' };
@@ -239,11 +246,14 @@ const UI = {
     const row = UI.row('Keyboard and mouse', '', [pill]);
     row.update = (s) => {
       const k = s.kvmState;
-      pill.textContent = WHERE[k.mode] || WHERE.home;
-      pill.className = 'pill ' + (k.mode === 'home' ? 'muted' : 'good');
+      const hk = 'Double-tap ' + UI.hotkeyName(s);
+      pill.textContent = k.linked === false ? 'Sharing off' : WHERE[k.mode] || WHERE.home;
+      pill.className = 'pill ' + (k.linked === false ? 'bad' : k.mode === 'home' ? 'muted' : 'good');
       row.setHint(k.helper && k.helper !== 'starting' ? k.helper
+        : k.linked === false ? 'Cursor sharing is off. ' + hk + ' to turn it on.'
         : s.link.state !== 'connected' ? 'Waiting for your Mac'
-          : k.message || (k.mode === 'home' ? '' : 'Double-tap Right Ctrl to come back'));
+          : k.mode === 'home' && !k.message ? 'Connected to the Mac. ' + hk + ' to turn cursor sharing off.'
+          : k.message || hk + ({ home: ' to turn cursor sharing off', driving: ' to come back and turn cursor sharing off', driven: ' to take it back' }[k.mode] || ''));
     };
     return row;
   },

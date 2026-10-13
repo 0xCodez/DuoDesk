@@ -5,9 +5,9 @@ const { app, ipcMain, clipboard } = require('electron');
 const P = require('../shared/protocol.js');
 const { apply } = require('./settings');
 
-// ctx: link, discovery, screen, clip, settings, save(), push(), buildState(), checkFirewall(), fixFirewall()
+// ctx: link, discovery, screen, clip, kvm, settings, save(), push(), buildState(), checkFirewall(), fixFirewall()
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -45,11 +45,19 @@ function setupIpc(ctx) {
   handle('forget', () => link.forget());
   handle('openMonitor', () => screen.open(false));
 
-  handle('setKeys', (partial) => change('keys', partial));
+  handle('setKvm', (partial) => {
+    if (partial && typeof partial.linked === 'boolean') kvm.setLinked(partial.linked); // home first, tells the other side
+    const { linked, ...rest } = partial && typeof partial === 'object' ? partial : {};
+    change('kvm', rest, () => kvm.applyConfig());
+  });
+  handle('setLayout', (side) => kvm.setLayout(side));
+  handle('kvmHome', () => kvm.home());
+  handle('setKeys', (partial) => change('keys', partial, () => kvm.applyConfig())); // the hotkey lives in the helper
   handle('setMonitor', (partial) => change('monitor', partial, () => screen.applyAudio()));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));
   handle('clearHistory', () => clip.clearHistory());
+  handle('setApp', (partial) => change('app', partial));
   handle('setTab', (tab) => change('ui', { tab })); // invalid names fall back in normalize()
   handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing }));
   handle('checkFirewall', () => ctx.checkFirewall());

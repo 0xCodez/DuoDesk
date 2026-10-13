@@ -11,13 +11,32 @@ const num = (v, d, min, max) => (Number.isFinite(Number(v)) && v !== null && v !
 
 function normalize(s) {
   s = s || {};
+  const kvm = s.kvm || {};
   const keys = s.keys || {};
   const c = s.clipboard || {};
   const ui = s.ui || {};
   const mon = s.monitor || {};
   const setup = s.setup || {};
+  const appS = s.app || {};
   return {
-    keys: { swapCtrlCmd: bool(keys.swapCtrlCmd, true) },
+    kvm: {
+      mouse: bool(kvm.mouse, true),
+      keyboard: bool(kvm.keyboard, true),
+      driveOther: bool(kvm.driveOther, true),
+      beDriven: bool(kvm.beDriven, true),
+      resistancePx: Math.round(num(kvm.resistancePx, P.RESISTANCE_PX, 0, 400)),
+      pcSide: P.SIDES.includes(kvm.pcSide) ? kvm.pcSide : null, // where this computer is, seen from the other one (kvm.layout)
+      speed: Math.round(num(kvm.speed, 1.0, 0.25, 3) * 100) / 100,
+      reverseScroll: bool(kvm.reverseScroll, false),
+      linked: bool(kvm.linked, true), // cursor sharing on (the hotkey's double-tap switches it, kvm.link)
+      // the last `linked` per paired device id, restored on connect
+      linkedBy: kvm.linkedBy && typeof kvm.linkedBy === 'object'
+        ? Object.fromEntries(Object.entries(kvm.linkedBy).filter(([, v]) => typeof v === 'boolean').slice(0, 50)) : {},
+      gestures: bool(kvm.gestures, true), // the Mac's trackpad gestures done the Linux way
+      hotkeySwitch: bool(kvm.hotkeySwitch, false), // keyboard only (Cursor off): double-tap moves the keyboard over and back
+    },
+    // hotkey: double-tap = cursor sharing off/on (docs/KVM.md "Hotkey (revision 4)")
+    keys: { swapCtrlCmd: bool(keys.swapCtrlCmd, true), hotkey: P.HOTKEYS.includes(keys.hotkey) ? keys.hotkey : P.HOTKEY_WIN },
     clipboard: {
       enabled: bool(c.enabled, true),
       send: bool(c.send, true),
@@ -31,6 +50,7 @@ function normalize(s) {
     // "Skip for now" on the Setup screen: the missing items it was skipped for (shown again when
     // something else goes missing).
     setup: { skipped: Array.isArray(setup.skipped) ? setup.skipped.filter((x) => typeof x === 'string').slice(0, 10) : [] },
+    app: { hud: bool(appS.hud, true) }, // popup when switching computers (docs/UI.md "Popups and the menu bar")
     ui: { tab: TABS.includes(ui.tab) ? ui.tab : 'overview' },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };
