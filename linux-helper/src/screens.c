@@ -3,6 +3,7 @@
 // "Words"), landing points and clamping. Port of windows-helper/src/Screens.cs.
 #include "helper.h"
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 #include <X11/extensions/Xrandr.h>
 
@@ -22,10 +23,33 @@ int side_of(const char *s) {
 
 const char *side_name(int side) { return side >= 0 && side < 4 ? SIDES[side] : NULL; }
 
+// Wayland backend (wl.c): the monitors as main sees them, "x,y,w,h,primary;…" in the
+// compositor's logical pixels (no X server to ask).
+void screens_set(const char *list) {
+  int n = 0, p = 0;
+  Rect r[MAX_MON];
+  for (const char *s = list; s && *s && n < MAX_MON;) {
+    int x, y, w, h, pr, used = 0;
+    if (sscanf(s, "%d,%d,%d,%d,%d%n", &x, &y, &w, &h, &pr, &used) != 5 || used <= 0) break;
+    if (w > 0 && h > 0) { r[n] = (Rect){ x, y, w, h }; if (pr) p = n; n++; }
+    s += used;
+    if (*s == ';') s++;
+  }
+  if (!n) return;
+  memcpy(mons, r, sizeof(Rect) * (size_t)n);
+  nmon = n;
+  primary = p;
+}
+
 void screens_refresh(void) {
   int n = 0;
   nmon = 0;
   primary = 0;
+  if (!dpy_in) { // Wayland backend before main's first `screens`
+    mons[0] = (Rect){ 0, 0, 1920, 1080 };
+    nmon = 1;
+    return;
+  }
   XRRMonitorInfo *m = XRRGetMonitors(dpy_in, root_in, True, &n);
   if (m) {
     for (int i = 0; i < n && nmon < MAX_MON; i++) {

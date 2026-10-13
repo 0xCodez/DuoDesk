@@ -1,13 +1,15 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Main-window actions (preload-app.js → here), the parts of windows/ipc.js the Linux app has.
-// Every value is validated by settings.apply().
-const { app, ipcMain, clipboard } = require('electron');
+// Main-window actions (preload-app.js → here; copy of windows/ipc.js without the shared folder and
+// the virtual display). Every value is validated by settings.apply().
+const { app, ipcMain, dialog, BrowserWindow, clipboard } = require('electron');
+const path = require('path');
 const P = require('../shared/protocol.js');
 const { apply } = require('./settings');
 
-// ctx: link, discovery, screen, clip, kvm, settings, save(), push(), buildState(), checkFirewall(), fixFirewall()
+// ctx: link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps,
+//      pcApps, peerApps, settings, save(), push(), buildState(), checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -26,7 +28,12 @@ function setupIpc(ctx) {
   handle('pair', (target) => {
     if (typeof target !== 'string' || !target.trim()) return;
     const found = discovery.get(target);
-    if (found) pairWith(found);
+    if (found) return pairWith(found);
+    const m = /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(target);
+    if (!m) return;
+    const port = m[2] ? Number(m[2]) : P.PORT;
+    if (port < 1 || port > 65535) return;
+    link.startPairing({ address: m[1], port, macName: m[1] });
   });
   // Connect by address: ask who is there (unicast probe works where broadcast is blocked); no
   // answer in PROBE_REPLY_MS → try WSS on that address directly ("No TwinDesk at …" if nothing).
@@ -43,7 +50,13 @@ function setupIpc(ctx) {
   handle('confirmCode', () => link.confirmCode());
   handle('cancelPair', () => link.cancelPair());
   handle('forget', () => link.forget());
+  handle('respondPair', (allow) => link.respondPair(allow === true)); // host: Allow / Deny
+  handle('forgetGuest', (id) => typeof id === 'string' && link.forgetGuest(id));
+  handle('wakePeer', (id) => typeof id === 'string' && wake.wake(id));
+  handle('setWake', (on) => wake.set(on === true)); // A switch
+  handle('checkWake', () => wake.check());
   handle('openMonitor', () => screen.open(false));
+  handle('remoteScreen', (arg) => arg && typeof arg === 'object' && screen.control({ share: arg.share, mode: arg.mode })); // screen.ctl
 
   handle('setKvm', (partial) => {
     if (partial && typeof partial.linked === 'boolean') kvm.setLinked(partial.linked); // home first, tells the other side
@@ -51,18 +64,74 @@ function setupIpc(ctx) {
     change('kvm', rest, () => kvm.applyConfig());
   });
   handle('setLayout', (side) => kvm.setLayout(side));
-  handle('kvmHome', () => kvm.home());
   handle('setKeys', (partial) => change('keys', partial, () => kvm.applyConfig())); // the hotkey lives in the helper
+  handle('setApp', (partial) => change('app', partial, () => ctx.onApp && ctx.onApp()));
   handle('setMonitor', (partial) => change('monitor', partial, () => screen.applyAudio()));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));
   handle('clearHistory', () => clip.clearHistory());
-  handle('setApp', (partial) => change('app', partial));
   handle('setTab', (tab) => change('ui', { tab })); // invalid names fall back in normalize()
+  handle('setAudio', (partial) => change('audio', partial, () => sound.apply()));
+  handle('setTerminal', (partial) => {
+    const p = partial && typeof partial === 'object' ? { enabled: partial.enabled, allowMac: partial.allowMac } : {};
+    Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
+    change('terminal', p, () => { terminal.apply(); sshd.apply(); });
+  });
+  handle('setupSshd', () => sshd.setup());
+  handle('openTerminal', () => terminal.open());
+  handle('addToPath', () => terminal.addToPath());
+  // Apps: a Mac sends its own (apps.js, through its screen stream); a PC or Linux computer through peerapps.js.
+  const macPeer = () => link.peerOs === P.OS.MAC;
+  handle('listApps', () => (macPeer() ? apps.refresh() : peerApps.refresh()));
+  handle('launchApp', (id) => { if (!macPeer()) peerApps.launch(id); else { apps.launch(id); screen.ensureHidden(); } });
+  handle('pinApp', (id) => typeof id === 'string' && macPeer() && apps.pin(id, true)); // a launcher in the app menu
+  handle('setMacApps', (partial) => change('macApps', partial, () => peerApps.apply()));
+  handle('setPcApps', (partial) => change('pcApps', partial, () => { pcApps.apply(); pcApps.input.release(); }));
+  handle('setFiles', (partial) => {
+    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, acceptFromMac: partial.acceptFromMac } : {};
+    Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
+    change('files', p);
+  });
+  // Send files (paths from the drop zone or Choose…), notifications.
+  const sendFiles = (paths) => {
+    const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && path.isAbsolute(p)).slice(0, 1000);
+    if (list.length) fileDrop.sendBatch(list, 'send');
+  };
+  handle('sendFiles', sendFiles);
+  handle('chooseSendFiles', async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    const r = await dialog.showOpenDialog(win, { title: 'Send files', buttonLabel: 'Send', properties: ['openFile', 'multiSelections'] });
+    if (!r.canceled) sendFiles(r.filePaths);
+  });
+  handle('setNotifs', (partial) => {
+    const p = partial && typeof partial === 'object' ? { send: partial.send, receive: partial.receive, hideText: partial.hideText } : {};
+    Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
+    change('notifs', p, () => notifs.applySettings());
+  });
+  handle('muteNotifApp', (arg) => arg && typeof arg.app === 'string' && notifs.setMuted(arg.app.slice(0, 300), arg.muted === true));
+  handle('cancelDrop', () => fileDrop.cancel());
+  handle('setPcScreen', (partial) => {
+    change('pcScreen', partial, () => { pcScreen.applyInput(); if (!settings.pcScreen.input) pcApps.input.release(); pcScreen.apply(); });
+  });
+  handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
   handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing }));
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
-  handle('quit', () => app.quit());
+  handle('fixInput', () => ctx.fixInput()); // Wayland: uinput rule + input group (L6)
+  handle('setStartup', (on) => ctx.setStartup(on === true));
+  handle('quit', () => app.quit()); // General › Quit (some desktops have no tray)
+
+  // pairsync.js applies a value the other computer changed, with the same side effects.
+  const AFTER = {
+    clipboard: () => clip.applySettings(),
+    monitor: () => screen.applyAudio(), // pacing (pair.sync 'pace')
+    notifs: () => notifs.applySettings(),
+    audio: () => sound.apply(),
+    kvm: () => kvm.applyConfig(),
+    pcApps: () => { pcApps.apply(); pcApps.input.release(); },
+    macApps: () => peerApps.apply(),
+  };
+  return { set: (section, partial) => change(section, partial, AFTER[section]) };
 }
 
 module.exports = setupIpc;

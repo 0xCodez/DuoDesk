@@ -54,6 +54,7 @@ void screens_edge_point(int side, double offset, int *x, int *y);
 void screens_center(int *x, int *y);
 void screens_clamp(int x, int y, int fromX, int fromY, int *ox, int *oy);
 void screens_box(int *x, int *y, int *w, int *h);
+void screens_set(const char *list);
 
 // ---- capture.c: XInput2 raw events, edge, hotkey, grabs, dead-man ----
 int capture_init(void);
@@ -72,6 +73,32 @@ void capture_shutdown(void);
 void inject_apply(const JObj *ev);
 void inject_move_to(int x, int y);
 void inject_release_all(void);
+
+// ---- wins.c: top-level windows for Apps (X11) ----
+void wins_list(double id);
+void wins_raise(unsigned long wid);
+void wins_close(unsigned long wid);
+void wins_size(unsigned long wid, int w, int h);
+void wins_move(unsigned long wid, double x, double y);
+
+// ---- wl.c: Wayland backend (evdev + uinput) ----
+struct pollfd;
+int wl_init(void);
+int wl_fds(struct pollfd *p, int max);
+void wl_read(struct pollfd *p, int n);
+void wl_tick(void);
+void wl_config(const JObj *c);
+int wl_capture_begin(int mouse, int keys);
+void wl_capture_stop(int side, double offset, int hasSide);
+void wl_arm_return(int on, int side, double resistance);
+void wl_inject(const JObj *ev);
+void wl_move_to(int x, int y);
+void wl_release_all(void);
+void wl_touch(void);
+int wl_active(void);
+void wl_position(int *x, int *y);
+void wl_shutdown(void);
+int wl_devices(void);
 
 double now_ms(void);
 

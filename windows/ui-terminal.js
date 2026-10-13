@@ -5,7 +5,7 @@
 
 UI.tab({
   id: 'terminal',
-  macOnly: true, // Off with a PC or Linux peer for now
+  macOnly: true, // With a Mac or a Linux computer (UI.peer().limited), not between two PCs yet
   order: 60,
   title: 'Terminal',
   color: 'linear-gradient(#3a3a3c, #1c1c1e)',

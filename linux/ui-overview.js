@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Overview tab (copied from windows/ui-overview.js): this computer's address and Connect by address on top, the
+// Overview tab (copy of windows/ui-overview.js): this computer's address and Connect by address on top, the
 // computers found nearby (always visible), the two computers, one switch per feature and
 // direction, and what is paired.
 'use strict';
@@ -14,53 +14,62 @@ UI.tab({
   badge: (s) => (s.link.state === 'identity_changed' || (s.discovery && !s.discovery.on) || s.found.some((d) => d.invited) ? 'warn' : ''),
   build(body) {
     const { el, api } = UI;
+    const WHERE = { driving: 'You’re using {there}', driven: '{There} is using {me}' };
 
     const linkLine = el('div', { class: 'hero-link' }, [el('span', { class: 'hero-pulse' })]);
     const linkText = el('div', { class: 'hero-link-text' });
     const pcName = el('div', { class: 'hero-name' });
     const macName = el('div', { class: 'hero-name' });
     const status = el('div', { class: 'hero-status' });
+    const peerDev = el('div', { class: 'device mac' });
     const hero = el('div', { class: 'card hero' }, [
       el('div', { class: 'hero-devices' }, [
         el('div', { class: 'hero-device' }, [el('div', { class: 'device pc' }), pcName]),
         el('div', { class: 'hero-mid' }, [linkLine, linkText]),
-        el('div', { class: 'hero-device' }, [el('div', { class: 'device mac' }), macName]),
+        el('div', { class: 'hero-device' }, [peerDev, macName]),
       ]),
       status,
     ]);
 
-    // One switch per feature and direction, labels only; the row opens the tab. Features that
-    // aren't on Linux yet show the row disabled with one line.
-    const row = (label, tab, get, set) => {
+    // One switch per feature and direction, labels only; the row opens the tab.
+    // later: not on Linux yet, always off.
+    const row = (label, tab, get, set, later) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
-      const r = UI.row(label, get ? '' : 'Not on Linux yet', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
-      r.update = (s) => sw.set(get ? get(s) : false);
+      const r = UI.row(label, '', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
+      r.update = (s) => {
+        const limited = later ? 'Not on Linux yet' : '';
+        sw.set(!limited && get(s));
+        sw.disable(!set || !!limited);
+        r.setHint(limited);
+      };
       return r;
     };
     const m2p = [
       row('Screen', 'mac-pc', (s) => s.stream.state === 'on'),
-      row('Sound', 'audio'),
-      row('Mouse and keyboard', 'cursor'),
+      row('Sound', 'audio', (s) => s.audio.receive, (v) => api.setAudio({ receive: v })),
+      row('Mouse and keyboard', 'cursor', (s) => s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
       row('Clipboard', 'clipboard', (s) => s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
-      row('Shared folder', 'files'),
-      row('Terminal', 'terminal'),
-      row('Apps', 'apps'),
+      row('Notifications', 'notifications', (s) => s.notifs.receive, (v) => api.setNotifs({ receive: v })),
+      row('Files', 'files', (s) => s.files.acceptFromMac, (v) => api.setFiles({ acceptFromMac: v })),
+      row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v })),
+      row('Apps', 'apps', (s) => s.apps.open > 0, null),
     ];
     const p2m = [
-      row('Screen', 'pc-mac'),
-      row('Sound', 'audio'),
-      row('Mouse and keyboard', 'cursor'),
+      row('Screen', 'pc-mac', (s) => s.pcScreen.mode !== 'off', (v) => api.setPcScreenMode(v ? 'mirror' : 'off')),
+      row('Sound', 'audio', (s) => s.audio.send, (v) => api.setAudio({ send: v })),
+      row('Mouse and keyboard', 'cursor', (s) => s.kvm.driveOther, (v) => api.setKvm({ driveOther: v })),
       row('Clipboard', 'clipboard', (s) => s.clipboard.send, (v) => api.setClipboard({ send: v })),
-      row('Shared folder', 'files'),
-      row('Terminal', 'terminal'),
-      row('Apps', 'apps'),
+      row('Notifications', 'notifications', (s) => s.notifs.send, (v) => api.setNotifs({ send: v })),
+      row('Files', 'files', (s) => s.files.dropToMac, (v) => api.setFiles({ dropToMac: v })),
+      row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v })),
+      row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v })),
     ];
     const pair = UI.dirCards({ rows: m2p }, { rows: p2m });
 
     // ---- this computer + connect by address (always visible) ----
     const addrVal = el('span', { class: 'value addr' });
     const copyBtn = UI.button('Copy', () => UI.state && api.copyText(UI.state.addresses[0] || ''), 'small');
-    const addrRow = UI.row('This computer', '', [addrVal, copyBtn]);
+    const addrRow = UI.row('{me}', '', [addrVal, copyBtn]);
     const ipInput = el('input', { type: 'text', placeholder: '192.168.1.20', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Address' } });
     let asking = '';
     const ipBtn = UI.button('Connect', async () => {
@@ -96,21 +105,23 @@ UI.tab({
       const l = s.link;
       const connected = l.state === 'connected';
       pcName.textContent = s.device.name;
-      macName.textContent = s.paired ? s.paired.macName : 'Your Mac';
+      const p = UI.peer(s);
+      macName.textContent = s.peer ? s.peer.name : 'The other computer';
+      peerDev.className = 'device ' + (p.os === 'mac' ? 'mac' : 'pc');
       linkLine.className = 'hero-link' + (connected ? ' up' : '');
       linkText.textContent = connected ? (l.rtt != null ? l.rtt + ' ms' : 'Connected')
         : s.pairing ? 'Pairing…' : s.paired ? 'Connecting…' : 'Not connected';
       const bad = l.state === 'identity_changed';
-      status.textContent = bad ? 'This Mac looks different now. Forget it and pair again.'
-        : connected ? 'Connected'
-          : s.paired ? 'Open TwinDesk on your Mac.'
+      status.textContent = bad ? 'This ' + p.kind + ' looks different now. Forget it and pair again.'
+        : connected ? s.kvmState.message || (WHERE[s.input] || 'Connected').replace('{there}', p.the).replace('{There}', p.the.charAt(0).toUpperCase() + p.the.slice(1))
+          : s.peer ? 'Open TwinDesk on ' + s.peer.name + '.'
             : 'Pick a computer below, or connect by address.';
       status.classList.toggle('bad', bad);
 
       for (const r of m2p.concat(p2m)) r.update(s);
 
       // this computer
-      addrVal.textContent = s.addresses.length ? s.addresses.join(', ') : 'No network';
+      addrVal.textContent = s.addresses.length ? s.addresses[0] : 'No network'; // The one the other computer can reach
       copyBtn.hidden = !s.addresses.length;
       const busy = !!s.pairing && s.pairing.phase !== 'failed';
       ipBtn.disabled = busy || !!asking;
@@ -124,21 +135,22 @@ UI.tab({
       const blocked = !d.on || fwBad;
       discRow.hidden = !blocked;
       discRow.setHint(!d.on ? d.error + '. Connect by address still works.' : 'The firewall blocks it. Connect by address may still work.');
-      const pairedId = s.paired ? s.paired.macId : '';
-      const fk = JSON.stringify([s.found, pairedId, connected, busy, blocked]);
+      // Paired both ways: the computer we connect to (s.paired) and the ones that connect to us (s.guests).
+      const known = new Set([...(s.paired ? [s.paired.macId] : []), ...s.guests.map((g) => g.id)]);
+      const live = s.peer && connected ? s.peer.id : '';
+      const fk = JSON.stringify([s.found, [...known], live, busy, blocked]);
       if (fk !== foundKey) {
         foundKey = fk;
         let focus = null;
         const rows = s.found.map((dev) => {
-          const known = dev.id === pairedId;
-          const online = known && connected;
-          const mac = dev.os === 'mac';
-          const btn = online || known ? null : UI.button('Pair', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
-          if (btn) btn.disabled = busy || !mac; // Linux ↔ Linux and Linux ↔ PC come later
+          const isKnown = known.has(dev.id);
+          const online = dev.id === live;
+          // A Mac hosts; with a PC or another Linux computer the one who clicks is the guest (L4).
+          const btn = online || isKnown ? null : UI.button(dev.os === 'mac' ? 'Pair' : 'Connect', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
+          if (btn) btn.disabled = busy || connected;
           if (btn && dev.invited && !busy) focus = btn;
-          const hint = dev.address + (dev.invited ? ' · wants to connect' : !mac ? ' · only a Mac for now' : '');
-          const r = UI.row(dev.name, hint, [
-            online ? el('span', { class: 'pill good', text: 'Connected' }) : known ? el('span', { class: 'pill muted', text: 'Paired' }) : null, btn]);
+          const r = UI.row(dev.name, dev.address + (dev.invited ? ' · wants to connect' : ''), [
+            online ? el('span', { class: 'pill good', text: 'Connected' }) : isKnown ? el('span', { class: 'pill muted', text: 'Paired' }) : null, btn]);
           r.querySelector('.text').prepend(UI.osIcon(dev.os));
           r.classList.add('with-ico');
           return r;
@@ -149,20 +161,29 @@ UI.tab({
       }
 
       // paired
-      const pk = JSON.stringify([s.paired, connected]);
+      const wk = s.wake || { peers: {} };
+      const pk = JSON.stringify([s.paired, s.guests, live, Object.keys(wk.peers), wk.waking]);
       if (pk === pairedKey) return;
       pairedKey = pk;
-      if (!s.paired) {
-        pairedList.replaceChildren(UI.row('Nothing paired yet', 'Pair with a computer in Found nearby.'));
-        return;
-      }
-      const r = UI.row(s.paired.macName, connected ? 'Connected' : s.paired.address, [
-        connected ? el('span', { class: 'pill good', text: 'Online' }) : null,
-        UI.button('Forget', () => api.forget(), 'small'),
-      ]);
-      r.querySelector('.text').prepend(UI.osIcon('mac'));
-      r.classList.add('with-ico');
-      pairedList.replaceChildren(r);
+      const all = [
+        ...(s.paired ? [{ id: s.paired.macId, name: s.paired.macName, os: s.paired.os, hint: s.paired.address, forget: () => api.forget() }] : []),
+        ...s.guests.map((g) => ({ id: g.id, name: g.name, os: g.os, hint: g.lastSeen ? 'Last seen ' + UI.ago(g.lastSeen) : '', forget: () => api.forgetGuest(g.id) })),
+      ];
+      pairedList.replaceChildren(...(all.length ? all.map((x) => {
+        const online = x.id === live;
+        const waking = !online && wk.waking === x.id;
+        // An offline computer that told us how to wake it gets Wake.
+        const wakeBtn = !online && wk.peers[x.id] ? UI.button(waking ? 'Waking…' : 'Wake', () => api.wakePeer(x.id), 'small') : null;
+        if (wakeBtn) wakeBtn.disabled = waking;
+        const r = UI.row(x.name, online ? 'Connected' : waking ? 'Waking ' + x.name + '…' : x.hint, [
+          online ? el('span', { class: 'pill good', text: 'Online' }) : null,
+          wakeBtn,
+          UI.button('Forget', x.forget, 'small'),
+        ]);
+        r.querySelector('.text').prepend(UI.osIcon(x.os));
+        r.classList.add('with-ico');
+        return r;
+      }) : [UI.row('Nothing paired yet', 'Pair with a computer in Found nearby.')]));
     };
     return update;
   },

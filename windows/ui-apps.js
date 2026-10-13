@@ -7,7 +7,6 @@
 
 UI.tab({
   id: 'apps',
-  macOnly: 'linux', // Mac ↔ PC and PC ↔ PC
   order: 80,
   title: 'Apps',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
@@ -36,6 +35,7 @@ UI.tab({
     function render(s) {
       const a = s.apps;
       const connected = s.link.state === 'connected';
+      pair.update(s); // the two direction switches follow the settings
       listCard.hidden = !s.macApps.on;
       listCard.querySelector('.card-title > span').textContent = UI.peer(s).name + '’s apps';
       if (connected && s.macApps.on && !asked && !a.list.length) { asked = true; api.listApps(); }

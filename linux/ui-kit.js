@@ -17,6 +17,8 @@ const ICONS = {
   audio: 'M4 8h3l4-3v10l-4-3H4z M14 7.5c1 .8 1 4.2 0 5 M16 5.5c2.2 1.8 2.2 7.2 0 9',
   apps: 'M4 4h5v5H4z M11 4h5v5h-5z M4 11h5v5H4z M11 11h5v5h-5z',
   general: 'M10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M10 2.5v2 M10 15.5v2 M2.5 10h2 M15.5 10h2 M4.7 4.7l1.4 1.4 M13.9 13.9l1.4 1.4 M4.7 15.3l1.4-1.4 M13.9 6.1l1.4-1.4',
+  bell: 'M5.5 13.5V9a4.5 4.5 0 0 1 9 0v4.5l1.5 1.5h-12z M8.5 16.5a1.5 1.5 0 0 0 3 0',
+  pin: 'M10 4v9 M5.5 8.5 10 13l4.5-4.5 M5 16h10',
   up: 'M10 16V4 M5 9l5-5 5 5',
   down: 'M10 4v12 M5 11l5 5 5-5',
 };
@@ -124,9 +126,13 @@ const UI = {
   },
 
   // A row: label (+ hint) on the left, controls on the right. Returns the row with .hint/.label.
+  // Labels and hints may name the computers: {me} (this computer's name), {name} / {Name} (the other
+  // one's, or "the other computer"); app.js fills them in again whenever a name changes.
   row(label, hint, controls = [], { onClick } = {}) {
-    const lab = UI.el('span', { class: 'label', text: label });
-    const hintEl = UI.el('span', { class: 'hint', text: hint || '' });
+    const lab = UI.el('span', { class: 'label', text: UI.fill(label) });
+    if (String(label).includes('{')) lab.dataset.peer = label;
+    const hintEl = UI.el('span', { class: 'hint', text: UI.fill(hint || '') });
+    if (String(hint || '').includes('{')) hintEl.dataset.peer = hint;
     if (!hint) hintEl.hidden = true;
     const row = UI.el('div', { class: 'row' }, [
       UI.el('div', { class: 'text' }, [lab, hintEl]),
@@ -134,7 +140,12 @@ const UI = {
     ]);
     row.label = lab;
     row.hint = hintEl;
-    row.setHint = (t) => { hintEl.textContent = t || ''; hintEl.hidden = !t; };
+    row.setHint = (t) => {
+      if (String(t || '').includes('{')) hintEl.dataset.peer = t;
+      else delete hintEl.dataset.peer;
+      hintEl.textContent = UI.fill(t || '');
+      hintEl.hidden = !t;
+    };
     if (onClick) {
       row.classList.add('clickable');
       row.onclick = (e) => { if (!e.target.closest('input,button,select')) onClick(); };
@@ -144,7 +155,9 @@ const UI = {
 
   card(title, rows, { actions, cls = '' } = {}) {
     const wrap = UI.el('div', { class: 'card-wrap' });
-    if (title) wrap.append(UI.el('div', { class: 'card-title' }, [UI.el('span', { text: title }), actions ? UI.el('span', { class: 'actions' }, actions) : null]));
+    const tEl = title ? UI.el('span', { text: UI.fill(title) }) : null;
+    if (title && title.includes('{')) tEl.dataset.peer = title;
+    if (title) wrap.append(UI.el('div', { class: 'card-title' }, [tEl, actions ? UI.el('span', { class: 'actions' }, actions) : null]));
     const card = UI.el('div', { class: `card ${cls}`.trim() }, rows);
     wrap.append(card);
     wrap.card = card;
@@ -152,8 +165,8 @@ const UI = {
   },
 
   note(kind, text) {
-    const n = UI.el('div', { class: `note ${kind}`, text });
-    n.set = (t) => { n.textContent = t || ''; n.hidden = !t; };
+    const n = UI.el('div', { class: `note ${kind}`, text: UI.fill(text) });
+    n.set = (t) => { n.textContent = UI.fill(t || ''); n.hidden = !t; };
     return n;
   },
 
@@ -171,7 +184,7 @@ const UI = {
     return n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
   },
 
-  // Register a tab: { id, title, desc, color, phase?, bottom?, master?: {get(s), set(v)},
+  // Register a tab: { id, title, desc, color, phase?, bottom?, master?: {get(s), set(v), disabled?: bool | (s) => bool},
   //   badge?(s) -> 'on' | text | '', build(body, page) -> render(state) }
   tab(def) {
     UI.tabs.push(def);
@@ -207,19 +220,128 @@ const UI = {
     });
   },
 
+  // Live Details card: labels → value cells. set({label: text}) fills
+  // them; rows without a value are hidden.
+  details(labels) {
+    const vals = {};
+    const rows = labels.map((label) => {
+      const r = UI.row(label, '');
+      vals[label] = UI.el('span', { class: 'value' });
+      r.querySelector('.controls').append(vals[label]);
+      return r;
+    });
+    const card = UI.card('Details', rows);
+    card.set = (map) => labels.forEach((label, i) => {
+      const t = map[label];
+      vals[label].textContent = t == null ? '' : String(t);
+      rows[i].hidden = t == null || t === '';
+    });
+    return card;
+  },
+
+  // "Hardware" / "Software" from getStats' powerEfficient flag, with the implementation name.
+  codecImpl(name, hw) {
+    return (hw ? 'Hardware' : 'Software') + (name ? ' (' + name + ')' : '');
+  },
+
+  // Who the other computer is: titles name what is connected. With a
+  // Mac (or Linux): "Mac → PC" / "PC → Mac". With another PC, or nothing paired yet, this PC is
+  // "PC1" and the other "PC2"; real names show in the
+  // overview and the paired list. toMe = the peer's things here, fromMe = this PC's things there.
+  peer(s) {
+    const p = s && s.peer;
+    const os = p ? p.os : 'linux';
+    const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux' };
+    const same = os === 'linux';
+    // Device names everywhere: this PC by its own name,
+    // the other computer by its name (or "the other computer" before anything was paired).
+    const me = (s && s.device && s.device.name) || 'This computer';
+    const name = (p && p.name) || 'the other computer';
+    const Name = name.charAt(0).toUpperCase() + name.slice(1);
+    return {
+      os, same, me, name, Name,
+      kind: KIND[os],
+      them: name, us: me, the: name, there: name, There: Name, // older templates
+      toMe: name + ' → ' + me,
+      fromMe: me + ' → ' + name,
+      limited: 'Not on Linux yet', // the Mac-only tabs (Terminal, Apps) aren't on Linux
+    };
+  },
+
+  // After a render: any {me} / {name} / … still in text or a title under root gets filled. A text
+  // node that is its element's only child keeps its template (data-peer), so a new name refills it.
+  fillTree(root) {
+    if (!root) return;
+    const re = /\{(me|name|Name|there|There)\}/;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    for (let n = w.nextNode(); n; n = w.nextNode()) if (re.test(n.nodeValue)) nodes.push(n);
+    for (const n of nodes) {
+      const el = n.parentElement;
+      if (el && el.childNodes.length === 1 && !el.dataset.peer) el.dataset.peer = n.nodeValue;
+      n.nodeValue = UI.fill(n.nodeValue);
+    }
+    for (const el of root.querySelectorAll('[title*="{"], [aria-label*="{"]')) {
+      for (const a of ['title', 'aria-label']) if (el.hasAttribute(a)) el.setAttribute(a, UI.fill(el.getAttribute(a)));
+    }
+  },
+
+  // Playback of shared screens (both directions, the same on both computers via
+  // pair.sync): one row used by Share and Receive. Returns the row with .render(state).
+  paceRow() {
+    const seg = UI.segmented([
+      { value: 'fast', label: 'Fastest' },
+      { value: 'smooth', label: 'Smooth' },
+    ], (v) => UI.api.setMonitor({ pacing: v }));
+    const row = UI.row('Playback', '', [seg]);
+    row.render = (s) => {
+      const pace = (s.monitor && s.monitor.pacing) || 'fast';
+      seg.set(pace);
+      row.setHint(pace === 'smooth' ? 'Even motion, about one frame later. The same on {name}'
+        : 'Each frame the moment it arrives. The same on {name}');
+    };
+    return row;
+  },
+
+  // A template with {me}, {name}, {Name}, … filled from the current state.
+  fill(t) {
+    if (!t || !String(t).includes('{')) return t || '';
+    const p = UI.peer(UI.state);
+    return String(t).replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
+  },
+
   // Small computer glyph by OS.
   osIcon(os) {
-    return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
+    return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : os === 'linux' ? 'pc linux' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
   },
 
   // Two equal direction cards, always Mac → PC then PC → Mac.
-  // Each def: { on?: {get(s), set(v), disabled?}, rows: [], soon?: 'phase N' }. Returns { el, update(s) }.
+  // Each def: { on?: {get(s), set(v), disabled?}, label?, hint?, rows: [], soon?: 'phase N' }.
+  // (as the Mac): the head is a route — device icon + real name, a line with an
+  // arrowhead, the other device; this PC's side tinted. The switch sits in the first row, whose
+  // label is a sentence with real names ({name} = the other computer, filled in by app.js).
+  // Returns { el, update(s) }; each card has .main (that first row, when there is a switch).
   dirCards(m2p, p2m) {
+    const node = (me) => {
+      const ico = UI.el('span', { class: 'os-ico ' + (me ? 'pc' : 'mac') });
+      if (!me) ico.dataset.os = 'peer';
+      const nm = UI.el('span', { class: 'nm', text: UI.fill(me ? '{me}' : '{name}') });
+      nm.dataset.peer = me ? '{me}' : '{name}';
+      return UI.el('span', { class: 'node' + (me ? ' here' : '') }, [ico, nm]);
+    };
     const make = (dir, def) => {
-      const title = [UI.el('span', { text: dir === 'm2p' ? 'Mac → Linux' : 'Linux → Mac' })];
-      const sw = def.on ? UI.switch((v) => def.on.set(v), { label: dir === 'm2p' ? 'Mac to Linux' : 'Linux to Mac', disabled: !!def.on.disabled || !!def.soon }) : null;
-      const head = UI.el('div', { class: 'dir-head' }, [UI.el('div', { class: 'dir-title' }, title), def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null, sw ? sw.el : null]);
-      const card = UI.el('div', { class: 'dir-card' + (def.soon ? ' soon-card' : '') }, [head].concat(def.rows || []));
+      const toMe = dir === 'm2p';
+      const route = UI.el('span', { class: 'route', attrs: { role: 'img' } }, [node(!toMe), UI.el('span', { class: 'flow' }), node(toMe)]);
+      const head = UI.el('div', { class: 'dir-head' }, [route, def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null]);
+      let sw = null, main = null;
+      if (def.on) {
+        const label = def.label || (toMe ? '{name} on {me}' : '{me} on {name}');
+        sw = UI.switch((v) => def.on.set(v), { label: UI.fill(label), disabled: !!def.on.disabled || !!def.soon });
+        main = UI.row(label, def.hint || '', [sw.el]);
+        main.classList.add('dir-main');
+      }
+      const card = UI.el('div', { class: 'dir-card' + (def.soon ? ' soon-card' : '') }, [head].concat(main ? [main] : [], def.rows || []));
+      card.main = main;
       card.update = (s) => {
         if (!sw) return;
         const on = !def.soon && !!def.on.get(s);
@@ -229,31 +351,70 @@ const UI = {
       return card;
     };
     const a = make('m2p', m2p), b = make('p2m', p2m);
-    return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), update: (s) => { a.update(s); b.update(s); } };
+    return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), a, b, update: (s) => { a.update(s); b.update(s); } };
+  },
+
+  // "Control+Alt+C" → "Ctrl+Alt+C" (Electron accelerator → how Linux desktops write it).
+  keysLabel(acc) {
+    return String(acc || '').split('+').map((p) => ({ Control: 'Ctrl', Super: 'Super' }[p] || p)).join('+');
+  },
+
+  // A shortcut recorder: click, press the keys (with Ctrl, Alt or Win), Esc cancels.
+  // onChange(accelerator).
+  keyRecorder(onChange) {
+    const b = UI.el('button', { class: 'btn small keyrec' });
+    let value = '', recording = false;
+    const show = () => { b.textContent = recording ? 'Press keys…' : UI.keysLabel(value) || 'None'; b.classList.toggle('on', recording); };
+    const keyOf = (e) => {
+      if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3);
+      if (/^Digit\d$/.test(e.code)) return e.code.slice(5);
+      if (/^F\d{1,2}$/.test(e.code)) return e.code;
+      return { Space: 'Space', Tab: 'Tab', Backspace: 'Backspace', Delete: 'Delete', Enter: 'Enter', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' }[e.code] || '';
+    };
+    const onKey = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') return stop();
+      const key = keyOf(e);
+      if (!key || !(e.ctrlKey || e.altKey || e.metaKey)) return; // wait for a real combination
+      value = [e.ctrlKey && 'Control', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Super', key].filter(Boolean).join('+');
+      stop();
+      onChange(value);
+    };
+    const stop = () => { recording = false; window.removeEventListener('keydown', onKey, true); show(); };
+    b.onclick = () => {
+      if (recording) return stop();
+      recording = true;
+      window.addEventListener('keydown', onKey, true);
+      show();
+    };
+    b.onblur = stop;
+    show();
+    return { el: b, set(v) { if (!recording) { value = v || ''; show(); } } };
   },
 
   // The hotkey choices (P.HOTKEYS) in Linux words
   // ("Right Alt", "Ctrl (either side)", "Left Super").
   HOTKEYS: Object.fromEntries(window.MacShareProtocol.HOTKEYS.map((c) => [c, window.MacShareProtocol.hotkeyName(c, 'win').replace('Windows key', 'Super')])),
   hotkeyName(s) {
-    return UI.HOTKEYS[(s && s.keys && s.keys.hotkey) || 'AltRight'] || 'Right Alt';
+    return UI.P.hotkeyName((s && s.keys && s.keys.hotkey) || 'AltRight', 'win').replace('Windows key', 'Super');
   },
 
   // "Right now" row for the Cursor/Keyboard tabs: where input is + the last KVM event.
   inputStatus() {
-    const WHERE = { home: 'On this computer', driving: 'On the Mac', driven: 'The Mac is using this computer' };
     const pill = UI.el('span', { class: 'pill' });
     const row = UI.row('Keyboard and mouse', '', [pill]);
     row.update = (s) => {
       const k = s.kvmState;
-      const hk = 'Double-tap ' + UI.hotkeyName(s);
+      const p = UI.peer(s);
+      const WHERE = { home: 'On ' + p.me, driving: 'On ' + p.name, driven: p.Name + ' is using ' + p.me };
       pill.textContent = k.linked === false ? 'Sharing off' : WHERE[k.mode] || WHERE.home;
       pill.className = 'pill ' + (k.linked === false ? 'bad' : k.mode === 'home' ? 'muted' : 'good');
       row.setHint(k.helper && k.helper !== 'starting' ? k.helper
-        : k.linked === false ? 'Cursor sharing is off. ' + hk + ' to turn it on.'
-        : s.link.state !== 'connected' ? 'Waiting for your Mac'
-          : k.mode === 'home' && !k.message ? 'Connected to the Mac. ' + hk + ' to turn cursor sharing off.'
-          : k.message || hk + ({ home: ' to turn cursor sharing off', driving: ' to come back and turn cursor sharing off', driven: ' to take it back' }[k.mode] || ''));
+        : k.linked === false ? 'Cursor sharing is off. Double-tap ' + UI.hotkeyName(s) + ' to turn it on.'
+        : s.link.state !== 'connected' ? 'Waiting for ' + p.the
+          : k.mode === 'home' && !k.message ? 'Connected to ' + p.name + '. Double-tap ' + UI.hotkeyName(s) + ' to turn cursor sharing off.'
+          : k.message || 'Double-tap ' + UI.hotkeyName(s) + ({ home: ' to turn cursor sharing off', driving: ' to come back and turn cursor sharing off', driven: ' to take it back' }[k.mode] || ''));
     };
     return row;
   },

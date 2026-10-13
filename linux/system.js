@@ -1,7 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Linux checks for Setup and General: the desktop session (X11 needed for input
-// sharing until the Wayland phase) and the firewall (ufw or firewalld must let 47800/tcp and
-// 47801/udp in). Fix asks for the password once through pkexec.
+// Linux checks for Setup and General: the desktop session, input access on Wayland
+// (/dev/uinput writable and /dev/input readable, through a udev rule and the `input`
+// group) and the firewall (ufw or firewalld must let 47800/tcp and 47801/udp in). Fixes ask for
+// the password once through pkexec.
 'use strict';
 
 const { execFile } = require('child_process');
@@ -55,4 +56,39 @@ async function fixFirewall(tool) {
   throw new Error(r.code === 126 ? 'the password prompt was closed' : r.err || 'pkexec failed');
 }
 
-module.exports = { session, checkFirewall, fixFirewall };
+// '' or why the helper can't run in this session (helper.js canRun).
+function inputBlocker(s) {
+  if (s.type === 'x11') return process.env.DISPLAY ? '' : 'No X11 display';
+  if (s.type !== 'wayland') return 'No desktop session';
+  const st = inputAccess();
+  if (!st.uinput) return 'Needs input access (Setup)';
+  return '';
+}
+
+// Wayland: can we inject (/dev/uinput) and read the devices (/dev/input/event*)?
+function inputAccess() {
+  const can = (p, mode) => { try { fs.accessSync(p, mode); return true; } catch (_) { return false; } };
+  let read = false;
+  try { read = fs.readdirSync('/dev/input').some((n) => n.startsWith('event') && can('/dev/input/' + n, fs.constants.R_OK)); } catch (_) { /* none */ }
+  return { uinput: can('/dev/uinput', fs.constants.W_OK), read };
+}
+
+// Once, as root: load uinput at boot, let the input group use it, put this user in that group.
+// The group counts from the next login.
+async function fixInput() {
+  const user = require('os').userInfo().username;
+  if (!/^[a-z_][a-z0-9_.-]*\$?$/i.test(user)) throw new Error('unexpected user name');
+  const rule = 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"';
+  const script = [
+    'modprobe uinput || true',
+    'echo uinput > /etc/modules-load.d/twindesk-uinput.conf',
+    "echo '" + rule + "' > /etc/udev/rules.d/70-twindesk-uinput.rules",
+    'udevadm control --reload-rules && udevadm trigger --sysname-match=uinput || true',
+    'usermod -aG input ' + user,
+  ].join(' && ');
+  const r = await run('pkexec', ['sh', '-c', script], 120000);
+  if (r.ok) return true;
+  throw new Error(r.code === 126 ? 'the password prompt was closed' : r.err || 'pkexec failed');
+}
+
+module.exports = { session, checkFirewall, fixFirewall, inputBlocker, inputAccess, fixInput };

@@ -113,7 +113,7 @@ function setupIpc(ctx) {
   handle('openMacDrive', () => smb.drive && shell.openPath(smb.drive + '\\'));
   handle('cancelDrop', () => fileDrop.cancel());
   // With another PC the apps come through peerapps.js (no Monitor 2 or Start pinning).
-  const pcPeer = () => link.peerOs === P.OS.WIN;
+  const pcPeer = () => link.peerOs !== P.OS.MAC; // a PC or a Linux computer
   handle('listApps', () => (pcPeer() ? peerApps.refresh() : apps.refresh()));
   handle('launchApp', (id) => { if (pcPeer()) peerApps.launch(id); else { apps.launch(id); screen.ensureHidden(); } });
   handle('pinApp', (id) => typeof id === 'string' && !pcPeer() && apps.pin(id, true)); // Pin to Start

@@ -50,6 +50,7 @@ class Kvm {
     link.on(T.K_GESTURE, (m) => this._onGesture(m)); // Trackpad gestures
     link.on('welcome', () => {
       this.applyConfig();
+      link.send({ t: T.DRAG_POLICY, accept: false }); // no file drags across the edge on Linux yet: the other side keeps them
       // As the host this computer sends the layout (a Mac host sends its own). Default: the other one on the right.
       if (link.hosting) link.send({ t: T.KVM_LAYOUT, pcSide: this.crossingSide || 'right' });
       if (link.hosting && !this.pcSide) this._setPcSide('left');
@@ -143,8 +144,8 @@ class Kvm {
   }
 
   _peerId() {
-    const p = this.link.snapshot().paired;
-    return p && p.macId ? String(p.macId) : '';
+    const s = this.link.snapshot().session; // guest or host (L4)
+    return s && s.id ? String(s.id) : '';
   }
 
   view() {

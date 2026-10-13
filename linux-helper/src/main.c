@@ -4,6 +4,8 @@
 // stdin and the capture connection; X queues input for us, so nothing here can block the
 // desktop's input (rule 3) and no event callback has a deadline like a Windows hook. Logs go to
 // stderr; stdout is JSON only. Exits (after releaseAll and ungrab) when stdin closes.
+// Two backends: X11 (XInput2 + XTest, capture.c / inject.c) and, in a Wayland session or with
+// MACSHARE_HELPER_BACKEND=uinput, evdev + uinput (wl.c). `ready` says which.
 #include "helper.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -17,6 +19,7 @@
 
 Display *dpy_ev, *dpy_in;
 Window root_ev, root_in;
+static int wl; // the Wayland backend
 
 void emit(const char *line) {
   fputs(line, stdout);
@@ -45,10 +48,59 @@ static void dispatch(const char *line) {
   const char *cmd = jstr(c, "cmd", "");
   const char *error = NULL;
   char extra[200] = "";
+  if (wl) {
+    wl_touch();
+    if (!strcmp(cmd, "ping") || !strcmp(cmd, "keepalive")) {
+    } else if (!strcmp(cmd, "kvmConfig")) {
+      wl_config(c);
+    } else if (!strcmp(cmd, "screens")) {
+      screens_set(jstr(c, "list", ""));
+    } else if (!strcmp(cmd, "capture")) {
+      if (jbool(c, "on", 0)) wl_capture_begin(jbool(c, "mouse", 1), jbool(c, "keyboard", 1));
+      else wl_capture_stop(side_of(jstr(c, "side", NULL)), jnum(c, "offset", 0), jhas(c, "offset"));
+    } else if (!strcmp(cmd, "place")) {
+      int x, y;
+      if (jbool(c, "center", 0)) screens_center(&x, &y);
+      else screens_edge_point(side_of(jstr(c, "side", "left")) < 0 ? SIDE_LEFT : side_of(jstr(c, "side", "left")), jnum(c, "offset", 0.5), &x, &y);
+      wl_move_to(x, y);
+    } else if (!strcmp(cmd, "armReturn")) {
+      wl_arm_return(jbool(c, "on", 0), side_of(jstr(c, "side", NULL)), jnum(c, "resistancePx", 120));
+    } else if (!strcmp(cmd, "inject")) {
+      JObj *ev = jobj(c, "ev");
+      if (ev) wl_inject(ev);
+    } else if (!strcmp(cmd, "releaseAll")) {
+      wl_release_all();
+    } else if (!strcmp(cmd, "moveTo")) {
+      wl_move_to((int)jnum(c, "x", 0), (int)jnum(c, "y", 0));
+    } else if (!strcmp(cmd, "info")) {
+      int x, y;
+      wl_position(&x, &y);
+      snprintf(extra, sizeof extra, "\"cursor\":[%d,%d],\"capturing\":%s,\"devices\":%d", x, y, wl_active() ? "true" : "false", wl_devices());
+    } else {
+      error = "unknown command";
+    }
+    reply(c, error, extra[0] ? extra : NULL);
+    json_free(c);
+    return;
+  }
 
   if (!strcmp(cmd, "ping") || !strcmp(cmd, "keepalive")) {
   } else if (!strcmp(cmd, "kvmConfig")) {
     capture_config(c);
+  } else if (!strcmp(cmd, "screens")) {
+    // X11: XRandR knows better
+  } else if (!strcmp(cmd, "windows")) {
+    wins_list(jnum(c, "id", 0)); // its own (long) reply
+    json_free(c);
+    return;
+  } else if (!strcmp(cmd, "winRaise")) {
+    wins_raise((unsigned long)jnum(c, "wid", 0));
+  } else if (!strcmp(cmd, "winClose")) {
+    wins_close((unsigned long)jnum(c, "wid", 0));
+  } else if (!strcmp(cmd, "winSize")) {
+    wins_size((unsigned long)jnum(c, "wid", 0), (int)jnum(c, "w", 0), (int)jnum(c, "h", 0));
+  } else if (!strcmp(cmd, "winMove")) {
+    wins_move((unsigned long)jnum(c, "wid", 0), jnum(c, "x", 0), jnum(c, "y", 0));
   } else if (!strcmp(cmd, "capture")) {
     if (jbool(c, "on", 0)) {
       if (!capture_begin(jbool(c, "mouse", 1), jbool(c, "keyboard", 1))) {
@@ -90,6 +142,10 @@ static void dispatch(const char *line) {
 }
 
 static void quit(int code) {
+  if (wl) {
+    wl_shutdown();
+    exit(code);
+  }
   capture_shutdown();
   inject_release_all();
   XSync(dpy_ev, False);
@@ -110,8 +166,60 @@ static int xio(Display *d) {
   _exit(2); // the server is gone: nothing left to give back
 }
 
+static char inbuf[65536];
+static size_t inlen;
+
+static void read_stdin(void) {
+  for (;;) {
+    ssize_t n = read(0, inbuf + inlen, sizeof inbuf - 1 - inlen);
+    if (n == 0) quit(0); // stdin closed: main is gone; give the user their input back
+    if (n < 0) {
+      if (errno == EAGAIN || errno == EINTR) break;
+      quit(0);
+    }
+    inlen += (size_t)n;
+    inbuf[inlen] = 0;
+    char *start = inbuf, *nl;
+    while ((nl = strchr(start, '\n'))) {
+      *nl = 0;
+      if (nl > start) dispatch(start);
+      start = nl + 1;
+    }
+    inlen = strlen(start);
+    memmove(inbuf, start, inlen + 1);
+    if (inlen >= sizeof inbuf - 1) inlen = 0; // a line too long for us: drop it
+  }
+}
+
+static void on_signal(int sig) {
+  (void)sig;
+  quit(0);
+}
+
+static int run_wayland(void) {
+  wl = 1;
+  screens_refresh(); // a default until main sends `screens`
+  if (!wl_init()) return 1;
+  fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+  signal(SIGTERM, on_signal);
+  signal(SIGINT, on_signal);
+  emit("{\"event\":\"ready\",\"backend\":\"uinput\"}");
+  for (;;) {
+    struct pollfd p[40];
+    p[0] = (struct pollfd){ 0, POLLIN, 0 };
+    int n = 1 + wl_fds(p + 1, 39);
+    poll(p, (nfds_t)n, 20);
+    if (p[0].revents & (POLLIN | POLLHUP | POLLERR)) read_stdin();
+    wl_read(p + 1, n - 1);
+    wl_tick();
+  }
+}
+
 int main(void) {
   signal(SIGPIPE, SIG_IGN);
+  const char *b = getenv("MACSHARE_HELPER_BACKEND");
+  const char *st = getenv("XDG_SESSION_TYPE");
+  if ((b && !strcmp(b, "uinput")) || (!(b && !strcmp(b, "x11")) && st && !strcmp(st, "wayland"))) return run_wayland();
   XInitThreads();
   XSetErrorHandler(xerror);
   XSetIOErrorHandler(xio);
@@ -130,10 +238,8 @@ int main(void) {
   if (!capture_init()) { fprintf(stderr, "no XInput 2.2\n"); return 1; }
 
   fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
-  emit("{\"event\":\"ready\"}");
+  emit("{\"event\":\"ready\",\"backend\":\"x11\"}");
 
-  char buf[65536];
-  size_t len = 0;
   int xfd = ConnectionNumber(dpy_ev);
   for (;;) {
     while (XPending(dpy_ev)) {
@@ -147,27 +253,7 @@ int main(void) {
     }
     struct pollfd p[3] = { { 0, POLLIN, 0 }, { xfd, POLLIN, 0 }, { ConnectionNumber(dpy_in), POLLIN, 0 } };
     poll(p, 3, 20);
-    if (p[0].revents & (POLLIN | POLLHUP | POLLERR)) {
-      for (;;) {
-        ssize_t n = read(0, buf + len, sizeof buf - 1 - len);
-        if (n == 0) quit(0); // stdin closed: main is gone; give the user their input back
-        if (n < 0) {
-          if (errno == EAGAIN || errno == EINTR) break;
-          quit(0);
-        }
-        len += (size_t)n;
-        buf[len] = 0;
-        char *start = buf, *nl;
-        while ((nl = strchr(start, '\n'))) {
-          *nl = 0;
-          if (nl > start) dispatch(start);
-          start = nl + 1;
-        }
-        len = strlen(start);
-        memmove(buf, start, len + 1);
-        if (len >= sizeof buf - 1) len = 0; // a line too long for us: drop it
-      }
-    }
+    if (p[0].revents & (POLLIN | POLLHUP | POLLERR)) read_stdin();
     capture_tick();
   }
 }

@@ -9,10 +9,10 @@
 
 const P = require('../shared/protocol.js');
 
-// Mac-only features (Terminal, the Mac's apps) stay off with a PC or Linux peer for now; app
-// windows (papp.*) also go between two PCs (peerapps.js views, pcapps.js sends).
-const MAC_ONLY = /^(ssh|app)\./;
-const NOT_LINUX = /^papps?\./;
+// The Mac's apps (app.*) only come from a Mac. Terminal (ssh.*) goes with a Mac or a Linux computer
+// (no shells between two PCs yet); app windows (papp.*) with a PC or a Linux computer.
+const MAC_ONLY = /^app\./;
+const NOT_PC = /^ssh\./;
 
 class Peer {
   constructor(link) {
@@ -150,7 +150,7 @@ class Peer {
 
   _allowed(t) {
     if (MAC_ONLY.test(t)) return this.peerOs === P.OS.MAC;
-    if (NOT_LINUX.test(t)) return this.peerOs !== P.OS.LINUX;
+    if (NOT_PC.test(t)) return this.peerOs !== P.OS.WIN;
     return true;
   }
 

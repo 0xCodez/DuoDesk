@@ -65,6 +65,7 @@ kbd, kbd.key { font: 12px system-ui, "Ubuntu", "Cantarell", "Noto Sans", sans-se
 .layout-grid .pc-screen { background: linear-gradient(135deg, #8e8e93, #48484a); color: #fff; }
 .layout-grid .cell { border: 1.5px dashed var(--control-line); border-radius: 6px; }
 .layout-grid .cell.mac-here { border: 0; background: linear-gradient(135deg, #5ac8fa, #0a84ff); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.layout-grid .cell:not(.mac-here):hover { border-color: var(--accent); background: var(--accent-soft); }
 /* Apps grid */
 .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; padding: 8px 10px; max-height: 420px; overflow-y: auto; }
 .app-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border: 0; border-radius: 8px; background: none; cursor: default; }
@@ -85,7 +86,7 @@ kbd, kbd.key { font: 12px system-ui, "Ubuntu", "Cantarell", "Noto Sans", sans-se
 .os-ico.mac::after { content: ""; position: absolute; left: -5px; right: -5px; bottom: -5px; height: 2px; border-radius: 0 0 2px 2px; background: var(--muted); }
 .os-ico.pc::after { content: ""; position: absolute; left: 7px; right: 7px; bottom: -6px; height: 3px; border-bottom: 2px solid var(--muted); }
 
-/* Setup screen (Linux, like the Mac's) */
+/* Setup screen (like the Mac's) */
 body.setup #sidebar { display: none; }
 .setup-page { max-width: 560px; margin: 0 auto; padding: 56px 28px 40px; }
 .setup-page h1 { font-size: 24px; margin: 14px 0 4px; text-align: center; }
@@ -93,3 +94,20 @@ body.setup #sidebar { display: none; }
 .setup-page .app-mark { margin: 26px auto 36px; transform: scale(1.5); }
 .setup-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 12px; }
 .setup-foot .hint { color: var(--muted); font-size: 12px; }
+
+/* Send files drop zone, progress bar, shortcut recorder (same as mac/control-pages.css) */
+.dropzone { margin: 12px 14px; height: 96px; border: 1.5px dashed var(--control-line); border-radius: 10px; display: grid; place-items: center; text-align: center; color: var(--muted); transition: border-color 0.2s, background-color 0.2s, transform 0.25s var(--spring); }
+.dropzone .big { color: var(--text); font-weight: 500; }
+.dropzone.over { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.01); }
+.dropzone.off { opacity: 0.5; }
+.bar { height: 4px; border-radius: 2px; background: var(--track-off); overflow: hidden; margin-top: 6px; }
+.bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s var(--ease); }
+.btn.keyrec { min-width: 84px; font-variant-numeric: tabular-nums; }
+.btn.keyrec.on { border-color: var(--accent); color: var(--accent); }
+.hint.bad { color: var(--bad); }
+
+/* Pin to Start on a Mac app tile (shows on hover, like the Mac's Add to Dock) */
+.app-tile { position: relative; }
+.app-pin { position: absolute; top: 2px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; opacity: 0; transform: scale(0.7); transition: opacity 0.15s, transform 0.2s var(--spring); }
+.app-pin svg { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.app-tile:hover .app-pin, .app-pin:focus-visible { opacity: 1; transform: none; }

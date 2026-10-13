@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Keyboard tab: typing follows the pointer. The Hotkey card (double-tap = cursor sharing on/off;
-// keyboard-only switching), then two direction cards; the directions are the same
-// switches as on the Cursor tab. Copy of windows/ui-keyboard.js.
+// Keyboard tab: typing follows the pointer. The Hotkey card (double-tap = mouse and keyboard back
+// here; keyboard-only switching), then two direction cards; the directions are the
+// same switches as on the Cursor tab. Behaviour: kvm.js and windows-helper.
 'use strict';
 
 UI.tab({
@@ -19,15 +19,13 @@ UI.tab({
     const switchSw = UI.switch((v) => api.setKvm({ hotkeySwitch: v }), { label: 'Switch the keyboard with the hotkey' });
     const switchRow = UI.row('Switch the keyboard with the hotkey', '', [switchSw]);
     const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Command' });
+    const otherHotkey = UI.row('Hotkey on {name}', '');
+    const swapRow = UI.row('⌘ works as Ctrl', 'So ⌘C copies here', [swap]);
+    const shortcutsRow = UI.row('Shortcuts on {name}', 'Ctrl works as ⌘, so Ctrl+C copies there');
     const status = UI.inputStatus();
     const pair = UI.dirCards(
-      { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, rows: [
-        UI.row('Hotkey on the Mac', 'Set in TwinDesk on the Mac'),
-        UI.row('⌘ works as Ctrl', 'So ⌘C copies here', [swap]),
-      ] },
-      { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, rows: [
-        UI.row('Shortcuts on the Mac', 'Ctrl works as ⌘, so Ctrl+C copies there'),
-      ] },
+      { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, label: 'Type on {me} with {name}’s keyboard', rows: [otherHotkey, swapRow] },
+      { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, label: 'Type on {name} with {me}’s keyboard', rows: [shortcutsRow] },
     );
 
     body.append(
@@ -37,13 +35,19 @@ UI.tab({
     );
 
     return (s) => {
+      const p = UI.peer(s);
       pair.update(s);
       status.update(s);
       hotkey.set(s.keys.hotkey);
       // Keyboard-only switching exists only while the pointer isn't shared (Cursor off).
       switchSw.set(s.kvm.hotkeySwitch);
       switchSw.disable(!!s.kvm.mouse);
-      switchRow.setHint(s.kvm.mouse ? 'Only when Cursor is off' : 'Double-tap to type on the Mac and back');
+      switchRow.setHint(s.kvm.mouse ? 'Only when Cursor is off' : 'Double-tap to type on ' + p.the + ' and back');
+      otherHotkey.label.textContent = 'Hotkey on ' + p.the;
+      otherHotkey.setHint('Set in TwinDesk on ' + p.the);
+      // Ctrl/Cmd swapping only between a Mac and a PC.
+      swapRow.hidden = p.os !== 'mac';
+      shortcutsRow.hidden = p.os !== 'mac';
       swap.set(s.keys.swapCtrlCmd);
     };
   },

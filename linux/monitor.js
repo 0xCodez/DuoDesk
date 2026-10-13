@@ -1,5 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Monitor 2 renderer: answers the Mac's WebRTC offer and plays the video at the lowest latency.
+// Monitor 2 renderer: answers the Mac's WebRTC offer and plays the video, paced as the Receive tab
+// says ('smooth' = about a frame of buffer, even motion; 'fast' = lowest latency).
 // With ?test=1 it plays a local moving test pattern instead (dev only, no Mac needed).
 const P = window.MacShareProtocol;
 const T = P.T;
@@ -15,6 +16,55 @@ let pc = null;
 let session = null;
 let pending = null; // remote candidates queued until the remote description is set
 let streamName = '';
+let pacing = 'fast';
+const fgCanvas = document.getElementById('framegen');
+let fg = null; // FrameGen, made the first time frame generation is switched on
+let fgOn = false;
+
+// smooth: a 16 ms jitter buffer target and no playout delay hint (WebRTC paces frames evenly);
+// fast: both 0, every frame shown the moment it is decoded (may judder on Wi-Fi). Both are
+// nullable in Chromium, so smooth clears a hint that fast left behind.
+function pace(receiver) {
+  const fast = pacing === 'fast';
+  if ('jitterBufferTarget' in receiver) receiver.jitterBufferTarget = fast ? 0 : 16;
+  if ('playoutDelayHint' in receiver) receiver.playoutDelayHint = fast ? 0 : null;
+}
+// The peer's screen.state: while we wait for its picture, say what is happening.
+api.onRemote((r) => {
+  if (pc || !r) return;
+  setOverlay(r.on ? 'Waiting for ' + (streamName || 'the picture') + '…' : r.remote ? 'Starting the screen over there…' : 'Not sharing. Turn on sharing over there.');
+});
+api.onPacing((p) => {
+  const was = pacing;
+  pacing = p && p.pacing === 'smooth' ? 'smooth' : 'fast';
+  if (pacing !== was && pc) for (const r of pc.getReceivers()) if (r.track.kind === 'video') pace(r);
+  frameGen(!!(p && p.framegen));
+});
+
+// Frame generation (optional, off by default): in-between frames when the stream is slower than
+// this screen, about one refresh of extra delay. Without WebGL2 it stays off.
+function frameGen(on) {
+  if (on && !fgOn) {
+    try {
+      if (!fg) fg = new window.FrameGen(video, fgCanvas);
+      fg.start();
+      fgOn = true;
+    } catch (err) {
+      console.warn('[monitor] frame generation unavailable:', err.message);
+    }
+  } else if (!on && fgOn) {
+    fg.stop();
+    fgOn = false;
+  }
+  showFrameGen();
+}
+
+// The canvas keeps its last picture, so it shows only while there is video.
+function showFrameGen() {
+  const show = fgOn && !!video.srcObject;
+  fgCanvas.classList.toggle('hidden', !show);
+  document.body.classList.toggle('framegen', show);
+}
 
 function setOverlay(text) {
   overlay.textContent = text || '';
@@ -28,6 +78,7 @@ function closePc() {
   pending = null;
   video.srcObject = null;
   audio.srcObject = null;
+  showFrameGen();
 }
 
 function applyAudio() {
@@ -42,11 +93,11 @@ async function onOffer(msg) {
   const my = (pc = new RTCPeerConnection({ iceServers: [] }));
   session = msg.session;
   const queue = (pending = []);
-  setOverlay('Connecting to ' + (streamName || 'the Mac') + '…');
+  setOverlay('Connecting to ' + (streamName || 'the other computer') + '…');
 
   my.ontrack = (e) => {
-    if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0;
-    else e.receiver.playoutDelayHint = 0; // lowest latency
+    if (e.track.kind === 'video') pace(e.receiver);
+    else if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0; // sound: lowest latency
     if (e.track.kind === 'audio') { // the Mac's sound, played next to the muted video
       audio.srcObject = new MediaStream([e.track]);
       applyAudio();
@@ -85,7 +136,7 @@ function onIce(msg) {
   else pc.addIceCandidate(msg.candidate).catch((err) => console.warn('ice', err.message));
 }
 
-video.addEventListener('playing', () => setOverlay(''));
+video.addEventListener('playing', () => { setOverlay(''); showFrameGen(); });
 
 // ---- stats overlay (F9) ----
 
@@ -131,6 +182,41 @@ function toggleStats() {
 }
 api.onToggleStats(toggleStats);
 
+// ---- Details for the Display tab: a summary once a second while a session runs ----
+
+let lastSum = null;
+async function reportStats() {
+  if (!pc) { lastSum = null; return; }
+  const rep = await pc.getStats();
+  let inb = null, pair = null;
+  const byId = new Map();
+  rep.forEach((r) => {
+    byId.set(r.id, r);
+    if (r.type === 'inbound-rtp' && r.kind === 'video') inb = r;
+    if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pair = r;
+  });
+  if (!inb) return;
+  const now = performance.now();
+  const d = (k) => (lastSum ? (inb[k] || 0) - (lastSum[k] || 0) : 0);
+  const per = (num, den) => { const dn = d(den); return dn > 0 ? (d(num) / dn) * 1000 : 0; };
+  const codec = byId.get(inb.codecId);
+  api.stats({
+    width: inb.frameWidth || 0,
+    height: inb.frameHeight || 0,
+    fps: Math.round(inb.framesPerSecond || 0),
+    mbps: lastSum ? Math.round((d('bytesReceived') * 8) / ((now - lastSum.at) * 1000) * 10) / 10 : 0,
+    codec: codec ? codec.mimeType.replace('video/', '') : '',
+    decoder: inb.decoderImplementation || '',
+    hw: inb.powerEfficientDecoder === true,
+    rttMs: pair && pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
+    delayMs: Math.round(per('jitterBufferDelay', 'jitterBufferEmittedCount') + per('totalDecodeTime', 'framesDecoded')),
+    dropped: inb.framesDropped || 0,
+    freezes: inb.freezeCount || 0,
+  });
+  lastSum = Object.assign({ at: now }, inb);
+}
+setInterval(() => reportStats().catch(() => {}), 1000);
+
 // ---- dev test source ----
 
 function startTestPattern() {
@@ -154,7 +240,7 @@ function startTestPattern() {
     g.fillStyle = '#2f6fe4';
     g.fillRect(x, h / 2 - 100, 200, 200);
     g.fillStyle = '#ffffff';
-    g.font = '48px Segoe UI, sans-serif';
+    g.font = '48px system-ui, Ubuntu, Cantarell, sans-serif';
     g.fillText('TwinDesk test pattern, 1920×1080, frame ' + frame, 60, 100);
     g.font = '20px Consolas, monospace';
     g.fillText('The quick brown fox jumps over the lazy dog 0123456789', 60, 150);
@@ -175,7 +261,7 @@ if (new URLSearchParams(location.search).get('test') === '1') {
         streamName = msg.name;
         streamAudio = msg.audio === true;
         applyAudio();
-        if (!pc) setOverlay('Waiting for ' + (streamName || 'the Mac') + '…');
+        if (!pc) setOverlay('Waiting for ' + (streamName || 'the other computer') + '…');
         break;
       case T.RTC_OFFER: onOffer(msg); break;
       case T.RTC_ICE: onIce(msg); break;

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Clipboard text sharing, copied from windows/clip.js: directions, switch/instant mode, concealed
+// Clipboard text sharing: directions, switch/instant mode, concealed
 // filter, size limit, clip.policy both ways, and the in-memory Recent list (never on disk).
 const { clipboard } = require('electron');
 const P = require('../shared/protocol.js');
@@ -9,11 +9,14 @@ const readText = async () => String((await clipboard.readText()) || '');
 const POLL_MS = 500; // instant mode: how often the clipboard is checked for a new copy
 const PREVIEW = 300; // characters kept per history item for the UI
 
-// Password managers on Linux (KeePassXC, KDE) mark secrets with the target
-// x-kde-passwordManagerHint = "secret"; readBuffer() returns it (empty buffer = absent).
+// Password managers mark secrets so clipboard tools leave them alone. clipboard.has() doesn't see
+// these registered formats; readBuffer() does (empty buffer = format absent).
 function isConcealed() {
   try {
-    if (clipboard.readBuffer('x-kde-passwordManagerHint').toString('utf8').trim() === 'secret') return true;
+    if (clipboard.readBuffer('ExcludeClipboardContentFromMonitorProcessing').length) return true;
+    if (clipboard.readBuffer('Clipboard Viewer Ignore').length) return true;
+    const b = clipboard.readBuffer('CanIncludeInClipboardHistory');
+    if (b && b.length >= 4 && b.readUInt32LE(0) === 0) return true;
   } catch (_) { /* unknown format: not concealed */ }
   return false;
 }
@@ -40,6 +43,7 @@ class Clip {
       this.peerAccepts = true;
       this.applySettings(); // sends clip.policy, starts the instant poll if on
     });
+    link.on(P.T.CLIP_REQUEST, () => this.sendIfChanged());
     link.on('closed', () => this._stopPoll());
   }
 
@@ -101,7 +105,7 @@ class Clip {
   async sendIfChanged(why) {
     const c = this.cfg;
     if (!c.enabled || !c.send || this.link.status.state !== 'connected') return;
-    if (!this.peerAccepts) return this._skip("the Mac doesn't accept this computer's clipboard");
+    if (!this.peerAccepts) return this._skip("{name} doesn't accept {me}’s clipboard");
     const text = await readText();
     if (!text || text === this.lastSync.sent || text === this.lastSync.received) return;
     if (c.skipConcealed && isConcealed()) {

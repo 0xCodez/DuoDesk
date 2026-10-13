@@ -35,7 +35,7 @@ UI.tab({
       const p = UI.peer(s);
       const connected = s.link.state === 'connected';
       pair.update(s);
-      note.set(p.os === 'linux' ? 'Not on Linux yet.' : '');
+      note.set('');
       hideSw.set(n.hideText);
       recvRow.setHint(n.receive && n.shown ? n.shown + ' shown' : 'As Windows notifications, from TwinDesk');
       sendRow.setHint(n.readable === false ? 'Windows’ notification list can’t be read'

@@ -84,7 +84,7 @@ class PeerApps {
 
   // A PC on the other end (the Mac does with apps.js instead).
   get active() {
-    return this.link.status.state === 'connected' && this.link.peerOs === P.OS.WIN;
+    return this.link.status.state === 'connected' && this.link.peerOs !== P.OS.MAC; // a PC or a Linux computer
   }
 
   _policy() {

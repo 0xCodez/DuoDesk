@@ -5,19 +5,24 @@ const WebSocket = require('ws');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
+// A host without `os` is an older Mac.
+const osOf = (o) => (Object.values(P.OS).includes(o) ? o : P.OS.MAC);
 const HELLO_TIMEOUT_MS = P.TIMEOUT_MS; // no `welcome` this long after hello = retry
 
 const PAIR_ERRORS = {
-  [P.E.PAIR_REFUSED]: 'The Mac refused pairing.',
+  [P.E.PAIR_REFUSED]: '{Name} refused pairing.',
   [P.E.PAIR_TIMEOUT]: 'Pairing timed out.',
-  [P.E.BUSY]: 'The Mac is already pairing with another device.',
-  [P.E.VERSION_MISMATCH]: 'The Mac runs a different TwinDesk version. Update both apps.',
+  [P.E.BUSY]: '{Name} is already pairing with another device.',
+  [P.E.VERSION_MISMATCH]: '{Name} runs a different TwinDesk version. Update both apps.',
 };
 
 class Link {
-  // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null
+  // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null,
+  //   blocked() -> true while this PC hosts a session (one session at a time)
   constructor(opts) {
     this.device = opts.device;
+    this.blocked = opts.blocked || (() => false);
+    this.onAny = null; // peer.js: gets every message after welcome instead of the per-type handlers
     this.store = opts.store;
     this.resolveAddress = opts.resolveAddress;
     this.pairing = this.store.load(); // {macId, macName, address, port, fp, token} or null
@@ -64,7 +69,7 @@ class Link {
     return {
       link: { ...this.status, macName: p ? p.macName : '', address: p ? p.address : '' },
       pairing: this.pairState ? { ...this.pairState } : null,
-      paired: p ? { macId: p.macId, macName: p.macName, address: p.address, port: p.port } : null,
+      paired: p ? { macId: p.macId, macName: p.macName, address: p.address, port: p.port, os: osOf(p.os) } : null,
     };
   }
 
@@ -105,6 +110,7 @@ class Link {
   _connect(mode) {
     this._closeSocket();
     clearTimeout(this.timers.reconnect);
+    if (mode === 'session' && this.blocked()) return this._scheduleReconnect(); // hosting: try again later
     this.mode = mode;
     this.nw = this.nm = null;
     const target = mode === 'pair' ? this.pairState : this.pairing;
@@ -137,6 +143,10 @@ class Link {
       this._changed();
       return;
     }
+    if (this.blocked()) { // another computer connected to us meanwhile
+      this._closeSocket();
+      return this._scheduleReconnect();
+    }
     if (!seenFp || seenFp !== this.pairing.fp) {
       this._closeSocket();
       this._setStatus('identity_changed', 'This Mac looks different now. Forget it and pair again.');
@@ -149,7 +159,7 @@ class Link {
     const p = this.pairing;
     this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.LINUX, token: p.token });
     this.timers.hello = setTimeout(() => {
-      this.lastError = 'No welcome from the Mac';
+      this.lastError = 'No welcome from {name}';
       if (this.ws) this.ws.terminate();
     }, HELLO_TIMEOUT_MS);
   }
@@ -166,7 +176,7 @@ class Link {
     switch (msg.t) {
       case T.PAIR_NONCE: return this._onNonce(msg);
       case T.PAIR_OK: return this._onPairOk(msg);
-      case T.PAIR_CANCEL: return this._pairFailed('Pairing was cancelled on the Mac.');
+      case T.PAIR_CANCEL: return this._pairFailed('Pairing was cancelled on {name}.');
       case T.WELCOME: return this._onWelcome(msg);
       case T.ERROR: return this._onError(msg);
       case T.PING: return this.authed && this._raw({ t: T.PONG, ts: msg.ts });
@@ -175,6 +185,7 @@ class Link {
         return this._changed();
     }
     if (!this.authed) return;
+    if (this.onAny) return this.onAny(msg);
     const fns = this.handlers.get(msg.t);
     if (fns) for (const fn of fns) fn(msg);
     else if (!this.unknown.has(msg.t)) {
@@ -187,7 +198,7 @@ class Link {
     const ps = this.pairState;
     if (this.mode !== 'pair' || !ps || !this.nw || this.nm) return;
     if (typeof msg.nonce !== 'string' || !/^[0-9a-f]{32,128}$/.test(msg.nonce) || msg.nonce.length % 2) {
-      return this._pairFailed('The Mac sent a bad pairing message.');
+      return this._pairFailed('{Name} sent a bad pairing message.');
     }
     this.nm = msg.nonce;
     this._raw({ t: T.PAIR_REVEAL, nonce: this.nw });
@@ -200,7 +211,7 @@ class Link {
     const ps = this.pairState;
     if (this.mode !== 'pair' || !ps || ps.phase !== 'waiting') return;
     if (typeof msg.token !== 'string' || !msg.token || typeof msg.macId !== 'string') {
-      return this._pairFailed('The Mac sent a bad pairing message.');
+      return this._pairFailed('{Name} sent a bad pairing message.');
     }
     this.pairing = {
       macId: msg.macId,
@@ -209,6 +220,7 @@ class Link {
       port: ps.port,
       fp: this.seenFp,
       token: msg.token,
+      os: osOf(msg.os), // the host's OS; older Macs send none
     };
     this.store.save(this.pairing);
     this.pairState = null;
@@ -222,14 +234,16 @@ class Link {
     clearTimeout(this.timers.hello);
     this.authed = true;
     this.attempt = 0;
-    if (typeof msg.macName === 'string' && msg.macName && msg.macName !== this.pairing.macName) {
-      this.pairing.macName = msg.macName;
+    const os = osOf(msg.os || this.pairing.os);
+    if ((typeof msg.macName === 'string' && msg.macName && msg.macName !== this.pairing.macName) || os !== this.pairing.os) {
+      if (typeof msg.macName === 'string' && msg.macName) this.pairing.macName = msg.macName;
+      this.pairing.os = os;
       this.store.save(this.pairing);
     }
     this.status.rtt = null;
     this.timers.ping = setInterval(() => {
       if (Date.now() - this.lastRx > P.TIMEOUT_MS) {
-        this.lastError = 'The Mac stopped answering';
+        this.lastError = '{Name} stopped answering';
         if (this.ws) this.ws.terminate();
         return;
       }
@@ -244,12 +258,12 @@ class Link {
     if (this.mode === 'pair') return this._pairFailed(PAIR_ERRORS[code] || 'Pairing failed (' + code + ').');
     if (code === P.E.BAD_TOKEN) {
       this.forget();
-      this._setStatus('not_paired', 'Your Mac forgot this computer. Pair again.');
+      this._setStatus('not_paired', 'Your Mac forgot {me}. Pair again.');
       return;
     }
     if (code === P.E.VERSION_MISMATCH) this.lastError = PAIR_ERRORS[code];
-    else if (code === P.E.REPLACED) this.lastError = 'Another connection from this computer replaced this one';
-    else this.lastError = 'The Mac closed the link (' + code + ')';
+    else if (code === P.E.REPLACED) this.lastError = 'Another connection from {me} replaced this one';
+    else this.lastError = '{Name} closed the link (' + code + ')';
     // The Mac closes the socket after an error; _onClose reconnects.
   }
 
@@ -276,7 +290,7 @@ class Link {
         const nobody = /^(ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/.test(this.lastError);
         this._pairFailed(ps.phase === 'connecting'
           ? (nobody ? 'No TwinDesk at ' + ps.address + '.' : 'Could not connect to ' + ps.address + (this.lastError ? ' (' + this.lastError + ')' : '') + '.')
-          : 'The connection to the Mac closed.');
+          : 'The connection to {name} closed.');
       }
       return;
     }

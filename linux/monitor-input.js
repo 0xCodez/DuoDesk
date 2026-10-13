@@ -47,8 +47,7 @@
     return { x, y };
   }
 
-  // Files dropped here would make the window navigate to them (file drop is not on Linux yet).
-  for (const t of ['dragover', 'drop']) window.addEventListener(t, (e) => e.preventDefault());
+  window.monitorNorm = (e) => norm(e, false); // also used by monitor-drop.js
   window.monitorInputEnabled = () => enabled; // also used by monitor-apps.js
 
   function flushMove() {

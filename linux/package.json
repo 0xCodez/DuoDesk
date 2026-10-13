@@ -2,19 +2,21 @@
   "name": "macshare-linux",
   "productName": "TwinDesk",
   "version": "0.1.0",
-  "description": "TwinDesk for Linux: pair with a Mac, view its screen, share the clipboard.",
+  "description": "TwinDesk for Linux: share mouse, keyboard, clipboard, files, sound and screens with a Mac, a PC or another Linux computer.",
   "license": "GPL-3.0",
   "private": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build:helper": "sh ../linux-helper/build.sh",
-    "test:monitor": "electron . --test-monitor"
+    "test:monitor": "electron . --test-monitor",
+    "dist": "node installer/build.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "26.0.12"
   }
 }

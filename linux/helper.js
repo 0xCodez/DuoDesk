@@ -58,6 +58,7 @@ class Helper extends EventEmitter {
       this.proc = null;
       for (const p of this.pending.values()) p.reject(new Error('helper exited'));
       this.pending.clear();
+      this.backend = '';
       if (code && !this.stopped) this.error = stderr ? stderr.split('\n').pop() : 'The helper stopped (' + code + ')';
       this.emit('exit', code);
       // Exits right after starting (no display, no XInput 2): try less often.
@@ -85,6 +86,7 @@ class Helper extends EventEmitter {
       let msg;
       try { msg = JSON.parse(line); } catch (_) { continue; }
       if (msg.event === 'ready') {
+        this.backend = msg.backend || 'x11'; // 'x11' | 'uinput' (Wayland)
         this.error = '';
         this.fails = 0;
         this.emit('ready');

@@ -264,7 +264,7 @@ const UI = {
       them: name, us: me, the: name, there: name, There: Name, // older templates
       toMe: name + ' → ' + me,
       fromMe: me + ' → ' + name,
-      limited: os !== 'mac' ? 'Only between a Mac and a PC for now' : '',
+      limited: os === 'win' ? 'Only with a Mac or a Linux computer for now' : '', // Terminal (macOnly tabs)
     };
   },
 
