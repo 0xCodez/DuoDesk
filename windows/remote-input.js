@@ -8,7 +8,7 @@ const T = P.T;
 const POINTER = new Set([T.IN_MOVE, T.IN_DOWN, T.IN_UP]);
 
 class RemoteInput {
-  // opts: helper, settings (shared), inputAllowed() (KVM at home)
+  // opts: link (peer.js), helper, settings (shared), inputAllowed() (KVM at home)
   constructor(opts) {
     Object.assign(this, opts);
     this.held = false; // keys/buttons may be held down by the Mac
@@ -37,7 +37,7 @@ class RemoteInput {
       ev({ t: T.K_WHEEL, dx: Number(m.dx) || 0, dy: Number(m.dy) || 0, mode: 'pixel' });
     } else if (typeof m.code === 'string') {
       if (m.t === T.IN_KEY_DOWN && before) before();
-      const code = this.settings.keys.swapCtrlCmd ? P.mapKeyFromOtherPlatform(m.code) : m.code;
+      const code = this.settings.keys.swapCtrlCmd && P.keySwapNeeded(P.OS.WIN, this.link.peerOs) ? P.mapKeyFromOtherPlatform(m.code) : m.code;
       ev({ t: m.t === T.IN_KEY_DOWN ? T.K_KEY_DOWN : T.K_KEY_UP, code });
       this.held = true;
     }

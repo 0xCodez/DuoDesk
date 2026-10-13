@@ -14,8 +14,12 @@
 !macro customInstall
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare" program="$INSTDIR\MacShare.exe"'
   nsExec::Exec 'netsh advfirewall firewall add rule name="MacShare" dir=in action=allow program="$INSTDIR\MacShare.exe" profile=private enable=yes'
+  ; Revision 4: this PC also listens (PC ↔ PC host), so the port gets its own rule.
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare (TCP 47800)"'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="MacShare (TCP 47800)" dir=in action=allow protocol=TCP localport=47800 program="$INSTDIR\MacShare.exe" profile=private enable=yes'
 !macroend
 
 !macro customUnInstall
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare" program="$INSTDIR\MacShare.exe"'
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare (TCP 47800)"'
 !macroend

@@ -22,6 +22,7 @@ function normalize(s) {
   const files = s.files || {};
   const pcs = s.pcScreen || {};
   const pca = s.pcApps || {};
+  const setup = s.setup || {};
   return {
     kvm: {
       mouse: bool(kvm.mouse, true),
@@ -29,6 +30,7 @@ function normalize(s) {
       driveOther: bool(kvm.driveOther, true),
       beDriven: bool(kvm.beDriven, true),
       resistancePx: Math.round(num(kvm.resistancePx, P.RESISTANCE_PX, 0, 400)),
+      pcSide: P.SIDES.includes(kvm.pcSide) ? kvm.pcSide : null, // where this PC is, seen from the other computer (kvm.layout)
       speed: Math.round(num(kvm.speed, 1.0, 0.25, 3) * 100) / 100,
       reverseScroll: bool(kvm.reverseScroll, false),
     },
@@ -71,6 +73,9 @@ function normalize(s) {
       input: bool(pcs.input, true), // the Mac's mouse and keyboard drive this PC
     },
     pcApps: { allow: bool(pca.allow, true) }, // phase 13: the Mac may open this PC's apps (it shows them only if it accepts)
+    // Setup screen 'Skip for now': the missing items it was skipped for (shown again when
+    // something else goes missing).
+    setup: { skipped: Array.isArray(setup.skipped) ? setup.skipped.filter((x) => typeof x === 'string').slice(0, 10) : [] },
     ui: { tab: OLD_TABS[ui.tab] || (TABS.includes(ui.tab) ? ui.tab : 'overview') },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };

@@ -131,6 +131,40 @@ function toggleStats() {
 }
 api.onToggleStats(toggleStats);
 
+// ---- Details for the Display tab (revision 4): a summary once a second while a session runs ----
+
+let lastSum = null;
+async function reportStats() {
+  if (!pc) { lastSum = null; return; }
+  const rep = await pc.getStats();
+  let inb = null, pair = null;
+  const byId = new Map();
+  rep.forEach((r) => {
+    byId.set(r.id, r);
+    if (r.type === 'inbound-rtp' && r.kind === 'video') inb = r;
+    if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pair = r;
+  });
+  if (!inb) return;
+  const now = performance.now();
+  const d = (k) => (lastSum ? (inb[k] || 0) - (lastSum[k] || 0) : 0);
+  const per = (num, den) => { const dn = d(den); return dn > 0 ? (d(num) / dn) * 1000 : 0; };
+  const codec = byId.get(inb.codecId);
+  api.stats({
+    width: inb.frameWidth || 0,
+    height: inb.frameHeight || 0,
+    fps: Math.round(inb.framesPerSecond || 0),
+    mbps: lastSum ? Math.round((d('bytesReceived') * 8) / ((now - lastSum.at) * 1000) * 10) / 10 : 0,
+    codec: codec ? codec.mimeType.replace('video/', '') : '',
+    decoder: inb.decoderImplementation || '',
+    hw: inb.powerEfficientDecoder === true,
+    rttMs: pair && pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
+    delayMs: Math.round(per('jitterBufferDelay', 'jitterBufferEmittedCount') + per('totalDecodeTime', 'framesDecoded')),
+    dropped: inb.framesDropped || 0,
+  });
+  lastSum = Object.assign({ at: now }, inb);
+}
+setInterval(() => reportStats().catch(() => {}), 1000);
+
 // ---- dev test source ----
 
 function startTestPattern() {

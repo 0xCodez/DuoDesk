@@ -43,6 +43,7 @@ class Clip {
       this.peerAccepts = true;
       this.applySettings(); // sends clip.policy, starts the instant poll if on
     });
+    link.on(P.T.CLIP_REQUEST, () => this.sendIfChanged());
     link.on('closed', () => this._stopPoll());
   }
 

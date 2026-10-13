@@ -65,6 +65,7 @@ kbd, kbd.key { font: 12px "Segoe UI", sans-serif; padding: 2px 7px; border-radiu
 .layout-grid .pc-screen { background: linear-gradient(135deg, #8e8e93, #48484a); color: #fff; }
 .layout-grid .cell { border: 1.5px dashed var(--control-line); border-radius: 6px; }
 .layout-grid .cell.mac-here { border: 0; background: linear-gradient(135deg, #5ac8fa, #0a84ff); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.layout-grid .cell:not(.mac-here):hover { border-color: var(--accent); background: var(--accent-soft); }
 /* Apps grid */
 .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; padding: 8px 10px; max-height: 420px; overflow-y: auto; }
 .app-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border: 0; border-radius: 8px; background: none; cursor: default; }
@@ -84,3 +85,12 @@ kbd, kbd.key { font: 12px "Segoe UI", sans-serif; padding: 2px 7px; border-radiu
 .os-ico { display: inline-block; position: relative; width: 22px; height: 14px; border: 2px solid var(--muted); border-radius: 3px; margin-bottom: 4px; }
 .os-ico.mac::after { content: ""; position: absolute; left: -5px; right: -5px; bottom: -5px; height: 2px; border-radius: 0 0 2px 2px; background: var(--muted); }
 .os-ico.pc::after { content: ""; position: absolute; left: 7px; right: 7px; bottom: -6px; height: 3px; border-bottom: 2px solid var(--muted); }
+
+/* Revision 4: Setup screen (like the Mac's) */
+body.setup #sidebar { display: none; }
+.setup-page { max-width: 560px; margin: 0 auto; padding: 56px 28px 40px; }
+.setup-page h1 { font-size: 24px; margin: 14px 0 4px; text-align: center; }
+.setup-page > p { text-align: center; color: var(--muted); margin: 0 0 24px; }
+.setup-page .app-mark { margin: 18px auto 26px; transform: scale(1.8); }
+.setup-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 12px; }
+.setup-foot .hint { color: var(--muted); font-size: 12px; }

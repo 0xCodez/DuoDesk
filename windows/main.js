@@ -8,6 +8,10 @@ const P = require('../shared/protocol.js');
 const store = require('./store');
 const { Discovery, interfaces } = require('./discovery');
 const Link = require('./link');
+const Peer = require('./peer');
+const { Server } = require('./server');
+const { Pairing: HostPairing } = require('./hostpair');
+const identity = require('./identity');
 const Screen = require('./screen');
 const Clip = require('./clip');
 const setupIpc = require('./ipc');
@@ -85,8 +89,11 @@ function start() {
   discovery.on('invite', () => { pushState(); showMain(); }); // a Mac wants to connect: Pair is focused
   discovery.start();
 
-  link = new Link({
+  // link = the peer layer (peer.js): guest of a Mac or another computer, or host of a PC/Linux.
+  // Every feature below talks to it as it talked to link.js.
+  const guest = new Link({
     device,
+    blocked: () => link.hosting,
     store: {
       load: () => {
         const p = store.read('pairing.json', null);
@@ -97,6 +104,8 @@ function start() {
     },
     resolveAddress: (macId) => discovery.get(macId),
   });
+  link = new Peer(guest);
+  startHost(guest);
   link.onState(() => {
     discovery.wantProbes = link.snapshot().link.state !== 'connected'; // probe every 10 s only while not connected
     pushState();
@@ -122,7 +131,7 @@ function start() {
   helper = new Helper();
   fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
   const dragRecv = new DragRecv({ link, helper, settings, isDriven: () => kvm && kvm.mode === 'driven', onChange: pushState });
-  kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, dragRecv, settings, onChange: onKvmChange });
+  kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, dragRecv, settings, save: saveSettings, onChange: onKvmChange });
   vdd = new Vdd({ helper, onChange: pushState });
   const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
   pcScreen = new PcScreen({ link, helper, sender, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
@@ -139,6 +148,23 @@ function start() {
   createMainWindow();
   setTimeout(checkFirewall, 3000);
   if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
+}
+
+// Host role (revision 4): our own server, once the certificate exists (made on first start).
+async function startHost(guest) {
+  try {
+    const id = await identity.load();
+    discovery.self.fp = id.fp; // beacons carry it now
+    const server = new Server(id);
+    discovery.self.port = server.port;
+    const pairing = new HostPairing(server, { id: device.id, name: device.name, fp: id.fp }, { busy: () => guest.authed });
+    pairing.on('request', showMain); // a code to compare: bring the window up
+    link.attachHost(server, pairing);
+  } catch (e) {
+    console.error('[host]', e.message);
+    link.host = { on: false, error: 'No certificate: ' + e.message };
+    pushState();
+  }
 }
 
 // ---- state ----
@@ -164,10 +190,33 @@ function pushState() {
   });
 }
 
+// The other computer (revision 4): {os, name, role}, null when nothing is paired.
+// role: the other computer's role ('host' = we connected to it).
+function peerView() {
+  const s = link.snapshot();
+  if (s.session) return { os: s.session.os, name: s.session.name, id: s.session.id, role: s.session.role === 'host' ? 'guest' : 'host' };
+  if (s.paired) return { os: s.paired.os, name: s.paired.macName, id: s.paired.macId, role: 'host' };
+  const g = s.guests.slice().sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0))[0];
+  return g ? { os: g.os, name: g.name, id: g.id, role: 'guest' } : null;
+}
+
+// Setup items that aren't ready (docs/ROADMAP.md "Setup screen"). The driver is optional.
+function missing() {
+  const m = [];
+  if (fw.ok === false && !fw.checking && !fw.error) m.push('firewall');
+  const h = kvm.view().helper;
+  if (h && h !== 'starting') m.push('helper');
+  const v = vdd.view();
+  if (v.checked && !v.installed) m.push('driver');
+  return m;
+}
+
 function buildState() {
+  const miss = missing();
   return {
     device,
     ...link.snapshot(),
+    peer: peerView(),
     found: discovery.list(),
     discovery: { ...discovery.status },
     addresses: ownAddresses(),
@@ -189,6 +238,7 @@ function buildState() {
     files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags },
     apps: apps.view(),
     startup: getStartup(),
+    setup: { missing: miss, show: !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)) },
   };
 }
 

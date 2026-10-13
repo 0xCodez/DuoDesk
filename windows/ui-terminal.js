@@ -5,6 +5,7 @@
 
 UI.tab({
   id: 'terminal',
+  macOnly: true, // revision 4: off with a PC or Linux peer for now
   order: 60,
   title: 'Terminal',
   color: 'linear-gradient(#3a3a3c, #1c1c1e)',

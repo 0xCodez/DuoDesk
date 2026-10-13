@@ -7,13 +7,13 @@ const T = P.T;
 const K_TYPES = new Set([T.K_MOVE, T.K_DOWN, T.K_UP, T.K_WHEEL, T.K_KEY_DOWN, T.K_KEY_UP]);
 
 class Kvm {
-  // opts: link, helper, clip, fileDrop, fileRecv, settings (shared object), onChange()
+  // opts: link, helper, clip, fileDrop, fileRecv, settings (shared object), save(), onChange()
   constructor(opts) {
     Object.assign(this, opts);
     this.mode = 'home'; // 'home' | 'driving' | 'driven'
     this.route = 0;
     this.peerRoute = 0;
-    this.pcSide = null; // from kvm.layout: where the PC is, seen from the Mac
+    this.pcSide = this.settings.kvm.pcSide; // from kvm.layout: where this PC is, seen from the other computer (saved)
     this.message = '';
     this.acceptTimer = null;
     this.keepalive = null;
@@ -21,11 +21,11 @@ class Kvm {
     this.dragPending = false; // we crossed with a file drag; cleared when our left button comes up
 
     const link = this.link;
+    // kvm.layout is "either" (revision 4): pcSide = the sender's crossing side, which is where this
+    // PC is seen from the sender. Adopt it, save it, never echo.
     link.on(T.KVM_LAYOUT, (m) => {
       if (!P.SIDES.includes(m.pcSide)) return;
-      this.pcSide = m.pcSide;
-      this.applyConfig();
-      this.onChange();
+      this._setPcSide(m.pcSide);
     });
     link.on(T.KVM_TAKE, (m) => this._onTake(m));
     link.on(T.KVM_ACCEPT, (m) => {
@@ -45,12 +45,18 @@ class Kvm {
       this._setMode('home', '');
     });
     for (const t of K_TYPES) link.on(t, (m) => this._inject(m));
-    link.on('welcome', () => { this.peerDrags = true; this.sentDragPolicy = undefined; this.applyConfig(); }); // re-sends our drag.policy
+    link.on('welcome', () => {
+      this.peerDrags = true;
+      this.sentDragPolicy = undefined;
+      this.applyConfig(); // re-sends our drag.policy
+      // As the host this PC sends the layout (a Mac host sends its own). Default: the other one on the right.
+      if (link.hosting) link.send({ t: T.KVM_LAYOUT, pcSide: this.crossingSide || 'right' });
+      if (link.hosting && !this.pcSide) this._setPcSide('left');
+    });
     this.peerDrags = true; // the Mac's drag.policy (assume yes until told)
     link.on(T.DRAG_POLICY, (m) => { this.peerDrags = m.accept !== false; this.applyConfig(); });
     link.on('closed', () => {
       this._linkLost('The Mac disconnected');
-      this.pcSide = null;
       this.applyConfig();
     });
 
@@ -62,6 +68,21 @@ class Kvm {
       else if (this.mode === 'driven') this._drivenHome('MacShare’s helper restarted', true);
     });
     helper.on('event', (name, msg) => this._onHelper(name, msg));
+  }
+
+  // The user picked where the other computer is (side of this PC): tell the other side.
+  setLayout(side) {
+    if (!P.SIDES.includes(side)) return;
+    this._setPcSide(P.opposite(side));
+    this.link.send({ t: T.KVM_LAYOUT, pcSide: side });
+  }
+
+  _setPcSide(pcSide) {
+    this.pcSide = pcSide;
+    this.settings.kvm.pcSide = pcSide;
+    if (this.save) this.save();
+    this.applyConfig();
+    this.onChange();
   }
 
   // Side of this PC that faces the Mac.
@@ -230,7 +251,7 @@ class Kvm {
     const ev = { ...m };
     if (ev.t === T.K_KEY_DOWN || ev.t === T.K_KEY_UP) {
       if (typeof ev.code !== 'string') return;
-      if (this.settings.keys.swapCtrlCmd) ev.code = P.mapKeyFromOtherPlatform(ev.code);
+      if (this.settings.keys.swapCtrlCmd && P.keySwapNeeded(P.OS.WIN, this.link.peerOs)) ev.code = P.mapKeyFromOtherPlatform(ev.code);
     } else if (ev.t === T.K_MOVE) {
       ev.dx = (Number(ev.dx) || 0) * k.speed;
       ev.dy = (Number(ev.dy) || 0) * k.speed;

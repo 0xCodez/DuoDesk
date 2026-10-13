@@ -207,6 +207,53 @@ const UI = {
     });
   },
 
+  // Live Details card (docs/UI.md "Revision 4"): labels → value cells. set({label: text}) fills
+  // them; rows without a value are hidden.
+  details(labels) {
+    const vals = {};
+    const rows = labels.map((label) => {
+      const r = UI.row(label, '');
+      vals[label] = UI.el('span', { class: 'value' });
+      r.querySelector('.controls').append(vals[label]);
+      return r;
+    });
+    const card = UI.card('Details', rows);
+    card.set = (map) => labels.forEach((label, i) => {
+      const t = map[label];
+      vals[label].textContent = t == null ? '' : String(t);
+      rows[i].hidden = t == null || t === '';
+    });
+    return card;
+  },
+
+  // "Hardware" / "Software" from getStats' powerEfficient flag, with the implementation name.
+  codecImpl(name, hw) {
+    return (hw ? 'Hardware' : 'Software') + (name ? ' (' + name + ')' : '');
+  },
+
+  // Who the other computer is (docs/UI.md "Revision 4"): titles name what is connected. With a
+  // Mac (or Linux): "Mac → PC" / "PC → Mac". With another PC, or nothing paired yet, this PC is
+  // "PC1" and the other "PC2" (human, 2026-10-13: "by default say pc1 pc2"); real names show in the
+  // overview and the paired list. toMe = the peer's things here, fromMe = this PC's things there.
+  peer(s) {
+    const p = s && s.peer;
+    const os = p ? p.os : 'win';
+    const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux' };
+    const same = os === 'win';
+    const them = same ? 'PC2' : KIND[os];
+    const us = same ? 'PC1' : 'PC';
+    return {
+      os, same, them, us,
+      kind: KIND[os],
+      // In sentences: "the Mac" / "PC2".
+      the: same ? 'PC2' : 'the ' + KIND[os],
+      name: p ? p.name : 'PC2',
+      toMe: them + ' → ' + us,
+      fromMe: us + ' → ' + them,
+      limited: os !== 'mac' ? 'Only between a Mac and a PC for now' : '',
+    };
+  },
+
   // Small computer glyph by OS (Revision 4 lists).
   osIcon(os) {
     return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
@@ -216,7 +263,7 @@ const UI = {
   // Each def: { on?: {get(s), set(v), disabled?}, rows: [], soon?: 'phase N' }. Returns { el, update(s) }.
   dirCards(m2p, p2m) {
     const make = (dir, def) => {
-      const title = [UI.el('span', { text: dir === 'm2p' ? 'Mac → PC' : 'PC → Mac' })];
+      const title = [UI.el('span', { text: dir === 'm2p' ? 'Mac → PC' : 'PC → Mac', attrs: { 'data-dir': dir } })]; // renamed by app.js per peer
       const sw = def.on ? UI.switch((v) => def.on.set(v), { label: dir === 'm2p' ? 'Mac to PC' : 'PC to Mac', disabled: !!def.on.disabled || !!def.soon }) : null;
       const head = UI.el('div', { class: 'dir-head' }, [UI.el('div', { class: 'dir-title' }, title), def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null, sw ? sw.el : null]);
       const card = UI.el('div', { class: 'dir-card' + (def.soon ? ' soon-card' : '') }, [head].concat(def.rows || []));

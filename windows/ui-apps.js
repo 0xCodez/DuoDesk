@@ -6,6 +6,7 @@
 
 UI.tab({
   id: 'apps',
+  macOnly: true, // revision 4: off with a PC or Linux peer for now
   order: 80,
   title: 'Apps',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',

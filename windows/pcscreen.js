@@ -189,8 +189,10 @@ class PcScreen {
     return displays.getAllDisplays()
       .map((d) => ({ d, r: displays.dipToScreenRect(null, d.bounds) }))
       .filter(({ r }) => !(v && r.x === v.x && r.y === v.y))
-      .map(({ d, r }) => {
-        return { id: String(d.id), label: (d.label || 'Monitor') + ', ' + r.width + ' × ' + r.height + (d.id === primary ? ' (main)' : '') };
+      .map(({ d, r }, i) => {
+        // The monitor's own name; a laptop panel often has none (revision 4: real names, not 'Monitor').
+        const name = d.label || (d.internal ? 'Built-in screen' : 'Monitor ' + (i + 1));
+        return { id: String(d.id), label: name + ', ' + r.width + ' × ' + r.height + (d.id === primary ? ' (main)' : '') };
       });
   }
 

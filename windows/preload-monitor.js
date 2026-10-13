@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('monitor', {
   onRtc: (fn) => ipcRenderer.on('rtc', (_e, m) => fn(m)),
   send: (m) => ipcRenderer.send('rtc', m),
   ready: () => ipcRenderer.send('monitor-ready'),
+  stats: (st) => ipcRenderer.send('monitor-stats', st),
   onInputEnabled: (fn) => ipcRenderer.on('input-enabled', (_e, on) => fn(!!on)),
   onAudio: (fn) => ipcRenderer.on('audio', (_e, a) => fn(a)),
   pathFor: (file) => { try { return webUtils.getPathForFile(file); } catch (_) { return ''; } },

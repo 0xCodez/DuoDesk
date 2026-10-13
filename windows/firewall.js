@@ -66,6 +66,9 @@ async function fix(status, exe = process.execPath) {
   }
   lines.push('netsh advfirewall firewall delete rule name="MacShare" program=' + JSON.stringify(exe) + ' | Out-Null');
   lines.push('netsh advfirewall firewall add rule name="MacShare" dir=in action=allow program=' + JSON.stringify(exe) + ' profile=private enable=yes | Out-Null');
+  // Revision 4: this PC also listens (PC ↔ PC host), so the port gets its own rule.
+  lines.push('netsh advfirewall firewall delete rule name="MacShare (TCP 47800)" | Out-Null');
+  lines.push('netsh advfirewall firewall add rule name="MacShare (TCP 47800)" dir=in action=allow protocol=TCP localport=47800 program=' + JSON.stringify(exe) + ' profile=private enable=yes | Out-Null');
   await runElevated(lines.join('\n')); // throws if the UAC prompt is declined
   return check(exe);
 }

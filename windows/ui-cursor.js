@@ -1,6 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Cursor tab: share the pointer across the screen edge. Two direction cards (docs/UI.md), the
-// layout (set on the Mac) and the live state below. Behaviour: docs/KVM.md (kvm.js + windows-helper).
+// layout (pick where the other computer is; either side can change it) and the live state below. Behaviour: docs/KVM.md (kvm.js + windows-helper).
 'use strict';
 
 UI.tab({
@@ -35,8 +35,10 @@ UI.tab({
 
     const cells = [];
     const grid = el('div', { class: 'layout-grid' });
+    const SIDE_OF = { 1: 'top', 3: 'left', 5: 'right', 7: 'bottom' };
     for (let i = 0; i < 9; i++) {
       const c = el('div', { class: i === 4 ? 'screen pc-screen' : '', text: i === 4 ? 'This PC' : '' });
+      if (SIDE_OF[i]) c.onclick = () => api.setLayout(SIDE_OF[i]); // revision 4: kvm.layout from either side
       cells.push(c);
       grid.append(c);
     }
@@ -46,7 +48,7 @@ UI.tab({
     body.append(
       pair.el,
       UI.card('Right now', [status], { cls: 'keep-on' }),
-      el('div', { class: 'card-title', text: 'Where your Mac is' }),
+      el('div', { class: 'card-title', text: 'Where the other computer is' }),
       el('div', { class: 'card layout' }, [grid, layoutHint]),
     );
 
@@ -57,15 +59,18 @@ UI.tab({
       speed.set(k.speed);
       reverse.set(k.reverseScroll);
       resistance.set(k.resistancePx);
+      const p = UI.peer(s);
       const side = k.pcSide ? MAC_SIDE[k.pcSide] : null;
       cells.forEach((c, i) => {
         if (i === 4) return;
         const here = side && CELL[side] === i;
         c.className = Object.values(CELL).includes(i) ? 'cell' + (here ? ' mac-here' : '') : '';
-        c.textContent = here ? 'Mac' : '';
+        c.textContent = here ? p.them : '';
+        c.title = here ? '' : 'Put ' + p.them + ' here';
       });
-      layoutHint.textContent = side ? 'Your Mac is ' + { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[side] + ' this PC. Change it on the Mac.'
-        : 'Set it on your Mac.';
+      const who = p.os === 'mac' ? 'Your Mac' : p.them;
+      layoutHint.textContent = (side ? who + ' is ' + { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[side] + ' this PC. ' : '')
+        + 'Click a side to move it.';
     };
   },
 });

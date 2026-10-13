@@ -48,9 +48,12 @@ function setupIpc(ctx) {
   handle('confirmCode', () => link.confirmCode());
   handle('cancelPair', () => link.cancelPair());
   handle('forget', () => link.forget());
+  handle('respondPair', (allow) => link.respondPair(allow === true)); // host: Allow / Deny
+  handle('forgetGuest', (id) => typeof id === 'string' && link.forgetGuest(id));
   handle('openMonitor', () => screen.open(false));
 
   handle('setKvm', (partial) => change('kvm', partial, () => kvm.applyConfig()));
+  handle('setLayout', (side) => kvm.setLayout(side));
   handle('setKeys', (partial) => change('keys', partial));
   handle('setMonitor', (partial) => change('monitor', partial, () => screen.applyAudio()));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
@@ -91,6 +94,7 @@ function setupIpc(ctx) {
   handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
   handle('installVdd', () => vdd.install());
   handle('removeVdd', () => vdd.remove());
+  handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing }));
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));

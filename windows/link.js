@@ -5,6 +5,8 @@ const WebSocket = require('ws');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
+// A host without `os` is a Mac from before revision 4.
+const osOf = (o) => (Object.values(P.OS).includes(o) ? o : P.OS.MAC);
 const HELLO_TIMEOUT_MS = P.TIMEOUT_MS; // no `welcome` this long after hello = retry
 
 const PAIR_ERRORS = {
@@ -15,9 +17,12 @@ const PAIR_ERRORS = {
 };
 
 class Link {
-  // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null
+  // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null,
+  //   blocked() -> true while this PC hosts a session (revision 4: one session at a time)
   constructor(opts) {
     this.device = opts.device;
+    this.blocked = opts.blocked || (() => false);
+    this.onAny = null; // peer.js: gets every message after welcome instead of the per-type handlers
     this.store = opts.store;
     this.resolveAddress = opts.resolveAddress;
     this.pairing = this.store.load(); // {macId, macName, address, port, fp, token} or null
@@ -64,7 +69,7 @@ class Link {
     return {
       link: { ...this.status, macName: p ? p.macName : '', address: p ? p.address : '' },
       pairing: this.pairState ? { ...this.pairState } : null,
-      paired: p ? { macId: p.macId, macName: p.macName, address: p.address, port: p.port } : null,
+      paired: p ? { macId: p.macId, macName: p.macName, address: p.address, port: p.port, os: osOf(p.os) } : null,
     };
   }
 
@@ -105,6 +110,7 @@ class Link {
   _connect(mode) {
     this._closeSocket();
     clearTimeout(this.timers.reconnect);
+    if (mode === 'session' && this.blocked()) return this._scheduleReconnect(); // hosting: try again later
     this.mode = mode;
     this.nw = this.nm = null;
     const target = mode === 'pair' ? this.pairState : this.pairing;
@@ -136,6 +142,10 @@ class Link {
       this.pairState.phase = 'starting';
       this._changed();
       return;
+    }
+    if (this.blocked()) { // another computer connected to us meanwhile
+      this._closeSocket();
+      return this._scheduleReconnect();
     }
     if (!seenFp || seenFp !== this.pairing.fp) {
       this._closeSocket();
@@ -175,6 +185,7 @@ class Link {
         return this._changed();
     }
     if (!this.authed) return;
+    if (this.onAny) return this.onAny(msg);
     const fns = this.handlers.get(msg.t);
     if (fns) for (const fn of fns) fn(msg);
     else if (!this.unknown.has(msg.t)) {
@@ -209,6 +220,7 @@ class Link {
       port: ps.port,
       fp: this.seenFp,
       token: msg.token,
+      os: osOf(msg.os), // the host's OS (revision 4); older Macs send none
     };
     this.store.save(this.pairing);
     this.pairState = null;
@@ -222,8 +234,10 @@ class Link {
     clearTimeout(this.timers.hello);
     this.authed = true;
     this.attempt = 0;
-    if (typeof msg.macName === 'string' && msg.macName && msg.macName !== this.pairing.macName) {
-      this.pairing.macName = msg.macName;
+    const os = osOf(msg.os || this.pairing.os);
+    if ((typeof msg.macName === 'string' && msg.macName && msg.macName !== this.pairing.macName) || os !== this.pairing.os) {
+      if (typeof msg.macName === 'string' && msg.macName) this.pairing.macName = msg.macName;
+      this.pairing.os = os;
       this.store.save(this.pairing);
     }
     this.status.rtt = null;

@@ -97,11 +97,12 @@ async function start(m) {
 async function stats(me) {
   if (!alive(me) || !me.pc) return;
   const report = await me.pc.getStats();
-  let out = null, pair = null;
+  let out = null, pair = null, src = null;
   const byId = new Map();
   report.forEach((r) => {
     byId.set(r.id, r);
     if (r.type === 'outbound-rtp' && r.kind === 'video') out = r;
+    if (r.type === 'media-source' && r.kind === 'video') src = r;
     if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pair = r;
   });
   if (!out || !alive(me)) return;
@@ -129,6 +130,8 @@ async function stats(me) {
     qp,
     encodeMs,
     limit: out.qualityLimitationReason || 'none',
+    hw: out.powerEfficientEncoder === true,
+    dropped: src && src.frames ? Math.max(0, src.frames - (out.framesEncoded || 0)) : 0, // captured, never encoded
     rttMs: pair && pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null,
   });
 }

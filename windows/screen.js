@@ -28,6 +28,9 @@ class Screen {
     link.on(T.RTC_ICE, (m) => this._relay(m));
     link.on(T.STREAM_STOP, () => this._stop());
     link.on(T.STREAM_INPUT, (m) => this._setMacInput(m.on !== false));
+    link.on('welcome', () => {
+      if (link.peerOs !== P.OS.MAC) link.send({ t: T.SCREEN_POLICY, accept: true });
+    });
     link.on('closed', () => {
       this.autoOpened = false;
       this._stop();
@@ -44,6 +47,12 @@ class Screen {
       if (!this.win || e.sender !== this.win.webContents || !this.fileDrop || !d || !Array.isArray(d.paths)) return;
       const n = (v) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : null);
       this.fileDrop.drop(d.paths.filter((p) => typeof p === 'string'), n(d.x), n(d.y));
+    });
+    // Details card (revision 4): the renderer's once-a-second getStats summary.
+    ipcMain.on('monitor-stats', (e, st) => {
+      if (!this.win || e.sender !== this.win.webContents || !st || typeof st !== 'object' || this.state.state !== 'on') return;
+      this.state = { ...this.state, stats: st };
+      this.onChange();
     });
     ipcMain.on('monitor-ready', (e) => {
       if (!this.win || e.sender !== this.win.webContents) return;

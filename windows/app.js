@@ -17,11 +17,12 @@
     lastGroup = def.group || null;
     if (def.bottom) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } }));
     const stateEl = el('span', { class: 'state' });
+    const navLabel = el('span', { class: 'label', text: def.title });
     const tile = el('span', { class: 'tile' }, [UI.icon(def.icon || def.id)]);
     tile.style.background = def.color; // CSSOM, allowed by the CSP (inline style attributes aren't)
     const navBtn = el('button', { class: 'nav-item', attrs: { role: 'tab', 'aria-controls': 'page-' + def.id } }, [
       tile,
-      el('span', { class: 'label', text: def.title }),
+      navLabel,
       stateEl,
     ]);
     if (def.group) navBtn.classList.add('grouped');
@@ -29,8 +30,10 @@
     nav.append(el('li', {}, [navBtn]));
 
     const page = el('section', { class: 'page', id: 'page-' + def.id, hidden: true, attrs: { role: 'tabpanel' } });
+    const headText = el('span', { text: def.heading || def.title });
+    const limitNote = def.macOnly ? UI.note('info', '') : null;
     const titles = el('div', { class: 'titles' }, [
-      el('h1', {}, [def.heading || def.title, def.phase ? el('span', { class: 'pill muted', text: 'Phase ' + def.phase }) : null]),
+      el('h1', {}, [headText, def.phase ? el('span', { class: 'pill muted', text: 'Phase ' + def.phase }) : null]),
       el('p', { text: def.desc || '' }),
     ]);
     let master = null;
@@ -38,11 +41,11 @@
       master = UI.switch((v) => def.master.set(v), { label: def.title, disabled: !!def.master.disabled });
     }
     page.append(el('header', { class: 'page-head' }, [titles, master ? master.el : null]));
-    const body = el('div', { class: 'page-body' });
+    const body = el('div', { class: 'page-body' }, limitNote ? [limitNote] : []);
     page.append(body);
     pages.append(page);
     const render = def.build(body, page) || (() => {});
-    views.set(def.id, { def, page, navBtn, stateEl, master, render });
+    views.set(def.id, { def, page, navBtn, stateEl, master, render, navLabel, headText, limitNote });
   }
 
   function show(id, user) {
@@ -63,8 +66,11 @@
   }
 
   function renderPage(v, s) {
+    const limited = v.limitNote && s.peer ? UI.peer(s).limited : '';
+    if (v.limitNote) v.limitNote.set(limited);
     if (v.master) {
-      const on = !!v.def.master.get(s);
+      v.master.disable(!!v.def.master.disabled || !!limited);
+      const on = !limited && !!v.def.master.get(s);
       v.master.set(on);
       v.page.classList.toggle('off', !on);
     }
@@ -80,7 +86,7 @@
     const dot = l.state === 'connected' ? 'good' : l.state === 'identity_changed' ? 'bad'
       : (s.pairing || l.state === 'connecting' || l.state === 'reconnecting') ? 'warn' : '';
     $('peer-dot').className = 'dot ' + dot;
-    let text = 'No Mac paired';
+    let text = 'Not paired';
     if (l.state === 'connected') text = l.macName + (l.rtt != null ? ' · ' + l.rtt + ' ms' : '');
     else if (s.pairing) text = 'Pairing…';
     else if (l.state === 'connecting' || l.state === 'reconnecting') text = 'Reconnecting…';
@@ -98,29 +104,56 @@
     $('banner').hidden = !p;
     if (!p) return;
     $('banner').classList.toggle('failed', p.phase === 'failed');
-    $('pair-title').textContent = 'Pairing with ' + p.macName;
+    const host = p.role === 'host'; // another computer asks to pair with this PC
+    $('pair-title').textContent = host ? p.macName + ' wants to pair' : 'Pairing with ' + p.macName;
     $('pair-code-wrap').hidden = !p.code;
     $('pair-code').textContent = p.code ? p.code.slice(0, 3) + ' ' + p.code.slice(3) : '';
-    $('pair-match').hidden = p.phase !== 'code';
-    $('pair-cancel').textContent = p.phase === 'failed' ? 'Close' : 'Cancel';
+    $('pair-match').hidden = host ? !p.code || p.allowed : p.phase !== 'code';
+    $('pair-match').textContent = host ? 'Allow' : 'Codes match';
+    $('pair-cancel').textContent = host ? 'Deny' : p.phase === 'failed' ? 'Close' : 'Cancel';
     const hints = {
       connecting: 'Connecting to ' + p.address + '…',
       starting: 'Waiting for the Mac…',
       code: 'Check that the Mac shows the same code, then click Codes match.',
       waiting: 'Waiting for Allow on the Mac…',
       failed: p.error,
+      request: !p.code ? 'Waiting for the code…' : p.allowed ? 'Waiting for ' + p.macName + '…' : 'Check that ' + p.macName + ' shows the same code, then click Allow.',
     };
     $('pair-hint').textContent = hints[p.phase] || '';
   }
 
+  $('content').append(UI.setup.page); // Setup screen in place of the tabs while something isn't ready
+
+  // Titles name what is connected (docs/UI.md "Revision 4"): the Display tabs and every
+  // direction card title follow the peer.
+  let peerKey = '';
+  function renderPeer(s) {
+    const p = UI.peer(s);
+    const key = p.toMe + '|' + p.fromMe + '|' + p.name;
+    if (key === peerKey) return;
+    peerKey = key;
+    // The Display tabs keep their names (Receive screen / Share screen); headings name the peer.
+    const The = p.the.charAt(0).toUpperCase() + p.the.slice(1);
+    const heads = { 'mac-pc': The + '’s screen on this PC', 'pc-mac': 'This PC’s screen on ' + p.the };
+    for (const [id, text] of Object.entries(heads)) {
+      const v = views.get(id);
+      if (v) v.headText.textContent = text;
+    }
+    for (const e of document.querySelectorAll('[data-dir="m2p"]')) e.textContent = p.toMe;
+    for (const e of document.querySelectorAll('[data-dir="p2m"]')) e.textContent = p.fromMe;
+  }
+
   function render(s) {
     UI.state = s;
+    renderPeer(s);
+    UI.setup.render(s);
+    pages.hidden = !UI.setup.page.hidden;
     renderSidebar(s);
     renderBanner(s);
     if (current) renderPage(current, s);
   }
 
-  $('pair-match').onclick = () => api.confirmCode();
+  $('pair-match').onclick = () => (UI.state && UI.state.pairing && UI.state.pairing.role === 'host' ? api.respondPair(true) : api.confirmCode());
   $('pair-cancel').onclick = () => api.cancelPair();
   window.addEventListener('macshare-go', (e) => show(e.detail, true));
 

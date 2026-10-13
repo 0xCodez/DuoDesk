@@ -7,11 +7,11 @@ UI.tab({
   id: 'pc-mac',
   group: 'Display',
   order: 11,
-  title: 'PC → Mac',
+  title: 'Share screen',
   heading: 'This PC’s screen on the Mac',
   icon: 'display',
   color: 'linear-gradient(#5ac8fa, #0a84ff)',
-  desc: 'See this PC in a window on your Mac.',
+  desc: 'See this PC in a window on the other computer.',
   master: { get: (s) => s.pcScreen.mode !== 'off', set: (v) => UI.api.setPcScreenMode(v ? 'mirror' : 'off') },
   badge: (s) => (s.pcScreen.status === 'live' ? 'on' : ''),
   build(body) {
@@ -24,44 +24,40 @@ UI.tab({
     ], (v) => api.setPcScreenMode(v));
     const monitor = UI.select([], (v) => set({ monitor: v }));
     const extendSize = UI.select([
-      { value: 'mac', label: 'Same as the Mac' },
+      { value: 'mac', label: 'Same as the other screen' },
       { value: '1920x1080', label: '1920 × 1080' },
       { value: '2560x1440', label: '2560 × 1440' },
       { value: '3840x2160', label: '3840 × 2160' },
     ], (v) => set({ extendSize: v }));
     const streamSize = UI.select([
-      { value: 1080, label: '1080p, fastest' },
-      { value: 1440, label: '1440p, sharper' },
+      { value: 1080, label: '1080p (1920 × 1080), fastest' },
+      { value: 1440, label: '1440p (2560 × 1440), sharper' },
       { value: 0, label: 'Full size' },
     ], (v) => set({ maxHeight: Number(v) }));
     const quality = UI.select([
-      { value: 10, label: 'Low' },
-      { value: 20, label: 'Medium' },
-      { value: 30, label: 'High' },
-      { value: 50, label: 'Best (wired)' },
+      { value: 10, label: 'Low, 10 Mbps' },
+      { value: 20, label: 'Medium, 20 Mbps' },
+      { value: 30, label: 'High, 30 Mbps' },
+      { value: 50, label: 'Best, 50 Mbps (wired)' },
     ], (v) => set({ mbps: Number(v) }));
     const sound = UI.switch((v) => set({ sound: v }), { label: 'Include sound' });
-    const input = UI.switch((v) => set({ input: v }), { label: 'Let the Mac control it' });
+    const input = UI.switch((v) => set({ input: v }), { label: 'Receive input' });
+    const inputRow = UI.row('Receive input', '', [input]); // "Receive input from Mac" / "from PC2"
 
     const monitorRow = UI.row('Display', '', [monitor]);
     const extendRow = UI.row('Size', '', [extendSize]);
-    const stats = { status: UI.row('Status', ''), picture: UI.row('Picture', ''), rate: UI.row('Bitrate', '') };
-    const statVals = Object.fromEntries(Object.entries(stats).map(([k, row]) => {
-      const v = el('span', { class: 'value' });
-      row.querySelector('.controls').append(v);
-      return [k, v];
-    }));
+    const details = UI.details(['Status', 'Display', 'Picture', 'Speed', 'Round trip', 'Codec', 'Encoder', 'Frames dropped']);
 
     const installBtn = UI.button('Install', () => api.installVdd(), 'small primary');
     const removeBtn = UI.button('Remove', () => api.removeVdd(), 'small');
-    const driver = UI.row('Extra screen', '', [installBtn, removeBtn]);
+    const driver = UI.row('MacShare virtual display', '', [installBtn, removeBtn]); // Extend's screen, from the Virtual Display Driver (vdd.js)
     const note = UI.note('bad', '');
 
     body.append(
       UI.card('Screen', [UI.row('Mode', '', [mode]), monitorRow, extendRow]),
       UI.card('Picture', [UI.row('Resolution', '', [streamSize]), UI.row('Quality', '', [quality])]),
-      UI.card('Sound and control', [UI.row('Include sound', '', [sound]), UI.row('Let the Mac control it', '', [input])], { cls: 'keep-on' }),
-      UI.card('Status', Object.values(stats)),
+      UI.card('Sound and control', [UI.row('Include sound', '', [sound]), inputRow], { cls: 'keep-on' }),
+      details,
       UI.card('', [driver, note], { cls: 'keep-on' }),
     );
 
@@ -84,18 +80,27 @@ UI.tab({
 
       const on = p.mode !== 'off';
       const st = p.status === 'live' && p.stats;
-      statVals.status.textContent = !on ? 'Off' : p.busy ? 'Starting the extra screen…' : p.status === 'live' ? 'On the Mac'
-        : !connected ? 'Waiting for your Mac' : !p.mac.accept ? 'Turned off on the Mac' : 'Connecting…';
-      stats.status.setHint(p.error || '');
-      statVals.picture.textContent = st ? `${st.width} × ${st.height}, ${st.fps} fps` : '';
-      statVals.rate.textContent = st ? `${st.mbps} Mbps` : '';
+      const who = UI.peer(s).the;
+      const mon = p.monitors.find((m) => m.id === p.monitor) || p.monitors.find((m) => /\(main\)$/.test(m.label)) || p.monitors[0];
+      details.set({
+        Status: (!on ? 'Off' : p.busy ? 'Starting the extra screen…' : p.status === 'live' ? 'On ' + who
+          : !connected ? 'Waiting for ' + who : !p.mac.accept ? 'Turned off on ' + who : 'Connecting…') + (p.error ? ': ' + p.error : ''),
+        Display: !on ? '' : p.mode === 'extend' ? `MacShare virtual display, ${p.extendPx[0]} × ${p.extendPx[1]}` : mon ? mon.label : '',
+        Picture: st ? `${st.width} × ${st.height}, ${st.fps} fps` : '',
+        Speed: st ? `${st.mbps} Mbps sent` + (st.targetMbps ? `, network allows ${st.targetMbps}` : '') : '',
+        'Round trip': st && st.rttMs != null ? st.rttMs + ' ms' : '',
+        Codec: st && st.codec ? st.codec.toUpperCase() : '',
+        Encoder: st && st.encoder ? UI.codecImpl(st.encoder, st.hw) : '',
+        'Frames dropped': st ? st.dropped || 0 : '',
+      });
 
       installBtn.hidden = v.installed;
       installBtn.disabled = !!v.busy || !v.checked;
       installBtn.textContent = v.busy === 'install' ? 'Installing…' : 'Install';
       removeBtn.hidden = !v.installed;
       removeBtn.disabled = !!v.busy || p.mode === 'extend';
-      driver.setHint(v.busy === 'remove' ? 'Removing…' : v.installed ? '' : 'Needed for Extend. Asks for administrator rights once.');
+      driver.setHint(v.busy === 'remove' ? 'Removing…' : v.busy === 'install' ? 'Installing…' : v.installed ? 'Installed. Adds the extra screen for Extend.' : 'Adds an extra screen for Extend. Installs a display driver and asks for administrator rights once.');
+      inputRow.label.textContent = 'Receive input from ' + UI.peer(s).them;
       note.set(v.message);
     };
   },
