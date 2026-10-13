@@ -52,6 +52,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   const pcApps = new PcApps({ server, getSettings: s });
   const notifs = new Notifs({ server, helper, getSettings: s, saveSettings: () => store.saveSettings(s()) });
   const fileClip = new FileClip({ server, helper, fileSend, drop, getSettings: s });
+  kvm.fileClip = fileClip;
   kvm.blockEdge = () => pcView.focused || pcApps.focused; // moving inside the PC window never crosses to the PC
 
   for (const x of [stream, clipboard, kvm, terminal, drop, fileSend, smb, apps, sshClient, audio, pcView, pcApps, notifs, fileClip]) x.on('change', pushState);

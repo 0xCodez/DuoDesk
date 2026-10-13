@@ -195,6 +195,7 @@ class Kvm {
         break;
       case 'ev':
         if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) {
+          if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there (revision 6)
           this.link.send(msg.ev);
           if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released on the Mac
         }
@@ -330,6 +331,7 @@ class Kvm {
       this.fileDrop.cancelRelease();
     }
     this.message = message || '';
+    if (mode !== 'driving' && this.fileClip) this.fileClip.resetKeys();
     if (mode === 'driving' && was !== 'driving') {
       clearInterval(this.keepalive);
       this.keepalive = setInterval(() => this.helper.send('keepalive'), P.HELPER_KEEPALIVE_MS);

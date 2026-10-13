@@ -4,6 +4,7 @@
 
 UI.tab({
   id: 'audio',
+  group: 'More',
   order: 70,
   title: 'Audio',
   desc: 'Hear one computer on the other.',

@@ -22,4 +22,8 @@
 !macro customUnInstall
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare" program="$INSTDIR\MacShare.exe"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare (TCP 47800)"'
+  ; Revision 6: the pinned Mac apps' Start menu folder is per user (the app makes it in Roaming).
+  SetShellVarContext current
+  RMDir /r "$APPDATA\Microsoft\Windows\Start Menu\Programs\MacShare Apps"
+  SetShellVarContext all
 !macroend

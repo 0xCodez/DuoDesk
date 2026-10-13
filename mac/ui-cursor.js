@@ -5,6 +5,7 @@
 
 UI.tab({
   id: 'cursor',
+  group: 'Input',
   order: 20,
   title: 'Cursor',
   desc: 'Move the pointer off the edge of the screen to go to the other computer.',

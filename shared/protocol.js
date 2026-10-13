@@ -114,6 +114,7 @@
       NOTIF_POLICY: 'notif.policy', // either {accept}: this side shows the other's notifications
       FCLIP_OFFER: 'fclip.offer', // either {id, items: [{name, dir, size}], files, bytes}: files copied with the shortcut
       FCLIP_PASTE: 'fclip.paste', // either {id}: paste them here now (the copier then sends file.offer drop:'paste')
+      FCLIP_KEY: 'fclip.key', // owner->driven {action:'copy'|'paste'}: the copy/paste shortcut pressed while driving it — do it there
       FCLIP_GONE: 'fclip.gone', // either {id}: nothing to paste any more (files moved, or a newer copy)
       FILES_DONE: 'files.done', // receiver->sender {batch, ok, where?, files}: a Send/paste batch landed
       // roadmap, docs/ROADMAP.md (phases 7, 11, 12; PC -> Mac media)

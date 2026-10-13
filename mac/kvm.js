@@ -238,6 +238,7 @@ class Kvm extends EventEmitter {
       case 'ev': {
         if (this.mode !== 'driving' || !ev.ev) return;
         const e = ev.ev;
+        if (this.fileClip && this.fileClip.intercept(e)) return; // copy/paste shortcut: done over there
         if (e.t === P.T.K_MOVE) {
           if (!this.pendingMove) {
             this.pendingMove = { dx: 0, dy: 0 };

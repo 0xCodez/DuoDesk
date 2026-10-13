@@ -4,6 +4,7 @@
 
 UI.tab({
   id: 'terminal',
+  group: 'More',
   order: 60,
   title: 'Terminal',
   mixedOnly: true,

@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('macshare', {
   openMacDrive: call('openMacDrive'),
   listApps: call('listApps'),
   launchApp: call('launchApp'),
+  pinApp: call('pinApp'),
   setPcScreen: call('setPcScreen'),
   setPcScreenMode: call('setPcScreenMode'),
   setPcApps: call('setPcApps'),

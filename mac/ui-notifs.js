@@ -5,6 +5,7 @@
 
 UI.tab({
   id: 'notifications',
+  group: 'Share',
   order: 45,
   title: 'Notifications',
   icon: 'bell',

@@ -49,7 +49,8 @@ UI.tab({
         : !connected ? 'Waiting for your Mac' : !pa.macAccepts ? 'Turned off on the Mac' : pa.open ? 'Connecting…' : 'None open';
       pcState.setHint(pa.message || '');
       if (!connected) asked = false;
-      note.set(a.message || (connected && s.stream.state !== 'on' ? 'Turn on screen sharing on your Mac to see its apps here.' : ''));
+      note.set(a.message || '');
+      note.className = 'note ' + (/ is in Start/.test(a.message) ? 'info' : 'warn');
       refresh.disabled = !connected || a.loading;
       const q = filter.value.trim().toLowerCase();
       const k = JSON.stringify([a.list.length, a.loading, connected, q]);
@@ -62,6 +63,12 @@ UI.tab({
           el('span', { class: 'app-name', text: x.name }),
         ]);
         b.onclick = () => api.launchApp(x.id);
+        // Revision 6: Pin to Start (a shortcut in Start › MacShare Apps), on hover or right-click.
+        const pin = el('span', { class: 'app-pin', title: 'Pin to Start', attrs: { role: 'button', tabindex: '0', 'aria-label': 'Pin ' + x.name + ' to Start' } }, [UI.icon('pin')]);
+        pin.onclick = (e) => { e.stopPropagation(); api.pinApp(x.id); };
+        pin.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); api.pinApp(x.id); } };
+        b.oncontextmenu = (e) => { e.preventDefault(); api.pinApp(x.id); };
+        b.append(pin);
         return b;
       }));
       status.hidden = items.length > 0;

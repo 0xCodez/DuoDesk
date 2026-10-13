@@ -20,6 +20,8 @@ class FileClip {
     this.incoming = null; // theirs: {id, items, files, bytes, at}
     this.pasting = null; // {id, files}
     this.error = '';
+    this.held = new Set(); // modifiers held while driving (intercept)
+    this.eaten = new Set(); // shortcut keys whose release isn't sent
 
     const link = this.link;
     link.on(T.FCLIP_OFFER, (m) => {
@@ -37,6 +39,12 @@ class FileClip {
       this.onChange();
     });
     link.on(T.FCLIP_PASTE, (m) => this._send(m.id));
+    // Revision 6: the other computer's keyboard pressed its copy/paste shortcut while the pointer
+    // is here (it drives this PC): do it here.
+    link.on(T.FCLIP_KEY, (m) => {
+      if (m.action === 'copy') this.copy();
+      else if (m.action === 'paste') this.paste();
+    });
     link.on('closed', () => {
       this.incoming = null;
       this.pasting = null;
@@ -77,6 +85,39 @@ class FileClip {
       if (bad.length) this.error = 'Couldn’t use ' + bad.join(' and ') + '. Another app may have it.';
     }
     this.onChange();
+  }
+
+  // While this PC drives the other computer its key events pass through here (kvm.js) before they
+  // are sent: our own copy/paste shortcut becomes `fclip.key`, so it happens where the pointer is.
+  // Modifiers still go over as keys; the shortcut's key and its release are used up. Returns true
+  // when the event was used up.
+  intercept(e) {
+    const MODS = { ControlLeft: 'Control', ControlRight: 'Control', AltLeft: 'Alt', AltRight: 'Alt', ShiftLeft: 'Shift', ShiftRight: 'Shift', MetaLeft: 'Super', MetaRight: 'Super' };
+    if (e.t !== T.K_KEY_DOWN && e.t !== T.K_KEY_UP) return false;
+    if (MODS[e.code]) {
+      if (e.t === T.K_KEY_DOWN) this.held.add(e.code);
+      else this.held.delete(e.code);
+      return false;
+    }
+    if (e.t === T.K_KEY_UP) return this.eaten.delete(e.code);
+    if (!this.cfg.shortcuts) return false;
+    const mods = [...new Set([...this.held].map((c) => MODS[c]))].sort().join('+');
+    const key = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : /^Digit\d$/.test(e.code) ? e.code.slice(5) : e.code;
+    const match = (acc) => {
+      const parts = String(acc || '').split('+');
+      return parts.pop() === key && parts.sort().join('+') === mods;
+    };
+    const action = match(this.cfg.copyKeys) ? 'copy' : match(this.cfg.pasteKeys) ? 'paste' : '';
+    if (!action) return false;
+    this.eaten.add(e.code);
+    this.link.send({ t: T.FCLIP_KEY, action });
+    return true;
+  }
+
+  // Capture ended: nothing is held any more.
+  resetKeys() {
+    this.held.clear();
+    this.eaten.clear();
   }
 
   async copy() {

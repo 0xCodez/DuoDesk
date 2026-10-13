@@ -11,10 +11,14 @@
   const views = new Map(); // id -> { def, page, navBtn, stateEl, master, render }
   let current = null;
 
-  let lastGroup = null;
+  // Sidebar groups (docs/UI.md "Sidebar", revision 6): no headings, one icon column, a small gap
+  // between groups; General sits below a line.
+  const GROUP = { overview: 0, 'mac-pc': 1, 'pc-mac': 1, cursor: 2, keyboard: 2, clipboard: 3, notifications: 3, files: 3, terminal: 4, audio: 4, apps: 4 };
+  let lastGroup;
   for (const def of UI.tabs.slice().sort((a, b) => (a.order ?? 50) - (b.order ?? 50))) {
-    if (def.group && def.group !== lastGroup) nav.append(el('li', { class: 'group', text: def.group, attrs: { role: 'presentation' } }));
-    lastGroup = def.group || null;
+    const group = GROUP[def.id];
+    if (!def.bottom && lastGroup !== undefined && group !== lastGroup) nav.append(el('li', { class: 'gap', attrs: { role: 'presentation' } }));
+    lastGroup = group;
     if (def.bottom) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } }));
     const stateEl = el('span', { class: 'state' });
     const navLabel = el('span', { class: 'label', text: def.title });
@@ -25,7 +29,6 @@
       navLabel,
       stateEl,
     ]);
-    if (def.group) navBtn.classList.add('grouped');
     navBtn.onclick = () => show(def.id, true);
     nav.append(el('li', {}, [navBtn]));
 

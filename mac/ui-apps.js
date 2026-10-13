@@ -4,6 +4,7 @@
 
 UI.tab({
   id: 'apps',
+  group: 'More',
   order: 80,
   title: 'Apps',
   mixedOnly: true,
@@ -41,6 +42,11 @@ UI.tab({
           el('span', { class: 'app-state', text: open.has(a.id) ? 'Open' : st === '' ? 'Opening…' : st && st !== 'ok' ? 'Failed' : '' }),
         ]);
         b.onclick = () => api.openPcApp(a.id);
+        // Pin: keep it in the Dock (and Launchpad), like a Mac app.
+        const pin = el('span', { class: 'app-pin', title: `Add ${a.name} to the Dock`, attrs: { role: 'button', 'aria-label': `Add ${a.name} to the Dock` } }, [UI.icon('pin')]);
+        pin.onclick = (e) => { e.stopPropagation(); api.keepPcAppInDock(a.id); };
+        b.append(pin);
+        b.oncontextmenu = (e) => { e.preventDefault(); api.keepPcAppInDock(a.id); };
         return b;
       }));
       if (!apps.length) grid.append(el('div', { class: 'app-empty', text: p.listing ? 'Loading the PC’s apps…' : q ? 'No app matches' : 'No apps yet. Press Refresh.' }));
@@ -60,7 +66,7 @@ UI.tab({
       if (!a) return;
       offerSw.set(a.offer);
       offerRow.setHint(!a.offer ? ''
-        : !s.sharing || !s.sharing.on ? 'Needs screen sharing on'
+        : !s.sharing || !s.sharing.on ? 'Screen sharing turns on while an app is open'
           : !s.permissions.accessibility ? 'Needs Accessibility (General)' : '');
       const p = s.papps;
       if (p) {

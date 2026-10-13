@@ -55,6 +55,18 @@ final class Stub: NSObject, NSApplicationDelegate {
   }
 }
 
+// Opened on its own (Dock, Launchpad, Spotlight; not started by MacShare): ask MacShare to open
+// this PC app, then leave. MacShare starts its own copy of this stub as the Dock icon.
+if ProcessInfo.processInfo.environment["MACSHARE_DOCKSTUB"] != "1" {
+  let id = (Bundle.main.object(forInfoDictionaryKey: "MacSharePcAppId") as? String) ?? ""
+  var allowed = CharacterSet.alphanumerics
+  allowed.insert(charactersIn: "-._~")
+  if let enc = id.addingPercentEncoding(withAllowedCharacters: allowed), let url = URL(string: "macshare://pc-app/\(enc)") {
+    NSWorkspace.shared.open(url)
+  }
+  exit(0)
+}
+
 let stub = Stub()
 let app = NSApplication.shared
 app.delegate = stub

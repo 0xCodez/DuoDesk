@@ -130,7 +130,9 @@ function setupIpc(ctx) {
       settings.ui.setupSkipped = String(missing || '').slice(0, 200);
       save();
     },
-    setSharing(on) {
+    // by: 'apps' when Mac apps on the PC turned it on/off by themselves; a person's switch ends that.
+    setSharing(on, by) {
+      if (by !== 'apps' && ctx.apps) ctx.apps.autoShare = false;
       settings.sharing.on = !!on;
       save();
       if (on) ctx.displays.applyVirtual().then(() => ctx.stream.restart('sharing on'));
@@ -277,6 +279,9 @@ function setupIpc(ctx) {
     },
     openPcApp(id) {
       ctx.pcApps.open(String(id));
+    },
+    keepPcAppInDock(id) {
+      ctx.pcApps.keepInDock(String(id));
     },
     showPcView() {
       ctx.pcView.show();

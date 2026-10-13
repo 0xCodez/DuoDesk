@@ -133,8 +133,7 @@ select { padding: 3px 24px 3px 8px; border-radius: 6px; border: 1px solid var(--
 .banner-actions { display: flex; gap: 8px; }
 
 /* ---------- Windows additions ---------- */
-#nav li.group { font-size: 11px; font-weight: 600; color: var(--muted); padding: 10px 8px 3px; }
-.nav-item.grouped { padding-left: 14px; }
+#nav li.gap { height: 10px; }
 .nav-item .state.warn::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 input[type="text"] { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--control-line); background: var(--control); box-shadow: var(--shadow); min-width: 190px; user-select: text; }
 input[type="text"]:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }

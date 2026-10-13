@@ -3,7 +3,11 @@
 // for the Apps tab, and the per-app windows. Those windows are opened by the Monitor 2 renderer
 // (window.open, so they can show the same video stream, cropped); here they get the app's title,
 // icon and their own AppUserModelID, so each Mac app has its own taskbar button.
-const { app, nativeImage, screen: displays } = require('electron');
+// Revision 6: each Mac app gets a Start menu shortcut (folder "MacShare Apps") that starts
+// `MacShare.exe --mac-app=<id>`, and its windows carry the same AppUserModelID and relaunch
+// command, so Pin to Start / Pin to taskbar work. Its windows never go full screen or past 1:1.
+const { app, BrowserWindow, nativeImage, shell, screen: displays } = require('electron');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const P = require('../shared/protocol.js');
@@ -11,9 +15,10 @@ const P = require('../shared/protocol.js');
 const T = P.T;
 
 class Apps {
-  // opts: link, getMonitor() → BrowserWindow|null, onChange()
+  // opts: link, getMonitor() → BrowserWindow|null, popup(kind, text), peerName(), onChange()
   constructor(opts) {
     Object.assign(this, opts);
+    this.opening = new Map(); // id → placeholder window: the app's taskbar button until its first window
     this.list = [];       // [{id, name, icon}] from apps.result
     this.windows = [];    // last app.windows list
     this.picture = null;  // {width, height}: stream pixel size from app.windows pw/ph
@@ -31,6 +36,7 @@ class Apps {
     this.link.on(T.APP_LAUNCHED, (m) => {
       const a = this.list.find((x) => x.id === m.id);
       this.message = m.ok ? '' : 'Couldn’t open ' + (a ? a.name : m.id) + (m.why ? ': ' + m.why : '');
+      if (!m.ok) this._opened(m.id);
       this.onChange();
     });
     this.link.on(T.APP_WINDOWS, (m) => {
@@ -38,7 +44,11 @@ class Apps {
       if (m.pw > 0 && m.ph > 0) this.picture = { width: Number(m.pw), height: Number(m.ph) };
       this._toMonitor();
     });
-    this.link.on('closed', () => { this.windows = []; this._toMonitor(); });
+    this.link.on('closed', () => {
+      this.windows = [];
+      this._toMonitor();
+      for (const id of [...this.opening.keys()]) this._opened(id);
+    });
   }
 
   refresh() {
@@ -48,8 +58,108 @@ class Apps {
   launch(id) {
     if (typeof id !== 'string') return;
     this.message = '';
-    this.link.send({ t: T.APP_LAUNCH, id });
+    if (!this.link.send({ t: T.APP_LAUNCH, id })) return;
+    const a = this.list.find((x) => x.id === id);
+    const name = a ? a.name : this._shortcutName(id) || 'the app';
+    this.popup('away', 'Opening ' + name + ' on ' + this.peerName() + '…');
+    if (!this.windows.some((w) => w.id === id)) this._placeholder(id, name, a);
     this.onChange();
+  }
+
+  // Revision 6: the app's taskbar button right away, busy until its first window arrives.
+  _placeholder(id, name, a) {
+    if (this.opening.has(id)) return;
+    const win = new BrowserWindow({
+      width: 320, height: 120, show: false, title: 'Opening ' + name + '…', fullscreenable: false, backgroundColor: '#1e1e1f',
+      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    });
+    win.setMenu(null);
+    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<body style="margin:0;font:13px Segoe UI,sans-serif;color:#aaa;background:#1e1e1f;display:grid;place-items:center;height:100vh">Opening ' + name.replace(/[<&]/g, '') + '…</body>'));
+    this._details(win, id, a);
+    win.setProgressBar(2, { mode: 'indeterminate' });
+    win.minimize(); // only its taskbar button shows
+    win.on('closed', () => { if (this.opening.get(id) === win) this.opening.delete(id); });
+    this.opening.set(id, win);
+    setTimeout(() => this._opened(id), 30000);
+  }
+
+  _opened(id) {
+    const win = this.opening.get(id);
+    this.opening.delete(id);
+    if (win && !win.isDestroyed()) win.destroy();
+  }
+
+  // ---- pinning (revision 6) ----
+
+  static aumid(id) {
+    return 'org.macshare.macapp.' + crypto.createHash('sha1').update(id).digest('hex').slice(0, 10);
+  }
+
+  // How this copy of MacShare opens one Mac app: "MacShare.exe --mac-app=<id>".
+  static relaunch(id) {
+    const args = (app.isPackaged ? [] : [app.getAppPath()]).concat('--mac-app=' + id);
+    return { target: process.execPath, args: args.map((x) => (/\s/.test(x) ? '"' + x + '"' : x)).join(' ') };
+  }
+
+  get startDir() {
+    return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'MacShare Apps');
+  }
+
+  _lnk(name) {
+    const safe = String(name).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '').slice(0, 100) || 'Mac app';
+    return path.join(this.startDir, safe + '.lnk');
+  }
+
+  // The name of a Mac app we made a shortcut for earlier (the list isn't loaded yet at start).
+  _shortcutName(id) {
+    try {
+      for (const f of fs.readdirSync(this.startDir)) {
+        const l = shell.readShortcutLink(path.join(this.startDir, f));
+        if (String(l.args).endsWith('--mac-app=' + id)) return f.replace(/\.lnk$/i, '');
+      }
+    } catch (_) { /* none yet */ }
+    return '';
+  }
+
+  // Start menu shortcut for one Mac app (made on its first open, and by Apps tab › Pin to Start).
+  pin(id, tell) {
+    const a = this.list.find((x) => x.id === id);
+    if (!a) return false;
+    const img = a.icon ? nativeImage.createFromDataURL(a.icon) : null;
+    const ico = img && !img.isEmpty() ? this._ico(a.id, img) : '';
+    const r = Apps.relaunch(id);
+    const file = this._lnk(a.name);
+    try {
+      fs.mkdirSync(this.startDir, { recursive: true });
+      const ok = shell.writeShortcutLink(file, fs.existsSync(file) ? 'replace' : 'create', {
+        target: r.target, args: r.args, description: a.name + ' on your Mac (MacShare)', appUserModelId: Apps.aumid(id),
+        ...(ico ? { icon: ico, iconIndex: 0 } : {}),
+      });
+      if (!ok) throw new Error('Windows refused the shortcut');
+    } catch (e) {
+      this.message = 'Couldn’t add ' + a.name + ' to Start: ' + e.message;
+      this.onChange();
+      return false;
+    }
+    if (tell) {
+      this.message = a.name + ' is in Start › MacShare Apps. Right-click it there to pin it to Start or the taskbar.';
+      this.onChange();
+    }
+    return true;
+  }
+
+  // Taskbar identity of every window of one Mac app: grouped as that app with its icon, and Pin to
+  // taskbar relaunches it.
+  _details(win, id, a) {
+    const img = a && a.icon ? nativeImage.createFromDataURL(a.icon) : null;
+    if (img && !img.isEmpty()) win.setIcon(img);
+    if (!win.setAppDetails) return;
+    const ico = img && !img.isEmpty() ? this._ico(id, img) : '';
+    const r = Apps.relaunch(id);
+    win.setAppDetails({
+      appId: Apps.aumid(id), ...(ico ? { appIconPath: ico, appIconIndex: 0 } : {}),
+      relaunchCommand: '"' + r.target + '" ' + r.args, relaunchDisplayName: a ? a.name : 'Mac app',
+    });
   }
 
   // The Monitor 2 renderer (re)loaded: give it the current windows.
@@ -68,6 +178,7 @@ class Apps {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
+          fullscreenable: false,
           backgroundColor: '#000000',
           autoHideMenuBar: true,
           show: true,
@@ -97,17 +208,25 @@ class Apps {
     const grow = Math.max(1, 200 / width, 120 / height); // tiny windows grow, keeping their shape
     width = Math.round(width * grow);
     height = Math.round(height * grow);
-    win.setContentSize(width, height);
+    // Revision 6: never bigger than 1:1 (the stretched picture looked bad) nor than this monitor's
+    // work area; no full screen; maximize = the largest allowed size, centred.
+    const work = displays.getDisplayMatching(win.getBounds()).workArea;
+    const fit = Math.min(1, work.width / width, (work.height - 40) / height);
+    const max = { width: Math.floor(width * fit), height: Math.floor(height * fit) };
+    win.setFullScreenable(false);
+    win.setContentSize(max.width, max.height);
     win.setAspectRatio(width / height);
-    if (a && a.icon) {
-      const img = nativeImage.createFromDataURL(a.icon);
-      if (!img.isEmpty()) {
-        win.setIcon(img);
-        const ico = this._ico(a.id, img);
-        // Own AppUserModelID → own taskbar button, with the Mac app's icon.
-        if (ico && win.setAppDetails) win.setAppDetails({ appId: 'MacShare.MacApp.' + a.id, appIconPath: ico, appIconIndex: 0, relaunchDisplayName: a.name });
-      }
-    }
+    const [ow, oh] = win.getSize(), [cw, ch] = win.getContentSize();
+    const maxW = max.width + ow - cw, maxH = max.height + oh - ch;
+    win.setMaximumSize(maxW, maxH);
+    win.on('maximize', () => {
+      win.unmaximize();
+      win.setBounds({ x: Math.round(work.x + (work.width - maxW) / 2), y: Math.round(work.y + (work.height - maxH) / 2), width: maxW, height: maxH });
+    });
+    // Own AppUserModelID → own taskbar button with the Mac app's icon; Pin to taskbar relaunches it.
+    this._details(win, w.id, a);
+    if (a) this.pin(a.id, false); // first open: its Start menu shortcut
+    this._opened(w.id);
   }
 
   // A .ico that embeds the PNG (supported since Windows Vista), cached per app.

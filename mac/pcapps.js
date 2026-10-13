@@ -12,7 +12,7 @@ const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { attachKeys } = require('./viewer-keys');
-const { DockStub } = require('./dockstub');
+const { DockStub, addToDock } = require('./dockstub');
 
 const T = P.T;
 const POINTER = new Set([T.IN_MOVE, T.IN_DOWN, T.IN_UP, T.IN_WHEEL]);
@@ -27,11 +27,15 @@ class PcApps extends EventEmitter {
     this.wins = new Map(); // wid -> {info, win, session, ready, queue, keys, closing, focusedAt}
     this.stubs = new Map(); // app id -> DockStub
 
+    this.pendingLink = null; // {id, at}: a kept Dock icon was clicked before the PC was connected
     server.on('client', () => {
       this.apps = [];
       this.launch = {};
       this._policy();
       if (this.cfg.on) this.list();
+      const p = this.pendingLink;
+      this.pendingLink = null;
+      if (p && Date.now() - p.at < 120000) setTimeout(() => this.open(p.id), 500);
     });
     server.on('closed', () => {
       if (server.current) return;
@@ -96,6 +100,8 @@ class PcApps extends EventEmitter {
 
   open(id) {
     if (!this.server.current || !this.cfg.on) return;
+    const name = this._appName(String(id)) || 'the app';
+    this.emit('popup', 'away', `Opening ${name} on ${this.server.current.name}…`);
     this.launch[String(id)] = '';
     this.server.sendToClient({ t: T.PAPP_LAUNCH, id: String(id) });
     this.emit('change');
@@ -114,6 +120,8 @@ class PcApps extends EventEmitter {
         wid: Number(raw.wid), id: String(raw.id == null ? '' : raw.id), title: String(raw.title || '').slice(0, 300),
         w: Math.max(80, Number(raw.w) || 800), h: Math.max(60, Number(raw.h) || 600), scale: Math.min(4, Math.max(1, Number(raw.scale) || 1)),
         popup: raw.popup === true, owner: Number(raw.owner), x: Number(raw.x) || 0, y: Number(raw.y) || 0,
+        // Revision 6: the PC screen's work area (physical px) — windows here never grow past it.
+        maxW: Number(raw.maxW) > 0 ? Number(raw.maxW) : 0, maxH: Number(raw.maxH) > 0 ? Number(raw.maxH) : 0,
       };
       if (info.popup) {
         // A menu / drop-down: needs its owner's window here (listed before it).
@@ -195,6 +203,7 @@ class PcApps extends EventEmitter {
       height,
       useContentSize: true,
       backgroundColor: '#000000',
+      fullscreenable: false, // full screen stretched the picture; zoom resizes the PC window instead
       webPreferences: {
         preload: path.join(__dirname, 'preload-pcview.js'),
         contextIsolation: true,
@@ -204,6 +213,7 @@ class PcApps extends EventEmitter {
       },
     });
     const w = { info, win, session: null, ready: false, queue: [], closing: false, focusedAt: Date.now(), sizedAt: 0 };
+    this._limit(w);
     w.keys = attachKeys(win, {
       send: (m) => this.server.current && this.server.sendToClient({ ...m, wid: w.info.wid }),
       enabled: () => !!(w.session !== null && this.server.current),
@@ -239,6 +249,16 @@ class PcApps extends EventEmitter {
     win.loadFile(path.join(__dirname, 'pcview.html'));
   }
 
+  // Never bigger than the PC's screen (1:1 pixels, nothing upscaled) nor this Mac's work area.
+  _limit(w) {
+    const wa = screen.getDisplayMatching(w.win.getBounds()).workArea;
+    const s = w.info.scale;
+    const mw = Math.min(wa.width, w.info.maxW ? Math.floor(w.info.maxW / s) : wa.width);
+    const mh = Math.min(wa.height, w.info.maxH ? Math.floor(w.info.maxH / s) : wa.height);
+    const bar = w.win.getSize()[1] - w.win.getContentSize()[1]; // title bar: the limit is for the content
+    w.win.setMaximumSize(Math.max(200, mw), Math.max(150, mh + bar));
+  }
+
   _title(info) {
     const app = this._appName(info.id);
     return info.title && app && !info.title.includes(app) ? `${info.title} · ${app}` : info.title || app || 'PC app';
@@ -253,6 +273,7 @@ class PcApps extends EventEmitter {
       return;
     }
     w.win.setTitle(this._title(info));
+    if (old.maxW !== info.maxW || old.maxH !== info.maxH || old.scale !== info.scale) this._limit(w);
     // Resized on the PC (not by us a moment ago): follow it.
     if ((old.w !== info.w || old.h !== info.h) && Date.now() - w.sizedAt > 1500) {
       w.win.setContentSize(Math.round(info.w / info.scale), Math.round(info.h / info.scale));
@@ -318,6 +339,21 @@ class PcApps extends EventEmitter {
       pick.win.show();
       pick.win.focus();
     }
+  }
+
+  // macshare://pc-app/<id> (a kept Dock icon, Launchpad, Spotlight): open it now or once connected.
+  openFromLink(id) {
+    if (this.server.current && this.cfg.on) return this.open(id);
+    this.pendingLink = { id, at: Date.now() };
+    this.emit('popup', 'driven', 'Opening it when your PC connects…');
+  }
+
+  // Apps tab: put a PC app in the Dock (and in ~/Applications/MacShare Apps for Launchpad).
+  async keepInDock(id) {
+    const a = this.apps.find((x) => x.id === id);
+    if (!a) return;
+    const ok = await addToDock(a);
+    this.emit('popup', ok ? 'home' : 'driven', ok ? `${a.name} is in the Dock` : `Couldn’t add ${a.name} to the Dock`);
   }
 
   // Is one of the PC app windows focused? (kvm.js doesn't cross the edge while it is.)

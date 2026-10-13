@@ -48,7 +48,10 @@ async function main() {
   copy(path.join(ROOT, 'shared', 'protocol.js'), path.join(STAGE, 'shared', 'protocol.js'));
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
-  for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md']) copy(path.join(ROOT, f), path.join(STAGE, f));
+  for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md']) {
+    const src = fs.existsSync(path.join(ROOT, f)) ? path.join(ROOT, f) : path.join(ROOT, 'md', f);
+    if (fs.existsSync(src)) copy(src, path.join(STAGE, f));
+  }
   copyDeps(Object.keys(pkg.dependencies || {}));
   fs.writeFileSync(path.join(STAGE, 'package.json'), JSON.stringify({
     name: pkg.name, productName: pkg.productName, version: pkg.version, description: pkg.description,

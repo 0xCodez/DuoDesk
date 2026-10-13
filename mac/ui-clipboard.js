@@ -4,6 +4,7 @@
 
 UI.tab({
   id: 'clipboard',
+  group: 'Share',
   order: 40,
   title: 'Clipboard',
   desc: 'Copy on one computer, paste on the other.',

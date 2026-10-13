@@ -4,6 +4,7 @@
 
 UI.tab({
   id: 'files',
+  group: 'Share',
   order: 50,
   title: 'Files',
   desc: 'Drag files between your computers, or share a folder.',

@@ -88,6 +88,22 @@ const state = {
   connect: { busy: false, message: '', error: false },
 };
 
+// macshare://pc-app/<id> from a PC app's Dock icon / Launchpad entry (revision 6). It can arrive
+// before the services exist, so it waits in `linkQueue`.
+let linkQueue = [];
+function handleLink(url) {
+  if (!svc) return linkQueue.push(url);
+  const m = /^macshare:\/\/pc-app\/(.+)$/.exec(String(url));
+  if (!m) return;
+  const id = decodeURIComponent(m[1]).slice(0, 1024);
+  if (!settings.papps.on) actions.setPcApps({ on: true });
+  svc.pcApps.openFromLink(id);
+}
+app.on('open-url', (e, url) => {
+  e.preventDefault();
+  handleLink(url);
+});
+
 let pushQueued = false;
 function pushState() {
   if (pushQueued) return;
@@ -318,6 +334,7 @@ app.whenReady().then(() => {
   svc = startServices({ server: peer, getSettings: () => settings, pushState, onHelperReady: refreshPermissions });
   if (settings.app.openAtLogin !== login.isOn()) login.apply(settings.app.openAtLogin);
 
+  svc.apps.setSharing = (on, by) => actions.setSharing(on, by);
   actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions });
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
   hud = new Hud(() => settings);
@@ -328,6 +345,9 @@ app.whenReady().then(() => {
     else hud.show('home', 'Back on this Mac');
   });
   svc.fileClip.on('popup', (kind, text) => hud.show(kind, text));
+  svc.pcApps.on('popup', (kind, text) => hud.show(kind, text));
+  if (app.isPackaged) app.setAsDefaultProtocolClient('macshare');
+  for (const url of linkQueue.splice(0)) handleLink(url);
   // The hotkey's double-tap: the big card "Cursor sharing on/off" (also when the other side switched it).
   svc.kvm.on('linked', (on, here) => {
     const name = peer.current ? peer.current.name : '';

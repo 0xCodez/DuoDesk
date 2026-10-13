@@ -1,7 +1,9 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Phase 13: one Dock icon per PC app. A tiny generated bundle (`userData/PC Apps/<name>.app`: the
-// app's name, a per-app bundle id, its icon; mac-helper's macshare-dockstub as the executable,
+// Phase 13: one Dock icon per PC app. A tiny generated bundle (`~/Applications/MacShare Apps/<name>.app`:
+// the app's name, a per-app bundle id, its icon; mac-helper's macshare-dockstub as the executable,
 // ad-hoc signed) runs while that app has windows here. Its events: activate / focus <i> / quit.
+// Revision 6: it lives in ~/Applications so it shows in Launchpad and Spotlight and can be kept in
+// the Dock; opened on its own it asks MacShare (macshare://pc-app/<id>) to open the PC app.
 'use strict';
 
 const fs = require('fs');
@@ -13,6 +15,7 @@ const { app } = require('electron');
 const STUB = path.join(__dirname, '..', 'mac-helper', '.build', 'release', 'macshare-dockstub');
 
 const run = (cmd, args) => new Promise((resolve) => execFile(cmd, args, (err) => resolve(!err)));
+const APPS_DIR = path.join(require('os').homedir(), 'Applications', 'MacShare Apps');
 const xml = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Builds (or reuses) the bundle for one PC app; returns the executable path, or null.
@@ -20,14 +23,18 @@ async function bundle({ id, name, icon }) {
   if (!fs.existsSync(STUB)) return null;
   const hash = crypto.createHash('sha1').update(String(id)).digest('hex').slice(0, 10);
   const safe = String(name || 'PC app').replace(/[/:\\]/g, '-').slice(0, 60);
-  const dir = path.join(app.getPath('userData'), 'PC Apps', `${safe} ${hash.slice(0, 4)}.app`);
+  let dir = path.join(APPS_DIR, `${safe}.app`);
+  try { // two PC apps with one name: the second gets a short suffix
+    const plist = fs.readFileSync(path.join(dir, 'Contents', 'Info.plist'), 'utf8');
+    if (!plist.includes(`<string>${xml(id)}</string>`)) dir = path.join(APPS_DIR, `${safe} ${hash.slice(0, 4)}.app`);
+  } catch { /* new */ }
   const exe = path.join(dir, 'Contents', 'MacOS', 'dockstub');
-  const stamp = crypto.createHash('sha1').update([name, icon || '', fs.statSync(STUB).mtimeMs].join('|')).digest('hex');
+  const stamp = crypto.createHash('sha1').update([id, name, icon || '', fs.statSync(STUB).mtimeMs, 'r6'].join('|')).digest('hex');
   const stampFile = path.join(dir, 'Contents', 'macshare-stamp');
   try {
     if (fs.readFileSync(stampFile, 'utf8') === stamp) return exe;
   } catch {}
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(path.join(dir, 'Contents'), { recursive: true, force: true }); // keep the .app folder: the Dock points at it
   const res = path.join(dir, 'Contents', 'Resources');
   fs.mkdirSync(path.dirname(exe), { recursive: true });
   fs.mkdirSync(res, { recursive: true });
@@ -50,6 +57,7 @@ async function bundle({ id, name, icon }) {
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>MacSharePcAppId</key><string>${xml(id)}</string>
 <key>NSHighResolutionCapable</key><true/>
 ${iconKey}
 </dict></plist>
@@ -68,7 +76,7 @@ class DockStub {
     this.titles = [];
     bundle(appInfo).then((exe) => {
       if (!exe || this.gone) return;
-      this.proc = spawn(exe, [], { stdio: ['pipe', 'pipe', 'ignore'] });
+      this.proc = spawn(exe, [], { stdio: ['pipe', 'pipe', 'ignore'], env: { ...process.env, MACSHARE_DOCKSTUB: '1' } });
       this.proc.on('error', () => {});
       this.proc.on('exit', () => { this.proc = null; });
       let buf = '';
@@ -97,4 +105,16 @@ class DockStub {
   }
 }
 
-module.exports = { DockStub };
+// Revision 6: keep a PC app in the Dock before it ever ran (Apps tab › Add to Dock).
+async function addToDock(appInfo) {
+  const exe = await bundle(appInfo);
+  if (!exe) return false;
+  const dir = exe.replace(/\/Contents\/MacOS\/dockstub$/, '');
+  const url = `file://${encodeURI(dir)}/`;
+  const tile = `<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>${xml(url)}</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>`;
+  const ok = await run('/usr/bin/defaults', ['write', 'com.apple.dock', 'persistent-apps', '-array-add', tile]);
+  if (ok) await run('/usr/bin/killall', ['Dock']);
+  return ok;
+}
+
+module.exports = { DockStub, bundle, addToDock };

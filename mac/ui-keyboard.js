@@ -5,6 +5,7 @@
 
 UI.tab({
   id: 'keyboard',
+  group: 'Input',
   order: 30,
   title: 'Keyboard',
   desc: 'Type on whichever computer the pointer is on.',

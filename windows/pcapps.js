@@ -5,7 +5,7 @@
 // apps" is on — menus, drop-downs and other pop-ups too, as `popup` entries with their `owner` and
 // offset, so the Mac draws them over the right window. The Mac's input in such a window (`in.*` +
 // `wid`) is injected at that window.
-const { desktopCapturer } = require('electron');
+const { desktopCapturer, screen: displays } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const P = require('../shared/protocol.js');
@@ -221,7 +221,7 @@ class PcApps {
       for (const w of main) {
         taken.add(w.wid);
         a.pids.add(w.pid);
-        out.push({ wid: w.wid, id: a.id, title: w.title, w: w.w, h: w.h, scale: w.scale });
+        out.push({ wid: w.wid, id: a.id, title: w.title, w: w.w, h: w.h, scale: w.scale, ...workArea(w) });
       }
       // Pop-ups: over their owner if it's one of these windows; menus have no owner, so the window
       // of the same process that was raised last, else the one under the pop-up, else the first.
@@ -291,6 +291,15 @@ class PcApps {
   view() {
     return { allow: this.allowed, macAccepts: this.macAccepts, open: this.windows.length, streaming: this.streams.size, message: this.message };
   }
+}
+
+// Revision 6: the work area of the monitor a window is on, in physical px (the Mac never lets its
+// copy of the window grow past it).
+function workArea(w) {
+  try {
+    const d = displays.getDisplayMatching(displays.screenToDipRect(null, { x: w.x, y: w.y, width: Math.max(1, w.w), height: Math.max(1, w.h) }));
+    return { maxW: Math.round(d.workArea.width * d.scaleFactor), maxH: Math.round(d.workArea.height * d.scaleFactor) };
+  } catch (_) { return {}; }
 }
 
 module.exports = PcApps;

@@ -49,7 +49,8 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the Mac
   app.setAppUserModelId(AUMID); // toasts need it (revision 5); the installer's shortcut carries the same id
-  app.on('second-instance', () => showMain());
+  // A pinned Mac app (revision 6) starts "MacShare.exe --mac-app=<id>": open it, else show the window.
+  app.on('second-instance', (_e, argv) => { if (!openMacAppArg(argv)) showMain(); });
   app.whenReady().then(start);
 }
 
@@ -81,7 +82,9 @@ let sshd = null;
 let kvm = null;
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check (phase 6)
-const startHidden = process.argv.includes('--hidden'); // started at sign-in: tray only
+// Started at sign-in (tray only), or by a pinned Mac app's shortcut (that app only).
+const startHidden = process.argv.includes('--hidden') || process.argv.some((a) => a.startsWith('--mac-app='));
+let pendingMacApp = null; // {id, until}: opened once the Mac connects (2 min)
 let lastPairPhase = null;
 
 function loadDevice() {
@@ -137,7 +140,7 @@ function start() {
   sshd = new Sshd({ link, settings, save: saveSettings, onChange: pushState });
   fileDrop = new FileDrop({ link, settings, onProgress: (v) => { screen.sendDropProgress(v); pushState(); } });
   screen.fileDrop = fileDrop;
-  apps = new Apps({ link, getMonitor: () => screen.win, onChange: pushState });
+  apps = new Apps({ link, getMonitor: () => screen.win, popup: (kind, text) => hud && hud.show(kind, text), peerName, onChange: pushState });
   screen.apps = apps;
   sound = new Sound({ link, settings, onChange: pushState });
   smb = new Smb({ link, settings, save: saveSettings, onChange: pushState });
@@ -165,6 +168,7 @@ function start() {
   // revision 5: notifications both ways, Send files, copy/paste files with shortcuts
   notifs = new Notifs({ link, helper, settings, save: saveSettings, selfIds: [AUMID, 'org.macshare.windows'], peerName, onChange: pushState });
   fileClip = new FileClip({ link, helper, fileDrop, fileRecv, settings, peerName, popup: (kind, text) => hud.show(kind, text), onChange: pushState });
+  kvm.fileClip = fileClip; // revision 6: our copy/paste shortcut while driving → fclip.key
   fileRecv.onBatch = (b) => {
     if (b.kind === 'paste') fileClip.pasted(b);
     else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
@@ -180,8 +184,13 @@ function start() {
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
   link.start();
 
+  link.on('welcome', () => { // a pinned Mac app started while the Mac wasn't connected
+    if (pendingMacApp && Date.now() < pendingMacApp.until) openMacApp(pendingMacApp.id);
+    pendingMacApp = null;
+  });
   createTray();
   createMainWindow();
+  openMacAppArg(process.argv);
   setTimeout(checkFirewall, 3000);
   if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
 }
@@ -200,6 +209,26 @@ async function startHost(guest) {
     console.error('[host]', e.message);
     link.host = { on: false, error: 'No certificate: ' + e.message };
     pushState();
+  }
+}
+
+// ---- pinned Mac apps (revision 6) ----
+
+function openMacAppArg(argv) {
+  const arg = (argv || []).find((a) => typeof a === 'string' && a.startsWith('--mac-app='));
+  if (!arg) return false;
+  const id = arg.slice('--mac-app='.length).slice(0, 1024);
+  if (id) openMacApp(id);
+  return true;
+}
+
+function openMacApp(id) {
+  if (link.snapshot().link.state === 'connected' && link.peerOs === P.OS.MAC) {
+    apps.launch(id);
+    screen.ensureHidden(); // the app windows come from the Mac's screen stream
+  } else {
+    pendingMacApp = { id, until: Date.now() + 2 * 60 * 1000 };
+    if (hud) hud.show('home', 'Opening it when your Mac connects…');
   }
 }
 

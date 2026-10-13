@@ -57,6 +57,11 @@ class FileClip extends EventEmitter {
       this.emit('change');
     });
     server.on(`t:${T.FCLIP_PASTE}`, (m) => this._send(m.id));
+    // The other computer's keyboard pressed its copy/paste shortcut while the pointer is here.
+    server.on(`t:${T.FCLIP_KEY}`, (m) => {
+      if (m.action === 'copy') this.copy();
+      else if (m.action === 'paste') this.paste();
+    });
     server.on('closed', () => {
       if (server.current) return;
       this.incoming = null;
@@ -96,6 +101,34 @@ class FileClip extends EventEmitter {
       if (bad.length) this.error = `Couldn’t use ${bad.join(' and ')}. Another app may have it.`;
     }
     this.emit('change');
+  }
+
+  // While this Mac drives the other computer, its key events go through here (kvm.js) before they
+  // are sent: our own copy/paste shortcut becomes `fclip.key`, so it happens where the pointer is.
+  // Returns true when the event was used up.
+  intercept(e) {
+    const MODS = { ControlLeft: 'Control', ControlRight: 'Control', AltLeft: 'Alt', AltRight: 'Alt', ShiftLeft: 'Shift', ShiftRight: 'Shift', MetaLeft: 'Command', MetaRight: 'Command' };
+    if (!this.held) this.held = new Set();
+    if (!this.eaten) this.eaten = new Set();
+    if (e.t !== T.K_KEY_DOWN && e.t !== T.K_KEY_UP) return false;
+    if (MODS[e.code]) {
+      if (e.t === T.K_KEY_DOWN) this.held.add(e.code);
+      else this.held.delete(e.code);
+      return false;
+    }
+    if (e.t === T.K_KEY_UP) return this.eaten.delete(e.code);
+    if (this.cfg.shortcuts === false) return false;
+    const mods = [...new Set([...this.held].map((c) => MODS[c]))].sort().join('+');
+    const key = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3) : /^Digit\d$/.test(e.code) ? e.code.slice(5) : e.code;
+    const match = (acc) => {
+      const parts = String(acc || '').split('+');
+      return parts.pop() === key && parts.sort().join('+') === mods;
+    };
+    const action = match(this.cfg.copyKeys) ? 'copy' : match(this.cfg.pasteKeys) ? 'paste' : '';
+    if (!action) return false;
+    this.eaten.add(e.code);
+    this.server.sendToClient({ t: T.FCLIP_KEY, action });
+    return true;
   }
 
   async copy() {

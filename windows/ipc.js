@@ -110,6 +110,7 @@ function setupIpc(ctx) {
   handle('cancelDrop', () => fileDrop.cancel());
   handle('listApps', () => apps.refresh());
   handle('launchApp', (id) => { apps.launch(id); screen.ensureHidden(); });
+  handle('pinApp', (id) => typeof id === 'string' && apps.pin(id, true)); // revision 6: Pin to Start
   handle('setPcScreen', (partial) => {
     const size = settings.pcScreen.extendSize;
     change('pcScreen', partial, () => { pcScreen.applyInput(); if (!settings.pcScreen.input) pcApps.input.release(); if (settings.pcScreen.extendSize !== size) pcScreen.sizeExtend(); else pcScreen.apply(); });

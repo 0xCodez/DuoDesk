@@ -44,6 +44,7 @@ cat > dist/extra.plist <<'EOF'
   <key>NSMicrophoneUsageDescription</key><string>MacShare sends sound between your Mac and your PC.</string>
   <key>NSAudioCaptureUsageDescription</key><string>MacShare sends your Mac's sound to your PC.</string>
   <key>NSCameraUsageDescription</key><string>MacShare does not use the camera.</string>
+  <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>MacShare</string><key>CFBundleURLSchemes</key><array><string>macshare</string></array></dict></array>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHumanReadableCopyright</key><string>Copyright (C) 2026 MacShare contributors. GPL-3.0.</string>
 </dict></plist>

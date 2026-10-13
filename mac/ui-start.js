@@ -13,8 +13,9 @@
   let lastGroup = null;
   for (const def of UI.tabs.slice().sort((a, b) => (a.order ?? 50) - (b.order ?? 50))) {
     if (def.bottom) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } }));
-    if (def.group && def.group !== lastGroup) nav.append(el('li', { class: 'group', text: def.group, attrs: { role: 'presentation' } }));
-    lastGroup = def.group || null;
+    // Groups (System Settings style): a small gap before each, no heading, icons in one column.
+    if (def.group !== lastGroup && !def.bottom && nav.children.length) nav.append(el('li', { class: 'gap', attrs: { role: 'presentation' } }));
+    lastGroup = def.group;
     const stateEl = el('span', { class: 'state' });
     const tile = el('span', { class: 'tile' }, [UI.icon(def.icon || def.id)]);
     tile.style.background = def.color; // CSSOM, allowed by the CSP (inline style attributes aren't)
@@ -25,7 +26,6 @@
       label,
       stateEl,
     ]);
-    if (def.group) navBtn.classList.add('grouped');
     navBtn.onclick = () => show(def.id, true);
     nav.append(el('li', {}, [navBtn]));
 
