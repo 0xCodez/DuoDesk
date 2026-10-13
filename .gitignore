@@ -13,5 +13,6 @@ mac/dev/.probe.json
 mac/dist/
 # Windows installer output
 windows/dist/
-# Markdown documentation and notes
-.md/
+# Linux helper build output
+linux-helper/bin/
+linux/dist/

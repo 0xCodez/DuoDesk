@@ -34,7 +34,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   // Stream input only when "Receive input" is on and shared input is home (docs/KVM.md).
   const input = new Input(server, helper, displays, {
     enabled: () => s().streamInput !== false && (!kvm || kvm.mode === 'home'),
-    swapKeys: () => s().keys.swapCtrlCmd !== false,
+    swapKeys: () => server.keySwap(s()), // never between two Macs
   });
   const clipboard = new Clipboard(server, helper, s);
   const drop = new Drop({ server, helper, displays, getSettings: s });

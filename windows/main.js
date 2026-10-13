@@ -6,7 +6,7 @@ const os = require('os');
 const path = require('path');
 const P = require('../shared/protocol.js');
 const store = require('./store');
-const Discovery = require('./discovery');
+const { Discovery, interfaces } = require('./discovery');
 const Link = require('./link');
 const Screen = require('./screen');
 const Clip = require('./clip');
@@ -80,7 +80,9 @@ function start() {
   device = loadDevice();
   settings = normalize(store.read('settings.json', {}));
 
-  discovery = new Discovery(pushState);
+  discovery = new Discovery(device);
+  discovery.on('change', pushState);
+  discovery.on('invite', () => { pushState(); showMain(); }); // a Mac wants to connect: Pair is focused
   discovery.start();
 
   link = new Link({
@@ -95,7 +97,10 @@ function start() {
     },
     resolveAddress: (macId) => discovery.get(macId),
   });
-  link.onState(pushState);
+  link.onState(() => {
+    discovery.wantProbes = link.snapshot().link.state !== 'connected'; // probe every 10 s only while not connected
+    pushState();
+  });
   clip = new Clip(link, () => settings.clipboard, pushState);
   screen = new Screen({
     link,
@@ -163,8 +168,9 @@ function buildState() {
   return {
     device,
     ...link.snapshot(),
-    macs: discovery.list(),
-    discoveryError: discovery.error,
+    found: discovery.list(),
+    discovery: { ...discovery.status },
+    addresses: ownAddresses(),
     stream: screen.state,
     macInput: screen.macInput, // the Mac's "Receive input" switch
     input: kvm.mode,
@@ -184,6 +190,13 @@ function buildState() {
     apps: apps.view(),
     startup: getStartup(),
   };
+}
+
+// This PC's addresses for the Overview: Wi-Fi and Ethernet first, VPN/WSL/VM adapters last
+// (Copy takes the first one).
+function ownAddresses() {
+  const rank = (n) => (/vEthernet|tun|tap|VirtualBox|VMware|Hyper-V|WSL/i.test(n) ? 3 : /^Wi-?Fi/i.test(n) ? 0 : /^Ethernet/i.test(n) ? 1 : 2);
+  return interfaces().sort((a, b) => rank(a.name) - rank(b.name)).map((i) => i.address);
 }
 
 // KVM mode changed: Monitor 2 stops/starts sending input, and the UI updates.

@@ -65,7 +65,7 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
 .dir-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px 8px; border-bottom: 1px solid var(--row-line); }
 .dir-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; }
-.dir-title .dev { padding: 1px 8px; border-radius: 6px; background: var(--track-off); }
+.dir-title .dev { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 8px; border-radius: 6px; background: var(--track-off); }
 .dir-title .dev.here { background: var(--accent-soft); color: var(--accent); }
 .dir-title .arrow { color: var(--muted); }
 .dir-role { color: var(--muted); font-size: 11px; }
@@ -85,3 +85,23 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 .app-state { font-size: 10px; opacity: .6; min-height: 12px; }
 .app-tile.running .app-state { color: #30d158; opacity: 1; }
 .app-empty { grid-column: 1 / -1; opacity: .6; padding: 12px 0; font-size: 12px; }
+
+/* Revision 4: overview address, nearby list, OS glyphs, setup page, details */
+input[type="text"] { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--control-line); background: var(--control); color: var(--text); width: 150px; font: inherit; box-shadow: var(--shadow); }
+input[type="text"]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.value.addr { color: var(--text); font-variant-numeric: tabular-nums; user-select: text; }
+.row .hint.bad { color: var(--bad); }
+.row.with-ico .text { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+.row.with-ico .os-ico { grid-row: span 2; }
+.os-ico { display: inline-block; position: relative; width: 22px; height: 14px; border: 2px solid var(--muted); border-radius: 3px; margin-bottom: 4px; }
+.os-ico.mac::after { content: ""; position: absolute; left: -5px; right: -5px; bottom: -5px; height: 2px; border-radius: 0 0 2px 2px; background: var(--muted); }
+.os-ico.pc::after { content: ""; position: absolute; left: 7px; right: 7px; bottom: -6px; height: 3px; border-bottom: 2px solid var(--muted); }
+
+body.setup #sidebar { display: none; }
+.setup-page { max-width: 560px; margin: 0 auto; padding: 56px 28px 40px; }
+.setup-page h1 { font-size: 24px; margin: 14px 0 4px; text-align: center; }
+.setup-page > p { text-align: center; color: var(--muted); margin: 0 0 24px; }
+.setup-page .app-mark { margin: 18px auto 26px; transform: scale(1.8); }
+.setup-page .row .controls .pill { margin-left: 0; }
+.setup-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.setup-page:not([hidden]) .card { animation: rise 0.42s var(--ease) both; }

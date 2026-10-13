@@ -7,10 +7,10 @@ UI.tab({
   id: 'share',
   group: 'Display',
   order: 10,
-  title: 'Mac → PC',
-  heading: 'This Mac’s screen on the PC',
+  title: '{out}',
+  heading: 'This Mac’s screen on {there}',
   icon: 'display',
-  desc: 'Use this Mac as a second screen on your PC.',
+  desc: 'Use this Mac as a second screen for {there}.',
   color: 'linear-gradient(#5ac8fa, #0a84ff)',
   master: { get: (s) => s.sharing && s.sharing.on, set: (v) => UI.api.setSharing(v) },
   badge: (s) => (s.sharing && s.sharing.on ? 'on' : ''),
@@ -46,7 +46,7 @@ UI.tab({
       presetDirty = false;
       api.setVirtual({ enabled: true, width: p.width, height: p.height, hiDPI: p.hiDPI });
     }, 'small');
-    const virtRow = UI.row('Extra screen', '', [virtOn]);
+    const virtRow = UI.row('MacShare virtual display', '', [virtOn]);
     const sizeRow = UI.row('Size', '', [preset, applyBtn]);
 
     const streamSize = UI.select([
@@ -55,21 +55,28 @@ UI.tab({
       { value: 0, label: 'Full size' },
     ], (v) => api.setStreamMaxHeight(Number(v)));
     const quality = UI.select([
-      { value: 10, label: 'Low' },
-      { value: 20, label: 'Medium' },
-      { value: 30, label: 'High' },
-      { value: 50, label: 'Best (wired)' },
+      { value: 10, label: 'Low, 10 Mbps' },
+      { value: 20, label: 'Medium, 20 Mbps' },
+      { value: 30, label: 'High, 30 Mbps' },
+      { value: 50, label: 'Best, 50 Mbps (wired)' },
+      { value: 80, label: 'Max, 80 Mbps (wired)' },
     ], (v) => api.setBitrate(Number(v)));
 
     const soundSw = UI.switch((v) => api.setScreenSound(v), { label: 'Share sound with the screen' });
     const soundRow = UI.row('Include sound', '', [soundSw]);
     const inputSw = UI.switch((v) => api.setStreamInput(v), { label: 'Receive input' });
-    const inputRow = UI.row('Let the PC control it', '', [inputSw]);
+    const inputRow = UI.row('Let {there} control it', '', [inputSw]);
+    inputRow.label.dataset.peer = 'Let {there} control it';
 
     const stats = {
-      status: UI.row('Stream', ''),
+      status: UI.row('Status', ''),
+      display: UI.row('Display', ''),
       picture: UI.row('Picture', ''),
-      rate: UI.row('Bitrate', ''),
+      rate: UI.row('Speed', ''),
+      rtt: UI.row('Round trip', ''),
+      codec: UI.row('Codec', ''),
+      encoder: UI.row('Encoder', ''),
+      encode: UI.row('Encode time', ''),
     };
     const statVals = Object.fromEntries(Object.entries(stats).map(([k, r]) => {
       const v = el('span', { class: 'value' });
@@ -80,13 +87,13 @@ UI.tab({
     body.append(
       helperNote,
       UI.card('Screen', [modeRow, displayRow]),
-      UI.card('Extra screen', [virtRow, sizeRow]),
+      UI.card('Virtual display', [virtRow, sizeRow]),
       UI.card('Picture', [
         UI.row('Resolution', '', [streamSize]),
         UI.row('Quality', '', [quality]),
       ]),
       UI.card('Sound and control', [soundRow, inputRow], { cls: 'keep-on' }),
-      UI.card('Status', Object.values(stats)),
+      UI.card('Details', Object.values(stats), { cls: 'keep-on' }),
     );
 
     return (s) => {
@@ -94,10 +101,10 @@ UI.tab({
       const sh = s.sharing;
       if (!sh) return;
       mode.set(s.displayMode);
-      modeRow.setHint({ extend: 'An extra screen', mirror: 'Same as this Mac', custom: '' }[s.displayMode]);
+      modeRow.setHint({ extend: 'Shows the MacShare virtual display', mirror: 'Shows this Mac’s main screen', custom: '' }[s.displayMode]);
 
       display.options([
-        { value: 'virtual', label: 'MacShare extra screen' },
+        { value: 'virtual', label: 'MacShare virtual display' },
         ...sh.displays.filter((d) => !d.virtual).map((d) => ({ value: d.id, label: `${d.label}${d.primary ? ' (main)' : ''}` })),
       ]);
       const picked = sh.displays.find((d) => d.id === sh.displayId && !d.virtual);
@@ -110,7 +117,8 @@ UI.tab({
         preset.set(i < 0 ? 1 : i);
         applyBtn.disabled = true;
       }
-      virtRow.setHint(v.error ? `Couldn’t create it: ${v.error}` : '');
+      const vd = sh.displays.find((d) => d.virtual);
+      virtRow.setHint(v.error ? `Couldn’t create it: ${v.error}` : vd ? `On, ${vd.width} × ${vd.height}${vd.pixelWidth !== vd.width ? ` (${vd.pixelWidth} × ${vd.pixelHeight} px)` : ''}` : v.enabled ? 'On while sharing' : '');
 
       streamSize.set(sh.streamMaxHeight || 0);
       quality.set(sh.bitrateMbps);
@@ -121,9 +129,17 @@ UI.tab({
 
       const st = s.stream || { status: 'off' };
       const live = st.status === 'live';
-      statVals.status.textContent = !sh.on ? 'Off' : !c ? 'Waiting for your PC' : STATUS[st.status] || st.status;
+      const p = UI.peer(s);
+      statVals.status.textContent = !sh.on ? 'Off' : !c ? `Waiting for ${p.same ? p.there : 'your PC'}` : (STATUS[st.status] || st.status).replace('the PC', c.name);
+      const shown = sh.displays.find((d) => d.id === sh.targetId);
+      statVals.display.textContent = shown ? `${shown.virtual ? 'MacShare virtual display' : shown.label} · ${shown.pixelWidth} × ${shown.pixelHeight}` : '';
       statVals.picture.textContent = live ? `${st.width} × ${st.height} · ${st.fps} fps` : '';
-      statVals.rate.textContent = live ? `${st.mbps} Mbps` : '';
+      statVals.rate.textContent = live ? `${st.mbps} Mbps${st.targetMbps ? ` of ${st.targetMbps}` : ''}` : '';
+      statVals.rtt.textContent = c && c.rttMs != null ? `${c.rttMs} ms` : '';
+      statVals.codec.textContent = live && st.codec ? st.codec : '';
+      statVals.encoder.textContent = live && st.encoder ? st.encoder : '';
+      statVals.encode.textContent = live && st.encodeMs != null ? `${st.encodeMs} ms${st.limit && st.limit !== 'none' ? ` · limited by ${st.limit}` : ''}` : '';
+      for (const k of ['codec', 'encoder', 'encode', 'rtt', 'display']) stats[k].hidden = !statVals[k].textContent;
     };
   },
 });

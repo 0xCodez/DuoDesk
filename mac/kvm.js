@@ -9,6 +9,7 @@
 
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const store = require('./store');
 
 const REFUSED = { busy: 'The PC is driving this Mac right now', not_allowed: 'The PC doesn’t accept input from this Mac' };
 
@@ -31,8 +32,9 @@ class Kvm extends EventEmitter {
     this.pendingMove = null; // coalesced k.mm while driving
 
     setInterval(() => this._tick(), 250);
-    server.on('client', () => {
-      this._sendLayout();
+    // The host tells the layout on connect; after that either side sends it when its user changes it.
+    server.on('client', (ctx) => {
+      if (ctx.role !== 'host') this._sendLayout();
       this.config();
     });
     server.on('closed', () => {
@@ -43,6 +45,15 @@ class Kvm extends EventEmitter {
     });
     const on = (t, fn) => server.on(`t:${t}`, fn);
     on(P.T.KVM_TAKE, (m) => this._onTake(m));
+    // kvm.layout {pcSide} = the sender's crossing side; ours is the opposite (no echo).
+    on(P.T.KVM_LAYOUT, (m) => {
+      const side = P.opposite(m.pcSide);
+      if (!side || side === this.cfg.pcSide) return;
+      this.getSettings().kvm.pcSide = side;
+      store.saveSettings(this.getSettings());
+      this.config();
+      this.emit('change');
+    });
     on(P.T.KVM_ACCEPT, (m) => {
       if (this.mode === 'driving' && m.route === this.route) clearTimeout(this.acceptTimer);
     });
@@ -269,7 +280,7 @@ class Kvm extends EventEmitter {
           if (m.t === P.T.K_KEY_DOWN) this.drop.dragIn.cancel();
           return;
         }
-        ev = { t: m.t, code: this.getSettings().keys.swapCtrlCmd !== false ? P.mapKeyFromOtherPlatform(m.code) : m.code };
+        ev = { t: m.t, code: this.server.keySwap(this.getSettings()) ? P.mapKeyFromOtherPlatform(m.code) : m.code };
     }
     this.helper.send('inject', { ev });
   }

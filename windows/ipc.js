@@ -1,6 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Main-window actions (preload-app.js → here). Every value is validated by settings.apply().
-const { ipcMain, dialog, shell, BrowserWindow } = require('electron');
+const { ipcMain, dialog, shell, BrowserWindow, clipboard } = require('electron');
 const P = require('../shared/protocol.js');
 const { apply } = require('./settings');
 
@@ -19,16 +19,32 @@ function setupIpc(ctx) {
 
   handle('getState', () => ctx.buildState());
 
+  const pairWith = (d) => {
+    discovery.clearInvite(d.id);
+    link.startPairing({ address: d.address, port: d.port, macName: d.name });
+  };
   handle('pair', (target) => {
     if (typeof target !== 'string' || !target.trim()) return;
-    const mac = discovery.get(target);
-    if (mac) return link.startPairing({ address: mac.address, port: mac.port, macName: mac.name });
+    const found = discovery.get(target);
+    if (found) return pairWith(found);
     const m = /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(target);
     if (!m) return;
     const port = m[2] ? Number(m[2]) : P.PORT;
     if (port < 1 || port > 65535) return;
     link.startPairing({ address: m[1], port, macName: m[1] });
   });
+  // Connect by address: ask who is there (unicast probe works where broadcast is blocked); no
+  // answer in PROBE_REPLY_MS → try WSS on that address directly ("No MacShare at …" if nothing).
+  handle('connectAddress', async (text) => {
+    const m = typeof text === 'string' && /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(text);
+    if (!m) return;
+    const d = m[2] ? null : await discovery.ask(m[1]);
+    if (d) return pairWith(d);
+    const port = m[2] ? Number(m[2]) : P.PORT;
+    if (port >= 1 && port <= 65535) link.startPairing({ address: m[1], port, macName: m[1] });
+  });
+  handle('refreshFound', () => discovery.probe());
+  handle('copyText', (text) => typeof text === 'string' && text.length < 1000 && clipboard.writeText(text));
   handle('confirmCode', () => link.confirmCode());
   handle('cancelPair', () => link.cancelPair());
   handle('forget', () => link.forget());

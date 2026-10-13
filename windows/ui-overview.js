@@ -1,5 +1,7 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Overview tab: the two computers, one switch per feature and direction, the paired Mac.
+// Overview tab (docs/UI.md "Revision 4"): this PC's address and Connect by address on top, the
+// computers found nearby (always visible), the two computers, one switch per feature and
+// direction, and what is paired.
 'use strict';
 
 UI.tab({
@@ -9,7 +11,7 @@ UI.tab({
   heading: 'MacShare',
   desc: '',
   color: 'linear-gradient(#8e8e93, #636366)',
-  badge: (s) => (s.link.state === 'identity_changed' ? 'warn' : ''),
+  badge: (s) => (s.link.state === 'identity_changed' || (s.discovery && !s.discovery.on) || s.found.some((d) => d.invited) ? 'warn' : ''),
   build(body) {
     const { el, api } = UI;
     const WHERE = { driving: 'You’re using the Mac', driven: 'The Mac is using this PC' };
@@ -55,16 +57,42 @@ UI.tab({
     ];
     const pair = UI.dirCards({ rows: m2p }, { rows: p2m });
 
-    const pairedList = el('div');
-    const ipInput = el('input', { type: 'text', placeholder: '192.168.1.20', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Mac address' } });
-    const ipBtn = UI.button('Pair', () => { const v = ipInput.value.trim(); if (v) api.pair(v); }, 'small');
+    // ---- this PC + connect by address (always visible) ----
+    const addrVal = el('span', { class: 'value addr' });
+    const copyBtn = UI.button('Copy', () => UI.state && api.copyText(UI.state.addresses[0] || ''), 'small');
+    const addrRow = UI.row('This PC', '', [addrVal, copyBtn]);
+    const ipInput = el('input', { type: 'text', placeholder: '192.168.1.20', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Address' } });
+    let asking = '';
+    const ipBtn = UI.button('Connect', async () => {
+      const v = ipInput.value.trim();
+      if (!v || asking) return;
+      asking = v;
+      render();
+      try { await api.connectAddress(v); } finally { asking = ''; render(); }
+    }, 'small primary');
     ipInput.onkeydown = (e) => { if (e.key === 'Enter') ipBtn.click(); };
-    const ipRow = UI.row('Add by address', '', [ipInput, ipBtn]);
+    const ipRow = UI.row('Connect by address', '', [ipInput, ipBtn]);
 
-    body.append(hero, pair.el, UI.card('Paired', [pairedList, ipRow]));
+    // ---- found nearby (always visible) ----
+    const discRow = UI.row('Can’t look for computers on this network.', '', [UI.button('Fix firewall', () => api.fixFirewall(), 'small')]);
+    const foundList = el('div');
+    const refresh = UI.button('Refresh', () => api.refreshFound(), 'small');
 
-    let listKey = '';
-    return (s) => {
+    const pairedList = el('div');
+    body.append(
+      UI.card('', [addrRow, ipRow]),
+      UI.card('Found nearby', [discRow, foundList], { actions: [refresh] }),
+      hero,
+      pair.el,
+      UI.card('Paired', [pairedList]),
+    );
+
+    let last = null;
+    let foundKey = '';
+    let pairedKey = '';
+    const render = () => last && update(last);
+    const update = (s) => {
+      last = s;
       const l = s.link;
       const connected = l.state === 'connected';
       pcName.textContent = s.device.name;
@@ -76,32 +104,66 @@ UI.tab({
       status.textContent = bad ? 'This Mac looks different now. Forget it and pair again.'
         : connected ? s.kvmState.message || WHERE[s.input] || 'Connected'
           : s.paired ? 'Open MacShare on your Mac.'
-            : 'Open MacShare on your Mac and pair it here.';
+            : 'Pick a computer below, or connect by address.';
       status.classList.toggle('bad', bad);
 
       for (const r of m2p.concat(p2m)) r.update(s);
 
+      // this PC
+      addrVal.textContent = s.addresses.length ? s.addresses.join(', ') : 'No network';
+      copyBtn.hidden = !s.addresses.length;
       const busy = !!s.pairing && s.pairing.phase !== 'failed';
-      ipBtn.disabled = busy;
-      ipRow.hidden = !!s.paired;
-      const key = JSON.stringify([s.macs, busy, s.paired, connected, s.discoveryError]);
-      if (key === listKey) return;
-      listKey = key;
-      const rows = [];
-      if (s.paired) {
-        rows.push(UI.row(s.paired.macName, connected ? 'Connected' : '', [
-          connected ? el('span', { class: 'pill good', text: 'Online' }) : null,
-          UI.button('Forget', () => api.forget(), 'small'),
-        ]));
-      } else {
-        for (const mac of s.macs) {
-          const b = UI.button('Pair', () => api.pair(mac.id), 'small primary');
-          b.disabled = busy;
-          rows.push(UI.row(mac.name, '', [b]));
-        }
-        if (!s.macs.length) rows.push(UI.row(s.discoveryError ? 'Can’t look for Macs' : 'Looking for Macs…', s.discoveryError || ''));
+      ipBtn.disabled = busy || !!asking;
+      const failed = s.pairing && s.pairing.phase === 'failed';
+      ipRow.setHint(asking ? 'Looking for MacShare at ' + asking + '…' : failed ? s.pairing.error : '');
+      ipRow.hint.classList.toggle('bad', !asking && !!failed);
+
+      // found nearby
+      const d = s.discovery || { on: true, error: '' };
+      const fwBad = s.firewall && s.firewall.ok === false && !s.firewall.checking;
+      const blocked = !d.on || fwBad;
+      discRow.hidden = !blocked;
+      discRow.setHint(!d.on ? d.error + '. Connect by address still works.' : 'The firewall blocks it. Connect by address may still work.');
+      const pairedId = s.paired ? s.paired.macId : '';
+      const fk = JSON.stringify([s.found, pairedId, connected, busy, blocked]);
+      if (fk !== foundKey) {
+        foundKey = fk;
+        let focus = null;
+        const rows = s.found.map((dev) => {
+          const known = dev.id === pairedId;
+          const online = known && connected;
+          const mac = dev.os === 'mac';
+          const btn = online || known ? null : UI.button('Pair', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
+          if (btn) btn.disabled = busy || !mac; // PC to PC and Linux come in revision 4 task 6
+          if (btn && dev.invited && !busy) focus = btn;
+          const hint = dev.address + (dev.invited ? ' · wants to connect' : !mac ? ' · PC to PC is coming soon' : '');
+          const r = UI.row(dev.name, hint, [
+            online ? el('span', { class: 'pill good', text: 'Connected' }) : known ? el('span', { class: 'pill muted', text: 'Paired' }) : null, btn]);
+          r.querySelector('.text').prepend(UI.osIcon(dev.os));
+          r.classList.add('with-ico');
+          return r;
+        });
+        if (!rows.length && !blocked) rows.push(UI.row('Looking for computers…', 'Open MacShare on the other computer.'));
+        foundList.replaceChildren(...rows);
+        if (focus) focus.focus();
       }
-      pairedList.replaceChildren(...rows);
+
+      // paired
+      const pk = JSON.stringify([s.paired, connected]);
+      if (pk === pairedKey) return;
+      pairedKey = pk;
+      if (!s.paired) {
+        pairedList.replaceChildren(UI.row('Nothing paired yet', 'Pair with a computer in Found nearby.'));
+        return;
+      }
+      const r = UI.row(s.paired.macName, connected ? 'Connected' : s.paired.address, [
+        connected ? el('span', { class: 'pill good', text: 'Online' }) : null,
+        UI.button('Forget', () => api.forget(), 'small'),
+      ]);
+      r.querySelector('.text').prepend(UI.osIcon('mac'));
+      r.classList.add('with-ico');
+      pairedList.replaceChildren(r);
     };
+    return update;
   },
 });

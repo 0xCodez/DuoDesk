@@ -88,7 +88,21 @@ func handle(_ line: String) {
     reply(id, [
       "accessibility": AXIsProcessTrusted(),
       "inputMonitoring": IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted,
+      "screen": CGPreflightScreenCaptureAccess(),
     ])
+  case "requestAccess":
+    // Asking registers MacShare (our responsible app) in that System Settings list, so the person
+    // only flips a switch instead of adding the app with + and a file browser.
+    var granted = false
+    switch (msg["kind"] as? String) ?? "" {
+    case "screen": granted = CGRequestScreenCaptureAccess()
+    case "inputMonitoring": granted = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
+    case "accessibility":
+      let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+      granted = AXIsProcessTrustedWithOptions(opts)
+    default: break
+    }
+    reply(id, ["granted": granted])
   case "createDisplay":
     let width = (msg["width"] as? NSNumber)?.intValue ?? 1920
     let height = (msg["height"] as? NSNumber)?.intValue ?? 1080

@@ -4,9 +4,13 @@
 // State object sent to the control window ('state' channel) on every change:
 // {
 //   macName, macId, fp,                       // this Mac's identity (fp = cert SHA-256 hex)
-//   addresses: ['192.168.1.5:47800', ...],    // where Windows can reach us
+//   addresses: ['192.168.1.5', ...],           // this Mac's IPv4 addresses (the server listens on P.PORT)
+//   discovery: { on, error, localNetwork },      // discovery.js status
+//   found: [{ id, name, os, address, port, invited }],   // other MacShare computers nearby
+//   guest: { status: {state, message}, pairing: null|{phase, name, address, code, error}, hosts: [...] },  // link.js
+//   connect: { busy, message, error },           // last "Connect by address" / Pair attempt
 //   serverError: null | 'message',            // e.g. port already in use
-//   client: null | { id, name, address, rttMs },   // the connected, authenticated PC
+//   client: null | { id, name, os, role, address, rttMs },   // the session (peer.js); role 'host' = we are its guest
 //   input: { where: 'home'|'driving'|'driven', message: '', tapError: null|'msg' },   // kvm.js
 //   pairing: null | { name, code: null|'123456', confirmed, allowed },
 //   paired: [{ id, name, pairedAt, lastSeen }],
@@ -46,7 +50,9 @@ if (!app.requestSingleInstanceLock()) {
 const P = require('../shared/protocol.js');
 const store = require('./store');
 const identity = require('./identity');
-const discovery = require('./discovery');
+const { Discovery, interfaces } = require('./discovery');
+const { Link } = require('./link');
+const { Peer } = require('./peer');
 const { Server } = require('./server');
 const { Pairing } = require('./pairing');
 const { startServices } = require('./services');
@@ -57,7 +63,7 @@ let win = null;
 let tray = null;
 let quitting = false;
 let startHidden = process.argv.includes('--hidden');
-let settings, id, server, pairing, beacon, svc, actions;
+let settings, id, server, pairing, discovery, link, peer, svc, actions;
 
 const state = {
   macName: '',
@@ -74,6 +80,10 @@ const state = {
   sharing: null,
   streamInput: true,
   stream: null,
+  discovery: { on: false, error: '', localNetwork: true },
+  found: [],
+  guest: null,
+  connect: { busy: false, message: '', error: false },
 };
 
 let pushQueued = false;
@@ -82,11 +92,16 @@ function pushState() {
   pushQueued = true;
   setImmediate(() => {
     pushQueued = false;
-    state.addresses = discovery.interfaces().map((i) => `${i.address}:${P.PORT}`);
+    state.addresses = interfaces().map((i) => i.address);
     state.pairing = pairing ? pairing.pendingView() : null;
     state.paired = pairing ? pairing.list() : [];
-    const c = server && server.current;
-    state.client = c ? { id: c.deviceId, name: c.name, address: c.address, rttMs: c.rttMs } : null;
+    if (discovery) {
+      state.discovery = { ...discovery.status };
+      state.found = discovery.list();
+    }
+    if (link) state.guest = link.view();
+    const c = peer && peer.current;
+    state.client = c ? { id: c.deviceId, name: c.name, os: c.os, role: c.role, address: c.address, rttMs: c.rttMs } : null;
     const { helper, displays, stream, clipboard: clip, kvm } = svc || {};
     state.helper.running = !!(helper && helper.running);
     if (displays) {
@@ -141,6 +156,7 @@ function refreshPermissions() {
   if (svc && svc.helper.running) {
     svc.helper.request('permissions').then((r) => {
       state.permissions.inputMonitoring = !!r.inputMonitoring;
+      if (r.screen === true) state.permissions.screen = 'granted'; // the helper sees a fresh grant first
       pushState();
     }, () => {});
   }
@@ -197,7 +213,7 @@ function updateTray() {
   tray.setToolTip(c ? `MacShare: ${c.name}` : 'MacShare');
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: c ? `Connected: ${c.name}` : 'No PC connected', enabled: false },
+      { label: c ? `Connected: ${c.name}` : 'Not connected', enabled: false },
       { type: 'separator' },
       { label: 'Open MacShare', click: showWindow },
       {
@@ -207,7 +223,7 @@ function updateTray() {
         click: (item) => actions.setSharing(item.checked),
       },
       {
-        label: 'Receive input from the PC',
+        label: 'Allow control from the other computer',
         type: 'checkbox',
         checked: settings.streamInput !== false,
         click: (item) => actions.setStreamInput(item.checked),
@@ -241,8 +257,6 @@ app.whenReady().then(() => {
   });
   server.on('client', (ctx) => {
     console.log(`[server] ${ctx.name} connected from ${ctx.address}`);
-    server.send(ctx, { t: P.T.STREAM_INPUT, on: settings.streamInput !== false });
-    pushState();
   });
   server.on('closed', (ctx) => {
     if (ctx.authed) console.log(`[server] ${ctx.name} disconnected`);
@@ -253,21 +267,43 @@ app.whenReady().then(() => {
     pushState();
   });
 
-  pairing = new Pairing(server, id);
+  discovery = new Discovery(id, server.port);
+  discovery.on('change', pushState);
+  discovery.start();
+  link = new Link(id, {
+    canConnect: () => !server.current && !(pairing && pairing.pending),
+    resolve: (hostId) => discovery.get(hostId),
+  });
+  link.on('change', pushState);
+  link.on('request', showWindow);
+  pairing = new Pairing(server, id, { busy: () => !!link.ctx });
   pairing.on('change', pushState);
   pairing.on('request', showWindow);
+  peer = new Peer(server, link);
+  peer.on('client', (ctx) => {
+    console.log(`[peer] session with ${ctx.name} (${ctx.os}, ${ctx.role === 'host' ? 'we are its guest' : 'it is our guest'})`);
+    peer.send(ctx, { t: P.T.STREAM_INPUT, on: settings.streamInput !== false });
+    pushState();
+  });
+  peer.on('closed', pushState);
+  peer.on('rtt', pushState);
+  link.start();
 
-  beacon = discovery.start(id);
-
-  svc = startServices({ server, getSettings: () => settings, pushState, onHelperReady: refreshPermissions });
+  svc = startServices({ server: peer, getSettings: () => settings, pushState, onHelperReady: refreshPermissions });
   if (settings.app.openAtLogin !== login.isOn()) login.apply(settings.app.openAtLogin);
 
-  actions = setupIpc({ state, settings, pushState, server, pairing, ...svc, login });
+  actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions });
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle('MacShare');
   createWindow();
   refreshPermissions();
   setInterval(pushState, 5000); // addresses change when the network does
+  // While Setup shows something missing, notice the grant without waiting for a window focus.
+  setInterval(() => {
+    const p = state.permissions;
+    const missing = p.screen !== 'granted' || !p.accessibility || p.inputMonitoring === false;
+    if (missing && win && !win.isDestroyed() && win.isVisible()) refreshPermissions();
+  }, 3000);
 });
 
 app.on('second-instance', showWindow);
@@ -276,6 +312,7 @@ app.on('window-all-closed', () => {}); // keep running in the menu bar
 app.on('before-quit', () => {
   quitting = true;
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input
-  if (beacon) beacon.stop();
+  if (discovery) discovery.stop();
+  if (link) link.stop();
   if (server) server.close();
 });

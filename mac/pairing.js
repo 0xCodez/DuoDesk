@@ -12,8 +12,10 @@ const store = require('./store');
 const HEX = (n) => new RegExp(`^[0-9a-f]{${n}}$`);
 
 class Pairing extends EventEmitter {
-  constructor(server, identity) {
+  // busy() -> true while this Mac is a guest of another Mac (one session at a time).
+  constructor(server, identity, { busy = () => false } = {}) {
     super();
+    this.busy = busy;
     this.server = server;
     this.id = identity;
     this.paired = store.read('paired.json', []);
@@ -23,13 +25,13 @@ class Pairing extends EventEmitter {
   }
 
   list() {
-    return this.paired.map(({ id, name, pairedAt, lastSeen }) => ({ id, name, pairedAt, lastSeen }));
+    return this.paired.map(({ id, name, os, pairedAt, lastSeen }) => ({ id, name, os: os || P.OS.WIN, pairedAt, lastSeen }));
   }
 
   // What the control window shows about an in-progress request.
   pendingView() {
     const p = this.pending;
-    return p && { name: p.name, code: p.code, confirmed: p.confirmed, allowed: p.allowed };
+    return p && { name: p.name, os: p.os, code: p.code, confirmed: p.confirmed, allowed: p.allowed };
   }
 
   touch(id) {
@@ -66,6 +68,7 @@ class Pairing extends EventEmitter {
 
     const p = this.pending;
     if (msg.t === P.T.PAIR_START) {
+      if (this.busy()) return this.server.fail(ctx, P.E.BUSY, 'Connected to another device');
       if (p && p.ctx !== ctx) return this.server.fail(ctx, P.E.BUSY, 'Another pairing is in progress');
       if (p) return this.server.fail(ctx, P.E.BAD_MESSAGE, 'Pairing already started');
       if (msg.v !== P.PROTOCOL_VERSION) {
@@ -79,6 +82,7 @@ class Pairing extends EventEmitter {
         ctx,
         id: msg.id,
         name: String(msg.name || 'PC').slice(0, 64),
+        os: Object.values(P.OS).includes(msg.os) ? msg.os : P.OS.WIN,
         commit: msg.commit,
         nm,
         nw: null,
@@ -87,7 +91,7 @@ class Pairing extends EventEmitter {
         allowed: false,
         timer: setTimeout(() => this._abort(P.E.PAIR_TIMEOUT, 'Pairing timed out'), P.PAIR_TIMEOUT_MS),
       };
-      this.server.send(ctx, { t: P.T.PAIR_NONCE, nonce: nm });
+      this.server.send(ctx, { t: P.T.PAIR_NONCE, nonce: nm, os: P.OS.MAC });
       return this.emit('change');
     }
 
@@ -126,9 +130,9 @@ class Pairing extends EventEmitter {
     const token = P.randomHex(32);
     const now = Date.now();
     this.paired = this.paired.filter((x) => x.id !== p.id);
-    this.paired.push({ id: p.id, name: p.name, tokenHash: P.sha256Hex(token), pairedAt: now, lastSeen: now });
+    this.paired.push({ id: p.id, name: p.name, os: p.os, tokenHash: P.sha256Hex(token), pairedAt: now, lastSeen: now });
     this._save();
-    this.server.send(p.ctx, { t: P.T.PAIR_OK, token, macId: this.id.macId, macName: this.id.macName });
+    this.server.send(p.ctx, { t: P.T.PAIR_OK, token, macId: this.id.macId, macName: this.id.macName, os: P.OS.MAC });
     console.log(`[pairing] paired with ${p.name} (${p.id})`);
     this._clear();
   }
@@ -141,11 +145,13 @@ class Pairing extends EventEmitter {
     if (!e || !P.tokenMatches(msg.token, e.tokenHash)) {
       return this.server.fail(ctx, P.E.BAD_TOKEN, 'Not paired with this Mac');
     }
+    if (this.busy()) return this.server.fail(ctx, P.E.BUSY, 'Connected to another device');
     if (typeof msg.name === 'string' && msg.name && msg.name !== e.name) e.name = msg.name.slice(0, 64);
+    if (Object.values(P.OS).includes(msg.os)) e.os = msg.os;
     e.lastSeen = Date.now();
     this._save();
-    this.server.authenticate(ctx, { deviceId: e.id, name: e.name }, {
-      t: P.T.WELCOME, v: P.PROTOCOL_VERSION, macId: this.id.macId, macName: this.id.macName,
+    this.server.authenticate(ctx, { deviceId: e.id, name: e.name, os: e.os || P.OS.WIN }, {
+      t: P.T.WELCOME, v: P.PROTOCOL_VERSION, macId: this.id.macId, macName: this.id.macName, os: P.OS.MAC,
     });
     this.emit('change');
   }

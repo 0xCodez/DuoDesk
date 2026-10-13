@@ -6,6 +6,7 @@ UI.tab({
   id: 'terminal',
   order: 60,
   title: 'Terminal',
+  mixedOnly: true,
   desc: 'Open a shell on the other computer. No passwords needed.',
   color: 'linear-gradient(#3a3a3c, #1c1c1e)',
   badge: (s) => (s.terminal && (s.terminal.allowPc || s.terminal.connectPc) ? 'on' : ''),

@@ -75,3 +75,12 @@ kbd, kbd.key { font: 12px "Segoe UI", sans-serif; padding: 2px 7px; border-radiu
 .app-tile img, .app-noicon { width: 48px; height: 48px; }
 .app-noicon { display: grid; place-items: center; border-radius: 12px; background: var(--track-off); font-size: 20px; font-weight: 600; }
 .app-name { font-size: 12px; text-align: center; line-height: 1.25; max-width: 92px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* Revision 4: overview address, nearby list, OS glyphs */
+.row .value.addr { color: var(--text); user-select: text; }
+.row .hint.bad { color: var(--bad); }
+.row.with-ico .text { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; }
+.row.with-ico .os-ico { grid-row: span 2; }
+.os-ico { display: inline-block; position: relative; width: 22px; height: 14px; border: 2px solid var(--muted); border-radius: 3px; margin-bottom: 4px; }
+.os-ico.mac::after { content: ""; position: absolute; left: -5px; right: -5px; bottom: -5px; height: 2px; border-radius: 0 0 2px 2px; background: var(--muted); }
+.os-ico.pc::after { content: ""; position: absolute; left: 7px; right: 7px; bottom: -6px; height: 3px; border-bottom: 2px solid var(--muted); }

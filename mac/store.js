@@ -62,7 +62,7 @@ const DEFAULT_SETTINGS = {
     maxKB: 256,
     historySize: 20, // memory only
   },
-  ui: { tab: 'overview' },
+  ui: { tab: 'overview', setupSkipped: '' }, // setupSkipped: the missing items when Setup was skipped
   app: { openAtLogin: false, keepAwake: true }, // phase 6
   audio: { send: false, receive: false, muteLocal: false, volume: 1 }, // revision 2: independent, both ways
   terminal: { allowPc: false, connectPc: false }, // phase 8: PC -> Mac shell; Mac -> PC (`ssh macshare-pc`)

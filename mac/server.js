@@ -4,7 +4,7 @@
 // Events:
 //   'preauth' (ctx, msg)  — hello / pair.* before auth (pairing.js handles them)
 //   'client'  (ctx)       — a client got `welcome`
-//   'message' (msg, ctx)  — any message from the authenticated client except ping/pong
+//   'message' (msg, ctx)  — any message from the authenticated client except ping/pong (peer.js routes)
 //   'closed'  (ctx)       — a socket closed (authed or not)
 //   'rtt'     (ctx)       — ctx.rttMs updated
 //   'listening' / 'listenError' (err)
@@ -23,7 +23,6 @@ class Server extends EventEmitter {
     super();
     this.current = null; // ctx of the authenticated client
     this.sockets = new Set();
-    this.unknownTypes = new Set();
     this.https = https.createServer({ key: keyPem, cert: certPem });
     this.wss = new WebSocketServer({ server: this.https, maxPayload: P.MAX_PAYLOAD });
     this.wss.on('connection', (ws, req) => this._onConnection(ws, req));
@@ -79,12 +78,7 @@ class Server extends EventEmitter {
       }
       return;
     }
-    if (this.listenerCount(`t:${msg.t}`) === 0 && !this.unknownTypes.has(msg.t)) {
-      this.unknownTypes.add(msg.t);
-      console.log(`[server] no handler for "${msg.t}" (ignored)`);
-    }
-    this.emit(`t:${msg.t}`, msg, ctx);
-    this.emit('message', msg, ctx);
+    this.emit('message', msg, ctx); // peer.js routes it by type
   }
 
   _liveness() {
@@ -119,15 +113,16 @@ class Server extends EventEmitter {
   }
 
   // Mark ctx authenticated; a newer client replaces the older one.
-  authenticate(ctx, { deviceId, name }, welcome) {
+  authenticate(ctx, { deviceId, name, os }, welcome) {
     if (this.current && this.current !== ctx) {
       const old = this.current;
       this.current = null;
-      this.fail(old, P.E.REPLACED, 'Another connection from a paired PC replaced this one');
+      this.fail(old, P.E.REPLACED, 'Another connection from a paired device replaced this one');
     }
     ctx.authed = true;
     ctx.deviceId = deviceId;
     ctx.name = name;
+    ctx.os = os;
     this.current = ctx;
     this.send(ctx, welcome);
     this.emit('client', ctx);

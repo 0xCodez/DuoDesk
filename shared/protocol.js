@@ -8,9 +8,13 @@
 (function (root) {
   const P = {
     PROTOCOL_VERSION: 1,
-    PORT: 47800, // WSS control channel; the Mac listens
-    DISCOVERY_PORT: 47801, // UDP beacons; the Mac broadcasts, Windows listens
+    PORT: 47800, // WSS control channel; the host listens (docs/ROADMAP.md "Revision 4")
+    DISCOVERY_PORT: 47801, // UDP beacons, probes and invites; every app sends and listens
     BEACON_MS: 2000,
+    PROBE_MS: 10000, // broadcast probe while not connected
+    PROBE_REPLY_MS: 1500, // a unicast probe without a reply by then = nobody there
+    DEVICE_STALE_MS: 10000, // found device dropped after this much silence
+    OS: { MAC: 'mac', WIN: 'win', LINUX: 'linux' },
     PING_MS: 1000,
     TIMEOUT_MS: 4000, // close the session after this much silence
     PAIR_TIMEOUT_MS: 60000,
@@ -35,7 +39,9 @@
 
     // Control message types (field `t`)
     T: {
-      BEACON: 'beacon',
+      BEACON: 'beacon', // UDP {v, id, name, port, fp, os, role: 'host'}
+      PROBE: 'probe', // UDP {v, id}: answer with your beacon, unicast to the sender
+      INVITE: 'invite', // UDP {v, id, name, os, port, fp}: a Mac asks a PC to pair/connect to it
       // pairing
       PAIR_START: 'pair.start',
       PAIR_NONCE: 'pair.nonce',
@@ -153,6 +159,49 @@
 
     opposite(side) {
       return { left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[side];
+    },
+
+    // Ctrl/Cmd swapping only between different OSes (Mac <-> PC/Linux); same-OS pairs never swap.
+    keySwapNeeded(myOs, peerOs) {
+      return (myOs === 'mac') !== ((peerOs || (myOs === 'mac' ? 'win' : 'mac')) === 'mac');
+    },
+
+    // Role swap (docs/ROADMAP.md "Revision 4"): an app in its non-native role (a Mac as guest, a PC
+    // as host) passes every message it sends AND every message it receives through swapRole, so
+    // its feature code keeps speaking its native role. Returns the messages to use instead (0–2).
+    // `st` is one object per session and direction: newRoleSwapState().
+    ROLE_SWAP: {
+      'rtc.offer': 'rtc2.offer', 'rtc2.offer': 'rtc.offer',
+      'rtc.answer': 'rtc2.answer', 'rtc2.answer': 'rtc.answer',
+      'rtc.ice': 'rtc2.ice', 'rtc2.ice': 'rtc.ice',
+      'stream.stop': 'rtc2.stop', 'rtc2.stop': 'stream.stop',
+    },
+    newRoleSwapState(peerName) {
+      return { audio: false, name: peerName || '', width: 0, height: 0 };
+    },
+    swapRole(msg, st) {
+      if (!msg || typeof msg.t !== 'string') return [msg];
+      if (msg.t === 'stream.info') { // folded into the rtc2.offer's kind
+        st.audio = !!msg.audio;
+        st.width = msg.width | 0;
+        st.height = msg.height | 0;
+        return [];
+      }
+      if (msg.t.startsWith('audio.') && (msg.dir === 'm2w' || msg.dir === 'w2m')) {
+        return [{ ...msg, dir: msg.dir === 'm2w' ? 'w2m' : 'm2w' }];
+      }
+      const t = P.ROLE_SWAP[msg.t];
+      if (!t) return [msg];
+      if (msg.t === 'rtc.offer') return [{ ...msg, t, kind: st.audio ? 'screen+audio' : 'screen' }];
+      if (msg.t === 'rtc2.offer') {
+        const { kind, ...rest } = msg;
+        const audio = kind === 'screen+audio';
+        return [
+          { t: 'stream.info', name: st.name, width: msg.width | 0, height: msg.height | 0, audio },
+          { ...rest, t },
+        ];
+      }
+      return [{ ...msg, t }];
     },
 
     // Keys travel as physical DOM KeyboardEvent.code names; "Meta" is Command on the Mac and

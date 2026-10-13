@@ -132,7 +132,7 @@ class Link {
     this.lastError = '';
     if (this.mode === 'pair') {
       this.nw = P.randomHex(16);
-      this._raw({ t: T.PAIR_START, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, commit: P.commitOf(this.nw) });
+      this._raw({ t: T.PAIR_START, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.WIN, commit: P.commitOf(this.nw) });
       this.pairState.phase = 'starting';
       this._changed();
       return;
@@ -147,7 +147,7 @@ class Link {
 
   _hello() {
     const p = this.pairing;
-    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, token: p.token });
+    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.WIN, token: p.token });
     this.timers.hello = setTimeout(() => {
       this.lastError = 'No welcome from the Mac';
       if (this.ws) this.ws.terminate();
@@ -273,8 +273,9 @@ class Link {
     if (this.mode === 'pair') {
       const ps = this.pairState;
       if (ps && ps.phase !== 'failed') {
+        const nobody = /^(ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/.test(this.lastError);
         this._pairFailed(ps.phase === 'connecting'
-          ? 'Could not connect to ' + ps.address + (this.lastError ? ' (' + this.lastError + ')' : '') + '.'
+          ? (nobody ? 'No MacShare at ' + ps.address + '.' : 'Could not connect to ' + ps.address + (this.lastError ? ' (' + this.lastError + ')' : '') + '.')
           : 'The connection to the Mac closed.');
       }
       return;

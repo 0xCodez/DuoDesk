@@ -207,6 +207,11 @@ const UI = {
     });
   },
 
+  // Small computer glyph by OS (Revision 4 lists).
+  osIcon(os) {
+    return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
+  },
+
   // Two equal direction cards (docs/UI.md "Tabs — equal places"), always Mac → PC then PC → Mac.
   // Each def: { on?: {get(s), set(v), disabled?}, rows: [], soon?: 'phase N' }. Returns { el, update(s) }.
   dirCards(m2p, p2m) {

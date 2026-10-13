@@ -37,32 +37,41 @@ UI.tab({
     const speed = UI.slider({ min: 0.25, max: 4, step: 0.25, format: (v) => `${v.toFixed(2)}×` }, (v) => api.setKvm({ speed: v }));
     const reverse = UI.switch((v) => api.setKvm({ reverseScroll: v }), { label: 'Reverse scrolling' });
 
+    // A row whose label follows the other computer's name (UI.names fills it on render).
+    const peerRow = (label, hint, controls) => {
+      const r = UI.row(label, hint, controls);
+      r.label.dataset.peer = label;
+      return r;
+    };
+    let driven2 = null;
     body.append(
       status,
       UI.pair(
-        UI.dir('m2w', [UI.row('Use this Mac’s mouse on the PC', 'Or double-tap Right Option', [drive])]),
-        UI.dir('w2m', [UI.row('Use the PC’s mouse on this Mac', 'Or double-tap Right Ctrl on the PC', [driven])]),
+        UI.dir('m2w', [peerRow('Use this Mac’s mouse on {there}', 'Or double-tap Right Option', [drive])]),
+        UI.dir('w2m', [driven2 = peerRow('Use {there}’s mouse on this Mac', '', [driven])]),
       ),
-      UI.card('Where your PC is', [el('div', { class: 'layout' }, [grid, layoutHint])]),
+      UI.card('Where the other computer is', [el('div', { class: 'layout' }, [grid, layoutHint])]),
       UI.card('Feel', [
         UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
-        UI.row('Pointer speed on the PC', '', [speed]),
-        UI.row('Reverse scrolling from the PC', '', [reverse]),
+        peerRow('Pointer speed on {there}', '', [speed]),
+        peerRow('Reverse scrolling from {there}', '', [reverse]),
       ]),
     );
 
     return (s) => {
       const k = s.kvm;
       if (!k) return;
+      const p = UI.peer(s);
       const [kind, text] = UI.kvmStatus(s);
       status.className = `note ${kind}`;
       status.set(text);
       for (const [side, b] of Object.entries(slots)) {
         b.classList.toggle('on', k.pcSide === side);
-        b.textContent = k.pcSide === side ? 'PC' : '';
+        b.textContent = k.pcSide === side ? p.there : '';
       }
       const where = { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[k.pcSide];
-      layoutHint.textContent = `Your PC is ${where} this Mac. Click a side to move it.`;
+      layoutHint.textContent = `${p.same ? p.there : 'Your PC'} is ${where} this Mac. Click a side to move it.`;
+      driven2.setHint(p.same ? 'Or double-tap Right Option on it' : 'Or double-tap Right Ctrl on the PC');
       drive.set(k.driveOther);
       driven.set(k.beDriven);
       resistance.set(k.resistancePx);

@@ -152,20 +152,60 @@ const UI = {
     return wrap;
   },
 
-  // A direction card for the symmetric layout (docs/UI.md "equal places"). dir: 'm2w' | 'w2m'.
-  // role: what this Mac does in that direction ('sends' / 'receives' / free text).
+  // Who the other computer is (docs/UI.md "Revision 4"): the session's peer, else the most recent
+  // pairing. Mac ↔ PC keeps "Mac" / "PC"; two Macs use "This Mac" / the other Mac's name.
+  peer(s) {
+    const c = s && s.client;
+    let os = c && c.os, name = c && c.name;
+    if (!os && s) {
+      const all = [...(s.paired || []), ...((s.guest && s.guest.hosts) || [])].sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+      if (all[0]) ({ os, name } = all[0]);
+    }
+    os = os || 'win';
+    const same = os === 'mac';
+    const kind = os === 'linux' ? 'Linux' : 'PC';
+    const there = same ? name || 'Other Mac' : kind;
+    return {
+      os, same, there, kind, name: name || there, here: same ? 'This Mac' : 'Mac',
+      // Terminal, Apps: only Mac ↔ PC so far (docs/ROADMAP.md "Revision 4", docs/LINUX.md).
+      limited: os !== 'win' ? (os === 'linux' ? 'Not on Linux yet' : 'Only between a Mac and a PC for now') : '',
+      // Titles name what is connected: "Mac → PC", or both names when the two are the same kind.
+      me: same ? (s && s.macName) || 'This Mac' : 'Mac',
+      out: same ? `${(s && s.macName) || 'This Mac'} → ${there}` : `Mac → ${kind}`,
+      in: same ? `${there} → ${(s && s.macName) || 'This Mac'}` : `${kind} → Mac`,
+      thereScreen: same ? `${there}’s screen` : `the ${kind}’s screen`,
+    };
+  },
+
+  // A direction card for the symmetric layout (docs/UI.md "equal places"). dir: 'm2w' | 'w2m'
+  // (m2w = from this Mac). The names follow the peer (UI.peer) on every render.
   dir(dir, rows, { role = '', soon = '' } = {}) {
-    const title = dir === 'm2w' ? ['Mac', 'PC'] : ['PC', 'Mac'];
+    const a = UI.el('span', { class: dir === 'm2w' ? 'dev here' : 'dev' });
+    const b = UI.el('span', { class: dir === 'w2m' ? 'dev here' : 'dev' });
+    a.dataset.side = dir === 'm2w' ? 'me' : 'there';
+    b.dataset.side = dir === 'm2w' ? 'there' : 'me';
     const head = UI.el('div', { class: 'dir-head' }, [
-      UI.el('span', { class: 'dir-title' }, [
-        UI.el('span', { class: dir === 'm2w' ? 'dev here' : 'dev' , text: title[0] }),
-        UI.el('span', { class: 'arrow', text: '→' }),
-        UI.el('span', { class: dir === 'w2m' ? 'dev here' : 'dev', text: title[1] }),
-      ]),
+      UI.el('span', { class: 'dir-title' }, [a, UI.el('span', { class: 'arrow', text: '→' }), b]),
       UI.el('span', { class: 'dir-role', text: soon ? `Coming in phase ${soon}` : role }),
     ]);
     const card = UI.el('div', { class: `card dir-card${soon ? ' soon-card' : ''}` }, [head, ...rows]);
+    UI.names(UI.state);
     return card;
+  },
+
+  // Fill every peer-dependent name: [data-side] chips and [data-peer] text templates.
+  names(s) {
+    const p = UI.peer(s);
+    for (const e of document.querySelectorAll('[data-side]')) e.textContent = p[e.dataset.side];
+    for (const e of document.querySelectorAll('[data-peer]')) {
+      e.textContent = e.dataset.peer.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
+    }
+    return p;
+  },
+
+  // A small computer glyph for lists: 'mac' | 'win' | 'linux'.
+  osIcon(os) {
+    return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
   },
 
   // Two equal direction cards side by side (stacked when narrow), always Mac → PC first.
@@ -183,7 +223,7 @@ const UI = {
   kvmStatus(s) {
     const i = s.input || { where: 'home' };
     if (i.tapError) return ['bad', 'macOS is blocking the mouse and keyboard. Allow Accessibility and Input Monitoring in General, then restart.'];
-    if (!s.client) return ['info', 'Waiting for your PC.'];
+    if (!s.client) return ['info', `Waiting for ${UI.peer(s).same ? 'your other Mac' : 'your PC'}.`];
     if (i.where === 'driving') return ['info', `You’re using ${s.client.name}. Double-tap Right Option to come back.`];
     if (i.where === 'driven') return ['info', `${s.client.name} is using this Mac.`];
     return [i.message ? 'warn' : 'info', i.message ? `${i.message}.` : `Connected to ${s.client.name}.`];

@@ -2,7 +2,7 @@
 // Actions from the control window (and the menu bar): validate, save settings, apply.
 'use strict';
 
-const { ipcMain, shell, app, screen, dialog } = require('electron');
+const { ipcMain, shell, app, screen, dialog, clipboard } = require('electron');
 const P = require('../shared/protocol.js');
 const store = require('./store');
 
@@ -10,6 +10,7 @@ const SETTINGS_URLS = {
   screen: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
   accessibility: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
   inputMonitoring: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent',
+  localNetwork: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork',
 };
 const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'files', 'terminal', 'audio', 'apps', 'general'];
 
@@ -56,7 +57,74 @@ function setupIpc(ctx) {
     save();
   }
 
+  // "Connect by address" / Pair on a found device (docs/ROADMAP.md "Revision 4"): a Mac host is
+  // paired as its guest, a PC gets an invite (it pairs with this Mac, which stays the host).
+  const connect = ctx.state.connect;
+  const report = (message, error = false) => {
+    Object.assign(connect, { busy: false, message, error });
+    pushState();
+  };
+  async function connectTo(dev, address) {
+    const { link, discovery, pairing } = ctx;
+    if (dev && dev.os !== 'mac') {
+      if (pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired. Open MacShare on it to connect.`);
+      discovery.invite(dev.address);
+      return report(`Asked ${dev.name} to connect. Confirm on the PC.`);
+    }
+    if (dev && pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired and connects to this Mac by itself.`);
+    if (dev && link.hosts.some((h) => h.id === dev.id)) {
+      link.poke();
+      return report(`Connecting to ${dev.name}…`);
+    }
+    report('');
+    link.startPairing({ address: dev ? dev.address : address, port: dev ? dev.port : P.PORT, name: dev ? dev.name : address });
+  }
+
   const actions = {
+    async connectAddress(text) {
+      const address = String(text || '').trim();
+      if (!/^(\d{1,3})(\.\d{1,3}){3}$/.test(address)) return report('Type an address like 192.168.1.20.', true);
+      if (ctx.state.addresses.includes(address)) return report('That’s this Mac.', true);
+      Object.assign(connect, { busy: true, message: `Looking at ${address}…`, error: false });
+      pushState();
+      const dev = await ctx.discovery.ask(address);
+      connectTo(dev, address); // no answer: try the WSS port directly (a Mac host answers there)
+    },
+    pairWith(deviceId) {
+      const dev = ctx.discovery.get(String(deviceId));
+      if (dev) connectTo(dev);
+    },
+    confirmGuestCode() {
+      ctx.link.confirmCode();
+    },
+    cancelGuestPair() {
+      ctx.link.cancelPair();
+    },
+    forgetHost(hostId) {
+      ctx.link.forget(String(hostId));
+    },
+    refreshDiscovery() {
+      ctx.discovery.probe();
+    },
+    copyText(text) {
+      if (typeof text === 'string' && text.length < 200) clipboard.writeText(text);
+    },
+    // Ask first (that puts MacShare in the System Settings list), then open the pane.
+    async allowPermission(kind) {
+      if (!SETTINGS_URLS[kind]) return;
+      let granted = false;
+      if (kind !== 'localNetwork' && ctx.helper.running) {
+        try {
+          granted = !!(await ctx.helper.request('requestAccess', { kind })).granted;
+        } catch {}
+      }
+      if (!granted) shell.openExternal(SETTINGS_URLS[kind]);
+      ctx.refreshPermissions();
+    },
+    skipSetup(missing) {
+      settings.ui.setupSkipped = String(missing || '').slice(0, 200);
+      save();
+    },
     setSharing(on) {
       settings.sharing.on = !!on;
       save();
@@ -222,6 +290,7 @@ function setupIpc(ctx) {
       ctx.pairing.respond(!!allow);
     },
     forget(deviceId) {
+      if (ctx.link.hosts.some((h) => h.id === String(deviceId))) return ctx.link.forget(String(deviceId));
       ctx.pairing.forget(String(deviceId));
       ctx.terminal.forget(String(deviceId));
     },
