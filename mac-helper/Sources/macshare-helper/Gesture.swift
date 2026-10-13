@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Revision 8b: trackpad gestures from the other computer as real macOS gesture events, so macOS
 // itself does them (smooth pinch zoom in any app; Mission Control, App Exposé and Spaces following
 // the fingers with the system's own animation). macOS has no public API for this: the events carry

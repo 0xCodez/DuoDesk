@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // One system-audio capture (mac-helper ScreenCaptureKit -> fd 3), shared by whoever needs it:
 // the screen session ("Share sound with the screen") and the standalone audio session (Audio tab).
 // Forwards whole stereo float32 frames to each consumer window, mutes this Mac while capturing if

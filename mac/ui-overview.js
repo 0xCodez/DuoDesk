@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Overview tab (docs/UI.md "Revision 4"): this Mac's address and Connect by address on top, the
 // computers nearby (always visible), the two computers, one switch per feature and direction,
 // and everything paired.
@@ -8,7 +8,7 @@ UI.tab({
   id: 'overview',
   order: 0,
   title: 'Overview',
-  heading: 'MacShare',
+  heading: 'TwinDesk',
   desc: '',
   color: 'linear-gradient(#8e8e93, #636366)',
   badge: (s) => (s.discovery && (!s.discovery.on || !s.discovery.localNetwork) ? '!' : ''),
@@ -106,7 +106,7 @@ UI.tab({
       const blocked = !d.on || !d.localNetwork;
       discRow.hidden = !blocked;
       discRow.label.textContent = 'Can’t look for computers on this network.';
-      discRow.setHint(!d.localNetwork ? 'Allow Local Network for MacShare, or connect by address.' : d.error);
+      discRow.setHint(!d.localNetwork ? 'Allow Local Network for TwinDesk, or connect by address.' : d.error);
       discFix.hidden = d.localNetwork;
       const pairedIds = new Set([...s.paired.map((x) => x.id), ...g.hosts.map((x) => x.id)]);
       const fk = JSON.stringify([s.found, [...pairedIds], c && c.id, blocked]);
@@ -123,7 +123,7 @@ UI.tab({
           r.classList.add('with-ico');
           return r;
         });
-        if (!rows.length && !blocked) rows.push(UI.row('Looking for computers…', 'Open MacShare on the other computer.'));
+        if (!rows.length && !blocked) rows.push(UI.row('Looking for computers…', 'Open TwinDesk on the other computer.'));
         foundList.replaceChildren(...rows);
       }
 
@@ -139,7 +139,7 @@ UI.tab({
       const bad = s.serverError || (g.status.state === 'identity_changed' && g.status.message);
       status.textContent = bad
         || (c ? UI.fill(WHERE[inp.where] || 'Connected')
-          : pairedIds.size ? 'Open MacShare on the other computer to connect.'
+          : pairedIds.size ? 'Open TwinDesk on the other computer to connect.'
             : 'Pick a computer above, or connect by address.');
       status.classList.toggle('bad', !!bad);
 

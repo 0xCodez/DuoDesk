@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The Mac's identity: macId/macName in settings.json, a self-signed TLS cert and its fingerprint.
 'use strict';
 

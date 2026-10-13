@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Standalone sound, both ways (docs/ROADMAP.md "Audio (revision 2)"), independent of the screen:
 //   m2w — this Mac's sound to the PC: sent when "Send this Mac's sound" is on, the PC accepts
 //         (`audio.policy`) and the screen session isn't already carrying it.

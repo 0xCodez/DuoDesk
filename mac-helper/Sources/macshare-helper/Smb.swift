@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Mount / unmount the PC's SMB share (phase 7) with the NetFS framework: the password is passed
 // in-process, never on a command line. Mounts under /Volumes/<share> (shows in Finder's sidebar).
 import Foundation

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Shared cursor + keyboard (docs/KVM.md): the state machine for both roles.
 //   driving: this Mac's input goes to the PC (owner, rows 1–6, 9)
 //   driven:  the PC's input drives this Mac (rows 7–9b)

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Files from the PC (phase 9 + revision 2): receive file.* chunks, check size + SHA-256, save where
 // they were dropped — the Finder window under the point, else the Desktop if dropped on it, else
 // the Files folder — never overwriting, then reveal in Finder.

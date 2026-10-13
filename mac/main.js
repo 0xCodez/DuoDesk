@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main process: lifecycle, windows, tray, IPC, and the state pushed to the control window.
 //
 // State object sent to the control window ('state' channel) on every change:
@@ -6,7 +6,7 @@
 //   macName, macId, fp,                       // this Mac's identity (fp = cert SHA-256 hex)
 //   addresses: ['192.168.1.5', ...],           // this Mac's IPv4 addresses (the server listens on P.PORT)
 //   discovery: { on, error, localNetwork },      // discovery.js status
-//   found: [{ id, name, os, address, port, invited }],   // other MacShare computers nearby
+//   found: [{ id, name, os, address, port, invited }],   // other TwinDesk computers nearby
 //   guest: { status: {state, message}, pairing: null|{phase, name, address, code, error}, hosts: [...] },  // link.js
 //   connect: { busy, message, error },           // last "Connect by address" / Pair attempt
 //   serverError: null | 'message',            // e.g. port already in use
@@ -45,6 +45,8 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // (jitterBufferTarget). FlexFEC repairs lost packets without waiting a round trip for a resend; it
 // costs bandwidth only while packets are being lost.
 app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/min_ms:0,max_ms:0/WebRTC-FlexFEC-03/Enabled/WebRTC-FlexFEC-03-Advertised/Enabled/');
+// Renamed to TwinDesk: settings, pairing and the identity stay in the old folder.
+app.setPath('userData', process.env.MACSHARE_PROFILE || path.join(app.getPath('appData'), 'MacShare')); // PROFILE: a second dev copy
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
@@ -215,7 +217,7 @@ function handleSendLink(url) {
   try { u = new URL(url); } catch { return; }
   const paths = u.searchParams.getAll('p').filter((x) => x.startsWith('/')).slice(0, 1000);
   if (!paths.length) return;
-  if (!peer.current) return hud && hud.show('away', 'Not connected', 'Open MacShare on the other computer first');
+  if (!peer.current) return hud && hud.show('away', 'Not connected', 'Open TwinDesk on the other computer first');
   actions.sendFiles(paths);
   hud && hud.show('away', `Sending ${paths.length} item${paths.length === 1 ? '' : 's'} to ${peer.current.name}`);
 }
@@ -246,7 +248,7 @@ function createWindow() {
     height: 720,
     minWidth: 760,
     minHeight: 520,
-    title: 'MacShare',
+    title: 'TwinDesk',
     show: false,
     titleBarStyle: 'hiddenInset', // the sidebar runs up under the traffic lights
     vibrancy: 'sidebar',
@@ -305,7 +307,7 @@ function updateTray() {
   const name = c ? c.name : 'the other computer';
   const k = settings.kvm;
   const where = state.input && state.input.where;
-  tray.setToolTip(c ? `MacShare: ${c.name}` : 'MacShare');
+  tray.setToolTip(c ? `TwinDesk: ${c.name}` : 'TwinDesk');
   const check = (label, checked, click, enabled = true) => ({ label, type: 'checkbox', checked: !!checked, enabled, click });
   const found = (state.found || []).filter((d) => !c || d.id !== c.id);
   tray.setContextMenu(
@@ -334,14 +336,16 @@ function updateTray() {
       },
       check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
       { type: 'separator' },
-      { label: 'Open MacShare…', click: showWindow },
-      { label: 'Quit MacShare', click: () => app.quit() },
+      { label: 'Open TwinDesk…', click: showWindow },
+      { label: 'Quit TwinDesk', click: () => app.quit() },
     ]),
   );
 }
 
 app.whenReady().then(() => {
   if (app.dock) app.dock.hide();
+  // Dev runs show Electron's icon otherwise; the built app has it in its bundle.
+  if (app.dock && !app.isPackaged) app.dock.setIcon(path.join(__dirname, '..', 'shared', 'icon', 'teindesk-dark-mac.png'));
   store.init(app.getPath('userData'));
   settings = store.loadSettings();
   id = identity.load(settings);
@@ -431,6 +435,7 @@ app.whenReady().then(() => {
   });
   createWindow();
   refreshPermissions();
+  if (process.env.MACSHARE_DEV_TEST) require('./dev/m2m')({ role: process.env.MACSHARE_DEV_TEST, svc, actions, link, pairing, peer });
   readDefaultIf();
   setInterval(() => {
     readDefaultIf();

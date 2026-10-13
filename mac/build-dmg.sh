@@ -1,13 +1,13 @@
 #!/bin/sh
-# MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-# Creates dist/MacShare.dmg from dist/MacShare.app (npm run dmg).
+# TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+# Creates dist/TwinDesk.dmg from dist/TwinDesk.app (npm run dmg).
 set -e
 cd "$(dirname "$0")"
 
-APP="dist/MacShare.app"
-DMG="dist/MacShare.dmg"
+APP="dist/TwinDesk.app"
+DMG="dist/TwinDesk.dmg"
 STAGE="dist/dmg-stage"
-VOLNAME="MacShare"
+VOLNAME="TwinDesk"
 
 if [ ! -d "$APP" ]; then
   echo "Error: $APP not found. Run ./build-app.sh first." >&2
@@ -24,9 +24,9 @@ cp -R "$APP" "$STAGE/"
 # Create symlink to /Applications for drag-and-drop installation
 ln -s /Applications "$STAGE/Applications"
 
-# Set volume icon if MacShare.icns exists
-if [ -f "dist/MacShare.icns" ]; then
-  cp "dist/MacShare.icns" "$STAGE/.VolumeIcon.icns"
+# Set volume icon if TwinDesk.icns exists
+if [ -f "dist/TwinDesk.icns" ]; then
+  cp "dist/TwinDesk.icns" "$STAGE/.VolumeIcon.icns"
   if command -v SetFile >/dev/null 2>&1; then
     SetFile -c icnC "$STAGE/.VolumeIcon.icns" 2>/dev/null || true
     SetFile -a C "$STAGE" 2>/dev/null || true

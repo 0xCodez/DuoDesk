@@ -1,6 +1,6 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Setup (docs/ROADMAP.md "Revision 4"): shown instead of the tabs while something MacShare needs
-// isn't allowed yet. "Allow" asks macOS first, which puts MacShare in the System Settings list, so
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+// Setup (docs/ROADMAP.md "Revision 4"): shown instead of the tabs while something TwinDesk needs
+// isn't allowed yet. "Allow" asks macOS first, which puts TwinDesk in the System Settings list, so
 // it's one switch there (no + and file browser). Closes by itself when everything is allowed.
 'use strict';
 
@@ -20,11 +20,11 @@ UI.setup = (() => {
   let missingKey = '';
   const page = el('section', { class: 'setup-page', hidden: true }, [
     el('div', { class: 'app-mark', attrs: { 'aria-hidden': 'true' } }),
-    el('h1', { text: 'Set up MacShare' }),
+    el('h1', { text: 'Set up TwinDesk' }),
     el('p', { text: 'macOS needs your OK for a few things.' }),
     UI.card('', rows.map((r) => r.row)),
     el('div', { class: 'setup-foot' }, [
-      UI.button('Restart MacShare', () => api.relaunch(), ''),
+      UI.button('Restart TwinDesk', () => api.relaunch(), ''),
       UI.button('Skip for now', () => api.skipSetup(missingKey), ''),
     ]),
   ]);

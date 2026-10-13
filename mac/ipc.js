@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Actions from the control window (and the menu bar): validate, save settings, apply.
 'use strict';
 
@@ -74,7 +74,7 @@ function setupIpc(ctx) {
   async function connectTo(dev, address) {
     const { link, discovery, pairing } = ctx;
     if (dev && dev.os !== 'mac') {
-      if (pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired. Open MacShare on it to connect.`);
+      if (pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired. Open TwinDesk on it to connect.`);
       discovery.invite(dev.address);
       return report(`Asked ${dev.name} to connect. Confirm on ${dev.name}.`);
     }
@@ -116,7 +116,7 @@ function setupIpc(ctx) {
     copyText(text) {
       if (typeof text === 'string' && text.length < 200) clipboard.writeText(text);
     },
-    // Ask first (that puts MacShare in the System Settings list), then open the pane.
+    // Ask first (that puts TwinDesk in the System Settings list), then open the pane.
     async allowPermission(kind) {
       if (!SETTINGS_URLS[kind]) return;
       let granted = false;
@@ -166,13 +166,13 @@ function setupIpc(ctx) {
       if (!on) ctx.input.releaseAll();
       ctx.server.sendToClient({ t: P.T.STREAM_INPUT, on: !!on }); // Windows goes view-only when off
     },
-    // null = the MacShare virtual display
+    // null = the TwinDesk virtual display
     selectDisplay(displayId) {
       settings.sharing.displayId = displayId == null ? null : Number(displayId);
       save();
       ctx.stream.restart('display selected');
     },
-    // Extend: Monitor 2 is the MacShare virtual display. Mirror: it shows this Mac's main screen.
+    // Extend: Monitor 2 is the TwinDesk virtual display. Mirror: it shows this Mac's main screen.
     setDisplayMode(mode) {
       if (mode === 'mirror') {
         settings.sharing.displayId = screen.getPrimaryDisplay().id;
@@ -237,7 +237,7 @@ function setupIpc(ctx) {
     muteNotifApp(arg) {
       if (arg && typeof arg.app === 'string') ctx.notifs.setMuted(arg.app.slice(0, 200), !!arg.muted);
     },
-    // Full Disk Access has no request API: open the pane and show MacShare in Finder to drag in.
+    // Full Disk Access has no request API: open the pane and show TwinDesk in Finder to drag in.
     allowFullDisk() {
       shell.openExternal(SETTINGS_URLS.fullDisk);
       const bundle = process.execPath.replace(/\/Contents\/MacOS\/[^/]+$/, '');
@@ -261,7 +261,7 @@ function setupIpc(ctx) {
       if (settings.smb.connectPc) ctx.smb.mountPc();
       else ctx.smb.unmountPc();
     },
-    // One switch: on = share the chosen folder (default ~/MacShare); off = stop sharing.
+    // One switch: on = share the chosen folder (default ~/TwinDesk); off = stop sharing.
     setShareMac(on) {
       if (on) ctx.smb.startSharing();
       else ctx.smb.stopSharing();

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Writes assets/trayTemplate.png (18 pt) and @2x: the app mark's two screens as a menu bar
 // template image (black + alpha; macOS tints it). Run: node dev/tray-icon.js
 'use strict';

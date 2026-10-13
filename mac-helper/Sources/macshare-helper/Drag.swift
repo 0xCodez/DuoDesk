@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Files dragged in from the PC become a real drag on this Mac (docs/ROADMAP.md "Drag files across
 // the screen edge", revision 3). `dragStart` puts a nearly invisible panel under the pointer and
 // injects a (marked) left-button-down into it; its mouseDown starts an NSDraggingSession with one
@@ -133,7 +133,7 @@ final class DragIn: NSObject, NSDraggingSource, NSFilePromiseProviderDelegate {
   /// Main wrote (or failed to write) the promised item.
   func written(drag: String, index: Int, error: String?) {
     guard let done = writes.removeValue(forKey: "\(drag)#\(index)") else { return }
-    done(error.map { NSError(domain: "MacShare", code: 1, userInfo: [NSLocalizedDescriptionKey: $0]) })
+    done(error.map { NSError(domain: "TwinDesk", code: 1, userInfo: [NSLocalizedDescriptionKey: $0]) })
   }
 
   private func finish(_ result: String) {
@@ -231,7 +231,7 @@ final class DragIn: NSObject, NSDraggingSource, NSFilePromiseProviderDelegate {
   }
 
   func filePromiseProvider(_ p: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler: @escaping (Error?) -> Void) {
-    guard let (d, i) = info(p) else { return completionHandler(NSError(domain: "MacShare", code: 2)) }
+    guard let (d, i) = info(p) else { return completionHandler(NSError(domain: "TwinDesk", code: 2)) }
     DispatchQueue.main.async { [self] in
       writes["\(d)#\(i)"] = completionHandler
       emit(["event": "dragWrite", "drag": d, "index": i, "path": url.path])

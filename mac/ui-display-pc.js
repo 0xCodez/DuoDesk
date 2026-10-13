@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Display › PC → Mac: the PC's screen in a window on this Mac (phase 11). Same structure as
 // Mac → PC; the PC picks what it shares (Off / Mirror / Extend), this Mac picks how it shows it.
 'use strict';
@@ -69,7 +69,7 @@ UI.tab({
       rMode.set(rs ? (rs.on ? rs.mode : 'off') : '');
       rMode.disable(!s.client || !rs || !rs.remote);
       rRow.setHint(!s.client ? 'Connect to choose from here'
-        : !rs ? 'Update MacShare on the other computer to choose from here'
+        : !rs ? 'Update TwinDesk on the other computer to choose from here'
           : !rs.remote ? 'The other computer doesn’t allow choosing from here'
             : rs.on ? (rs.mode === 'extend' ? 'An extra screen for it, shown here' : 'Its main screen, shown here') : 'Pick Mirror or Extend — or just press Open');
       inputSw.set(r.input);
@@ -78,7 +78,7 @@ UI.tab({
       showBtn.textContent = r.open ? 'Show' : 'Open';
       const canStart = r.remote && r.remote.remote;
       winRow.setHint(!s.client ? `Waiting for ${pc}`
-        : r.session ? `Showing ${pc}` : canStart ? `Open starts it on ${pc}` : `Choose what to share in MacShare on ${pc}`);
+        : r.session ? `Showing ${pc}` : canStart ? `Open starts it on ${pc}` : `Choose what to share in TwinDesk on ${pc}`);
       const st = r.stats;
       const isLive = r.status === 'live' && st;
       vals.status.textContent = UI.fill(STATUS[r.status] || r.status);

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Screen sharing: hidden capture window (getDisplayMedia + RTCPeerConnection, the offerer),
 // session numbering, rtc.* relay between the capture window and the Windows client, stats.
 // Revision 7: we capture only while a viewer is open on the other side (its `screen.policy
@@ -38,12 +38,22 @@ class Stream extends EventEmitter {
       }
     });
 
+    // A new peer says within moments whether its viewer is open (screen.policy); an older app never
+    // does. So wait up to 1.5 s before sending anything, then treat silence as "watching".
     server.on('client', () => {
       this.viewer = null;
-      this.restart('client');
+      this.waitingPolicy = true;
+      clearTimeout(this.policyTimer);
+      this.policyTimer = setTimeout(() => {
+        this.waitingPolicy = false;
+        if (this.viewer === null) this.restart('older viewer');
+      }, 1500);
+      this._stopWindow(this.getSettings().sharing.on ? 'no viewer' : 'off');
     });
     server.on(`t:${P.T.SCREEN_POLICY}`, (msg) => {
       const on = !!msg.accept;
+      this.waitingPolicy = false;
+      clearTimeout(this.policyTimer);
       if (on === this.viewer) return;
       this.viewer = on;
       if (on) this.restart('viewer open');
@@ -127,7 +137,7 @@ class Stream extends EventEmitter {
     clearTimeout(this.retryTimer);
     if (!this.getSettings().sharing.on) return this.stop('off');
     if (!this.server.current) return this._stopWindow('nothing connected');
-    if (this.viewer === false) return this._stopWindow('no viewer');
+    if (this.viewer === false || this.waitingPolicy) return this._stopWindow('no viewer');
     const target = this.displays.target();
     if (!target) return this._stopWindow('no display to share');
 

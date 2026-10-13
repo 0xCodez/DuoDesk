@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Event tap for shared cursor/keyboard (docs/KVM.md): edge push at home, Right-Option double-tap,
 // capture (swallow + report as `ev`) per device class, dead-man, return edge while driven.
 // Safety rules (docs/KVM.md): the callback only does cheap work and enqueues output; our

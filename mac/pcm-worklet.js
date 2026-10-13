@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // AudioWorklet: plays raw PCM pushed from main (48 kHz stereo float32 interleaved) with a small
 // jitter buffer. Keeps ~20–40 ms queued; drops the oldest audio if it falls >120 ms behind.
 'use strict';

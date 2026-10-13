@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Spawns mac-helper and talks JSON lines with it.
 //   request(cmd, args) -> Promise<reply>   (has an id, waits for {"id","ok"})
 //   send(cmd, args)                        (fire-and-forget, no id)

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // A short animation where the pointer crosses between the computers: a glow on the crossing edge and
 // a ring at the pointer that spreads out (arriving here) or closes in (leaving). Drawn in a
 // click-through overlay per screen; skipped when Reduce Motion is on.

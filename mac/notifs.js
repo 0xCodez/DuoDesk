@@ -1,7 +1,7 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Revision 5, notifications both ways (docs/ROADMAP.md): this Mac's notifications go to the peer
 // while it accepts them (`notif.policy`); the peer's show here as native notifications from
-// MacShare. Reading needs Full Disk Access (the helper reads the Notification Center database).
+// TwinDesk. Reading needs Full Disk Access (the helper reads the Notification Center database).
 //
 // Events: 'change' — this.view changed.
 'use strict';

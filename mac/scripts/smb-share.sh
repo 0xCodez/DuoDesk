@@ -1,9 +1,9 @@
 #!/bin/sh
-# MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-# Share one folder with the paired PC over SMB (phase 7). Run as root (MacShare starts it through
+# TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+# Share one folder with the paired PC over SMB (phase 7). Run as root (TwinDesk starts it through
 # the macOS administrator prompt). Usage: smb-share.sh <folder> <password-file>
 # Creates a hidden, login-less account "macshare" with SMB (NT) password hashes, gives it
-# read/write on the folder with an ACL, shares the folder as "MacShare" over SMB only (no guest),
+# read/write on the folder with an ACL, shares the folder as "TwinDesk" over SMB only (no guest),
 # and turns the SMB server on. The password file is read and deleted.
 set -e
 DIR="$1"; PWFILE="$2"; U=macshare; SHARE=MacShare

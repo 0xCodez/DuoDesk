@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Revision 10: this Mac's apps on another Mac, the phase 13 way (port of windows/pcapps.js +
 // sender.js). The other Mac's viewer (its pcapps.js) asks for the list (`papps.list`), opens an app
 // (`papp.launch` → `open -b` through the helper), and gets `papp.windows` for the apps it opened:

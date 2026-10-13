@@ -1,6 +1,6 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// The MacShare virtual display (via mac-helper), the display list, and which display is shared.
-// settings.sharing.displayId: null = the MacShare virtual display (falls back to the main
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+// The TwinDesk virtual display (via mac-helper), the display list, and which display is shared.
+// settings.sharing.displayId: null = the TwinDesk virtual display (falls back to the main
 // display when it is off), otherwise an Electron display id (= CGDirectDisplayID).
 //
 // Events: 'change' — displays were added/removed/resized or the virtual display changed.
@@ -54,7 +54,7 @@ class Displays extends EventEmitter {
           return;
         }
         const r = await this.helper.request('createDisplay', {
-          width: v.width, height: v.height, hiDPI: !!v.hiDPI, hz: v.hz || 60, name: 'MacShare',
+          width: v.width, height: v.height, hiDPI: !!v.hiDPI, hz: v.hz || 60, name: 'TwinDesk',
         });
         this.virtualId = r.displayId;
         console.log(`[displays] virtual display ${r.displayId}: ${v.width}x${v.height} pt, ${r.pixelWidth}x${r.pixelHeight} px`);
@@ -92,7 +92,7 @@ class Displays extends EventEmitter {
     const primary = screen.getPrimaryDisplay().id;
     return screen.getAllDisplays().map((d) => ({
       id: d.id,
-      label: d.id === this.virtualId ? 'MacShare (virtual)' : d.label || (d.internal ? 'Built-in display' : `Display ${d.id}`),
+      label: d.id === this.virtualId ? 'TwinDesk (virtual)' : d.label || (d.internal ? 'Built-in display' : `Display ${d.id}`),
       width: d.size.width,
       height: d.size.height,
       pixelWidth: Math.round(d.size.width * d.scaleFactor),

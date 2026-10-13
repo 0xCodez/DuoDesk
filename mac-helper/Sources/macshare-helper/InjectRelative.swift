@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Relative KVM input while the PC drives this Mac (`inject`, docs/KVM.md row 8). Main has already
 // mapped keys and applied speed / reverse scrolling.
 import Cocoa

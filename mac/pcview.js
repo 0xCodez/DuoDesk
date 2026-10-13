@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Phase 11, Display › PC → Mac (docs/ROADMAP.md): the PC's screen in a window on this Mac.
 // We tell the PC with `screen.policy {accept, width, height}` and answer every `rtc2.offer`
 // (recvonly) in a visible viewer window, tuned for the lowest latency (jitter buffer 0, input sent
@@ -273,7 +273,7 @@ class PcView extends EventEmitter {
     if (fresh && !this.session) {
       const pc = this.server.current ? this.server.current.name : 'the other computer';
       const why = !this.server.current ? 'Waiting for the other computer…'
-        : r && !r.on && r.remote ? `Starting ${pc}’s screen…` : `Choose what to share in MacShare on ${pc}`;
+        : r && !r.on && r.remote ? `Starting ${pc}’s screen…` : `Choose what to share in TwinDesk on ${pc}`;
       this._toWin({ t: 'stop', why });
       if (this.remote) this._toWin({ t: 'remote', ...this.remote });
     }

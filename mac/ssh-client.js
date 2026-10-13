@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Terminal, Mac -> PC (docs/ROADMAP.md): send this Mac's key with `ssh.key`; when the PC answers
 // `ssh.info {enabled}`, write a pinned `Host macshare-pc` block into ~/.ssh/config so
 // `ssh macshare-pc` works with no password and no "trust this host?" question.

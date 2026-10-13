@@ -1,5 +1,5 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Phase 13: the Dock icon of one PC app. MacShare copies this binary into a generated bundle per PC
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+// Phase 13: the Dock icon of one PC app. TwinDesk copies this binary into a generated bundle per PC
 // app (name + icon in Info.plist / Resources) and runs it while that app has windows on this Mac.
 // stdout (lines): `activate` (Dock click, ⌘-Tab), `focus <i>` (Dock menu item), `quit` (Dock › Quit).
 // stdin (lines): `menu <JSON array of window titles>`, `exit`. stdin closed → exit.
@@ -55,8 +55,8 @@ final class Stub: NSObject, NSApplicationDelegate {
   }
 }
 
-// Opened on its own (Dock, Launchpad, Spotlight; not started by MacShare): ask MacShare to open
-// this PC app, then leave. MacShare starts its own copy of this stub as the Dock icon.
+// Opened on its own (Dock, Launchpad, Spotlight; not started by TwinDesk): ask TwinDesk to open
+// this PC app, then leave. TwinDesk starts its own copy of this stub as the Dock icon.
 if ProcessInfo.processInfo.environment["MACSHARE_DOCKSTUB"] != "1" {
   let id = (Bundle.main.object(forInfoDictionaryKey: "MacSharePcAppId") as? String) ?? ""
   var allowed = CharacterSet.alphanumerics

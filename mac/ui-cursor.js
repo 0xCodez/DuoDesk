@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Cursor tab: where the PC is (layout picker), directions, edge resistance, speed, scrolling.
 // Settings are saved now; the behaviour arrives in phases 4–5 (docs/KVM.md).
 'use strict';

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Phase 3: input inside Monitor 2 (in.* -> mac-helper `input`, keys swapped Ctrl<->Cmd when
 // `swapKeys()`). The clipboard lives in clipboard.js.
 //

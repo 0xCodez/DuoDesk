@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Pairing (numeric comparison, BUILD_PLAN.md "Pairing"), paired.json, and `hello` auth.
 //
 // Events: 'change' — the pending request or the paired list changed;

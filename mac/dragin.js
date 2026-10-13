@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Files and folders dragged in from the PC as a native drag here (docs/ROADMAP.md "Drag files
 // across the screen edge", revision 3). `drag.start` → the helper starts an NSDraggingSession with
 // one file promise per top-level item; the files stream into a private temp tree as they arrive

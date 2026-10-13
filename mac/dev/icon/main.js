@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Renders icon.html (the sidebar's app mark) to a 1024 px PNG: electron dev/icon/main.js <out.png>
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs');

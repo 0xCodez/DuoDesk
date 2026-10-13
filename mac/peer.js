@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The one session this Mac has, whichever side opened it (docs/ROADMAP.md "Revision 4"):
 //   host  — a PC or a Mac connected to our server (server.js), the usual case;
 //   guest — we connected to another Mac (link.js).

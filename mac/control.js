@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Control window: a tiny UI kit (window.UI) and the shell (sidebar, tabs, pairing banner).
 // Tabs live in ui-*.js and call UI.tab({...}); ui-start.js boots the window (docs/UI.md).
 // Controls are built once per tab; render(state) only updates values, so a state push never

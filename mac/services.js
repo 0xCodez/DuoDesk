@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Creates the helper-backed services and wires them together: display, stream, Monitor 2 input,
 // clipboard, shared cursor/keyboard. Restarts the helper if it dies (phase 6) and keeps the display
 // awake while a PC is connected.

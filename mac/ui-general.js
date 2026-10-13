@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // General tab: permissions, app behaviour, about.
 'use strict';
 
@@ -28,14 +28,16 @@ UI.tab({
     const helperRow = UI.row('Background helper', '');
     const helperVal = el('span', { class: 'value' });
     helperRow.querySelector('.controls').append(helperVal);
-    const version = el('span', { class: 'value' });
+    const deviceName = el('span', { class: 'value' });
+    const deviceRow = UI.row('Computer name', 'How other computers see this one', [deviceName]);
+    const versionRow = UI.row('TwinDesk for macOS', '');
     const loginSw = UI.switch((v) => api.setApp({ openAtLogin: v }), { label: 'Open at login' });
     const awakeSw = UI.switch((v) => api.setApp({ keepAwake: v }), { label: 'Keep the display awake' });
     const hudSw = UI.switch((v) => api.setApp({ hud: v }), { label: 'Show a popup when switching' });
     // Revision 7: wake this Mac from the other computer; the Share menu entry.
     const wakeSw = UI.switch((v) => api.setWakeOnLan(v), { label: 'Wake from the network' });
     const wakeRow = UI.row('Let {name} wake {me}', '', [wakeSw]);
-    const shareRow = UI.row('MacShare in the Share menu', 'Share › MacShare sends files to the other computer',
+    const shareRow = UI.row('TwinDesk in the Share menu', 'Share › TwinDesk sends files to the other computer',
       [UI.button('Extensions…', () => api.openSettings('extensions'), 'small')]);
 
     body.append(
@@ -47,13 +49,15 @@ UI.tab({
         UI.row('Open at login', '', [loginSw]),
         UI.row('Keep the display awake', 'While connected', [awakeSw]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
-        helperRow,
       ]),
       UI.card('Network and sharing', [wakeRow, shareRow]),
+      UI.card('This computer', [deviceRow, helperRow]),
       UI.card('About', [
-        UI.row('MacShare', 'Free and open source (GPL v3)', [version]),
+        versionRow,
+        UI.row('Made by', 'inukaasith'),
+        UI.row('Licence', 'Free and open source, GPL v3. Copyright © 2026 inukaasith'),
         UI.row('Thanks', 'DeskPad (virtual display header, MIT)'),
-      ]),
+      ], { cls: 'keep-on' }),
     );
 
     return (s) => {
@@ -74,7 +78,8 @@ UI.tab({
       wakeSw.disable(w.womp == null);
       wakeRow.setHint(w.womp == null ? 'Checking…' : 'Wake for network access. Asks for your password to change it');
       helperVal.textContent = s.helper && s.helper.running ? 'Running' : 'Not running';
-      version.textContent = s.version ? `Version ${s.version}` : '';
+      versionRow.setHint(s.version ? `Version ${s.version}` : '');
+      deviceName.textContent = s.macName || '';
     };
   },
 });

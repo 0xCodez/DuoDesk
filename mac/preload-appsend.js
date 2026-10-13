@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The hidden app-window sender's API (revision 10): commands and rtc2.* in, rtc2.*, state and stats out.
 'use strict';
 

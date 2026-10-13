@@ -1,5 +1,5 @@
 #!/bin/sh
-# MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+# TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 # Undo smb-share.sh: remove the share, the folder ACL entry and the hidden account. Run as root.
 # Usage: smb-unshare.sh <folder>
 DIR="$1"; U=macshare

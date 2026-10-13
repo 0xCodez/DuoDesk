@@ -1,4 +1,4 @@
-/* MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE. */
+/* TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
 /* Page-specific pieces: overview hero, layout picker, clipboard history, roadmap pages. */
 
 /* Overview hero */
@@ -87,7 +87,7 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 .app-tile:active { transform: scale(0.96); }
 .app-tile img, .app-noicon { width: 40px; height: 40px; }
 .app-noicon { display: grid; place-items: center; border-radius: 9px; background: rgba(128,128,128,.25); font-weight: 600; }
-.app-name { font-size: 11px; text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.app-tile .app-name { font-size: 11px; text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .app-state { font-size: 10px; opacity: .6; min-height: 12px; }
 .app-tile.running .app-state { color: #30d158; opacity: 1; }
 .app-empty { grid-column: 1 / -1; opacity: .6; padding: 12px 0; font-size: 12px; }

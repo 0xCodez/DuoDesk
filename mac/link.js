@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Guest role (docs/ROADMAP.md "Revision 4"): this Mac connects to another Mac that hosts.
 // WSS client with certificate pinning, pairing as the initiator, hello, liveness, reconnect.
 // Same protocol as windows/link.js; stored hosts live in hosts.json.
@@ -16,7 +16,7 @@ const PAIR_ERRORS = {
   [P.E.PAIR_REFUSED]: 'Pairing was refused.',
   [P.E.PAIR_TIMEOUT]: 'Pairing timed out.',
   [P.E.BUSY]: 'That computer is busy with another device.',
-  [P.E.VERSION_MISMATCH]: 'That computer runs a different MacShare version. Update both.',
+  [P.E.VERSION_MISMATCH]: 'That computer runs a different TwinDesk version. Update both.',
 };
 
 class Link extends EventEmitter {
@@ -182,7 +182,7 @@ class Link extends EventEmitter {
     if (typeof msg.nonce !== 'string' || !/^[0-9a-f]{32,128}$/.test(msg.nonce) || msg.nonce.length % 2) {
       return this._pairFailed('The other computer sent a bad pairing message.');
     }
-    if (msg.os && msg.os !== P.OS.MAC) return this._pairFailed('That computer isn’t a Mac. Pair from MacShare on it instead.');
+    if (msg.os && msg.os !== P.OS.MAC) return this._pairFailed('That computer isn’t a Mac. Pair from TwinDesk on it instead.');
     this.nm = msg.nonce;
     this._raw({ t: T.PAIR_REVEAL, nonce: this.nw });
     ps.code = P.sasCode(this.seenFp, this.nw, this.nm);

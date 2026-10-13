@@ -1,6 +1,6 @@
 #!/bin/sh
-# MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-# Builds dist/MacShare.app (npm run dist). The app code keeps its dev layout inside
+# TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+# Builds dist/TwinDesk.app (npm run dist). The app code keeps its dev layout inside
 # Contents/Resources/app (mac/, shared/, mac-helper/.build/release/) so every `../` path still works;
 # no asar, because mac-helper and scripts/*.sh are run straight from there.
 set -e
@@ -29,40 +29,33 @@ require('fs').writeFileSync('$STAGE/package.json', JSON.stringify({
   license: p.license, main: 'mac/main.js', dependencies: p.dependencies,
 }, null, 2));"
 
-# App icon: the sidebar's app mark (control.css .app-mark), rendered by Electron.
-ICONSET=dist/MacShare.iconset
-rm -rf "$ICONSET" && mkdir -p "$ICONSET"
-./node_modules/.bin/electron dev/icon/main.js "$ICONSET/icon_512x512@2x.png" >/dev/null 2>&1
-for s in 16 32 128 256 512; do
-  sips -z $s $s "$ICONSET/icon_512x512@2x.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
-  d=$((s * 2)); [ $s = 512 ] || sips -z $d $d "$ICONSET/icon_512x512@2x.png" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o dist/MacShare.icns
+# App icon: the TwinDesk dark icon (shared/icon, drawn by make-icon.py).
+cp "$ROOT/shared/icon/teindesk-dark.icns" dist/TwinDesk.icns
 
 cat > dist/extra.plist <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>NSLocalNetworkUsageDescription</key><string>MacShare finds and connects to your PC on the local network.</string>
-  <key>NSMicrophoneUsageDescription</key><string>MacShare sends sound between your Mac and your PC.</string>
-  <key>NSAudioCaptureUsageDescription</key><string>MacShare sends your Mac's sound to your PC.</string>
-  <key>NSCameraUsageDescription</key><string>MacShare does not use the camera.</string>
-  <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>MacShare</string><key>CFBundleURLSchemes</key><array><string>macshare</string></array></dict></array>
+  <key>NSLocalNetworkUsageDescription</key><string>TwinDesk finds and connects to your PC on the local network.</string>
+  <key>NSMicrophoneUsageDescription</key><string>TwinDesk sends sound between your Mac and your PC.</string>
+  <key>NSAudioCaptureUsageDescription</key><string>TwinDesk sends your Mac's sound to your PC.</string>
+  <key>NSCameraUsageDescription</key><string>TwinDesk does not use the camera.</string>
+  <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>TwinDesk</string><key>CFBundleURLSchemes</key><array><string>macshare</string></array></dict></array>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-  <key>NSHumanReadableCopyright</key><string>Copyright (C) 2026 MacShare contributors. GPL-3.0.</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright (C) 2026 inukaasith. GPL-3.0.</string>
 </dict></plist>
 EOF
 
-./node_modules/.bin/electron-packager "$STAGE" MacShare \
+./node_modules/.bin/electron-packager "$STAGE" TwinDesk \
   --platform=darwin --arch="$ARCH" --electron-version="$EV" \
   --app-bundle-id=org.macshare.mac --app-version="$(node -p "require('./package.json').version")" \
-  --icon=dist/MacShare.icns --extend-info=dist/extra.plist \
+  --icon=dist/TwinDesk.icns --extend-info=dist/extra.plist \
   --no-prune --asar=false --out=dist --overwrite --quiet
 
-APP="dist/MacShare-darwin-$ARCH/MacShare.app"
-rm -rf dist/MacShare.app && mv "$APP" dist/ && rm -rf "dist/MacShare-darwin-$ARCH" "$STAGE" "$ICONSET" dist/extra.plist
+APP="dist/TwinDesk-darwin-$ARCH/TwinDesk.app"
+rm -rf dist/TwinDesk.app && mv "$APP" dist/ && rm -rf "dist/TwinDesk-darwin-$ARCH" "$STAGE" dist/extra.plist
 # Revision 7: the Share menu extension (mac-helper/Sources/macshare-share), sandboxed as macOS requires.
-APPEX=dist/MacShare.app/Contents/PlugIns/MacShareShare.appex
+APPEX=dist/TwinDesk.app/Contents/PlugIns/MacShareShare.appex
 VER="$(node -p "require('./package.json').version")"
 mkdir -p "$APPEX/Contents/MacOS"
 cp "$ROOT/mac-helper/.build/release/macshare-share" "$APPEX/Contents/MacOS/MacShareShare"
@@ -71,8 +64,8 @@ cat > "$APPEX/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleIdentifier</key><string>org.macshare.mac.share</string>
-  <key>CFBundleName</key><string>MacShare</string>
-  <key>CFBundleDisplayName</key><string>MacShare</string>
+  <key>CFBundleName</key><string>TwinDesk</string>
+  <key>CFBundleDisplayName</key><string>TwinDesk</string>
   <key>CFBundleExecutable</key><string>MacShareShare</string>
   <key>CFBundlePackageType</key><string>XPC!</string>
   <key>CFBundleShortVersionString</key><string>$VER</string>
@@ -100,8 +93,8 @@ cat > dist/share.entitlements <<'PLIST'
 PLIST
 
 # Ad-hoc signature over the whole bundle (helpers first), so the edited Info.plist is sealed.
-for b in dist/MacShare.app/Contents/Resources/app/mac-helper/.build/release/*; do codesign --force --sign - "$b"; done
-codesign --force --deep --sign - dist/MacShare.app
+for b in dist/TwinDesk.app/Contents/Resources/app/mac-helper/.build/release/*; do codesign --force --sign - "$b"; done
+codesign --force --deep --sign - dist/TwinDesk.app
 codesign --force --sign - --entitlements dist/share.entitlements "$APPEX" # --deep dropped its sandbox
-codesign --force --sign - dist/MacShare.app && rm -f dist/share.entitlements
-echo "built mac/dist/MacShare.app"
+codesign --force --sign - dist/TwinDesk.app && rm -f dist/share.entitlements
+echo "built mac/dist/TwinDesk.app"

@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // macshare-helper: JSON lines on stdin (requests) / stdout (replies + events). Logs go to stderr.
 // Request {"id":1,"cmd":"...",...} -> {"id":1,"ok":true,...} | {"id":1,"ok":false,"error":"..."}.
 // Requests without "id" get no reply. Events: {"event":"..."}. Exits when stdin closes.
@@ -103,7 +103,7 @@ func handle(_ line: String) {
     reply(id, ["front": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "",
                "files": urls.map { $0.path }])
   case "requestAccess":
-    // Asking registers MacShare (our responsible app) in that System Settings list, so the person
+    // Asking registers TwinDesk (our responsible app) in that System Settings list, so the person
     // only flips a switch instead of adding the app with + and a file browser.
     var granted = false
     switch (msg["kind"] as? String) ?? "" {
@@ -120,7 +120,7 @@ func handle(_ line: String) {
     let height = (msg["height"] as? NSNumber)?.intValue ?? 1080
     let hiDPI = (msg["hiDPI"] as? Bool) ?? false
     let hz = (msg["hz"] as? NSNumber)?.doubleValue ?? 60
-    let name = (msg["name"] as? String) ?? "MacShare"
+    let name = (msg["name"] as? String) ?? "TwinDesk"
     virtualDisplay.create(width: width, height: height, hiDPI: hiDPI, hz: hz, name: name) { result in
       switch result {
       case .success(let info): reply(id, info)

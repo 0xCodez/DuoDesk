@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Terminal tab (revision 2): shells both ways, no passwords — keys travel over the paired link.
 'use strict';
 
@@ -34,11 +34,11 @@ UI.tab({
       const o = t.toPc || {};
       outSw.set(t.connectPc);
       shellBtn.hidden = !o.ready;
-      const WHY = { waiting: `Waiting for ${pc}…`, not_allowed: `Turned off on ${pc}`, remote_login_off: `Turn on SSH in MacShare on ${pc}` };
+      const WHY = { waiting: `Waiting for ${pc}…`, not_allowed: `Turned off on ${pc}`, remote_login_off: `Turn on SSH in TwinDesk on ${pc}` };
       outRow.setHint(!t.connectPc ? '' : o.ready ? `Ready, signed in as ${o.user}` : WHY[o.why] || (o.why ? `Not ready: ${o.why}` : `Waiting for ${pc}`));
       cmdRow.setHint('');
       inSw.set(t.allowPc);
-      inRow.setHint(!t.allowPc ? '' : t.installed ? 'Ready' : `Turn on Terminal in MacShare on ${pc}`);
+      inRow.setHint(!t.allowPc ? '' : t.installed ? 'Ready' : `Turn on Terminal in TwinDesk on ${pc}`);
       rl.setHint(t.remoteLogin ? 'On' : t.remoteLogin === false ? 'Off. Turn it on in Sharing settings.' : '');
     };
   },

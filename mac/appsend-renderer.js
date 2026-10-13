@@ -1,4 +1,4 @@
-// MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Revision 10, Mac ↔ Mac apps: the hidden window that streams this Mac's app windows to the other
 // Mac, one `rtc2` session (kind 'window') per window (we offer, the viewer answers recvonly).
 // Adapted from windows/sender-renderer.js; low-latency settings as mac/capture.js.

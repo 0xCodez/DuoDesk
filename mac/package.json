@@ -1,8 +1,8 @@
 {
   "name": "macshare-mac",
-  "productName": "MacShare",
+  "productName": "TwinDesk",
   "version": "0.1.0",
-  "description": "MacShare — the Mac side: pairing, secure link, screen sharing and shared mouse/keyboard with a Windows PC.",
+  "description": "TwinDesk — the Mac side: pairing, secure link, screen sharing and shared mouse/keyboard with a Windows PC.",
   "license": "GPL-3.0",
   "main": "main.js",
   "private": true,
