@@ -8,7 +8,7 @@ const { apply } = require('./settings');
 // ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, wake, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -112,14 +112,16 @@ function setupIpc(ctx) {
   handle('removeShare', () => smb.unshare());
   handle('openMacDrive', () => smb.drive && shell.openPath(smb.drive + '\\'));
   handle('cancelDrop', () => fileDrop.cancel());
-  handle('listApps', () => apps.refresh());
-  handle('launchApp', (id) => { apps.launch(id); screen.ensureHidden(); });
-  handle('pinApp', (id) => typeof id === 'string' && apps.pin(id, true)); // revision 6: Pin to Start
+  // Revision 9: with another PC the apps come through peerapps.js (no Monitor 2 or Start pinning).
+  const pcPeer = () => link.peerOs === P.OS.WIN;
+  handle('listApps', () => (pcPeer() ? peerApps.refresh() : apps.refresh()));
+  handle('launchApp', (id) => { if (pcPeer()) peerApps.launch(id); else { apps.launch(id); screen.ensureHidden(); } });
+  handle('pinApp', (id) => typeof id === 'string' && !pcPeer() && apps.pin(id, true)); // revision 6: Pin to Start
   handle('setPcScreen', (partial) => {
     const size = settings.pcScreen.extendSize;
     change('pcScreen', partial, () => { pcScreen.applyInput(); if (!settings.pcScreen.input) pcApps.input.release(); if (settings.pcScreen.extendSize !== size) pcScreen.sizeExtend(); else pcScreen.apply(); });
   });
-  handle('setMacApps', (partial) => change('macApps', partial)); // revision 7b
+  handle('setMacApps', (partial) => change('macApps', partial, () => peerApps.apply())); // revision 7b
   handle('setPcApps', (partial) => change('pcApps', partial, () => { pcApps.apply(); pcApps.input.release(); }));
   handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
   handle('installVdd', () => vdd.install());

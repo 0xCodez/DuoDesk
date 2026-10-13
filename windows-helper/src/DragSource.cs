@@ -5,6 +5,8 @@
 // copies in the background (IDataObjectAsyncCapability). The bytes are still arriving while the
 // person drags: a stream read waits for them (the files land in a temp folder, written by main).
 // Runs on its own STA thread so a waiting read never blocks the input hooks on the main thread.
+// Revision 9b: the paste shortcut uses the same data object, dropped straight onto the folder's
+// drop target (no mouse): Windows copies it with its own progress dialog and replace/skip prompts.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -37,6 +39,7 @@ namespace MacShare
     {
         public string Id;
         public List<DragEntry> Entries;
+        public string DropDir; // set: drop onto this folder at once instead of dragging (paste)
         public volatile bool DropRequested, CancelRequested;
         public Action<Dictionary<string, object>> Emit;
         volatile bool finished;
@@ -58,6 +61,7 @@ namespace MacShare
         void Run(List<string> names)
         {
             Native2.OleInitialize(IntPtr.Zero);
+            if (DropDir != null) { DropInto(); return; }
             Form f = new Form();
             f.FormBorderStyle = FormBorderStyle.None;
             f.ShowInTaskbar = false;
@@ -99,6 +103,57 @@ namespace MacShare
             if (!dropped) { finished = true; Event("dragDone", "ok", false, 0); return; }
             if (!data.AsyncStarted) { finished = true; Event("dragDone", "ok", effect != 0, effect); }
             // Async (Explorer): keep pumping COM calls until the target ends the operation.
+            DateTime until = DateTime.UtcNow.AddHours(2);
+            while (!finished && DateTime.UtcNow < until && !CancelRequested)
+            {
+                Application.DoEvents();
+                Thread.Sleep(5);
+            }
+            if (!finished) { finished = true; Event("dragDone", "ok", false, 0); }
+        }
+
+        // Paste: the folder's drop target (its parent's GetUIObjectOf, owned by the window in front,
+        // so Windows shows its copy dialog over it) → DragEnter + Drop with copy, as a drop there.
+        void DropInto()
+        {
+            VirtualFiles data = new VirtualFiles(this);
+            int effect = 1; // DROPEFFECT_COPY
+            IntPtr pidl = IntPtr.Zero;
+            try
+            {
+                uint attrs;
+                int hr = Native2.SHParseDisplayName(DropDir, IntPtr.Zero, out pidl, 0, out attrs);
+                if (hr != 0) throw new COMException("folder", hr);
+                Guid sfIid = new Guid("000214E6-0000-0000-C000-000000000046"); // IShellFolder
+                IShellFolderDrop parent;
+                IntPtr child;
+                hr = Native2.SHBindToParent(pidl, ref sfIid, out parent, out child);
+                if (hr != 0 || parent == null) throw new COMException("parent", hr);
+                Guid dtIid = new Guid("00000122-0000-0000-C000-000000000046"); // IDropTarget
+                IntPtr unk;
+                hr = parent.GetUIObjectOf(Native2.GetForegroundWindow(), 1, new IntPtr[] { child }, ref dtIid, IntPtr.Zero, out unk);
+                if (hr != 0 || unk == IntPtr.Zero) throw new COMException("drop target", hr);
+                IDropTarget target = (IDropTarget)Marshal.GetObjectForIUnknown(unk);
+                Marshal.Release(unk);
+                Point cur = Cursor.Position;
+                long pt = ((long)cur.Y << 32) | (uint)cur.X;
+                target.DragEnter(data, 0, pt, ref effect);
+                if (effect == 0) { target.DragLeave(); throw new COMException("refused", -1); }
+                effect = 1;
+                target.Drop(data, 0, pt, ref effect);
+            }
+            catch (Exception ex)
+            {
+                if (pidl != IntPtr.Zero) { Native2.CoTaskMemFree(pidl); pidl = IntPtr.Zero; }
+                Console.Error.WriteLine("pasteDrop: " + ex.Message);
+                Event("dragState", "result", "failed", 0);
+                finished = true;
+                Event("dragDone", "ok", false, 0);
+                return;
+            }
+            if (pidl != IntPtr.Zero) Native2.CoTaskMemFree(pidl);
+            Event("dragState", "result", "dropped", effect);
+            if (!data.AsyncStarted) { finished = true; Event("dragDone", "ok", effect != 0, effect); return; }
             DateTime until = DateTime.UtcNow.AddHours(2);
             while (!finished && DateTime.UtcNow < until && !CancelRequested)
             {
@@ -150,6 +205,30 @@ namespace MacShare
         public DropSource(DragSession s) { this.s = s; }
         public int QueryContinueDrag(bool escape, int keys) { return s.Continue(escape, keys); }
         public int GiveFeedback(int effect) { return 0x00040102; /* DRAGDROP_S_USEDEFAULTCURSORS */ }
+    }
+
+    [ComImport, Guid("00000122-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IDropTarget
+    {
+        // POINTL by value: 8 bytes, passed as one 64-bit value (x low, y high).
+        void DragEnter([MarshalAs(UnmanagedType.Interface)] ComIDataObject data, int keys, long pt, ref int effect);
+        void DragOver(int keys, long pt, ref int effect);
+        void DragLeave();
+        void Drop([MarshalAs(UnmanagedType.Interface)] ComIDataObject data, int keys, long pt, ref int effect);
+    }
+
+    // IShellFolder, only as far as GetUIObjectOf (the earlier slots keep the vtable order).
+    [ComImport, Guid("000214E6-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IShellFolderDrop
+    {
+        [PreserveSig] int ParseDisplayName(IntPtr hwnd, IntPtr bc, IntPtr name, IntPtr eaten, IntPtr pidl, IntPtr attrs);
+        [PreserveSig] int EnumObjects(IntPtr hwnd, int flags, IntPtr list);
+        [PreserveSig] int BindToObject(IntPtr pidl, IntPtr bc, ref Guid riid, IntPtr ppv);
+        [PreserveSig] int BindToStorage(IntPtr pidl, IntPtr bc, ref Guid riid, IntPtr ppv);
+        [PreserveSig] int CompareIDs(IntPtr lParam, IntPtr pidl1, IntPtr pidl2);
+        [PreserveSig] int CreateViewObject(IntPtr hwnd, ref Guid riid, IntPtr ppv);
+        [PreserveSig] int GetAttributesOf(uint cidl, IntPtr apidl, IntPtr attrs);
+        [PreserveSig] int GetUIObjectOf(IntPtr hwnd, uint cidl, [MarshalAs(UnmanagedType.LPArray)] IntPtr[] apidl, ref Guid riid, IntPtr reserved, out IntPtr ppv);
     }
 
     [ComImport, Guid("3D8B0590-F691-11d2-8EA9-006097DF5BD4"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -360,6 +439,10 @@ namespace MacShare
     static class Native2
     {
         [DllImport("ole32.dll")] public static extern int OleInitialize(IntPtr reserved);
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern int SHParseDisplayName(string name, IntPtr bc, out IntPtr pidl, uint sfgaoIn, out uint sfgaoOut);
+        [DllImport("shell32.dll")] public static extern int SHBindToParent(IntPtr pidl, ref Guid riid, out IShellFolderDrop folder, out IntPtr last);
+        [DllImport("ole32.dll")] public static extern void CoTaskMemFree(IntPtr p);
+        [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
         [DllImport("ole32.dll")] public static extern int DoDragDrop(ComIDataObject data, IDropSource source, int okEffects, out int effect);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern uint RegisterClipboardFormat(string name);
         [DllImport("kernel32.dll")] static extern IntPtr GlobalAlloc(uint flags, UIntPtr bytes);

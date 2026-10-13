@@ -19,14 +19,17 @@ class Sender extends EventEmitter {
     this.queue = [];
     this.counter = 0;
     this.live = new Set(); // sessions started and not stopped
+    this.windows = new Set(); // the live sessions that are app windows (tagged win: 'send')
 
-    link.on(T.RTC2_ANSWER, (m) => this.live.has(m.session) && typeof m.sdp === 'string' && this._toWin(m));
-    link.on(T.RTC2_ICE, (m) => this.live.has(m.session) && this._toWin(m));
+    // `win: 'send'` is the other computer's own window sender talking to our viewer (peerapps.js).
+    const ours = (m) => this.live.has(m.session) && m.win !== 'send';
+    link.on(T.RTC2_ANSWER, (m) => ours(m) && typeof m.sdp === 'string' && this._toWin(m));
+    link.on(T.RTC2_ICE, (m) => ours(m) && this._toWin(m));
     link.on('closed', () => { for (const s of [...this.live]) this.stop(s, false); });
 
     ipcMain.on('sender-out', (e, m) => {
       if (!this._fromWin(e) || !m || !this.live.has(m.session)) return;
-      if (m.t === T.RTC2_OFFER || m.t === T.RTC2_ICE) this.link.send(m);
+      if (m.t === T.RTC2_OFFER || m.t === T.RTC2_ICE) this.link.send(this.windows.has(m.session) ? { ...m, win: 'send' } : m);
     });
     ipcMain.on('sender-state', (e, s) => {
       if (this._fromWin(e) && s && this.live.has(s.session)) this.emit('state', s.session, { status: String(s.status || ''), error: String(s.error || '') });
@@ -45,14 +48,16 @@ class Sender extends EventEmitter {
   start(opts) {
     const session = ++this.counter;
     this.live.add(session);
+    if (opts.offer && opts.offer.kind === 'window') this.windows.add(session);
     this._toWin({ ...opts, t: 'start', session });
     return session;
   }
 
   stop(session, tellMac = true) {
     if (!this.live.delete(session)) return;
+    const win = this.windows.delete(session);
     this._toWin({ t: 'stop', session });
-    if (tellMac && this.link.status.state === 'connected') this.link.send({ t: T.RTC2_STOP, session });
+    if (tellMac && this.link.status.state === 'connected') this.link.send(win ? { t: T.RTC2_STOP, session, win: 'send' } : { t: T.RTC2_STOP, session });
   }
 
   _fromWin(e) {

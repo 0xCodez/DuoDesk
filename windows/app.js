@@ -69,7 +69,8 @@
   }
 
   function renderPage(v, s) {
-    const limited = v.limitNote && s.peer ? UI.peer(s).limited : '';
+    // macOnly: true = only with a Mac; 'linux' = everything but a Linux peer (Apps, revision 9).
+    const limited = !v.limitNote || !s.peer ? '' : v.def.macOnly === 'linux' ? (s.peer.os === 'linux' ? 'Not on Linux yet' : '') : UI.peer(s).limited;
     if (v.limitNote) v.limitNote.set(limited);
     if (v.master) {
       const d = v.def.master.disabled; // a boolean, or (s) => boolean

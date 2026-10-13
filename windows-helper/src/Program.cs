@@ -215,6 +215,8 @@ namespace MacShare
                         List<string> dnames = new List<string>();
                         System.Collections.IList nl = c.ContainsKey("names") ? c["names"] as System.Collections.IList : null;
                         if (nl != null) foreach (object o in nl) dnames.Add(Convert.ToString(o));
+                        string into = Json.Str(c, "into", ""); // revision 9b: paste = drop onto this folder
+                        if (into != "") drag.DropDir = into;
                         drag.Start(dnames);
                         break;
                     case "dragFile":

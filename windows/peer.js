@@ -9,8 +9,10 @@
 
 const P = require('../shared/protocol.js');
 
-// Mac-only features (Terminal, Apps) stay off with a PC or Linux peer for now.
-const MAC_ONLY = /^(ssh|app|papp)\./;
+// Mac-only features (Terminal, the Mac's apps) stay off with a PC or Linux peer for now; app
+// windows (papp.*) also go between two PCs (peerapps.js views, pcapps.js sends).
+const MAC_ONLY = /^(ssh|app)\./;
+const NOT_LINUX = /^papps?\./;
 
 class Peer {
   constructor(link) {
@@ -84,7 +86,7 @@ class Peer {
   }
 
   send(obj) {
-    if (!obj || (MAC_ONLY.test(obj.t) && this.peerOs !== P.OS.MAC)) return false;
+    if (!obj || !this._allowed(obj.t)) return false;
     if (!this.hosting) return this.link.send(obj);
     for (const m of P.swapRole(obj, this.swapOut)) this.server.send(this.server.current, m);
     return true;
@@ -137,13 +139,19 @@ class Peer {
   forgetGuest(id) { if (this.pairing) this.pairing.forget(id); }
 
   _deliver(msg) {
-    if (MAC_ONLY.test(msg.t) && this.peerOs !== P.OS.MAC) return;
+    if (!this._allowed(msg.t)) return;
     const fns = this.handlers.get(msg.t);
     if (fns) for (const fn of fns) fn(msg);
     else if (!this.unknown.has(msg.t)) {
       this.unknown.add(msg.t);
       console.log('[peer] ignoring message type', msg.t);
     }
+  }
+
+  _allowed(t) {
+    if (MAC_ONLY.test(t)) return this.peerOs === P.OS.MAC;
+    if (NOT_LINUX.test(t)) return this.peerOs !== P.OS.LINUX;
+    return true;
   }
 
   _emit(type, msg) {

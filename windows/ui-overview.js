@@ -32,8 +32,8 @@ UI.tab({
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab.
-    // macOnly: Terminal and Apps, off with a PC or Linux peer for now (docs/UI.md "Revision 4");
-    // 'linux': off only with a Linux peer (Notifications, revision 5).
+    // macOnly: Terminal, off with a PC or Linux peer for now (docs/UI.md "Revision 4");
+    // 'linux': off only with a Linux peer (Notifications, revision 5; Apps, revision 9).
     const row = (label, tab, get, set, macOnly) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
       const r = UI.row(label, '', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
@@ -53,7 +53,7 @@ UI.tab({
       row('Notifications', 'notifications', (s) => s.notifs.receive, (v) => api.setNotifs({ receive: v }), 'linux'),
       row('Shared folder', 'files', (s) => s.files.mountMac, (v) => api.setFiles({ mountMac: v })),
       row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v }), true),
-      row('Apps', 'apps', (s) => s.apps.open > 0, null, true),
+      row('Apps', 'apps', (s) => s.apps.open > 0, null, 'linux'),
     ];
     const p2m = [
       row('Screen', 'pc-mac', (s) => s.pcScreen.mode !== 'off', (v) => api.setPcScreenMode(v ? 'mirror' : 'off')),
@@ -63,7 +63,7 @@ UI.tab({
       row('Notifications', 'notifications', (s) => s.notifs.send, (v) => api.setNotifs({ send: v }), 'linux'),
       row('Shared folder', 'files', (s) => s.files.shareOn, (v) => api.setShareOn(v)),
       row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v }), true),
-      row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v }), true),
+      row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v }), 'linux'),
     ];
     const pair = UI.dirCards({ rows: m2p }, { rows: p2m });
 

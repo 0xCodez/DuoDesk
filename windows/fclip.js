@@ -4,7 +4,9 @@
 // Copy announces the files selected in the Explorer window in front (else the files on the
 // clipboard) with `fclip.offer`; paste on the other computer asks for them with `fclip.paste` and
 // they arrive as a batch (filedrop.js / filerecv.js, drop:'paste') in the folder that was in front.
-// Port of mac/fclip.js.
+// Port of mac/fclip.js. Revision 9b: when the offer lists every file (`list`, `dirs`), the paste is
+// done by Windows itself — dragrecv.js drops the files as virtual files onto the folder, so the
+// native copy dialog (progress, replace/skip) shows, as for a drag.
 const { app, globalShortcut } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -13,7 +15,7 @@ const P = require('../shared/protocol.js');
 const T = P.T;
 
 class FileClip {
-  // opts: link, helper, fileDrop, fileRecv, settings (shared), peerName(), popup(kind, text), onChange()
+  // opts: link, helper, fileDrop, fileRecv, dragRecv, settings (shared), peerName(), popup(kind, text), onChange()
   constructor(opts) {
     Object.assign(this, opts);
     this.offer = null; // ours: {id, paths, items, files, bytes}
@@ -27,7 +29,8 @@ class FileClip {
     link.on(T.FCLIP_OFFER, (m) => {
       if (typeof m.id !== 'string' || !Array.isArray(m.items)) return;
       const items = m.items.slice(0, 1000).map((i) => ({ name: String((i && i.name) || '').slice(0, 200), dir: !!(i && i.dir), size: Number(i && i.size) || 0 }));
-      this.incoming = { id: m.id, items, files: Number(m.files) || 0, bytes: Number(m.bytes) || 0, at: Date.now() };
+      this.incoming = { id: m.id, items, files: Number(m.files) || 0, bytes: Number(m.bytes) || 0, at: Date.now(),
+        list: Array.isArray(m.list) ? m.list : null, dirs: Array.isArray(m.dirs) ? m.dirs : [] }; // revision 9b: the whole tree
       this.onChange();
     });
     link.on(T.FCLIP_GONE, (m) => {
@@ -134,7 +137,8 @@ class FileClip {
     if (this.offer) this.link.send({ t: T.FCLIP_GONE, id: this.offer.id }); // newest copy wins
     const files = plan.jobs.length;
     this.offer = { id: crypto.randomUUID(), paths, items: plan.items, files, bytes: plan.bytes };
-    this.link.send({ t: T.FCLIP_OFFER, id: this.offer.id, items: plan.items, files, bytes: plan.bytes });
+    // list/dirs (revision 9b): every file and folder, so a PC can paste it with Windows' own copy.
+    this.link.send({ t: T.FCLIP_OFFER, id: this.offer.id, items: plan.items, files, bytes: plan.bytes, list: plan.list, dirs: plan.dirs });
     this.popup('away', 'Copied ' + (plan.items.length === 1 ? plan.items[0].name : plural(plan.items.length, 'item')) + ' for ' + this.peerName());
     this.onChange();
   }
@@ -148,10 +152,12 @@ class FileClip {
       dir = (await this.helper.request('frontFolder')).path || '';
     } catch (_) { /* Desktop */ }
     if (!dir || !fs.existsSync(dir)) dir = app.getPath('desktop');
-    this.fileRecv.expectBatch(inc.id, dir, inc.bytes);
+    // Revision 9b: Windows' own copy (its dialog) when we know the whole tree; else straight in.
+    const native = inc.list && this.dragRecv && this.dragRecv.startPaste({ batch: inc.id, list: inc.list, dirs: inc.dirs, items: inc.items, dir });
+    if (!native) this.fileRecv.expectBatch(inc.id, dir, inc.bytes);
     this.pasting = { id: inc.id, files: inc.files };
     this.link.send({ t: T.FCLIP_PASTE, id: inc.id });
-    this.popup('driven', 'Pasting ' + plural(inc.files, 'file') + '…');
+    if (!native) this.popup('driven', 'Pasting ' + plural(inc.files, 'file') + '…');
     this.onChange();
   }
 

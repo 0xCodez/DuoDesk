@@ -29,6 +29,7 @@ const DragRecv = require('./dragrecv');
 const Sshd = require('./sshd');
 const PcScreen = require('./pcscreen');
 const PcApps = require('./pcapps');
+const PeerApps = require('./peerapps');
 const Sender = require('./sender');
 const Vdd = require('./vdd');
 const Hud = require('./hud');
@@ -82,6 +83,7 @@ let apps = null;
 let sound = null;
 let pcScreen = null;
 let pcApps = null;
+let peerApps = null; // revision 9: the other PC's apps here
 let vdd = null;
 let wake = null;
 let sendTo = null;
@@ -180,7 +182,10 @@ function start() {
   vdd = new Vdd({ helper, onChange: pushState });
   // revision 5: notifications both ways, Send files, copy/paste files with shortcuts
   notifs = new Notifs({ link, helper, settings, save: saveSettings, selfIds: [AUMID, 'org.macshare.windows'], peerName, onChange: pushState });
-  fileClip = new FileClip({ link, helper, fileDrop, fileRecv, settings, peerName, popup: (kind, text) => hud.show(kind, text), onChange: pushState });
+  fileClip = new FileClip({ link, helper, fileDrop, fileRecv, dragRecv, settings, peerName, popup: (kind, text) => hud.show(kind, text), onChange: pushState });
+  // Revision 9b: a paste Windows copies itself (dragrecv.js) — its files skip filerecv.js.
+  fileRecv.claims = (m) => dragRecv._pasteOf(m);
+  dragRecv.onPasted = (b) => fileClip.pasted(b);
   kvm.fileClip = fileClip; // revision 6: our copy/paste shortcut while driving → fclip.key
   sendTo = new SendTo({ link, fileDrop, peerName: () => (peerView() || {}).name || '', popup: (kind, text, sub) => hud.show(kind, text, sub) });
   // Revision 7: copy/paste and Send files show progress in the popup, like a drag. Receiving: every
@@ -212,10 +217,11 @@ function start() {
   const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
   pcScreen = new PcScreen({ link, helper, sender, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   pcApps = new PcApps({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
+  peerApps = new PeerApps({ link, settings, popup: (kind, text) => hud.show(kind, text), peerName, onChange: pushState });
   helper.on('exit', pushState);
   helper.start();
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
-  const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, wake, settings, save: saveSettings, push: pushState, buildState,
+  const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // revision 7b: two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
@@ -357,7 +363,7 @@ function buildState() {
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
     files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags, clip: fileClip.view() },
     notifs: { ...settings.notifs, ...notifs.view() },
-    apps: apps.view(),
+    apps: link.peerOs === P.OS.WIN ? peerApps.view() : apps.view(), // revision 9: a PC's apps come through peerapps.js
     startup: getStartup(),
     setup: { missing: miss, show: !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)) },
   };
@@ -568,6 +574,7 @@ app.on('before-quit', () => {
   if (discovery) discovery.stop();
   if (pcScreen) pcScreen.shutdown();
   if (pcApps) pcApps.shutdown();
+  if (peerApps) peerApps.shutdown();
   if (fileClip) fileClip.shutdown();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });

@@ -41,6 +41,7 @@ class FileRecv {
 
   _offer(m) {
     if (typeof m.id !== 'string' || this.files.has(m.id) || this.bfiles.has(m.id) || m.drop === 'drag') return; // drags: dragrecv.js
+    if (this.claims && this.claims(m)) return; // a paste Windows copies itself (dragrecv.js, revision 9b)
     const refuse = (why) => this.link.send({ t: T.FILE_REFUSE, id: m.id, why });
     if (m.drop === 'send' || m.drop === 'paste') return this._offerBatch(m, refuse);
     if (!this.settings.files.acceptFromMac) return refuse('not_allowed');

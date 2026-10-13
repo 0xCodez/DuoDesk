@@ -2,11 +2,12 @@
 // Apps tab. Mac → PC (phase 12): the Mac's apps with their icons; click one and it opens on the Mac,
 // its windows appearing here as their own windows with their own taskbar buttons. PC → Mac (phase
 // 13): the Mac opens this PC's apps; each of their windows is streamed on its own to a Mac window.
+// Revision 9: between two PCs the same both ways (peerapps.js here, pcapps.js there); no Pin to Start.
 'use strict';
 
 UI.tab({
   id: 'apps',
-  macOnly: true, // revision 4: off with a PC or Linux peer for now
+  macOnly: 'linux', // revision 9: Mac ↔ PC and PC ↔ PC
   order: 80,
   title: 'Apps',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
@@ -50,7 +51,7 @@ UI.tab({
       note.className = 'note ' + (/ is in Start/.test(a.message) ? 'info' : 'warn');
       refresh.disabled = !connected || a.loading;
       const q = filter.value.trim().toLowerCase();
-      const k = JSON.stringify([a.list.length, a.loading, connected, q]);
+      const k = JSON.stringify([a.list.length, a.loading, connected, q, !!a.peerPc]);
       if (k === key) return;
       key = k;
       const items = a.list.filter((x) => !q || x.name.toLowerCase().includes(q));
@@ -60,6 +61,7 @@ UI.tab({
           el('span', { class: 'app-name', text: x.name }),
         ]);
         b.onclick = () => api.launchApp(x.id);
+        if (a.peerPc) return b; // apps of another PC: no Start shortcut yet
         // Revision 6: Pin to Start (a shortcut in Start › MacShare Apps), on hover or right-click.
         const pin = el('span', { class: 'app-pin', title: 'Pin to Start', attrs: { role: 'button', tabindex: '0', 'aria-label': 'Pin ' + x.name + ' to Start' } }, [UI.icon('pin')]);
         pin.onclick = (e) => { e.stopPropagation(); api.pinApp(x.id); };

@@ -127,6 +127,9 @@
       RTC2_ANSWER: 'rtc2.answer', // M->W {session, sdp}
       RTC2_ICE: 'rtc2.ice', // either {session, candidate}
       RTC2_STOP: 'rtc2.stop', // W->M {session}
+      // App-window sessions (kind 'window') also carry `win`: 'send' from the window's sender
+      // (offer, its ice, stop), 'view' from the viewer (answer, its ice). Two PCs both send and
+      // view windows, so this says whose session a number is; swapRole leaves these alone.
       AUDIO_OFFER: 'audio.offer', // sender->receiver {dir:'m2w'|'w2m', session, sdp} (revision 2)
       AUDIO_ANSWER: 'audio.answer', // receiver->sender {dir, session, sdp}
       AUDIO_ICE: 'audio.ice', // either {dir, session, candidate}
@@ -212,6 +215,7 @@
     },
     swapRole(msg, st) {
       if (!msg || typeof msg.t !== 'string') return [msg];
+      if (msg.win || msg.kind === 'window') return [msg]; // app-window streams keep their rtc2 names
       if (msg.t === 'stream.info') { // folded into the rtc2.offer's kind
         st.audio = !!msg.audio;
         st.width = msg.width | 0;

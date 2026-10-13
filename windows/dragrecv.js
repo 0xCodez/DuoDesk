@@ -4,6 +4,9 @@
 // tree described up front, contents streamed from temp files as `file.*` chunks arrive). The Mac's
 // left-button-up drops it wherever the pointer is — Explorer, the Desktop, an app. `drag.end` tells
 // the Mac how it went.
+// Revision 9b: the paste shortcut uses the same virtual files, dropped by the helper straight onto
+// the folder that was in front (`into`), so Windows copies them with its own progress dialog. The
+// files come as the paste batch (`file.offer drop:'paste'`); the end is `files.done`, not drag.end.
 const { app } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -39,7 +42,7 @@ class DragRecv {
     const link = this.link;
     link.on(T.DRAG_START, (m) => this._start(m));
     link.on(T.DRAG_CANCEL, (m) => this.cur && m.drag === this.cur.drag && this.cancel('cancelled', false));
-    link.on(T.FILE_OFFER, (m) => m.drop === 'drag' && this._offer(m));
+    link.on(T.FILE_OFFER, (m) => (m.drop === 'drag' || this._pasteOf(m)) && this._offer(m));
     link.on(T.FILE_CHUNK, (m) => this._chunk(m));
     link.on(T.FILE_END, (m) => this._end(m));
     link.on(T.FILE_CANCEL, (m) => { const f = this.cur && this.cur.byId.get(m.id); if (f) this._fail(f); });
@@ -60,13 +63,23 @@ class DragRecv {
     const dirs = new Set();
     const addParents = (rel) => { const s = rel.split('/'); for (let i = 1; i < s.length; i++) dirs.add(s.slice(0, i).join('/')); };
     for (const d of Array.isArray(m.dirs) ? m.dirs : []) { const r = safeRel(d); if (!r) return end('failed'); dirs.add(r); addParents(r); }
+    const built = this._build(list, dirs, addParents, m.items);
+    if (!built) return end('failed');
+    const { dir, files, entries, names, count } = built;
+    this.cur = { drag: m.drag, dir, files, byId: new Map(), where: '', state: 'dragging', count, name: names[0] ? names[0].replace(/\/$/, '') : '' };
+    this.helper.send('dragStart', { drag: m.drag, entries, names });
+    this.onChange();
+  }
+
+  // The temp files and the helper's entries for a tree (folders first, then the files), or null.
+  _build(list, dirs, addParents, givenItems) {
     const dir = path.join(this.root, crypto.randomBytes(6).toString('hex'));
     fs.mkdirSync(dir, { recursive: true });
     const files = new Map();
     const fileEntries = [];
     for (const f of list) {
       const rel = f && safeRel(f.rel);
-      if (!rel || !(f.size >= 0) || f.size > P.FILE_MAX_BYTES || files.has(rel)) return end('failed');
+      if (!rel || !(f.size >= 0) || f.size > P.FILE_MAX_BYTES || files.has(rel)) return null;
       addParents(rel);
       const tmp = path.join(dir, files.size + '.part');
       fs.writeFileSync(tmp, '');
@@ -77,18 +90,40 @@ class DragRecv {
     const dirList = [...dirs].sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
     const entries = dirList.map((d) => ({ rel: d, dir: true, size: 0 }));
     for (const f of fileEntries) { f.index = entries.length; entries.push({ rel: f.rel, size: f.size, temp: f.tmp }); }
-    const items = Array.isArray(m.items) && m.items.length ? m.items : [...new Set(fileEntries.map((f) => f.rel.split('/')[0]))].map((n) => ({ name: n, dir: dirs.has(n) }));
+    const items = Array.isArray(givenItems) && givenItems.length ? givenItems : [...new Set(fileEntries.map((f) => f.rel.split('/')[0]))].map((n) => ({ name: n, dir: dirs.has(n) }));
     const names = items.slice(0, 50).map((it) => (safeRel(String(it.name)) || 'item').split('/').pop() + (it.dir ? '/' : ''));
-    this.cur = { drag: m.drag, dir, files, byId: new Map(), where: '', state: 'dragging', count: items.length, name: names[0] ? names[0].replace(/\/$/, '') : '' };
-    this.helper.send('dragStart', { drag: m.drag, entries, names });
+    return { dir, files, entries, names, count: items.length };
+  }
+
+  // Revision 9b: this PC pasted (fclip.js) a tree it knows in full: the helper drops it onto `dir`
+  // and Windows copies it (its dialog). Returns false when it can't (fclip.js then saves directly).
+  startPaste({ batch, list, dirs, items, dir }) {
+    if (typeof batch !== 'string' || !Array.isArray(list) || list.length > MAX_FILES || !(list.length || (dirs && dirs.length))) return false;
+    if (this.cur) this.cancel('cancelled', false);
+    const set = new Set();
+    const addParents = (rel) => { const s = rel.split('/'); for (let i = 1; i < s.length; i++) set.add(s.slice(0, i).join('/')); };
+    for (const d of Array.isArray(dirs) ? dirs : []) { const r = safeRel(d); if (!r) return false; set.add(r); addParents(r); }
+    let built;
+    try { built = this._build(list, set, addParents, items); } catch (_) { built = null; }
+    if (!built) return false;
+    const { dir: tmp, files, entries, names, count } = built;
+    const drag = 'paste-' + batch;
+    this.cur = { drag, batch, dir: tmp, files, byId: new Map(), where: dir, state: 'pasting', count, name: names[0] ? names[0].replace(/\/$/, '') : '' };
+    this.helper.send('dragStart', { drag, entries, names, into: dir });
     this.onChange();
+    return true;
+  }
+
+  // A file of the paste we're doing natively (filerecv.js leaves it to us).
+  _pasteOf(m) {
+    return !!(m && m.drop === 'paste' && this.cur && this.cur.batch && m.batch === this.cur.batch);
   }
 
   _offer(m) {
     const refuse = (why) => this.link.send({ t: T.FILE_REFUSE, id: m.id, why });
     const c = this.cur;
     if (typeof m.id !== 'string') return;
-    if (!c || m.drag !== c.drag) return refuse('not_allowed');
+    if (!c || (c.batch ? m.batch !== c.batch : m.drag !== c.drag)) return refuse('not_allowed');
     const f = c.files.get(safeRel(m.rel));
     if (!f || f.id || m.size !== f.size) return refuse('not_allowed');
     f.id = m.id;
@@ -119,6 +154,12 @@ class DragRecv {
       const ok = f.got === f.size && f.hash.digest('hex') === m.sha256;
       f.state = ok ? 'ok' : 'failed';
       this.helper.send('dragFile', { drag: c.drag, index: f.index, state: ok ? 'ok' : 'failed' });
+      // A paste batch's sender waits for each file's file.done before the next one (filedrop.js),
+      // while Windows waits for the next file's bytes: say "got it" as soon as it's here.
+      if (c.batch) {
+        f.acked = true;
+        this.link.send(ok ? { t: T.FILE_DONE, id: f.id, ok: true } : { t: T.FILE_DONE, id: f.id, ok: false, error: 'checksum mismatch' });
+      }
     });
   }
 
@@ -170,10 +211,18 @@ class DragRecv {
     const c = this.cur;
     this.cur = null;
     const where = c.where && /desktop$/i.test(c.where) ? 'Desktop' : c.where;
-    this.link.send(where && result === 'dropped' ? { t: T.DRAG_END, drag: c.drag, result, where } : { t: T.DRAG_END, drag: c.drag, result });
+    if (!c.batch) this.link.send(where && result === 'dropped' ? { t: T.DRAG_END, drag: c.drag, result, where } : { t: T.DRAG_END, drag: c.drag, result });
+    let ok = 0;
     for (const f of c.files.values()) {
       if (f.out) f.out.destroy();
-      if (f.id) this.link.send(result === 'dropped' && f.state === 'ok' ? { t: T.FILE_DONE, id: f.id, ok: true } : { t: T.FILE_DONE, id: f.id, ok: false, error: result });
+      const good = result === 'dropped' && f.state === 'ok';
+      if (good) ok++;
+      if (f.id && !f.acked) this.link.send(good ? { t: T.FILE_DONE, id: f.id, ok: true } : { t: T.FILE_DONE, id: f.id, ok: false, error: result });
+    }
+    if (c.batch) { // a paste: the sender's batch ends with files.done; fclip.js shows the popup
+      const all = ok === c.files.size && result === 'dropped';
+      this.link.send({ t: T.FILES_DONE, batch: c.batch, ok: all, where: c.where, files: ok });
+      if (this.onPasted) this.onPasted({ kind: 'paste', files: ok, count: c.files.size, ok: all });
     }
     const label = c.count > 1 ? c.count + ' items' : c.name;
     this.last = { ok: result === 'dropped', text: result === 'dropped' ? label + ' dropped' + (where ? ' in ' + where : '') : label + ': ' + result, at: Date.now() };
