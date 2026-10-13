@@ -28,6 +28,7 @@ class Kvm {
       this._setPcSide(m.pcSide);
     });
     link.on(T.KVM_TAKE, (m) => this._onTake(m));
+    link.on(T.KVM_LINK, (m) => this.setLinked(m.on !== false, false)); // the other side switched it: follow, no echo
     link.on(T.KVM_ACCEPT, (m) => {
       if (this.mode === 'driving' && m.route === this.route) this._clearAccept();
     });
@@ -110,8 +111,8 @@ class Kvm {
     this.helper.send('kvmConfig', {
       side: this.crossingSide,
       resistancePx: k.resistancePx,
-      hotkey: P.HOTKEY_WIN,
-      driveOther: !!(k.driveOther && k.mouse && this.connected && this.crossingSide),
+      hotkey: this.settings.keys.hotkey || P.HOTKEY_WIN,
+      driveOther: !!(this.linked && k.driveOther && k.mouse && this.connected && this.crossingSide),
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
@@ -125,15 +126,32 @@ class Kvm {
     }
   }
 
+  // Cursor sharing as a whole (docs/KVM.md "Hotkey (revision 4)", revision 4c): off = everything
+  // home, no crossing either way, takes refused. tell: also switch the other computer (kvm.link).
+  get linked() {
+    return this.cfg.linked !== false;
+  }
+
+  setLinked(on, tell = true) {
+    if (on === this.linked) return;
+    if (!on) this.home();
+    this.cfg.linked = on;
+    if (this.save) this.save();
+    if (tell && this.connected) this.link.send({ t: T.KVM_LINK, on });
+    this.applyConfig();
+    if (this.onLinked) this.onLinked(on, tell); // main.js: the big card
+    this.onChange();
+  }
+
   view() {
-    return { mode: this.mode, message: this.message, pcSide: this.pcSide, helper: this.helper.running ? '' : this.helper.error || 'starting' };
+    return { linked: this.linked, mode: this.mode, message: this.message, pcSide: this.pcSide, helper: this.helper.running ? '' : this.helper.error || 'starting' };
   }
 
   // ---- owner (this PC drives the Mac) ----
 
   _canDrive() {
     const k = this.cfg;
-    return this.connected && k.driveOther && (k.mouse || k.keyboard);
+    return this.connected && this.linked && k.driveOther && (k.mouse || k.keyboard);
   }
 
   _onHelper(name, msg) {
@@ -154,20 +172,24 @@ class Kvm {
           }
         }
         break;
-      case 'hotkey':
-        if (this.mode === 'home') { // row 2
-          if (!this._canDrive()) {
-            if (this.connected && !this.cfg.driveOther) this._note('Mouse and keyboard to the Mac is off');
-            return;
+      // Double-tap (docs/KVM.md "Hotkey (revision 4)", revision 4c): cursor sharing off (everything
+      // home) and on again. In keyboard-only mode (Cursor off, "Switch the keyboard with the hotkey"
+      // on) it moves the keyboard over and back instead.
+      case 'hotkey': {
+        const k = this.cfg;
+        if (k.hotkeySwitch && !k.mouse && k.keyboard && this.linked) {
+          if (this.mode !== 'home') this.home(); // rows 5 / 8c
+          else if (!this._canDrive()) {
+            if (this.connected && !k.driveOther) this._note('Mouse and keyboard to the other computer is off');
+          } else { // row 2
+            this.helper.send('capture', { on: true, mouse: false, keyboard: true });
+            this._take({});
           }
-          this.helper.send('capture', { on: true, mouse: !!this.cfg.mouse, keyboard: !!this.cfg.keyboard });
-          this._take({});
-        } else if (this.mode === 'driving') { // row 5 — the helper already stopped capturing
-          this._release('');
-        } else { // row 8c via hotkey
-          this._sendHome(undefined);
+          break;
         }
+        this.setLinked(!this.linked);
         break;
+      }
       case 'return': // row 8c
         if (this.mode === 'driven') this._sendHome(msg.offset);
         break;
@@ -186,7 +208,8 @@ class Kvm {
   _take(where) {
     this.route++;
     const k = this.cfg;
-    this.link.send({ t: T.KVM_TAKE, route: this.route, ...where, mouse: !!k.mouse, keyboard: !!k.keyboard });
+    this.keyboardOnly = !where.side; // the hotkey in keyboard-only mode (edge crossings carry a side)
+    this.link.send({ t: T.KVM_TAKE, route: this.route, ...where, mouse: !!k.mouse && !this.keyboardOnly, keyboard: !!k.keyboard });
     this._setMode('driving', '');
     this.clip.sendIfChanged('switch');
     this._clearAccept();
@@ -230,13 +253,14 @@ class Kvm {
       if (m.side && m.mouse !== false) this.helper.send('place', { side: m.side, offset: m.offset });
       return;
     }
-    if (!this.cfg.beDriven) { // row 7
+    if (!this.cfg.beDriven || !this.linked) { // row 7 (and cursor sharing off)
       this.link.send({ t: T.KVM_REFUSE, route, why: P.REFUSE.NOT_ALLOWED });
       this._note('The Mac tried to use this PC. It’s turned off here.');
       return;
     }
     this.peerRoute = route;
     this.link.send({ t: T.KVM_ACCEPT, route });
+    this.keyboardOnly = m.mouse === false;
     this._setMode('driven', '');
     if (m.mouse !== false) {
       this.helper.send('place', P.SIDES.includes(m.side) ? { side: m.side, offset: Number(m.offset) || 0 } : { center: true });
@@ -289,11 +313,18 @@ class Kvm {
     }
   }
 
+  // Tray "Bring Mouse and Keyboard Back".
+  home() {
+    if (this.mode === 'driving') this._release('');
+    else if (this.mode === 'driven') this._sendHome(undefined);
+  }
+
   // ---- shared ----
 
   _setMode(mode, message) {
     const was = this.mode;
     this.mode = mode;
+    if (was !== mode && this.onWhere) this.onWhere(mode, was); // the switching popup (main.js)
     if (mode === 'home' && this.dragPending) { // went home before releasing: the files don't go
       this.dragPending = false;
       this.fileDrop.cancelRelease();

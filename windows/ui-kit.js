@@ -17,6 +17,7 @@ const ICONS = {
   audio: 'M4 8h3l4-3v10l-4-3H4z M14 7.5c1 .8 1 4.2 0 5 M16 5.5c2.2 1.8 2.2 7.2 0 9',
   apps: 'M4 4h5v5H4z M11 4h5v5h-5z M4 11h5v5H4z M11 11h5v5h-5z',
   general: 'M10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M10 2.5v2 M10 15.5v2 M2.5 10h2 M15.5 10h2 M4.7 4.7l1.4 1.4 M13.9 13.9l1.4 1.4 M4.7 15.3l1.4-1.4 M13.9 6.1l1.4-1.4',
+  bell: 'M5.5 13.5V9a4.5 4.5 0 0 1 9 0v4.5l1.5 1.5h-12z M8.5 16.5a1.5 1.5 0 0 0 3 0',
   up: 'M10 16V4 M5 9l5-5 5 5',
   down: 'M10 4v12 M5 11l5 5 5-5',
 };
@@ -279,18 +280,67 @@ const UI = {
     return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), update: (s) => { a.update(s); b.update(s); } };
   },
 
+  // "Control+Alt+C" → "Ctrl+Alt+C" (Electron accelerator → how Windows writes it).
+  keysLabel(acc) {
+    return String(acc || '').split('+').map((p) => ({ Control: 'Ctrl', Super: 'Win' }[p] || p)).join('+');
+  },
+
+  // A shortcut recorder (revision 5): click, press the keys (with Ctrl, Alt or Win), Esc cancels.
+  // onChange(accelerator).
+  keyRecorder(onChange) {
+    const b = UI.el('button', { class: 'btn small keyrec' });
+    let value = '', recording = false;
+    const show = () => { b.textContent = recording ? 'Press keys…' : UI.keysLabel(value) || 'None'; b.classList.toggle('on', recording); };
+    const keyOf = (e) => {
+      if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3);
+      if (/^Digit\d$/.test(e.code)) return e.code.slice(5);
+      if (/^F\d{1,2}$/.test(e.code)) return e.code;
+      return { Space: 'Space', Tab: 'Tab', Backspace: 'Backspace', Delete: 'Delete', Enter: 'Enter', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' }[e.code] || '';
+    };
+    const onKey = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') return stop();
+      const key = keyOf(e);
+      if (!key || !(e.ctrlKey || e.altKey || e.metaKey)) return; // wait for a real combination
+      value = [e.ctrlKey && 'Control', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Super', key].filter(Boolean).join('+');
+      stop();
+      onChange(value);
+    };
+    const stop = () => { recording = false; window.removeEventListener('keydown', onKey, true); show(); };
+    b.onclick = () => {
+      if (recording) return stop();
+      recording = true;
+      window.addEventListener('keydown', onKey, true);
+      show();
+    };
+    b.onblur = stop;
+    show();
+    return { el: b, set(v) { if (!recording) { value = v || ''; show(); } } };
+  },
+
+  // The hotkey choices (P.HOTKEYS, docs/KVM.md "Hotkey (revision 4)") as this PC names them.
+  // Right, left or either side (P.HOTKEYS), in this PC's words ("Left Ctrl", "Alt (either side)").
+  HOTKEYS: Object.fromEntries(window.MacShareProtocol.HOTKEYS.map((c) => [c, window.MacShareProtocol.hotkeyName(c, 'win')])),
+  hotkeyName(s) {
+    return UI.P.hotkeyName((s && s.keys && s.keys.hotkey) || 'AltRight', 'win');
+  },
+
   // "Right now" row for the Cursor/Keyboard tabs: where input is + the last KVM event.
   inputStatus() {
-    const WHERE = { home: 'On this PC', driving: 'On the Mac', driven: 'The Mac is using this PC' };
     const pill = UI.el('span', { class: 'pill' });
     const row = UI.row('Keyboard and mouse', '', [pill]);
     row.update = (s) => {
       const k = s.kvmState;
-      pill.textContent = WHERE[k.mode] || WHERE.home;
-      pill.className = 'pill ' + (k.mode === 'home' ? 'muted' : 'good');
+      const p = UI.peer(s);
+      const WHERE = { home: 'On this PC', driving: 'On ' + p.the, driven: p.them + ' is using this PC' };
+      pill.textContent = k.linked === false ? 'Sharing off' : WHERE[k.mode] || WHERE.home;
+      pill.className = 'pill ' + (k.linked === false ? 'bad' : k.mode === 'home' ? 'muted' : 'good');
       row.setHint(k.helper && k.helper !== 'starting' ? k.helper
-        : s.link.state !== 'connected' ? 'Waiting for your Mac'
-          : k.message || (k.mode === 'home' ? '' : 'Double-tap Right Ctrl to come back'));
+        : k.linked === false ? 'Cursor sharing is off. Double-tap ' + UI.hotkeyName(s) + ' to turn it on.'
+        : s.link.state !== 'connected' ? 'Waiting for ' + p.the
+          : k.mode === 'home' && !k.message ? 'Connected to ' + p.name + '. Double-tap ' + UI.hotkeyName(s) + ' to turn cursor sharing off.'
+          : k.message || 'Double-tap ' + UI.hotkeyName(s) + ({ home: ' to turn cursor sharing off', driving: ' to come back and turn cursor sharing off', driven: ' to take it back' }[k.mode] || ''));
     };
     return row;
   },

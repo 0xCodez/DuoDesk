@@ -11,8 +11,9 @@ const SETTINGS_URLS = {
   accessibility: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
   inputMonitoring: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent',
   localNetwork: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork',
+  fullDisk: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
 };
-const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'files', 'terminal', 'audio', 'apps', 'general'];
+const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -20,19 +21,23 @@ const clamp = (lo, hi, dflt) => (v) => {
   return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt;
 };
 const oneOf = (list, dflt) => (v) => (list.includes(v) ? v : dflt);
+// A global shortcut: at least Control, Option or Command, plus one key (Electron accelerator).
+const KEY = /^(?:(?:Control|Alt|Shift|Command)\+){1,4}(?:[A-Z0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Space|Tab|Backspace|Delete|Enter|Up|Down|Left|Right|[`\-=[\];',./\\])$/;
+const accel = (dflt) => (v) => (typeof v === 'string' && KEY.test(v) && /Control|Alt|Command/.test(v) ? v : dflt);
 
 // Allowed keys and their validators, per settings group.
 const SCHEMA = {
   virtual: { enabled: bool, width: (v) => Math.round(clamp(640, 3840, 1920)(v)), height: (v) => Math.round(clamp(480, 2160, 1080)(v)), hiDPI: bool, hz: oneOf([30, 60], 60) },
   kvm: {
     pcSide: oneOf(P.SIDES, 'right'), mouse: bool, keyboard: bool, driveOther: bool, beDriven: bool,
-    resistancePx: (v) => Math.round(clamp(0, 400, 120)(v)), speed: clamp(0.25, 4, 1), reverseScroll: bool,
+    resistancePx: (v) => Math.round(clamp(0, 400, 120)(v)), speed: clamp(0.25, 4, 1), reverseScroll: bool, hotkeySwitch: bool, linked: bool,
   },
-  keys: { swapCtrlCmd: bool },
-  app: { openAtLogin: bool, keepAwake: bool },
+  keys: { swapCtrlCmd: bool, hotkey: oneOf(P.HOTKEYS, 'AltRight') },
+  app: { openAtLogin: bool, keepAwake: bool, hud: bool },
   audio: { send: bool, receive: bool, muteLocal: bool, volume: clamp(0, 1, 1) },
   terminal: { allowPc: bool, connectPc: bool },
-  files: { acceptDrops: bool, reveal: bool, dragEdge: bool },
+  files: { acceptDrops: bool, reveal: bool, dragEdge: bool, shortcuts: bool, copyKeys: accel('Control+Alt+C'), pasteKeys: accel('Control+Alt+V') },
+  notifs: { send: bool, receive: bool, hideText: bool },
   smb: { connectPc: bool },
   apps: { offer: bool },
   receive: { on: bool, fullScreen: bool, input: bool },
@@ -192,8 +197,31 @@ function setupIpc(ctx) {
     },
     setFiles(partial) {
       setGroup('files', partial);
+      if (partial && ('shortcuts' in partial || 'copyKeys' in partial || 'pasteKeys' in partial)) ctx.fileClip.apply();
       ctx.fileSend.sendPolicy();
       ctx.kvm.config();
+    },
+    // Revision 5: Send files (paths from the drop zone or the Choose… dialog).
+    sendFiles(paths) {
+      const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p.startsWith('/')).slice(0, 1000);
+      if (list.length && ctx.server.current) ctx.fileSend.sendBatch(list, 'send');
+    },
+    async chooseSendFiles() {
+      const r = await dialog.showOpenDialog({ properties: ['openFile', 'openDirectory', 'multiSelections'], buttonLabel: 'Send' });
+      if (!r.canceled) actions.sendFiles(r.filePaths);
+    },
+    setNotifs(partial) {
+      setGroup('notifs', partial);
+      ctx.notifs.applySettings();
+    },
+    muteNotifApp(arg) {
+      if (arg && typeof arg.app === 'string') ctx.notifs.setMuted(arg.app.slice(0, 200), !!arg.muted);
+    },
+    // Full Disk Access has no request API: open the pane and show MacShare in Finder to drag in.
+    allowFullDisk() {
+      shell.openExternal(SETTINGS_URLS.fullDisk);
+      const bundle = process.execPath.replace(/\/Contents\/MacOS\/[^/]+$/, '');
+      if (bundle.endsWith('.app')) shell.showItemInFolder(bundle);
     },
     async pickDropFolder() {
       const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Use This Folder' });
@@ -270,6 +298,7 @@ function setupIpc(ctx) {
     },
     setKeys(partial) {
       setGroup('keys', partial);
+      ctx.kvm.config(); // the hotkey lives in the helper
     },
     setClipboard(partial) {
       setGroup('clipboard', partial);

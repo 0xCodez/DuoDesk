@@ -1,5 +1,6 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// Keyboard tab: typing follows the pointer. Two direction cards (docs/UI.md); the directions are the
+// Keyboard tab: typing follows the pointer. The Hotkey card (double-tap = mouse and keyboard back
+// here; keyboard-only switching), then two direction cards (docs/UI.md); the directions are the
 // same switches as on the Cursor tab. Behaviour: docs/KVM.md (kvm.js + windows-helper).
 'use strict';
 
@@ -12,29 +13,41 @@ UI.tab({
   master: { get: (s) => s.kvm.keyboard, set: (v) => UI.api.setKvm({ keyboard: v }) },
   badge: (s) => (s.kvm.keyboard ? 'on' : ''),
   build(body) {
-    const { el, api } = UI;
+    const { api } = UI;
+    const hotkey = UI.select(Object.entries(UI.HOTKEYS).map(([value, label]) => ({ value, label })), (v) => api.setKeys({ hotkey: v }));
+    const hotkeyRow = UI.row('Hotkey', 'Double-tap to turn cursor sharing on or off', [hotkey]);
+    const switchSw = UI.switch((v) => api.setKvm({ hotkeySwitch: v }), { label: 'Switch the keyboard with the hotkey' });
+    const switchRow = UI.row('Switch the keyboard with the hotkey', '', [switchSw]);
     const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Command' });
-    const kbd = (t) => el('kbd', { text: t });
+    const otherHotkey = UI.row('Hotkey on the Mac', '');
+    const swapRow = UI.row('⌘ works as Ctrl', 'So ⌘C copies here', [swap]);
+    const shortcutsRow = UI.row('Shortcuts on the Mac', 'Ctrl works as ⌘, so Ctrl+C copies there');
     const status = UI.inputStatus();
     const pair = UI.dirCards(
-      { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, rows: [
-        UI.row('Switch computers', 'Double-tap Right Option on the Mac'),
-        UI.row('⌘ works as Ctrl', 'So ⌘C copies here', [swap]),
-      ] },
-      { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, rows: [
-        UI.row('Switch computers', 'Double-tap', [kbd('Right Ctrl')]),
-        UI.row('Shortcuts on the Mac', 'Ctrl works as ⌘, so Ctrl+C copies there'),
-      ] },
+      { on: { get: (s) => s.kvm.beDriven, set: (v) => api.setKvm({ beDriven: v }) }, rows: [otherHotkey, swapRow] },
+      { on: { get: (s) => s.kvm.driveOther, set: (v) => api.setKvm({ driveOther: v }) }, rows: [shortcutsRow] },
     );
 
     body.append(
+      UI.card('Hotkey', [hotkeyRow, switchRow], { cls: 'keep-on' }),
       pair.el,
       UI.card('Right now', [status], { cls: 'keep-on' }),
     );
 
     return (s) => {
+      const p = UI.peer(s);
       pair.update(s);
       status.update(s);
+      hotkey.set(s.keys.hotkey);
+      // Keyboard-only switching exists only while the pointer isn't shared (Cursor off).
+      switchSw.set(s.kvm.hotkeySwitch);
+      switchSw.disable(!!s.kvm.mouse);
+      switchRow.setHint(s.kvm.mouse ? 'Only when Cursor is off' : 'Double-tap to type on ' + p.the + ' and back');
+      otherHotkey.label.textContent = 'Hotkey on ' + p.the;
+      otherHotkey.setHint('Set in MacShare on ' + p.the);
+      // Ctrl/Cmd swapping only between a Mac and a PC.
+      swapRow.hidden = p.os !== 'mac';
+      shortcutsRow.hidden = p.os !== 'mac';
       swap.set(s.keys.swapCtrlCmd);
     };
   },

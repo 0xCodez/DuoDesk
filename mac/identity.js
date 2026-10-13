@@ -32,7 +32,8 @@ function load(settings) {
     settings.macId = crypto.randomUUID();
     store.saveSettings(settings);
   }
-  const macName = os.hostname().replace(/\.local$/i, '');
+  // MACSHARE_DEV_NAME: dev only, tells two copies on one Mac apart.
+  const macName = process.env.MACSHARE_DEV_NAME || os.hostname().replace(/\.local$/i, '');
   const { keyPem, certPem } = ensureCert();
   const fp = P.normFingerprint(new crypto.X509Certificate(certPem).fingerprint256);
   return { macId: settings.macId, macName, keyPem, certPem, fp };

@@ -57,7 +57,7 @@ func handle(_ line: String) {
     Flash.shared.prepare()
     Capture.shared.configure(side: (msg["side"] as? String) ?? "right", resistance: num("resistancePx", 120),
                              edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
-                             dragFiles: (msg["dragFiles"] as? Bool) ?? true)
+                             dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight")
     reply(id)
   case "capture":
     if (msg["on"] as? Bool) == true {
@@ -90,6 +90,15 @@ func handle(_ line: String) {
       "inputMonitoring": IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) == kIOHIDAccessTypeGranted,
       "screen": CGPreflightScreenCaptureAccess(),
     ])
+  case "notifWatch":
+    NotifWatch.shared.set(on: (msg["on"] as? Bool) ?? false)
+    reply(id, ["readable": NotifWatch.shared.readable()])
+  case "fileSource":
+    // Revision 5 copy shortcut: who is in front, and the files on the clipboard (if any).
+    let pb = NSPasteboard.general
+    let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    reply(id, ["front": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "",
+               "files": urls.map { $0.path }])
   case "requestAccess":
     // Asking registers MacShare (our responsible app) in that System Settings list, so the person
     // only flips a switch instead of adding the app with + and a file browser.

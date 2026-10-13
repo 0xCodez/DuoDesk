@@ -7,7 +7,7 @@ UI.tab({
   id: 'share',
   group: 'Display',
   order: 10,
-  title: '{out}',
+  title: 'Share screen',
   heading: 'This Mac’s screen on {there}',
   icon: 'display',
   desc: 'Use this Mac as a second screen for {there}.',
@@ -65,8 +65,8 @@ UI.tab({
     const soundSw = UI.switch((v) => api.setScreenSound(v), { label: 'Share sound with the screen' });
     const soundRow = UI.row('Include sound', '', [soundSw]);
     const inputSw = UI.switch((v) => api.setStreamInput(v), { label: 'Receive input' });
-    const inputRow = UI.row('Let {there} control it', '', [inputSw]);
-    inputRow.label.dataset.peer = 'Let {there} control it';
+    const inputRow = UI.row('Receive input from {there}', '', [inputSw]);
+    inputRow.label.dataset.peer = 'Receive input from {there}';
 
     const stats = {
       status: UI.row('Status', ''),

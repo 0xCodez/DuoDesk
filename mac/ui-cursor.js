@@ -31,6 +31,8 @@ UI.tab({
     );
     const layoutHint = el('div', { class: 'layout-hint' });
 
+    const linkSw = UI.switch((v) => api.setKvm({ linked: v }), { label: 'Cursor sharing' });
+    const linkRow = UI.row('Cursor sharing', '', [linkSw]);
     const drive = UI.switch((v) => api.setKvm({ driveOther: v }), { label: 'Mac to PC' });
     const driven = UI.switch((v) => api.setKvm({ beDriven: v }), { label: 'PC to Mac' });
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => `${v} px` }, (v) => api.setKvm({ resistancePx: v }));
@@ -46,8 +48,9 @@ UI.tab({
     let driven2 = null;
     body.append(
       status,
+      UI.card('', [linkRow], { cls: 'keep-on' }),
       UI.pair(
-        UI.dir('m2w', [peerRow('Use this Mac’s mouse on {there}', 'Or double-tap Right Option', [drive])]),
+        UI.dir('m2w', [peerRow('Use this Mac’s mouse on {there}', 'Push the pointer past the edge', [drive])]),
         UI.dir('w2m', [driven2 = peerRow('Use {there}’s mouse on this Mac', '', [driven])]),
       ),
       UI.card('Where the other computer is', [el('div', { class: 'layout' }, [grid, layoutHint])]),
@@ -62,6 +65,8 @@ UI.tab({
       const k = s.kvm;
       if (!k) return;
       const p = UI.peer(s);
+      linkSw.set(k.linked !== false);
+      linkRow.setHint(`Double-tap ${UI.hotkeyName(s)} to turn it ${k.linked !== false ? 'off' : 'on'} from anywhere`);
       const [kind, text] = UI.kvmStatus(s);
       status.className = `note ${kind}`;
       status.set(text);
@@ -71,7 +76,7 @@ UI.tab({
       }
       const where = { left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[k.pcSide];
       layoutHint.textContent = `${p.same ? p.there : 'Your PC'} is ${where} this Mac. Click a side to move it.`;
-      driven2.setHint(p.same ? 'Or double-tap Right Option on it' : 'Or double-tap Right Ctrl on the PC');
+      driven2.setHint('Double-tap the hotkey to take everything back');
       drive.set(k.driveOther);
       driven.set(k.beDriven);
       resistance.set(k.resistancePx);

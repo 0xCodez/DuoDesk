@@ -74,7 +74,7 @@
   }
 
   function renderPage(v, s) {
-    const limited = UI.peer(s).limited;
+    const limited = v.def.limitedFor ? v.def.limitedFor(UI.peer(s)) : UI.peer(s).limited;
     const unsupported = !!v.mixedNote && !!limited;
     if (v.mixedNote) v.mixedNote.set(unsupported ? `${limited}.` : '');
     if (v.master) {

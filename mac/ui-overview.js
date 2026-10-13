@@ -59,6 +59,7 @@ UI.tab({
       sw('Sound', 'audio', (s) => s.audio && s.audio.send, (v) => api.setAudio({ send: v })),
       sw('Mouse and keyboard', 'cursor', (s) => s.kvm && s.kvm.driveOther, (v) => api.setKvm({ driveOther: v })),
       sw('Clipboard', 'clipboard', (s) => s.clipboard && s.clipboard.send, (v) => api.setClipboard({ send: v })),
+      sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.send, (v) => api.setNotifs({ send: v }), 'linux'),
       sw('Shared folder', 'files', (s) => s.smb && s.smb.sharing, (v) => api.setShareMac(v)),
       sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.connectPc, (v) => api.setTerminal({ connectPc: v }), true),
       sw('Apps', 'apps', (s) => s.apps && s.apps.offer, (v) => api.setApps({ offer: v }), true),
@@ -68,6 +69,7 @@ UI.tab({
       sw('Sound', 'audio', (s) => s.audio && s.audio.receive, (v) => api.setAudio({ receive: v })),
       sw('Mouse and keyboard', 'cursor', (s) => s.kvm && s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
       sw('Clipboard', 'clipboard', (s) => s.clipboard && s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
+      sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.receive, (v) => api.setNotifs({ receive: v }), 'linux'),
       sw('Shared folder', 'files', (s) => s.smb && s.smb.connectPc, (v) => api.setSmb({ connectPc: v })),
       sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.allowPc, (v) => api.setTerminal({ allowPc: v }), true),
       sw('Apps', 'apps', (s) => s.papps && s.papps.on, (v) => api.setPcApps({ on: v }), true),
@@ -127,7 +129,7 @@ UI.tab({
 
       // hero
       macName.textContent = s.macName;
-      peerName.textContent = c ? c.name : ['PC', 'Linux', 'Other Mac'].includes(p.name) ? `Your ${p.same ? 'other Mac' : p.kind}` : p.name;
+      peerName.textContent = c ? c.name : ['PC', 'Linux', 'Mac2'].includes(p.name) ? `Your ${p.same ? 'other Mac' : p.kind}` : p.name;
       peerDev.className = `device ${p.os === 'mac' ? 'mac' : 'pc'}`;
       linkLine.className = `hero-link ${c ? 'up' : ''}`;
       const connecting = ['connecting', 'reconnecting'].includes(g.status.state);
@@ -143,9 +145,9 @@ UI.tab({
 
       for (const x of quick) {
         x.c.set(x.get(s));
-        const off = x.mixedOnly && !!p.limited;
-        x.c.disable(off);
-        x.row.setHint(off ? p.limited : '');
+        const why = x.mixedOnly === 'linux' ? (p.os === 'linux' ? 'Not on Linux yet' : '') : x.mixedOnly ? p.limited : '';
+        x.c.disable(!!why);
+        x.row.setHint(why);
       }
 
       // paired: guests (they connect to us) and hosts (we connect to them)

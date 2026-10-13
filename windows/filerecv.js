@@ -3,6 +3,8 @@
 // {drop:'release'}` from the Mac → a temp folder; when the Mac's left button comes up on this PC
 // (k.mu b:0 while driven, see kvm.js) they go to the Explorer folder under the pointer, else the
 // Desktop if the pointer is on it, else Downloads — never overwriting — and are shown in Explorer.
+// Revision 5: `drop:'send'` / `'paste'` batches (Send files, the paste shortcut): every file with
+// its `rel` path straight into Downloads or the folder chosen at paste time, then `files.done`.
 const { app } = require('electron');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
@@ -20,18 +22,27 @@ class FileRecv {
     this.files = new Map(); // id → {name, size, got, seq, hash, out, tmp, done, released}
     this.target = null;     // folder chosen at release time for this drag
     this.last = null;       // {name, ok, text, at} for the Files tab
+    this.batches = new Map(); // revision 5: batch → {kind, dir, count, done, ok, tops: Map, placed: []}
+    this.bfiles = new Map();  // id → batch file {id, batch, name, size, final, tmp, got, seq, hash, out}
+    this.expected = new Map(); // batch (fclip id) → folder chosen when this PC pasted
     const link = this.link;
     link.on(T.FILE_OFFER, (m) => this._offer(m));
     link.on(T.FILE_CHUNK, (m) => this._chunk(m));
     link.on(T.FILE_END, (m) => this._end(m));
-    link.on(T.FILE_CANCEL, (m) => this._drop(m.id));
-    link.on('closed', () => { for (const id of [...this.files.keys()]) this._drop(id); this.target = null; });
+    link.on(T.FILE_CANCEL, (m) => (this.bfiles.has(m.id) ? this._batchFail(this.bfiles.get(m.id), null) : this._drop(m.id)));
+    link.on('closed', () => {
+      for (const id of [...this.files.keys()]) this._drop(id);
+      for (const f of [...this.bfiles.values()]) this._batchFail(f, null);
+      this.batches.clear();
+      this.target = null;
+    });
     try { fs.rmSync(this.dir, { recursive: true, force: true }); } catch (_) { /* leftovers */ }
   }
 
   _offer(m) {
-    if (typeof m.id !== 'string' || this.files.has(m.id) || m.drop === 'drag') return; // drags: dragrecv.js
+    if (typeof m.id !== 'string' || this.files.has(m.id) || this.bfiles.has(m.id) || m.drop === 'drag') return; // drags: dragrecv.js
     const refuse = (why) => this.link.send({ t: T.FILE_REFUSE, id: m.id, why });
+    if (m.drop === 'send' || m.drop === 'paste') return this._offerBatch(m, refuse);
     if (!this.settings.files.acceptFromMac) return refuse('not_allowed');
     if (!(m.size >= 0) || m.size > P.FILE_MAX_BYTES) return refuse('too_big');
     const name = safeName(m.name);
@@ -45,8 +56,9 @@ class FileRecv {
   }
 
   _chunk(m) {
-    const f = this.files.get(m.id);
+    const f = this.files.get(m.id) || this.bfiles.get(m.id);
     if (!f || f.done || m.seq !== f.seq || typeof m.data !== 'string') return;
+    if (!f.out) openOut(f);
     const buf = Buffer.from(m.data, 'base64');
     f.seq++;
     f.got += buf.length;
@@ -55,6 +67,7 @@ class FileRecv {
   }
 
   _end(m) {
+    if (this.bfiles.has(m.id)) return this._batchEnd(this.bfiles.get(m.id), m);
     const f = this.files.get(m.id);
     if (!f || f.done) return;
     f.done = true;
@@ -112,8 +125,97 @@ class FileRecv {
     this.onChange();
   }
 
+  // ---- revision 5: Send files / paste batches ----
+
+  // This PC pressed paste: the files of that batch go to `dir`.
+  expectBatch(batch, dir) {
+    this.expected.set(batch, dir);
+    setTimeout(() => this.expected.delete(batch), 10 * 60 * 1000);
+  }
+
+  _offerBatch(m, refuse) {
+    const size = Number(m.size);
+    const count = Number(m.count);
+    if (typeof m.batch !== 'string' || !m.batch || !Number.isInteger(count) || count < 1) return refuse('bad_message');
+    if (!(size >= 0) || size > P.FILE_MAX_BYTES) return refuse('too_big');
+    const rel = safeRel(m.rel || m.name);
+    if (!rel) return refuse('bad_message');
+    let b = this.batches.get(m.batch);
+    if (!b) {
+      const pasted = this.expected.get(m.batch);
+      if (m.drop === 'paste' && !pasted) return refuse('not_allowed'); // we never asked for it
+      if (m.drop === 'send' && !this.settings.files.acceptFromMac) return refuse('not_allowed');
+      b = { kind: m.drop, dir: pasted || app.getPath('downloads'), count, done: 0, ok: 0, tops: new Map(), placed: [] };
+      this.batches.set(m.batch, b);
+      this.expected.delete(m.batch);
+    }
+    const segs = rel.split('/');
+    if (!b.tops.has(segs[0])) { // "Photos 2" when Photos is already there
+      const top = uniquePath(b.dir, segs[0]);
+      b.tops.set(segs[0], path.basename(top));
+      b.placed.push(top);
+    }
+    const final = path.join(b.dir, b.tops.get(segs[0]), ...segs.slice(1));
+    const tmp = final + '.macshare-part';
+    try {
+      fs.mkdirSync(path.dirname(tmp), { recursive: true });
+    } catch (e) {
+      this._batchStep(m.batch, false);
+      return refuse('not_allowed');
+    }
+    // The Mac offers a whole folder at once: the file is opened with its first chunk.
+    this.bfiles.set(m.id, { id: m.id, batch: m.batch, name: segs[segs.length - 1], size, final, tmp, got: 0, seq: 0, hash: crypto.createHash('sha256'), out: null, done: false });
+    this.link.send({ t: T.FILE_ACCEPT, id: m.id });
+    this.onChange();
+  }
+
+  _batchEnd(f, m) {
+    if (f.done) return;
+    f.done = true;
+    if (!f.out) openOut(f); // an empty file
+    f.out.end(() => {
+      if (f.got !== f.size || f.hash.digest('hex') !== m.sha256) return this._batchFail(f, f.got !== f.size ? 'size mismatch' : 'checksum mismatch');
+      try {
+        fs.renameSync(f.tmp, f.final);
+      } catch (e) {
+        return this._batchFail(f, e.message);
+      }
+      this.bfiles.delete(f.id);
+      this.link.send({ t: T.FILE_DONE, id: f.id, ok: true, path: f.final });
+      this._batchStep(f.batch, true);
+    });
+  }
+
+  // error null: cancelled or disconnected (nothing to tell the sender).
+  _batchFail(f, error) {
+    if (!this.bfiles.delete(f.id)) return;
+    if (f.out) f.out.destroy();
+    try { fs.unlinkSync(f.tmp); } catch (_) { /* not written */ }
+    if (error) this.link.send({ t: T.FILE_DONE, id: f.id, ok: false, error });
+    this._batchStep(f.batch, false);
+  }
+
+  // A batch file finished (or failed); after the last one: files.done, show them, popup.
+  _batchStep(batch, ok) {
+    const b = this.batches.get(batch);
+    if (!b) return;
+    b.done++;
+    if (ok) b.ok++;
+    if (b.done < b.count) return this.onChange();
+    this.batches.delete(batch);
+    this.link.send({ t: T.FILES_DONE, batch, ok: b.ok === b.count, where: b.dir, files: b.ok });
+    const name = b.placed.length === 1 ? path.basename(b.placed[0]) : b.placed.length + ' items';
+    this.last = { name, ok: b.ok > 0, text: b.ok === b.count ? 'Saved to ' + b.dir : (b.count - b.ok) + ' of ' + b.count + ' failed', at: Date.now() };
+    if (b.ok) {
+      if (b.kind === 'paste') this.helper.request('selectItems', { dir: b.dir, names: b.placed.map((p) => path.basename(p)) }).catch(() => {});
+      else spawn('explorer.exe', ['/select,', b.placed[0]], { detached: true, stdio: 'ignore' }).unref();
+    }
+    if (this.onBatch) this.onBatch({ kind: b.kind, files: b.ok, count: b.count, ok: b.ok === b.count });
+    this.onChange();
+  }
+
   view() {
-    return { receiving: this.files.size, last: this.last };
+    return { receiving: this.files.size + this.bfiles.size, last: this.last };
   }
 }
 
@@ -122,6 +224,24 @@ function safeName(name) {
   let n = path.basename(String(name || 'file')).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '');
   if (!n || /^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i.test(n)) n = '_' + (n || 'file');
   return n.slice(0, 200);
+}
+
+function openOut(f) {
+  f.out = fs.createWriteStream(f.tmp);
+  f.out.on('error', () => {}); // the size/checksum check at the end fails instead
+}
+
+// "Photos/2024/a.jpg" → safe Windows segments joined by '/', or null (.., empty, too deep).
+function safeRel(rel) {
+  if (typeof rel !== 'string' || !rel || rel.length > 4000) return null;
+  const segs = rel.split('/');
+  if (segs.length > 32) return null;
+  const out = [];
+  for (const s of segs) {
+    if (!s || s === '.' || s === '..') return null;
+    out.push(safeName(s));
+  }
+  return out.join('/');
 }
 
 // "name.txt" → "name 2.txt", "name 3.txt"… if taken.

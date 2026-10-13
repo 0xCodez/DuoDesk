@@ -1,12 +1,13 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // The small API the main window gets from the main process.
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const call = (name) => (...args) => ipcRenderer.invoke(name, ...args);
 
 contextBridge.exposeInMainWorld('macshare', {
   getState: call('getState'),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
+  onGo: (fn) => ipcRenderer.on('go', (_e, tab) => fn(tab)),
   pair: call('pair'),
   connectAddress: call('connectAddress'),
   refreshFound: call('refreshFound'),
@@ -21,6 +22,7 @@ contextBridge.exposeInMainWorld('macshare', {
   setKvm: call('setKvm'),
   setLayout: call('setLayout'),
   setKeys: call('setKeys'),
+  setApp: call('setApp'),
   setMonitor: call('setMonitor'),
   setClipboard: call('setClipboard'),
   copyHistory: call('copyHistory'),
@@ -47,4 +49,10 @@ contextBridge.exposeInMainWorld('macshare', {
   checkFirewall: call('checkFirewall'),
   fixFirewall: call('fixFirewall'),
   setStartup: call('setStartup'),
+  // revision 5
+  sendFiles: call('sendFiles'),
+  chooseSendFiles: call('chooseSendFiles'),
+  pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files → paths
+  setNotifs: call('setNotifs'),
+  muteNotifApp: call('muteNotifApp'),
 });

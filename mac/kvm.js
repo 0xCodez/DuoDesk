@@ -45,6 +45,7 @@ class Kvm extends EventEmitter {
     });
     const on = (t, fn) => server.on(`t:${t}`, fn);
     on(P.T.KVM_TAKE, (m) => this._onTake(m));
+    on(P.T.KVM_LINK, (m) => this.setLinked(m.on !== false, false));
     // kvm.layout {pcSide} = the sender's crossing side; ours is the opposite (no echo).
     on(P.T.KVM_LAYOUT, (m) => {
       const side = P.opposite(m.pcSide);
@@ -94,13 +95,36 @@ class Kvm extends EventEmitter {
     this.helper
       .request('kvmConfig', {
         side: k.pcSide, resistancePx: k.resistancePx, keyboard: !!k.keyboard,
-        driveOther: !!(k.driveOther && k.mouse && this.server.current),
+        driveOther: !!(this.linked && k.driveOther && k.mouse && this.server.current),
+        hotkey: this.getSettings().keys.hotkey || P.HOTKEY_MAC,
         dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
       })
       .then(() => this._setTapError(null), (e) => this._setTapError(e.message));
   }
 
+  // Mouse and keyboard sharing as a whole (the hotkey's double-tap): off = everything home and
+  // nothing crosses either way. `tell`: also switch the other computer (kvm.link), which follows.
+  get linked() {
+    return this.cfg.linked !== false;
+  }
+
+  setLinked(on, tell = true) {
+    if (on === this.linked) return;
+    if (!on) this.home();
+    this.cfg.linked = on;
+    store.saveSettings(this.getSettings());
+    if (tell) this.server.sendToClient({ t: P.T.KVM_LINK, on });
+    this.config();
+    this.emit('linked', on, tell); // hud.js: the big card
+    this.emit('change');
+  }
+
   settingsChanged(prev) {
+    if (prev && prev.linked !== this.cfg.linked) {
+      const on = this.linked;
+      this.cfg.linked = prev.linked; // setLinked does the work (home first, tell the peer)
+      return this.setLinked(on);
+    }
     if (!prev || prev.pcSide !== this.cfg.pcSide) this._sendLayout();
     this.config();
     const k = this.cfg;
@@ -119,7 +143,9 @@ class Kvm extends EventEmitter {
   }
 
   _setMode(mode, message) {
+    const prev = this.mode;
     this.mode = mode;
+    if (prev !== mode) this.emit('where', mode, prev); // hud.js shows it
     this.message = message || '';
     if (mode !== 'driving') {
       clearTimeout(this.acceptTimer);
@@ -141,7 +167,7 @@ class Kvm extends EventEmitter {
   // ---- owner: this Mac drives the PC ----
 
   _canDrive() {
-    return this.mode === 'home' && !!this.server.current && !!this.cfg.driveOther;
+    return this.mode === 'home' && !!this.server.current && !!this.cfg.driveOther && this.linked;
   }
 
   _take(fields) {
@@ -195,16 +221,19 @@ class Kvm extends EventEmitter {
         }
         this._take({ mouse: true, where: { side: P.opposite(k.pcSide), offset: ev.offset }, paths: ev.drag && ev.drag.paths });
         break;
+      // Double-tap (docs/KVM.md "Hotkey"): switches mouse and keyboard sharing off (everything home)
+      // and on again. In keyboard-only mode (Cursor off + "Switch the keyboard with the hotkey") it
+      // moves the keyboard over and back instead.
       case 'hotkey':
-        if (this.mode === 'home') {
-          if (!this._canDrive() || !(k.mouse || k.keyboard)) return;
-          this.helper.send('capture', { on: true, mouse: !!k.mouse, keyboard: !!k.keyboard });
-          this._take({ mouse: !!k.mouse, where: {} });
-        } else if (this.mode === 'driving') {
-          this.goHome(''); // the helper already stopped capturing if it was a local hotkey
-        } else {
-          this._sendHome(undefined, '');
+        if (k.hotkeySwitch && !k.mouse && k.keyboard && this.linked) {
+          if (this.mode === 'home') {
+            if (!this._canDrive()) return;
+            this.helper.send('capture', { on: true, mouse: false, keyboard: true });
+            this._take({ mouse: false, where: {} });
+          } else this.home();
+          break;
         }
+        this.setLinked(!this.linked);
         break;
       case 'ev': {
         if (this.mode !== 'driving' || !ev.ev) return;
@@ -237,7 +266,7 @@ class Kvm extends EventEmitter {
   _onTake(m) {
     const refuse = (why) => this.server.sendToClient({ t: P.T.KVM_REFUSE, route: m.route, why });
     if (this.mode === 'driving') return refuse(P.REFUSE.BUSY);
-    if (!this.cfg.beDriven) return refuse(P.REFUSE.NOT_ALLOWED);
+    if (!this.cfg.beDriven || !this.linked) return refuse(P.REFUSE.NOT_ALLOWED);
     if (this.mode === 'driven' && !(m.route > this.peerRoute)) return;
     const first = this.mode !== 'driven';
     this.peerRoute = m.route;
@@ -303,6 +332,12 @@ class Kvm extends EventEmitter {
     this.helper.send('armReturn', { on: false });
     this._setMode('home', message);
     this.clipboard.sendIfChanged('switch');
+  }
+
+  // Menu bar "Bring Mouse and Keyboard Back".
+  home() {
+    if (this.mode === 'driving') this.goHome('');
+    else if (this.mode === 'driven') this._sendHome(undefined, '');
   }
 
   // App quitting: give everything back.

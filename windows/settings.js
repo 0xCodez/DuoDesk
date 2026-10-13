@@ -3,11 +3,14 @@
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
-const TABS = ['overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'files', 'terminal', 'audio', 'apps', 'general'];
+const TABS = ['overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // names before revision 2
 
 const bool = (v, d) => (typeof v === 'boolean' ? v : d);
+// A global shortcut (Electron accelerator): Ctrl, Alt or the Windows key, plus one key.
+const KEY = /^(?:(?:Control|Alt|Shift|Super)\+){1,4}(?:[A-Z0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Space|Tab|Backspace|Delete|Enter|Up|Down|Left|Right)$/;
+const accel = (v, d) => (typeof v === 'string' && KEY.test(v) && /Control|Alt|Super/.test(v) ? v : d);
 const num = (v, d, min, max) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.min(max, Math.max(min, Number(v))) : d);
 
 function normalize(s) {
@@ -23,6 +26,8 @@ function normalize(s) {
   const pcs = s.pcScreen || {};
   const pca = s.pcApps || {};
   const setup = s.setup || {};
+  const appS = s.app || {};
+  const nf = s.notifs || {};
   return {
     kvm: {
       mouse: bool(kvm.mouse, true),
@@ -33,8 +38,12 @@ function normalize(s) {
       pcSide: P.SIDES.includes(kvm.pcSide) ? kvm.pcSide : null, // where this PC is, seen from the other computer (kvm.layout)
       speed: Math.round(num(kvm.speed, 1.0, 0.25, 3) * 100) / 100,
       reverseScroll: bool(kvm.reverseScroll, false),
+      linked: bool(kvm.linked, true), // cursor sharing on (the hotkey's double-tap switches it, kvm.link)
+      hotkeySwitch: bool(kvm.hotkeySwitch, false), // keyboard only (Cursor off): double-tap moves the keyboard over and back
     },
-    keys: { swapCtrlCmd: bool(keys.swapCtrlCmd, true) },
+    // hotkey: double-tap = mouse and keyboard home (docs/KVM.md "Hotkey (revision 4)")
+    keys: { swapCtrlCmd: bool(keys.swapCtrlCmd, true), hotkey: P.HOTKEYS.includes(keys.hotkey) ? keys.hotkey : P.HOTKEY_WIN },
+    app: { hud: bool(appS.hud, true) }, // popup when switching computers (docs/UI.md "Popups and the menu bar")
     clipboard: {
       enabled: bool(c.enabled, true),
       send: bool(c.send, true),
@@ -63,6 +72,16 @@ function normalize(s) {
       mountMac: bool(files.mountMac, true),
       acceptFromMac: bool(files.acceptFromMac, true), // files dragged from the Mac across the edge
       edgeDrag: bool(files.edgeDrag, true), // drag files/folders across the screen edge, both ways (drag.policy)
+      // revision 5: copy and paste files with two global shortcuts (fclip.js)
+      shortcuts: bool(files.shortcuts, true),
+      copyKeys: accel(files.copyKeys, 'Control+Alt+C'),
+      pasteKeys: accel(files.pasteKeys, 'Control+Alt+V'),
+    },
+    notifs: { // revision 5 (notifs.js): muted = apps never sent
+      send: bool(nf.send, false),
+      receive: bool(nf.receive, true),
+      hideText: bool(nf.hideText, false),
+      muted: Array.isArray(nf.muted) ? nf.muted.filter((x) => typeof x === 'string').map((x) => x.slice(0, 300)).slice(0, 500) : [],
     },
     pcScreen: { // Display › PC → Mac (phase 11); Off/Mirror/Extend itself is never saved
       monitor: typeof pcs.monitor === 'string' ? pcs.monitor : '', // Electron display id for Mirror ('' = main)

@@ -58,9 +58,11 @@ const { Pairing } = require('./pairing');
 const { startServices } = require('./services');
 const { setupIpc } = require('./ipc');
 const login = require('./login');
+const { Hud } = require('./hud');
 
 let win = null;
 let tray = null;
+let hud = null;
 let quitting = false;
 let startHidden = process.argv.includes('--hidden');
 let settings, id, server, pairing, discovery, link, peer, svc, actions;
@@ -130,7 +132,8 @@ function pushState() {
     state.app = settings.app;
     if (kvm) state.input = kvm.view;
     if (svc) state.terminal = { ...settings.terminal, ...svc.terminal.view, toPc: svc.sshClient.view };
-    if (svc) state.files = { ...settings.files, ...svc.drop.view, ...svc.fileSend.view };
+    if (svc) state.files = { ...settings.files, ...svc.drop.view, ...svc.fileSend.view, clip: svc.fileClip.view };
+    if (svc) state.notifs = { ...settings.notifs, ...svc.notifs.view };
     if (svc) {
       const { secret, ...smb } = settings.smb; // never send the share password to the window
       state.smb = { ...smb, ...svc.smb.view };
@@ -187,8 +190,12 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'control.html'));
   win.once('ready-to-show', () => {
     if (startHidden) startHidden = false; // started at login: stay in the menu bar
-    else win.show();
+    else showWindow();
   });
+  // In the Dock and ⌘-Tab only while the window is open; menu bar only otherwise.
+  win.on('show', dockIcon);
+  win.on('hide', dockIcon);
+  win.on('closed', dockIcon);
   win.on('focus', refreshPermissions);
   win.on('close', (e) => {
     if (!quitting) {
@@ -196,6 +203,16 @@ function createWindow() {
       win.hide();
     }
   });
+}
+
+function dockIcon() {
+  if (!app.dock) return;
+  const visible = !!(win && !win.isDestroyed() && win.isVisible());
+  if (visible && !app.dock.isVisible()) {
+    app.dock.show().then(() => win && !win.isDestroyed() && win.focus()); // showing the Dock icon can take focus away
+  } else if (!visible && app.dock.isVisible()) {
+    app.dock.hide();
+  }
 }
 
 function showWindow() {
@@ -207,34 +224,43 @@ function showWindow() {
   app.focus({ steal: true });
 }
 
+// Menu bar: the app mark as a template icon; the switches people reach for most, one click away.
 function updateTray() {
   if (!tray) return;
   const c = state.client;
+  const name = c ? c.name : 'the other computer';
+  const k = settings.kvm;
+  const where = state.input && state.input.where;
   tray.setToolTip(c ? `MacShare: ${c.name}` : 'MacShare');
+  const check = (label, checked, click, enabled = true) => ({ label, type: 'checkbox', checked: !!checked, enabled, click });
+  const found = (state.found || []).filter((d) => !c || d.id !== c.id);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: c ? `Connected: ${c.name}` : 'Not connected', enabled: false },
+      { label: c ? `Connected to ${c.name}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}` : 'Not connected', enabled: false },
+      ...(where === 'driving' || where === 'driven'
+        ? [{ label: 'Bring Mouse and Keyboard Back', click: () => svc.kvm.home() }] : []),
+      check('Cursor Sharing', k.linked !== false, (i) => actions.setKvm({ linked: i.checked })),
       { type: 'separator' },
-      { label: 'Open MacShare', click: showWindow },
-      {
-        label: 'Share screen',
-        type: 'checkbox',
-        checked: !!settings.sharing.on,
-        click: (item) => actions.setSharing(item.checked),
-      },
-      {
-        label: 'Allow control from the other computer',
-        type: 'checkbox',
-        checked: settings.streamInput !== false,
-        click: (item) => actions.setStreamInput(item.checked),
-      },
-      {
-        label: 'Share clipboard',
-        type: 'checkbox',
-        checked: !!settings.clipboard.enabled,
-        click: (item) => actions.setClipboard({ enabled: item.checked }),
-      },
+      check('Share Screen', settings.sharing.on, (i) => actions.setSharing(i.checked)),
+      check('Receive Screen', settings.receive.on, (i) => actions.setReceive({ on: i.checked })),
+      check(`Use Mouse and Keyboard on ${c ? name : 'Other Computer'}`, k.driveOther, (i) => actions.setKvm({ driveOther: i.checked })),
+      check(`Let ${c ? name : 'Other Computer'} Control This Mac`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked })),
+      check('Share Clipboard', settings.clipboard.enabled, (i) => actions.setClipboard({ enabled: i.checked })),
+      check('Send Sound', settings.audio.send, (i) => actions.setAudio({ send: i.checked })),
       { type: 'separator' },
+      {
+        label: 'Connect To',
+        submenu: [
+          ...(found.length ? found.map((d) => ({ label: `${d.name} (${d.os === 'mac' ? 'Mac' : d.os === 'linux' ? 'Linux' : 'PC'})`, click: () => actions.pairWith(d.id) }))
+            : [{ label: 'Nobody nearby', enabled: false }]),
+          { type: 'separator' },
+          { label: 'Connect by Address…', click: () => { actions.setTab('overview'); showWindow(); } },
+          { label: 'Look Again', click: () => actions.refreshDiscovery() },
+        ],
+      },
+      check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
+      { type: 'separator' },
+      { label: 'Open MacShare…', click: showWindow },
       { label: 'Quit MacShare', click: () => app.quit() },
     ]),
   );
@@ -293,8 +319,26 @@ app.whenReady().then(() => {
   if (settings.app.openAtLogin !== login.isOn()) login.apply(settings.app.openAtLogin);
 
   actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions });
-  tray = new Tray(nativeImage.createEmpty());
-  tray.setTitle('MacShare');
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
+  hud = new Hud(() => settings);
+  svc.kvm.on('where', (mode) => {
+    const name = peer.current ? peer.current.name : 'the other computer';
+    if (mode === 'driving') hud.show('away', settings.kvm.mouse ? `Using ${name}` : `Typing on ${name}`);
+    else if (mode === 'driven') hud.show('driven', `${name} is using this Mac`);
+    else hud.show('home', 'Back on this Mac');
+  });
+  svc.fileClip.on('popup', (kind, text) => hud.show(kind, text));
+  // The hotkey's double-tap: the big card "Cursor sharing on/off" (also when the other side switched it).
+  svc.kvm.on('linked', (on, here) => {
+    const name = peer.current ? peer.current.name : '';
+    const key = P.hotkeyName(settings.keys.hotkey);
+    const sub = !here && name ? `Turned ${on ? 'on' : 'off'} on ${name}`
+      : on ? `${name ? `With ${name}. ` : ''}Double-tap ${key} to turn it off` : `Double-tap ${key} to turn it on`;
+    hud.show(on ? 'linkOn' : 'linkOff', `Cursor sharing ${on ? 'on' : 'off'}`, sub);
+  });
+  svc.drop.on('batch', (b) => {
+    if (b.kind === 'send') hud.show('driven', `Received ${b.files} file${b.files === 1 ? '' : 's'} from ${peer.current ? peer.current.name : 'the other computer'}`);
+  });
   createWindow();
   refreshPermissions();
   setInterval(pushState, 5000); // addresses change when the network does
@@ -309,6 +353,10 @@ app.whenReady().then(() => {
 app.on('second-instance', showWindow);
 app.on('activate', showWindow);
 app.on('window-all-closed', () => {}); // keep running in the menu bar
+app.on('will-quit', () => {
+  const { globalShortcut } = require('electron');
+  globalShortcut.unregisterAll();
+});
 app.on('before-quit', () => {
   quitting = true;
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input

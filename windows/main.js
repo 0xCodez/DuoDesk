@@ -1,6 +1,7 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Main process: lifecycle, windows, tray, IPC and the state pushed to the main window.
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme } = require('electron');
+const { execFile } = require('child_process');
 const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
@@ -30,7 +31,14 @@ const PcScreen = require('./pcscreen');
 const PcApps = require('./pcapps');
 const Sender = require('./sender');
 const Vdd = require('./vdd');
-const { normalize } = require('./settings');
+const Hud = require('./hud');
+const Notifs = require('./notifs');
+const FileClip = require('./fclip');
+const { normalize, apply: applySettings } = require('./settings');
+
+// Packaged: electron-builder's appId is the shortcut's AppUserModelID. In development Windows
+// only shows toasts for an id it knows, and electron.exe's path works.
+const AUMID = app.isPackaged ? 'org.macshare.windows' : process.execPath;
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 // Lowest latency for what we send (phase 11/13): frames are tagged with playout delay 0/0, so the
@@ -40,13 +48,16 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the Mac
+  app.setAppUserModelId(AUMID); // toasts need it (revision 5); the installer's shortcut carries the same id
   app.on('second-instance', () => showMain());
   app.whenReady().then(start);
 }
 
 let mainWin = null;
 let tray = null;
-let trayMenu = null;
+let trayKey = '';
+let trayLight = false; // the taskbar is light: black tray glyph
+let hud = null;
 let quitting = false;
 let discovery = null;
 let link = null;
@@ -64,6 +75,8 @@ let pcScreen = null;
 let pcApps = null;
 let vdd = null;
 let fileRecv = null;
+let notifs = null;
+let fileClip = null;
 let sshd = null;
 let kvm = null;
 let lastMode = 'home';
@@ -132,16 +145,39 @@ function start() {
   fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
   const dragRecv = new DragRecv({ link, helper, settings, isDriven: () => kvm && kvm.mode === 'driven', onChange: pushState });
   kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, dragRecv, settings, save: saveSettings, onChange: onKvmChange });
+  hud = new Hud(() => settings);
+  // Cursor sharing switched on/off (hotkey double-tap, tray, or the other computer): the big card.
+  kvm.onLinked = (on, here) => {
+    const p = peerView();
+    const name = link.snapshot().link.state === 'connected' && p ? p.name : '';
+    const key = P.hotkeyName(settings.keys.hotkey, 'win');
+    const sub = !here && name ? 'Turned ' + (on ? 'on' : 'off') + ' on ' + name
+      : on ? (name ? 'With ' + name + '. ' : '') + 'Double-tap ' + key + ' to turn it off' : 'Double-tap ' + key + ' to turn it on';
+    hud.show(on ? 'linkOn' : 'linkOff', 'Cursor sharing ' + (on ? 'on' : 'off'), sub);
+  };
+  kvm.onWhere = (mode) => { // the switching popup (docs/KVM.md "Hotkey (revision 4)")
+    const name = peerName();
+    if (mode === 'driving') hud.show('away', (kvm.keyboardOnly ? 'Typing on ' : 'Using ') + name);
+    else if (mode === 'driven') hud.show('driven', name + ' is using this PC');
+    else hud.show('home', 'Back on this PC');
+  };
   vdd = new Vdd({ helper, onChange: pushState });
+  // revision 5: notifications both ways, Send files, copy/paste files with shortcuts
+  notifs = new Notifs({ link, helper, settings, save: saveSettings, selfIds: [AUMID, 'org.macshare.windows'], peerName, onChange: pushState });
+  fileClip = new FileClip({ link, helper, fileDrop, fileRecv, settings, peerName, popup: (kind, text) => hud.show(kind, text), onChange: pushState });
+  fileRecv.onBatch = (b) => {
+    if (b.kind === 'paste') fileClip.pasted(b);
+    else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
+  };
   const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
   pcScreen = new PcScreen({ link, helper, sender, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   pcApps = new PcApps({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   helper.on('exit', pushState);
   helper.start();
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
-  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, settings, save: saveSettings, push: pushState, buildState,
-    checkFirewall, fixFirewall, setStartup });
-  nativeTheme.on('updated', pushState);
+  setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, settings, save: saveSettings, push: pushState, buildState,
+    checkFirewall, fixFirewall, setStartup, onApp: updateTray });
+  nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
   link.start();
 
   createTray();
@@ -181,13 +217,14 @@ function pushState() {
     if (phase === 'code' && lastPairPhase !== 'code') showMain();
     lastPairPhase = phase;
     if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('state', s);
-    if (tray) tray.setToolTip('MacShare: ' + statusLine(s));
-    const canMonitor = s.link.state === 'connected';
-    if (trayMenu && trayMenu.getMenuItemById('monitor').enabled !== canMonitor) {
-      trayMenu.getMenuItemById('monitor').enabled = canMonitor;
-      tray.setContextMenu(trayMenu);
-    }
+    updateTray(s);
   });
+}
+
+// The other computer's name for popups and the tray ("PC2" when it has none yet).
+function peerName() {
+  const p = peerView();
+  return (p && p.name) || 'the other computer';
 }
 
 // The other computer (revision 4): {os, name, role}, null when nothing is paired.
@@ -229,13 +266,15 @@ function buildState() {
     monitor: settings.monitor,
     clipboard: { ...settings.clipboard, ...clip.view },
     ui: settings.ui,
+    app: settings.app,
     version: app.getVersion(),
     firewall: fw,
     audio: { ...settings.audio, ...sound.view() },
     pcScreen: pcScreen.view(),
     pcApps: pcApps.view(),
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
-    files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags },
+    files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags, clip: fileClip.view() },
+    notifs: { ...settings.notifs, ...notifs.view() },
     apps: apps.view(),
     startup: getStartup(),
     setup: { missing: miss, show: !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)) },
@@ -343,6 +382,12 @@ function saveBounds() {
   saveSettings();
 }
 
+// Show the window on one tab (tray items, popups).
+function goTab(tab) {
+  showMain();
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('go', tab);
+}
+
 function showMain() {
   if (!mainWin || mainWin.isDestroyed()) return;
   if (mainWin.isMinimized()) mainWin.restore();
@@ -350,18 +395,84 @@ function showMain() {
   mainWin.focus();
 }
 
+// Tray (docs/UI.md "Popups and the menu bar"): the app mark's two screens, white on a dark
+// taskbar and black on a light one; the switches people reach for most, one click away.
+function trayIcon() {
+  const name = trayLight ? 'tray-black' : 'tray-white';
+  const img = nativeImage.createFromPath(path.join(__dirname, 'assets', name + '.png'));
+  img.addRepresentation({ scaleFactor: 2, buffer: nativeImage.createFromPath(path.join(__dirname, 'assets', name + '@2x.png')).toPNG() });
+  return img;
+}
+
+// The taskbar follows "Windows mode" (SystemUsesLightTheme), not the apps' light/dark.
+function checkTaskbar() {
+  execFile('reg', ['query', 'HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize', '/v', 'SystemUsesLightTheme'], { windowsHide: true }, (err, out) => {
+    const light = !err && /SystemUsesLightTheme\s+REG_DWORD\s+0x1\b/.test(out);
+    if (light === trayLight) return;
+    trayLight = light;
+    if (tray) tray.setImage(trayIcon());
+  });
+}
+
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png'));
-  tray = new Tray(icon);
+  tray = new Tray(trayIcon());
   tray.setToolTip('MacShare');
-  trayMenu = Menu.buildFromTemplate([
-    { label: 'Open MacShare', click: showMain },
-    { id: 'monitor', label: 'Show the Mac’s screen', enabled: false, click: () => screen.open(false) },
-    { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
-  ]);
-  tray.setContextMenu(trayMenu);
   tray.on('click', showMain);
+  checkTaskbar();
+  updateTray();
+}
+
+function updateTray(s = buildState()) {
+  if (!tray) return;
+  const connected = s.link.state === 'connected';
+  const name = connected && s.peer ? s.peer.name : '';
+  const k = settings.kvm;
+  const away = kvm.mode === 'driving' || kvm.mode === 'driven';
+  const sharing = s.pcScreen.mode !== 'off';
+  const found = s.found.filter((d) => !s.peer || d.id !== s.peer.id);
+  const rtt = connected && s.link.rtt != null ? ' · ' + s.link.rtt + ' ms' : '';
+  tray.setToolTip('MacShare: ' + statusLine(s));
+  // Rebuild only when something in the menu changed (state pushes are frequent).
+  const key = JSON.stringify([name, rtt, away, kvm.linked, sharing, settings.monitor.autoOpen, k.driveOther, k.beDriven, settings.clipboard.enabled,
+    settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os])]);
+  if (key === trayKey) return;
+  trayKey = key;
+  const other = name || 'Other Computer';
+  const check = (label, checked, click) => ({ label, type: 'checkbox', checked: !!checked, click });
+  const set = (section, partial, after) => {
+    if (!applySettings(settings, section, partial)) return;
+    saveSettings();
+    if (after) after();
+    pushState();
+  };
+  const kind = (os) => (os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: connected ? 'Connected to ' + name + rtt : 'Not connected', enabled: false },
+    ...(away ? [{ label: 'Bring Mouse and Keyboard Back', click: () => kvm.home() }] : []),
+    check('Cursor Sharing', kvm.linked, (i) => kvm.setLinked(i.checked)),
+    { type: 'separator' },
+    check('Share Screen', sharing, (i) => pcScreen.setMode(i.checked ? 'mirror' : 'off')),
+    check('Receive Screen', settings.monitor.autoOpen, (i) => set('monitor', { autoOpen: i.checked }, () => { if (i.checked && screen.state.state === 'on') screen.open(false); })),
+    check('Use Mouse and Keyboard on ' + other, k.driveOther, (i) => set('kvm', { driveOther: i.checked }, () => kvm.applyConfig())),
+    check('Let ' + other + ' Control This PC', k.beDriven, (i) => set('kvm', { beDriven: i.checked }, () => kvm.applyConfig())),
+    check('Share Clipboard', settings.clipboard.enabled, (i) => set('clipboard', { enabled: i.checked }, () => clip.applySettings())),
+    check('Send Sound', settings.audio.send, (i) => set('audio', { send: i.checked }, () => sound.apply())),
+    { type: 'separator' },
+    { label: 'Connect To', submenu: [
+      ...(found.length ? found.map((d) => ({ label: d.name + ' (' + kind(d.os) + ')', click: () => {
+        discovery.clearInvite(d.id);
+        link.startPairing({ address: d.address, port: d.port, macName: d.name });
+        showMain();
+      } })) : [{ label: 'Nobody nearby', enabled: false }]),
+      { type: 'separator' },
+      { label: 'Connect by Address…', click: () => goTab('overview') },
+      { label: 'Look Again', click: () => discovery.probe() },
+    ] },
+    check('Show a Popup When Switching', settings.app.hud, (i) => set('app', { hud: i.checked })),
+    { type: 'separator' },
+    { label: 'Open MacShare…', click: showMain },
+    { label: 'Quit MacShare', click: () => app.quit() },
+  ]));
 }
 
 app.on('before-quit', () => {
@@ -370,6 +481,7 @@ app.on('before-quit', () => {
   if (discovery) discovery.stop();
   if (pcScreen) pcScreen.shutdown();
   if (pcApps) pcApps.shutdown();
+  if (fileClip) fileClip.shutdown();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });
 

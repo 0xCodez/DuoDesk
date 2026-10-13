@@ -16,7 +16,8 @@ namespace MacShare
         // config (kvmConfig)
         public string Side;          // crossing side of this PC (null = unknown)
         public double ResistancePx = 120;
-        public uint HotkeyVk = 0xA3; // Right Ctrl
+        // kvmConfig hotkey (docs/KVM.md "Hotkey (revision 4)"): one key, or the left and right one ("both")
+        public HashSet<uint> HotkeyVks = new HashSet<uint> { 0xA5 }; // Right Alt
         public bool DriveOther;      // edge detection on
         public bool EdgeKeyboard = true; // an edge crossing also captures the keyboard
         public bool DragFiles = true; // file drags at the edge go to the Mac (drag.policy + the Files switches)
@@ -35,6 +36,10 @@ namespace MacShare
 
         // hotkey double-tap
         bool hkDown; DateTime lastTapUp = DateTime.MinValue;
+        // Held back while capturing (docs/KVM.md "Hotkey"): a hotkey press is sent only when another
+        // key or a click follows (a shortcut); a plain tap never reaches the other computer.
+        uint hkPending; string hkPendingCode;
+        readonly HashSet<uint> hkLocal = new HashSet<uint>(), hkRemote = new HashSet<uint>(); // pressed at home / sent over
 
         readonly Action<Dictionary<string, object>> emit;
         Native.HookProc mouseProc, keyProc; // kept in fields so the GC never collects them
@@ -121,6 +126,7 @@ namespace MacShare
             if (capturing) { capMouse = mouse; capKeys = keys; return; }
             capturing = true; capMouse = mouse; capKeys = keys;
             heldVks.Clear(); heldButtons.Clear();
+            hkPending = 0; hkRemote.Clear();
             Touch();
             if (mouse)
             {
@@ -147,6 +153,7 @@ namespace MacShare
             foreach (uint vk in heldVks) swallowVks.Add(vk);
             foreach (int b in heldButtons) swallowButtons.Add(b);
             heldVks.Clear(); heldButtons.Clear();
+            hkPending = 0; hkRemote.Clear(); // a sent hotkey's release is in swallowVks (heldVks) now
             if (capMouse)
             {
                 Point p = side != null ? Screens.EdgePoint(side, offset) : saved;
@@ -209,6 +216,7 @@ namespace MacShare
             }
             else if (button >= 0 && (down || up))
             {
+                if (down) FlushHotkey(); // Ctrl-click with the hotkey key
                 if (down) heldButtons.Add(button); else heldButtons.Remove(button);
                 Dictionary<string, object> k = K(down ? "k.md" : "k.mu");
                 k["b"] = button;
@@ -248,32 +256,69 @@ namespace MacShare
             int msg = wParam.ToInt32();
             bool down = msg == Native.WM_KEYDOWN || msg == Native.WM_SYSKEYDOWN;
             string code = Keys.Code(k.vkCode, k.scanCode, (k.flags & Native.LLKHF_EXTENDED) != 0);
-            bool hotkey = DetectHotkey(k.vkCode, down);
+            // AltGr (Right Alt on many layouts) sends a fake Left Ctrl first, scan 0x21D: with Right Alt
+            // as the hotkey it is part of the hotkey, so it neither breaks the double-tap nor goes over.
+            // It is never a real Ctrl press, so it never counts for a Ctrl hotkey either.
+            bool fakeCtrl = k.vkCode == 0xA2 && k.scanCode == 0x21D;
+            bool altGrCtrl = fakeCtrl && HotkeyVks.Contains(0xA5);
+            bool hotkey = !fakeCtrl && DetectHotkey(k.vkCode, down);
 
             if (!down && swallowVks.Remove(k.vkCode)) return (IntPtr)1;
 
+            bool isHk = HotkeyVks.Contains(k.vkCode);
             if (capturing && capKeys)
             {
-                // The hotkey key itself is never forwarded while capturing (docs/KVM.md).
-                if (k.vkCode == HotkeyVk)
+                if (altGrCtrl) { if (hotkey) FireHotkey(); return (IntPtr)1; }
+                if (isHk)
                 {
+                    IntPtr r = (IntPtr)1;
+                    if (hkLocal.Contains(k.vkCode)) // pressed at home: it is released at home
+                    {
+                        if (!down) hkLocal.Remove(k.vkCode);
+                        r = IntPtr.Zero;
+                    }
+                    else if (down)
+                    {
+                        if (!hkRemote.Contains(k.vkCode)) { hkPending = k.vkCode; hkPendingCode = code; } // wait: a shortcut sends it
+                    }
+                    else if (hkRemote.Remove(k.vkCode))
+                    {
+                        heldVks.Remove(k.vkCode);
+                        if (code != null) { Dictionary<string, object> e = K("k.ku"); e["code"] = code; Forward(e); }
+                    }
+                    else if (hkPending == k.vkCode) hkPending = 0; // a plain tap: never sent
                     if (hotkey) FireHotkey();
-                    return (IntPtr)1;
+                    return r == IntPtr.Zero ? Native.CallNextHookEx(keyHook, nCode, wParam, lParam) : r;
                 }
+                if (down) FlushHotkey();
                 if (down) heldVks.Add(k.vkCode); else heldVks.Remove(k.vkCode);
                 if (code != null) { Dictionary<string, object> e = K(down ? "k.kd" : "k.ku"); e["code"] = code; Forward(e); }
                 if (hotkey) FireHotkey();
                 return (IntPtr)1;
             }
+            if (isHk) { if (down) hkLocal.Add(k.vkCode); else hkLocal.Remove(k.vkCode); }
             if (hotkey) FireHotkey();
             return Native.CallNextHookEx(keyHook, nCode, wParam, lParam);
+        }
+
+        // The held hotkey turned out to be part of a shortcut: send its press now, before the key.
+        void FlushHotkey()
+        {
+            uint vk = hkPending;
+            hkPending = 0;
+            if (vk == 0 || !capturing || !capKeys || hkPendingCode == null) return;
+            hkRemote.Add(vk);
+            heldVks.Add(vk);
+            Dictionary<string, object> e = K("k.kd");
+            e["code"] = hkPendingCode;
+            Forward(e);
         }
 
         // Two clean taps (down+up, no other key between) within DoubleTapMs, in every mode.
         bool DetectHotkey(uint vk, bool down)
         {
             DateTime now = DateTime.UtcNow;
-            if (vk != HotkeyVk)
+            if (!HotkeyVks.Contains(vk))
             {
                 if (down) lastTapUp = DateTime.MinValue;
                 return false;

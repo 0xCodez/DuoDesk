@@ -156,6 +156,7 @@
   $('pair-match').onclick = () => (UI.state && UI.state.pairing && UI.state.pairing.role === 'host' ? api.respondPair(true) : api.confirmCode());
   $('pair-cancel').onclick = () => api.cancelPair();
   window.addEventListener('macshare-go', (e) => show(e.detail, true));
+  api.onGo((tab) => typeof tab === 'string' && views.has(tab) && show(tab, true));
 
   // ↑/↓ move between tabs while the sidebar has focus.
   nav.addEventListener('keydown', (e) => {

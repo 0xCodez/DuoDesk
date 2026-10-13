@@ -7,7 +7,7 @@ UI.tab({
   id: 'receive',
   group: 'Display',
   order: 11,
-  title: '{in}',
+  title: 'Receive screen',
   heading: '{there} on this Mac',
   icon: 'receive',
   desc: 'See its screen in a window here.',

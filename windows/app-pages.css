@@ -94,3 +94,14 @@ body.setup #sidebar { display: none; }
 .setup-page .app-mark { margin: 18px auto 26px; transform: scale(1.8); }
 .setup-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 12px; }
 .setup-foot .hint { color: var(--muted); font-size: 12px; }
+
+/* Revision 5: Send files drop zone, progress bar, shortcut recorder (same as mac/control-pages.css) */
+.dropzone { margin: 12px 14px; height: 96px; border: 1.5px dashed var(--control-line); border-radius: 10px; display: grid; place-items: center; text-align: center; color: var(--muted); transition: border-color 0.2s, background-color 0.2s, transform 0.25s var(--spring); }
+.dropzone .big { color: var(--text); font-weight: 500; }
+.dropzone.over { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.01); }
+.dropzone.off { opacity: 0.5; }
+.bar { height: 4px; border-radius: 2px; background: var(--track-off); overflow: hidden; margin-top: 6px; }
+.bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s var(--ease); }
+.btn.keyrec { min-width: 84px; font-variant-numeric: tabular-nums; }
+.btn.keyrec.on { border-color: var(--accent); color: var(--accent); }
+.hint.bad { color: var(--bad); }

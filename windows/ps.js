@@ -8,10 +8,15 @@ const PS = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'Windo
 const q = (s) => "'" + String(s).replace(/'/g, "''") + "'"; // PowerShell single-quoted literal
 const encode = (script) => Buffer.from(script, 'utf16le').toString('base64');
 
+// Started from a PowerShell 7 terminal, PSModulePath lists PowerShell 7's modules first and
+// Windows PowerShell 5.1 then loads the wrong PKI/NetSecurity modules. Without it, 5.1 uses its own.
+const env = { ...process.env };
+delete env.PSModulePath;
+
 function run(script, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
     execFile(PS, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encode(script)],
-      { windowsHide: true, timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 },
+      { windowsHide: true, timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, env },
       (err, stdout, stderr) => (err ? reject(new Error(String(stderr || err.message).trim().split('\n')[0])) : resolve(String(stdout))));
   });
 }

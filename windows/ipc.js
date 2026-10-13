@@ -1,13 +1,14 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
 // Main-window actions (preload-app.js → here). Every value is validated by settings.apply().
 const { ipcMain, dialog, shell, BrowserWindow, clipboard } = require('electron');
+const path = require('path');
 const P = require('../shared/protocol.js');
 const { apply } = require('./settings');
 
 // ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, vdd, notifs, fileClip, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -52,9 +53,14 @@ function setupIpc(ctx) {
   handle('forgetGuest', (id) => typeof id === 'string' && link.forgetGuest(id));
   handle('openMonitor', () => screen.open(false));
 
-  handle('setKvm', (partial) => change('kvm', partial, () => kvm.applyConfig()));
+  handle('setKvm', (partial) => {
+    if (partial && typeof partial.linked === 'boolean') kvm.setLinked(partial.linked); // home first, tells the other side
+    const { linked, ...rest } = partial && typeof partial === 'object' ? partial : {};
+    change('kvm', rest, () => kvm.applyConfig());
+  });
   handle('setLayout', (side) => kvm.setLayout(side));
-  handle('setKeys', (partial) => change('keys', partial));
+  handle('setKeys', (partial) => change('keys', partial, () => kvm.applyConfig())); // the hotkey lives in the helper
+  handle('setApp', (partial) => change('app', partial, () => ctx.onApp && ctx.onApp()));
   handle('setMonitor', (partial) => change('monitor', partial, () => screen.applyAudio()));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));
@@ -71,10 +77,28 @@ function setupIpc(ctx) {
   handle('addToPath', () => terminal.addToPath());
   handle('setFiles', (partial) => {
     // shareOn/shareFolder only change through share()/unshare()
-    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac, acceptFromMac: partial.acceptFromMac, edgeDrag: partial.edgeDrag } : {};
+    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac, acceptFromMac: partial.acceptFromMac, edgeDrag: partial.edgeDrag,
+      shortcuts: partial.shortcuts, copyKeys: partial.copyKeys, pasteKeys: partial.pasteKeys } : {};
     Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
-    change('files', p, () => { smb.applyMount(); kvm.applyConfig(); });
+    change('files', p, () => { smb.applyMount(); kvm.applyConfig(); fileClip.apply(); });
   });
+  // Revision 5: Send files (paths from the drop zone or Choose…), notifications.
+  const sendFiles = (paths) => {
+    const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && path.win32.isAbsolute(p)).slice(0, 1000);
+    if (list.length) fileDrop.sendBatch(list, 'send');
+  };
+  handle('sendFiles', sendFiles);
+  handle('chooseSendFiles', async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    const r = await dialog.showOpenDialog(win, { title: 'Send files', buttonLabel: 'Send', properties: ['openFile', 'multiSelections'] });
+    if (!r.canceled) sendFiles(r.filePaths);
+  });
+  handle('setNotifs', (partial) => {
+    const p = partial && typeof partial === 'object' ? { send: partial.send, receive: partial.receive, hideText: partial.hideText } : {};
+    Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
+    change('notifs', p, () => notifs.applySettings());
+  });
+  handle('muteNotifApp', (arg) => arg && typeof arg.app === 'string' && notifs.setMuted(arg.app.slice(0, 300), arg.muted === true));
   handle('setShareOn', (on) => smb.setShareOn(on === true));
   handle('chooseShareFolder', async () => {
     const win = BrowserWindow.getFocusedWindow();

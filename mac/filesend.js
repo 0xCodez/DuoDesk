@@ -81,6 +81,7 @@ class FileSend extends EventEmitter {
     this.outgoing = new Map(); // id -> { id, name, size, path, sent, state, drag? } in sending order
     this.recent = []; // newest first: { name, size, at, ok, where|error }
     this.drags = new Map(); // drag id -> { name, bytes }
+    this.batches = new Map(); // revision 5: batch id -> { kind: 'send'|'paste', name, files, bytes }
     this.pumping = false;
     server.on(`t:${P.T.FILE_ACCEPT}`, (m) => {
       const f = this.outgoing.get(m.id);
@@ -88,6 +89,7 @@ class FileSend extends EventEmitter {
       this._next();
     });
     server.on(`t:${P.T.DRAG_END}`, (m) => this._dragEnd(m));
+    server.on(`t:${P.T.FILES_DONE}`, (m) => this._batchDone(m));
     server.on(`t:${P.T.FILE_REFUSE}`, (m) => this._finish(m.id, false, `refused (${m.why || 'no reason'})`));
     server.on(`t:${P.T.FILE_DONE}`, (m) => this._finish(m.id, !!m.ok, m.ok ? m.path : m.error));
     server.on(`t:${P.T.FILE_CANCEL}`, (m) => this._finish(m.id, false, 'cancelled on the PC'));
@@ -95,6 +97,7 @@ class FileSend extends EventEmitter {
       if (!server.current) {
         for (const id of [...this.outgoing.keys()]) this._finish(id, false, 'the PC disconnected');
         for (const drag of [...this.drags.keys()]) this._dragEnd({ drag, result: 'failed' });
+        for (const batch of [...this.batches.keys()]) this._batchDone({ batch, ok: false });
       }
     });
   }
@@ -129,6 +132,35 @@ class FileSend extends EventEmitter {
     });
     this.emit('change');
     return drag;
+  }
+
+  // Revision 5: Send files (kind 'send') or a paste the peer asked for (kind 'paste', batch = the
+  // fclip id). Every file is offered in order with its relative path; the peer answers files.done.
+  sendBatch(paths, kind, batch = crypto.randomUUID()) {
+    const plan = planDrag(paths);
+    if (!plan || !plan.files) return null;
+    const one = plan.items.length === 1;
+    this.batches.set(batch, { kind, name: one ? plan.items[0].name : `${plan.items.length} items`, files: plan.files, bytes: plan.bytes });
+    plan.list.forEach((f, index) => {
+      const id = crypto.randomUUID();
+      const name = f.rel.slice(f.rel.lastIndexOf('/') + 1);
+      this.outgoing.set(id, { id, name, size: f.size, path: f.path, sent: 0, state: 'offered', batch });
+      this.server.sendToClient({ t: P.T.FILE_OFFER, id, name, size: f.size, drop: kind, batch, rel: f.rel, index, count: plan.files });
+    });
+    this.emit('change');
+    return { batch, files: plan.files, bytes: plan.bytes, name: this.batches.get(batch).name };
+  }
+
+  _batchDone(m) {
+    const b = this.batches.get(m.batch);
+    if (!b) return;
+    this.batches.delete(m.batch);
+    for (const f of [...this.outgoing.values()]) if (f.batch === m.batch) this.outgoing.delete(f.id);
+    const where = typeof m.where === 'string' ? m.where.slice(0, 300) : '';
+    this.recent.unshift({ name: b.name, size: b.bytes, at: Date.now(), ok: !!m.ok, ...(m.ok ? { where } : { error: 'not everything arrived' }) });
+    this.recent.length = Math.min(this.recent.length, 20);
+    this.emit('batchDone', { ...b, batch: m.batch, ok: !!m.ok });
+    this.emit('change');
   }
 
   // Went home before the drop (tell: send drag.cancel), or the PC ended the drag.
@@ -199,7 +231,7 @@ class FileSend extends EventEmitter {
     const f = this.outgoing.get(id);
     if (!f) return;
     this.outgoing.delete(id);
-    if (f.drag) return this.emit('change'); // a drag is listed once, on drag.end
+    if (f.drag || f.batch) return this.emit('change'); // listed once, on drag.end / files.done
     this.recent.unshift({ name: f.name, size: f.size, at: Date.now(), ok, ...(ok ? { where: info } : { error: info }) });
     this.recent.length = Math.min(this.recent.length, 20);
     this.emit('change');

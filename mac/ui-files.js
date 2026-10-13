@@ -31,7 +31,37 @@ UI.tab({
     const progress = el('div');
     const list = el('div', { class: 'history' });
 
+    // Send files (revision 5): drop zone + Choose…
+    const zoneText = el('div', { class: 'big', text: 'Drop files or folders here' });
+    const zone = el('div', { class: 'dropzone' }, [el('div', {}, [zoneText, el('div', { class: 'hint', text: 'They go to the other computer’s Downloads' })])]);
+    const sendBtn = UI.button('Choose…', () => api.chooseSendFiles(), 'small');
+    const sendRow = UI.row('Send files', '', [sendBtn]);
+    const sendBar = el('div', { class: 'bar' }, [el('span')]);
+    sendBar.hidden = true;
+    sendRow.querySelector('.text').append(sendBar);
+    let canSend = false;
+    zone.ondragover = (e) => { e.preventDefault(); if (canSend) zone.classList.add('over'); };
+    zone.ondragleave = () => zone.classList.remove('over');
+    zone.ondrop = (e) => {
+      e.preventDefault();
+      zone.classList.remove('over');
+      if (canSend) api.sendFiles(api.pathsOf(e.dataTransfer.files));
+    };
+    // Dropping anywhere else in the window must not open the file.
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => e.preventDefault());
+
+    // Copy and paste files with shortcuts (revision 5)
+    const keysSw = UI.switch((v) => api.setFiles({ shortcuts: v }), { label: 'Copy and paste files with shortcuts' });
+    const copyRec = UI.keyRecorder((v) => api.setFiles({ copyKeys: v }));
+    const pasteRec = UI.keyRecorder((v) => api.setFiles({ pasteKeys: v }));
+    const keysRow = UI.row('Copy and paste files', '', [keysSw]);
+    const copyRow = UI.row('Copy', 'Select files in Finder first', [copyRec]);
+    const pasteRow = UI.row('Paste', '', [pasteRec]);
+
     body.append(
+      UI.card('', [sendRow, zone], { cls: 'keep-on' }),
+      UI.card('', [keysRow, copyRow, pasteRow], { cls: 'keep-on' }),
       UI.pair(
         UI.dir('m2w', [shareRow]),
         UI.dir('w2m', [acceptRow, pcRow]),
@@ -51,6 +81,25 @@ UI.tab({
       const m = s.smb;
       if (!f || !m) return;
       const pc = s.client ? s.client.name : 'the PC';
+      // Send files
+      canSend = !!s.client;
+      zone.classList.toggle('off', !canSend);
+      zoneText.textContent = canSend ? 'Drop files or folders here' : 'Connect to send files';
+      sendBtn.disabled = !canSend;
+      const out = f.sending.reduce((a, r) => [a[0] + r.sent, a[1] + r.size], [0, 0]);
+      sendBar.hidden = !f.sending.length;
+      sendBar.firstChild.style.width = `${Math.floor((100 * out[0]) / Math.max(1, out[1]))}%`;
+      sendRow.setHint(f.sending.length ? `Sending ${f.sending.length} file${f.sending.length === 1 ? '' : 's'} to ${pc}` : canSend ? `To ${pc}` : '');
+      // Shortcuts
+      const ck = f.clip || {};
+      keysSw.set(f.shortcuts !== false);
+      copyRec.set(f.copyKeys);
+      pasteRec.set(f.pasteKeys);
+      keysRow.setHint(ck.error || `Select files, press ${UI.keysLabel(f.copyKeys)}, then ${UI.keysLabel(f.pasteKeys)} on ${pc}`);
+      keysRow.hint.classList.toggle('bad', !!ck.error);
+      pasteRow.setHint(ck.pasting ? 'Pasting…'
+        : ck.incoming ? `${pc} copied ${ck.incoming.name || `${ck.incoming.items} items`} · press ${UI.keysLabel(f.pasteKeys)}`
+          : 'Into the Finder window in front, else the Desktop');
       dragSw.set(f.dragEdge !== false);
       dragRow.setHint(f.dragEdge !== false && !f.peerDrag ? `Turned off on ${pc}` : 'Drag through the screen edge and drop anywhere');
       shareSw.set(m.sharing);

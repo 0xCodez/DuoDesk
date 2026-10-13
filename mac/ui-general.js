@@ -31,6 +31,7 @@ UI.tab({
     const version = el('span', { class: 'value' });
     const loginSw = UI.switch((v) => api.setApp({ openAtLogin: v }), { label: 'Open at login' });
     const awakeSw = UI.switch((v) => api.setApp({ keepAwake: v }), { label: 'Keep the display awake' });
+    const hudSw = UI.switch((v) => api.setApp({ hud: v }), { label: 'Show a popup when switching' });
 
     body.append(
       UI.card('Permissions', [
@@ -39,7 +40,8 @@ UI.tab({
       ]),
       UI.card('App', [
         UI.row('Open at login', '', [loginSw]),
-        UI.row('Keep the display awake', 'While your PC is connected', [awakeSw]),
+        UI.row('Keep the display awake', 'While connected', [awakeSw]),
+        UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
         helperRow,
       ]),
       UI.card('About', [
@@ -59,6 +61,7 @@ UI.tab({
       if (s.app) {
         loginSw.set(s.app.openAtLogin);
         awakeSw.set(s.app.keepAwake);
+        hudSw.set(s.app.hud !== false);
       }
       helperVal.textContent = s.helper && s.helper.running ? 'Running' : 'Not running';
       version.textContent = s.version ? `Version ${s.version}` : '';

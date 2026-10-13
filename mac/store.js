@@ -51,8 +51,10 @@ const DEFAULT_SETTINGS = {
     resistancePx: 120,
     speed: 1.0,
     reverseScroll: false,
+    linked: true, // mouse and keyboard sharing on (the hotkey's double-tap switches it)
+    hotkeySwitch: false, // keyboard only (mouse off): double-tap the hotkey to move the keyboard over and back
   },
-  keys: { swapCtrlCmd: true }, // keys from the PC: Ctrl -> Cmd, Win -> Control
+  keys: { swapCtrlCmd: true, hotkey: 'AltRight' }, // swap: keys from the PC, Ctrl -> Cmd, Win -> Control. hotkey: double-tap = everything home
   clipboard: {
     enabled: true,
     send: true, // this Mac -> PC
@@ -63,10 +65,12 @@ const DEFAULT_SETTINGS = {
     historySize: 20, // memory only
   },
   ui: { tab: 'overview', setupSkipped: '' }, // setupSkipped: the missing items when Setup was skipped
-  app: { openAtLogin: false, keepAwake: true }, // phase 6
+  app: { openAtLogin: false, keepAwake: true, hud: true }, // phase 6; hud = popup when switching computers
   audio: { send: false, receive: false, muteLocal: false, volume: 1 }, // revision 2: independent, both ways
   terminal: { allowPc: false, connectPc: false }, // phase 8: PC -> Mac shell; Mac -> PC (`ssh macshare-pc`)
-  files: { acceptDrops: true, folder: '', reveal: true, dragEdge: true }, // phase 9: '' = Downloads; dragEdge = drag.policy
+  files: { acceptDrops: true, folder: '', reveal: true, dragEdge: true, // phase 9: '' = Downloads; dragEdge = drag.policy
+    shortcuts: true, copyKeys: 'Control+Alt+C', pasteKeys: 'Control+Alt+V' }, // revision 5: copy/paste files
+  notifs: { send: false, receive: true, hideText: false, muted: [] }, // revision 5
   apps: { offer: true }, // phase 12: the PC can list and open this Mac's apps
   papps: { on: true }, // phase 13: PC apps on this Mac, each window here with its own Dock icon
   receive: { on: true, fullScreen: false, input: true }, // phase 11: the PC's screen in a window here
@@ -77,7 +81,7 @@ function loadSettings() {
   const s = read('settings.json', {});
   if (s.sharing) s.sharing.on = false; // screen sharing never starts by itself
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   return out;
 }
 

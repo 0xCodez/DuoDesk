@@ -21,14 +21,20 @@ UI.tab({
     const speed = UI.slider({ min: 0.25, max: 3, step: 0.05, format: (v) => v.toFixed(2) + '×' }, (v) => set({ speed: v }));
     const reverse = UI.switch((v) => set({ reverseScroll: v }), { label: 'Reverse scrolling' });
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => (v ? v + ' px' : 'None') }, (v) => set({ resistancePx: v }));
+    // Cursor sharing as a whole (revision 4c): the hotkey's double-tap switches it (human, 2026-10-13:
+    // "add here that you can use Alt to toggle this").
+    const linkSw = UI.switch((v) => set({ linked: v }), { label: 'Cursor sharing' });
+    const linkRow = UI.row('Cursor sharing', '', [linkSw]);
+    const inRow = UI.row('Use the Mac’s mouse on this PC', 'Move it through the screen edge');
+    const outRow = UI.row('Use this PC’s mouse on the Mac', 'Move it through the screen edge');
     const pair = UI.dirCards(
       { on: { get: (s) => s.kvm.beDriven, set: (v) => set({ beDriven: v }) }, rows: [
-        UI.row('Use the Mac’s mouse on this PC', 'Or double-tap Right Option on the Mac'),
+        inRow,
         UI.row('Pointer speed here', '', [speed]),
-        UI.row('Reverse scrolling from the Mac', '', [reverse]),
+        UI.row('Reverse scrolling', '', [reverse]),
       ] },
       { on: { get: (s) => s.kvm.driveOther, set: (v) => set({ driveOther: v }) }, rows: [
-        UI.row('Use this PC’s mouse on the Mac', 'Or double-tap Right Ctrl'),
+        outRow,
         UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
       ] },
     );
@@ -46,6 +52,7 @@ UI.tab({
     const status = UI.inputStatus();
 
     body.append(
+      UI.card('', [linkRow], { cls: 'keep-on' }),
       pair.el,
       UI.card('Right now', [status], { cls: 'keep-on' }),
       el('div', { class: 'card-title', text: 'Where the other computer is' }),
@@ -54,7 +61,12 @@ UI.tab({
 
     return (s) => {
       const k = s.kvm;
+      const pp = UI.peer(s);
       pair.update(s);
+      linkSw.set(k.linked);
+      linkRow.setHint('Double-tap ' + UI.hotkeyName(s) + ' to turn it ' + (k.linked ? 'off' : 'on') + ' from anywhere');
+      inRow.label.textContent = 'Use ' + (pp.os === 'mac' ? 'the Mac’s' : pp.them + '’s') + ' mouse on this PC';
+      outRow.label.textContent = 'Use this PC’s mouse on ' + pp.the;
       status.update(s);
       speed.set(k.speed);
       reverse.set(k.reverseScroll);

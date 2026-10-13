@@ -64,8 +64,12 @@ final class Capture {
   private var returnResistance = 120.0
   private var buttonsHeld = 0
   private var dragPbCount = -1             // drag pasteboard changeCount when the left button went down
-  // hotkey (Right Option, kVK 0x3D, device flag 0x40)
+  // hotkey: a right-hand modifier, double-tapped (kvmConfig `hotkey`; default Right Option, kVK 0x3D, device flag 0x40)
   private var hkStage = 0, hkAt = 0.0
+  private var hkKeys: [UInt16: UInt64] = [0x3D: 0x40] // keycode -> device flag ("Alt" = both Option keys)
+  // While capturing, a hotkey press waits: sent (k.kd) only if another key or a click follows, so
+  // shortcuts with it work on the other computer and a plain tap never reaches it.
+  private var hkPending: UInt16?
   // keys
   private var remoteDown = Set<UInt16>()  // pressed while capturing (went to the other machine)
   private var swallowUps = Set<UInt16>()  // their releases, to swallow at home
@@ -92,7 +96,16 @@ final class Capture {
     return true
   }
 
-  func configure(side: String, resistance: Double, edgeEnabled: Bool, keyboard: Bool, dragFiles: Bool) {
+  func configure(side: String, resistance: Double, edgeEnabled: Bool, keyboard: Bool, dragFiles: Bool, hotkey: String) {
+    // "AltRight", "AltLeft" or "Alt" (either side); same for Control, Shift, Meta.
+    let names = ["Alt", "Control", "Shift", "Meta"].contains(hotkey) ? [hotkey + "Left", hotkey + "Right"] : [hotkey]
+    var keys: [UInt16: UInt64] = [:]
+    for n in names { if let kc = KeyCodes.toMac[n], let m = KeyCodes.modifiers[n] { keys[kc] = m.device } }
+    if !keys.isEmpty && keys != hkKeys {
+      hkKeys = keys
+      hkStage = 0
+      hkPending = nil
+    }
     self.dragFiles = dragFiles
     self.side = side
     self.resistance = resistance
@@ -128,6 +141,7 @@ final class Capture {
   func stopCapture(side: String?, offset: Double?) {
     guard capturing else { return }
     capturing = false
+    hkPending = nil
     deadman?.invalidate()
     deadman = nil
     if capMouse { CGAssociateMouseAndMouseCursorPosition(1) }
@@ -205,8 +219,10 @@ final class Capture {
   private func onFlags(_ e: CGEvent) -> Bool {
     let kc = UInt16(e.getIntegerValueField(.keyboardEventKeycode))
     let flags = e.flags.rawValue
-    if kc == 0x3D { // Right Option: the hotkey, never forwarded
-      if hotkeyStep(down: flags & 0x40 != 0) {
+    if let dev = hkKeys[kc] { // the hotkey
+      let down = flags & dev != 0
+      if hotkeyStep(down: down) {
+        hkPending = nil
         if capturing {
           stopCapture(side: nil, offset: nil) // stop locally first, even if main is stuck
           emit(["event": "hotkey", "local": true])
@@ -214,9 +230,23 @@ final class Capture {
         }
         emit(["event": "hotkey"])
       }
-      return capturing && capKeyboard
+      guard capturing && capKeyboard, let code = KeyCodes.fromMac[kc] else {
+        if down { localDown.insert(kc) } else { localDown.remove(kc); swallowUps.remove(kc) }
+        return false
+      }
+      if down {
+        hkPending = kc // wait: a shortcut sends it, a tap doesn't
+      } else if localDown.remove(kc) != nil {
+        return false // pressed at home: release at home
+      } else if remoteDown.remove(kc) != nil {
+        ev(["t": "k.ku", "code": code])
+      } else if hkPending == kc {
+        hkPending = nil
+      }
+      return true
     }
     hkStage = 0
+    flushHotkey()
     guard let code = KeyCodes.fromMac[kc] else { return capturing && capKeyboard }
     if kc == 0x39 { // Caps Lock toggles: send a full press
       if capturing && capKeyboard { ev(["t": "k.kd", "code": code]); ev(["t": "k.ku", "code": code]); return true }
@@ -234,8 +264,17 @@ final class Capture {
     return false
   }
 
+  /// The held hotkey turned out to be part of a shortcut: send its press now, before the key.
+  private func flushHotkey() {
+    guard let kc = hkPending, capturing && capKeyboard, let code = KeyCodes.fromMac[kc] else { hkPending = nil; return }
+    hkPending = nil
+    remoteDown.insert(kc)
+    ev(["t": "k.kd", "code": code])
+  }
+
   private func onKey(_ e: CGEvent, down: Bool) -> Bool {
     hkStage = 0
+    if down { flushHotkey() }
     let kc = UInt16(e.getIntegerValueField(.keyboardEventKeycode))
     if capturing && capKeyboard {
       if !down && localDown.remove(kc) != nil { return false }
@@ -253,7 +292,10 @@ final class Capture {
     let dx = e.getDoubleValueField(.mouseEventDeltaX), dy = e.getDoubleValueField(.mouseEventDeltaY)
     let isDown = type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown
     let isUp = type == .leftMouseUp || type == .rightMouseUp || type == .otherMouseUp
-    if isDown { hkStage = 0 }
+    if isDown {
+      hkStage = 0
+      flushHotkey() // Ctrl/⌘-click with the hotkey key
+    }
 
     if capturing && capMouse {
       // Keep the hidden pointer where it left, even if the freeze lapsed (it moved on its own before).

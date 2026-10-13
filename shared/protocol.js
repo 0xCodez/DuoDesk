@@ -30,8 +30,13 @@
     HELPER_DEADMAN_MS: 1500, // helper stops capturing by itself after this much keepalive silence
     RESISTANCE_PX: 120, // default push through an edge before crossing
     DOUBLE_TAP_MS: 400, // hotkey double-tap window
+    // The hotkey (double-tap = mouse and keyboard back home), docs/KVM.md "Hotkey (revision 4)".
+    // Default Right Alt / Right Option on every OS; settings.keys.hotkey picks one of HOTKEYS.
     HOTKEY_MAC: 'AltRight', // Right Option
-    HOTKEY_WIN: 'ControlRight', // Right Ctrl
+    HOTKEY_WIN: 'AltRight', // Right Alt (was Right Ctrl before revision 4)
+    // Right, left, or either side ("Alt" = both Alt/Option keys).
+    HOTKEYS: ['AltRight', 'AltLeft', 'Alt', 'ControlRight', 'ControlLeft', 'Control',
+      'ShiftRight', 'ShiftLeft', 'Shift', 'MetaRight', 'MetaLeft', 'Meta'],
     CLIP_MAX_BYTES: 256 * 1024, // clipboard text limit (UTF-8)
     FILE_CHUNK_BYTES: 64 * 1024, // raw bytes per file.chunk (base64 on the wire)
     FILE_MAX_BYTES: 4 * 1024 * 1024 * 1024, // largest dropped file
@@ -76,6 +81,7 @@
       KVM_REFUSE: 'kvm.refuse',
       KVM_RELEASE: 'kvm.release',
       KVM_HOME: 'kvm.home',
+      KVM_LINK: 'kvm.link', // either {on}: mouse and keyboard sharing switched on/off (hotkey double-tap); the other side follows
       K_MOVE: 'k.mm',
       K_DOWN: 'k.md',
       K_UP: 'k.mu',
@@ -103,6 +109,13 @@
       DRAG_CANCEL: 'drag.cancel', // owner->receiver {drag}
       DRAG_END: 'drag.end', // receiver->owner {drag, result: 'dropped'|'cancelled'|'failed', where?}
       DRAG_POLICY: 'drag.policy', // both {accept}: this side takes drags across the edge (assume true until told)
+      // revision 5 (docs/ROADMAP.md): notifications, Send files, copy/paste files with shortcuts
+      NOTIF: 'notif', // either {id, app, appName, title, subtitle, body, at}: a notification on the sender
+      NOTIF_POLICY: 'notif.policy', // either {accept}: this side shows the other's notifications
+      FCLIP_OFFER: 'fclip.offer', // either {id, items: [{name, dir, size}], files, bytes}: files copied with the shortcut
+      FCLIP_PASTE: 'fclip.paste', // either {id}: paste them here now (the copier then sends file.offer drop:'paste')
+      FCLIP_GONE: 'fclip.gone', // either {id}: nothing to paste any more (files moved, or a newer copy)
+      FILES_DONE: 'files.done', // receiver->sender {batch, ok, where?, files}: a Send/paste batch landed
       // roadmap, docs/ROADMAP.md (phases 7, 11, 12; PC -> Mac media)
       RTC2_OFFER: 'rtc2.offer', // W->M {session, sdp, kind}
       RTC2_ANSWER: 'rtc2.answer', // M->W {session, sdp}
@@ -159,6 +172,14 @@
 
     opposite(side) {
       return { left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[side];
+    },
+
+    // "Right Option" / "Left Alt" / "Either Command" / "Right Windows key" — the hotkey in words.
+    hotkeyName(code, os = 'mac') {
+      const m = /^(Alt|Control|Shift|Meta)(Left|Right)?$/.exec(code || '') || [0, 'Alt', 'Right'];
+      const key = (os === 'mac' ? { Alt: 'Option', Control: 'Control', Shift: 'Shift', Meta: 'Command' }
+        : { Alt: 'Alt', Control: 'Ctrl', Shift: 'Shift', Meta: 'Windows key' })[m[1]];
+      return m[2] ? `${m[2]} ${key}` : `${key} (either side)`;
     },
 
     // Ctrl/Cmd swapping only between different OSes (Mac <-> PC/Linux); same-OS pairs never swap.

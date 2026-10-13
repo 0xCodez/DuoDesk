@@ -3,7 +3,8 @@
 // folders dragged across the edge (revision 3: `drag.start` + `file.offer {drop:'drag', rel}`, the
 // Mac shows a real drag and the drop target pulls the data): one file at a time over the control
 // channel in base64 chunks, with a SHA-256 check. Waits while the socket is backed up so mouse and
-// keyboard messages never sit behind a big file.
+// keyboard messages never sit behind a big file. Revision 5: Send files and pastes the other side
+// asked for go the same way as batches (`drop:'send'|'paste'`, `batch`, `rel`), ended by `files.done`.
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -27,7 +28,12 @@ class FileDrop {
     for (const t of [T.FILE_ACCEPT, T.FILE_REFUSE, T.FILE_DONE, T.FILE_CANCEL]) this.link.on(t, (m) => this._answer(m));
     this.drag = null; // {drag, name} while a drag's files are being sent
     this.link.on(T.DRAG_END, (m) => this._dragEnd(m));
-    this.link.on('closed', () => this._abortAll('The Mac disconnected'));
+    this.batches = new Map(); // revision 5: batch → {kind, name, files, bytes}
+    this.link.on(T.FILES_DONE, (m) => this._batchDone(m));
+    this.link.on('closed', () => {
+      this._abortAll('The Mac disconnected');
+      for (const batch of [...this.batches.keys()]) this._batchDone({ batch, ok: false });
+    });
   }
 
   // paths from the Monitor 2 drop (x/y normalized over the video, or null), or from a drag across
@@ -50,33 +56,35 @@ class FileDrop {
   // beginDrag need, or null when nothing can go. Nothing is sent yet: kvm.take goes first.
   prepareDrag(paths) {
     if (!this.settings.files.dropToMac || this.link.status.state !== 'connected') return null;
-    const items = [], dirs = [], list = [], jobs = [];
-    let bytes = 0;
-    const walk = (abs, rel) => {
-      let st;
-      try { st = fs.lstatSync(abs); } catch (_) { return; }
-      if (st.isSymbolicLink()) return;
-      if (st.isDirectory()) {
-        dirs.push(rel);
-        let names = [];
-        try { names = fs.readdirSync(abs); } catch (_) { /* unreadable: sent empty */ }
-        for (const n of names.sort()) { if (list.length >= MAX_DRAG_FILES) return; walk(path.join(abs, n), rel + '/' + n); }
-      } else if (st.isFile() && st.size <= P.FILE_MAX_BYTES && list.length < MAX_DRAG_FILES) {
-        list.push({ rel, size: st.size });
-        jobs.push({ path: abs, size: st.size, rel });
-        bytes += st.size;
-      }
-    };
-    for (const p of paths) {
-      const name = path.basename(p);
-      const before = bytes;
-      let dir = false;
-      try { dir = fs.lstatSync(p).isDirectory(); } catch (_) { continue; }
-      walk(p, name);
-      items.push({ name, dir, size: bytes - before });
-    }
-    if (!items.length) return null;
-    return { drag: crypto.randomBytes(8).toString('hex'), items, dirs, list, jobs, bytes, count: items.length };
+    const d = plan(paths);
+    return d && { drag: crypto.randomBytes(8).toString('hex'), ...d, count: d.items.length };
+  }
+
+  // Revision 5: Send files (kind 'send') or a paste the other side asked for (kind 'paste', batch =
+  // the fclip id): every file offered in order with its folder path. Returns the plan, or null.
+  sendBatch(paths, kind, batch = crypto.randomUUID()) {
+    if (this.link.status.state !== 'connected') return null;
+    const d = plan(paths);
+    if (!d || !d.jobs.length) return null;
+    const name = d.items.length === 1 ? d.items[0].name : d.items.length + ' items';
+    this.batches.set(batch, { kind, name, files: d.jobs.length, bytes: d.bytes, sent: 0 });
+    d.jobs.forEach((j, i) => this.queue.push({ ...j, batch, kind, index: i, count: d.jobs.length }));
+    this._progress();
+    this._next();
+    return { batch, name, files: d.jobs.length, bytes: d.bytes, items: d.items };
+  }
+
+  // What a set of paths would send (fclip.js announces it before anything is sent).
+  plan(paths) {
+    return plan(paths);
+  }
+
+  _batchDone(m) {
+    const b = this.batches.get(m.batch);
+    if (!b) return;
+    this.batches.delete(m.batch);
+    this.queue = this.queue.filter((j) => j.batch !== m.batch);
+    this._report(b.name, !!m.ok, m.ok ? 'Sent' + (typeof m.where === 'string' && m.where ? ' to ' + m.where.slice(0, 300) : '') : 'Not everything arrived');
   }
 
   // Step 2, right after kvm.take: describe everything in `drag.start`, then send the files.
@@ -115,7 +123,13 @@ class FileDrop {
     try {
       await this._send(job);
     } catch (e) {
-      this._report(path.basename(job.path), false, e.message);
+      if (!job.batch) this._report(path.basename(job.path), false, e.message);
+      else if (e.refused === 'not_allowed' && this.batches.has(job.batch)) { // turned off over there: the rest won't go either
+        const b = this.batches.get(job.batch);
+        this.batches.delete(job.batch);
+        this.queue = this.queue.filter((j) => j.batch !== job.batch);
+        this._report(b.name, false, e.message);
+      } // other failures: files.done says how the batch went
     }
     this.current = null;
     this.busy = false;
@@ -127,15 +141,20 @@ class FileDrop {
     if (this.link.status.state !== 'connected') throw new Error('Not connected to the Mac');
     if (job.size > P.FILE_MAX_BYTES) throw new Error('Too big');
     const id = crypto.randomBytes(8).toString('hex');
-    this.current = { id, name, size: job.size, sent: 0, index: job.index, count: job.count, release: job.release, drag: job.drag };
+    this.current = { id, name, size: job.size, sent: 0, index: job.index, count: job.count, release: job.release, drag: job.drag, batch: job.batch };
     this._progress();
     const offer = { t: T.FILE_OFFER, id, name, size: job.size, index: job.index, count: job.count };
     if (job.drag) Object.assign(offer, { drop: 'drag', drag: job.drag, rel: job.rel });
+    else if (job.batch) Object.assign(offer, { drop: job.kind, batch: job.batch, rel: job.rel });
     else if (job.release) offer.drop = 'release';
     else { offer.drop = 'point'; if (typeof job.x === 'number') { offer.x = job.x; offer.y = job.y; } }
     this.link.send(offer);
     const a = await this._wait(id, [T.FILE_ACCEPT, T.FILE_REFUSE, T.FILE_CANCEL], ANSWER_MS);
-    if (a.t !== T.FILE_ACCEPT) throw new Error(a.t === T.FILE_REFUSE ? refuseText(a.why) : 'Cancelled');
+    if (a.t !== T.FILE_ACCEPT) {
+      const e = new Error(a.t === T.FILE_REFUSE ? refuseText(a.why) : 'Cancelled');
+      e.refused = a.t === T.FILE_REFUSE ? a.why : '';
+      throw e;
+    }
 
     const hash = crypto.createHash('sha256');
     let seq = 0;
@@ -148,6 +167,7 @@ class FileDrop {
         hash.update(chunk);
         this.link.send({ t: T.FILE_CHUNK, id, seq: seq++, data: chunk.toString('base64') });
         this.current.sent += chunk.length;
+        if (job.batch && this.batches.has(job.batch)) this.batches.get(job.batch).sent += chunk.length;
         this._progress();
       }
     } finally {
@@ -157,6 +177,7 @@ class FileDrop {
     if (job.drag) return; // the Mac answers file.done when the drop target has it; drag.end says how it went
     const d = await this._wait(id, [T.FILE_DONE, T.FILE_CANCEL], DONE_MS);
     if (d.t !== T.FILE_DONE || !d.ok) throw new Error(d.error || 'The Mac couldn’t save it');
+    if (job.batch) return; // listed once, on files.done
     this._report(name, true, d.path ? 'Saved on the Mac: ' + d.path : 'Saved on the Mac');
   }
 
@@ -189,6 +210,11 @@ class FileDrop {
     if (!this.current) return;
     this.link.send({ t: T.FILE_CANCEL, id: this.current.id });
     const w = this.waiters.get(this.current.id);
+    const b = this.current.batch && this.batches.get(this.current.batch);
+    if (b) {
+      this.batches.delete(this.current.batch);
+      this._report(b.name, false, 'Cancelled');
+    }
     if (!this.current.drag) this.queue = [];
     this.current = null; // the chunk loop stops at its next check
     if (w) w.reject(new Error('Cancelled'));
@@ -210,12 +236,46 @@ class FileDrop {
 
   view() {
     const c = this.current;
+    const b = c && c.batch && this.batches.get(c.batch);
     return {
       current: c ? { name: c.name, size: c.size, sent: c.sent, index: c.index, count: c.count } : null,
+      // revision 5: the Send files / paste batch being sent, for the Files tab's progress bar
+      batch: b ? { name: b.name, files: b.files, index: c.index, bytes: b.bytes, sent: b.sent, kind: b.kind } : null,
       queued: this.queue.length,
       last: this.last,
     };
   }
+}
+
+// Walk the paths (folders too): what drag.start and the batches need. Symbolic links are skipped.
+function plan(paths) {
+  const items = [], dirs = [], list = [], jobs = [];
+  let bytes = 0;
+  const walk = (abs, rel) => {
+    let st;
+    try { st = fs.lstatSync(abs); } catch (_) { return; }
+    if (st.isSymbolicLink()) return;
+    if (st.isDirectory()) {
+      dirs.push(rel);
+      let names = [];
+      try { names = fs.readdirSync(abs); } catch (_) { /* unreadable: sent empty */ }
+      for (const n of names.sort()) { if (list.length >= MAX_DRAG_FILES) return; walk(path.join(abs, n), rel + '/' + n); }
+    } else if (st.isFile() && st.size <= P.FILE_MAX_BYTES && list.length < MAX_DRAG_FILES) {
+      list.push({ rel, size: st.size });
+      jobs.push({ path: abs, size: st.size, rel });
+      bytes += st.size;
+    }
+  };
+  for (const p of paths) {
+    const name = path.basename(p);
+    const before = bytes;
+    let dir = false;
+    try { dir = fs.lstatSync(p).isDirectory(); } catch (_) { continue; }
+    walk(p, name);
+    items.push({ name, dir, size: bytes - before });
+  }
+  if (!items.length) return null;
+  return { items, dirs, list, jobs, bytes };
 }
 
 function refuseText(why) {

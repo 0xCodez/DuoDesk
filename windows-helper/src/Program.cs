@@ -42,7 +42,8 @@ namespace MacShare
             capture.Start();
             capture.Flash = new Flash();
             AppWindows.Watch(delegate { Dictionary<string, object> e = new Dictionary<string, object>(); e["event"] = "winShown"; Emit(e); }); // phase 13: menus
-            dropEdge = new DropEdge(capture, Emit); // file drags across the edge (shown only while dragging)
+            dropEdge = new DropEdge(capture, Emit);
+            Notifs.Emit = Emit; // revision 5 // file drags across the edge (shown only while dragging)
 
             Thread writer = new Thread(WriteLoop);
             writer.IsBackground = true;
@@ -93,7 +94,7 @@ namespace MacShare
         // Slow commands (shell, COM, many processes) run on their own thread so the hooks on the
         // main thread never wait; the reply is emitted from there.
         delegate void Work(Dictionary<string, object> reply);
-        static void Async(Dictionary<string, object> c, Work work)
+        static void Async(Dictionary<string, object> c, Work work, bool sta = false)
         {
             Thread t = new Thread(delegate ()
             {
@@ -104,8 +105,35 @@ namespace MacShare
                 if (Json.Has(c, "id")) Emit(reply);
             });
             t.IsBackground = true;
-            t.SetApartmentState(ApartmentState.MTA);
+            t.SetApartmentState(sta ? ApartmentState.STA : ApartmentState.MTA); // STA: the clipboard and Shell.Application
             t.Start();
+        }
+
+        static List<string> Strings(Dictionary<string, object> c, string key)
+        {
+            List<string> list = new List<string>();
+            System.Collections.IList l = c.ContainsKey(key) ? c[key] as System.Collections.IList : null;
+            if (l != null) foreach (object o in l) if (o != null) list.Add(Convert.ToString(o));
+            return list;
+        }
+
+        // Hotkey name → virtual keys (low-level hooks see left and right apart): "AltRight",
+        // "AltLeft", or "Alt" = either one; same for Control, Shift and Meta (the Windows key).
+        static HashSet<uint> HotkeyVks(string code)
+        {
+            uint left, right;
+            string kind = code.Replace("Left", "").Replace("Right", "");
+            switch (kind)
+            {
+                case "Control": left = 0xA2; right = 0xA3; break;
+                case "Shift": left = 0xA0; right = 0xA1; break;
+                case "Meta": left = 0x5B; right = 0x5C; break;
+                default: left = 0xA4; right = 0xA5; break; // Alt
+            }
+            HashSet<uint> vks = new HashSet<uint>();
+            if (!code.EndsWith("Left")) vks.Add(right);
+            if (!code.EndsWith("Right")) vks.Add(left);
+            return vks;
         }
 
         static void Dispatch(string line)
@@ -125,7 +153,7 @@ namespace MacShare
                     case "kvmConfig":
                         capture.Side = Json.Str(c, "side", null);
                         capture.ResistancePx = Json.Num(c, "resistancePx", 120);
-                        capture.HotkeyVk = Json.Str(c, "hotkey", "ControlRight") == "ControlLeft" ? 0xA2u : 0xA3u;
+                        capture.HotkeyVks = HotkeyVks(Json.Str(c, "hotkey", "AltRight"));
                         capture.DriveOther = Json.Bool(c, "driveOther", false);
                         capture.EdgeKeyboard = Json.Bool(c, "keyboard", true);
                         capture.DragFiles = Json.Bool(c, "dragFiles", true);
@@ -219,6 +247,38 @@ namespace MacShare
                         c["path"] = folder;
                         c["desktop"] = desktop;
                         break;
+                    // revision 5: notifications, copy/paste files (docs/ROADMAP.md)
+                    case "notifWatch":
+                        bool nOn = Json.Bool(c, "on", false);
+                        List<string> selfIds = Strings(c, "self");
+                        Async(c, delegate (Dictionary<string, object> r) { r["readable"] = Notifs.Watch(nOn, selfIds); });
+                        return;
+                    case "fileSource": // the Explorer selection in front, else the files on the clipboard
+                        Async(c, delegate (Dictionary<string, object> r)
+                        {
+                            bool front;
+                            List<string> sel = new List<string>();
+                            try { sel = Shell.FrontSelection(out front); } catch (Exception) { front = false; }
+                            List<string> clip = new List<string>();
+                            if (Clipboard.ContainsFileDropList()) foreach (string f in Clipboard.GetFileDropList()) clip.Add(f);
+                            r["explorer"] = front;
+                            r["selection"] = sel;
+                            r["files"] = clip;
+                        }, true);
+                        return;
+                    case "frontFolder":
+                        Async(c, delegate (Dictionary<string, object> r)
+                        {
+                            string ff = null;
+                            try { ff = Shell.FrontFolder(); } catch (Exception) { }
+                            r["path"] = ff;
+                        }, true);
+                        return;
+                    case "selectItems":
+                        string selDir = Json.Str(c, "dir", "");
+                        List<string> selNames = Strings(c, "names");
+                        Async(c, delegate (Dictionary<string, object> r) { Shell.SelectIn(selDir, selNames); }, true);
+                        return;
                     case "info":
                         Native.POINT cur;
                         Native.GetCursorPos(out cur);

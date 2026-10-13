@@ -18,7 +18,7 @@ rsync -a --exclude node_modules --exclude dist --exclude dev --exclude build-app
 cp "$ROOT/shared/protocol.js" "$STAGE/shared/"
 cp "$ROOT"/mac-helper/.build/release/macshare-helper "$ROOT"/mac-helper/.build/release/macshare-dockstub "$STAGE/mac-helper/.build/release/"
 cp "$ROOT/LICENSE" "$STAGE/"
-[ -f "$ROOT/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/THIRD_PARTY_NOTICES.md" "$STAGE/" || [ -f "$ROOT/.md/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/.md/THIRD_PARTY_NOTICES.md" "$STAGE/" || true
+[ -f "$ROOT/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/THIRD_PARTY_NOTICES.md" "$STAGE/" || [ -f "$ROOT/md/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/md/THIRD_PARTY_NOTICES.md" "$STAGE/" || true
 node -e "
 const p = require('./package.json');
 require('fs').writeFileSync('$STAGE/package.json', JSON.stringify({

@@ -32,12 +32,13 @@ UI.tab({
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab.
-    // macOnly: Terminal and Apps, off with a PC or Linux peer for now (docs/UI.md "Revision 4").
+    // macOnly: Terminal and Apps, off with a PC or Linux peer for now (docs/UI.md "Revision 4");
+    // 'linux': off only with a Linux peer (Notifications, revision 5).
     const row = (label, tab, get, set, macOnly) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
       const r = UI.row(label, '', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
       r.update = (s) => {
-        const limited = macOnly && s.peer ? UI.peer(s).limited : '';
+        const limited = !macOnly || !s.peer ? '' : macOnly === 'linux' ? (s.peer.os === 'linux' ? 'Not on Linux yet' : '') : UI.peer(s).limited;
         sw.set(!limited && get(s));
         sw.disable(!set || !!limited);
         r.setHint(limited);
@@ -49,6 +50,7 @@ UI.tab({
       row('Sound', 'audio', (s) => s.audio.receive, (v) => api.setAudio({ receive: v })),
       row('Mouse and keyboard', 'cursor', (s) => s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
       row('Clipboard', 'clipboard', (s) => s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
+      row('Notifications', 'notifications', (s) => s.notifs.receive, (v) => api.setNotifs({ receive: v }), 'linux'),
       row('Shared folder', 'files', (s) => s.files.mountMac, (v) => api.setFiles({ mountMac: v })),
       row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v }), true),
       row('Apps', 'apps', (s) => s.apps.open > 0, null, true),
@@ -58,6 +60,7 @@ UI.tab({
       row('Sound', 'audio', (s) => s.audio.send, (v) => api.setAudio({ send: v })),
       row('Mouse and keyboard', 'cursor', (s) => s.kvm.driveOther, (v) => api.setKvm({ driveOther: v })),
       row('Clipboard', 'clipboard', (s) => s.clipboard.send, (v) => api.setClipboard({ send: v })),
+      row('Notifications', 'notifications', (s) => s.notifs.send, (v) => api.setNotifs({ send: v }), 'linux'),
       row('Shared folder', 'files', (s) => s.files.shareOn, (v) => api.setShareOn(v)),
       row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v }), true),
       row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v }), true),

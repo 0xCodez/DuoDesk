@@ -1,5 +1,5 @@
 // MacShare — Copyright (C) 2026 MacShare contributors. GPL-3.0, see LICENSE.
-// General tab: start with Windows, firewall self-check (+ Fix), helper, this PC, about.
+// General tab: start with Windows, the switching popup, firewall self-check (+ Fix), helper, this PC, about.
 'use strict';
 
 UI.tab({
@@ -13,6 +13,7 @@ UI.tab({
   build(body) {
     const { el, api } = UI;
     const startup = UI.switch((v) => api.setStartup(v), { label: 'Start with Windows' });
+    const hudSw = UI.switch((v) => api.setApp({ hud: v }), { label: 'Show a popup when switching' });
     const fwPill = el('span', { class: 'pill' });
     const fwCheck = UI.button('Check again', () => api.checkFirewall(), 'small');
     const fwFix = UI.button('Fix', () => api.fixFirewall(), 'small primary');
@@ -23,8 +24,9 @@ UI.tab({
     const versionRow = UI.row('MacShare for Windows', '');
 
     body.append(
-      UI.card('Startup', [
+      UI.card('App', [
         UI.row('Start with Windows', '', [startup]),
+        UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
       UI.card('Network', [fwRow]),
       UI.card('This PC', [helperRow, deviceRow]),
@@ -36,6 +38,7 @@ UI.tab({
 
     return (s) => {
       startup.set(s.startup);
+      hudSw.set(s.app.hud);
       const fw = s.firewall || {};
       fwPill.textContent = fw.checking ? 'Checking…' : fw.ok ? 'OK' : fw.ok === false ? 'Needs a fix' : '';
       fwPill.className = 'pill ' + (fw.checking ? 'muted' : fw.ok ? 'good' : 'bad');

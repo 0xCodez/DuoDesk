@@ -6,6 +6,8 @@
 //   drop:'release' (dragged across the edge) wait in a temp folder until the PC's left button comes
 //                  up while it drives this Mac (release()), then go where the pointer is.
 //   drop:'drag'    (revision 3) part of a native drag here: dragin.js says where it lands.
+//   drop:'send' / 'paste' (revision 5) a batch with folders by `rel`: Send files goes to the Files
+//                  folder, a paste to the folder chosen when the paste shortcut was pressed.
 //
 // Events: 'change' — this.view changed.
 'use strict';
@@ -70,6 +72,8 @@ class Drop extends EventEmitter {
     this.active = new Map(); // id -> transfer
     this.recent = []; // newest first: {name, size, path, at, ok, error}
     this.drag = null; // { dest: null|dir, waiting: [transfer] } while files are dragged in (drop:'release')
+    this.batches = new Map(); // revision 5: batch -> { kind, dir, count, done, ok, tops: Map, placed: [] }
+    this.expected = new Map(); // batch (fclip id) -> dir chosen when this Mac pasted
     this.dragIn = new DragIn({ server, helper, getSettings, remember: (r) => this._remember(r) });
     this.dragIn.replayOffer = (m) => this._offer(m);
     this.dragIn.onAbort = (drag) => {
@@ -82,7 +86,10 @@ class Drop extends EventEmitter {
     on(P.T.FILE_END, (m) => this._end(m));
     on(P.T.FILE_CANCEL, (m) => this._abort(m.id, 'cancelled', false));
     server.on('closed', () => {
-      if (!server.current) for (const id of [...this.active.keys()]) this._abort(id, 'the PC disconnected', false);
+      if (!server.current) {
+        for (const id of [...this.active.keys()]) this._abort(id, 'disconnected', false);
+        this.batches.clear();
+      }
     });
   }
 
@@ -114,6 +121,7 @@ class Drop extends EventEmitter {
   async _offer(m) {
     const refuse = (why) => this.server.sendToClient({ t: P.T.FILE_REFUSE, id: m.id, why });
     if (typeof m.id !== 'string' || this.active.has(m.id)) return;
+    if (m.drop === 'send' || m.drop === 'paste') return this._offerBatch(m, refuse);
     if (!this.cfg.acceptDrops) return refuse('not_allowed');
     const size = Number(m.size);
     if (!Number.isFinite(size) || size < 0 || size > P.FILE_MAX_BYTES) return refuse('too_big');
@@ -134,6 +142,66 @@ class Drop extends EventEmitter {
     this.active.set(m.id, { id: m.id, name, size, dir, tmp, fd, release, got: 0, seq: 0, hash: crypto.createHash('sha256'), at: Date.now() });
     this.server.sendToClient({ t: P.T.FILE_ACCEPT, id: m.id });
     this.emit('change');
+  }
+
+  // This Mac pressed paste: files of that batch go to `dir`.
+  expectBatch(batch, dir) {
+    this.expected.set(batch, dir);
+    setTimeout(() => this.expected.delete(batch), 10 * 60 * 1000);
+  }
+
+  // Revision 5: one file of a Send files / paste batch.
+  _offerBatch(m, refuse) {
+    const size = Number(m.size);
+    const count = Number(m.count);
+    if (typeof m.batch !== 'string' || !m.batch || !Number.isInteger(count) || count < 1) return refuse('bad_message');
+    if (!Number.isFinite(size) || size < 0 || size > P.FILE_MAX_BYTES) return refuse('too_big');
+    let b = this.batches.get(m.batch);
+    if (!b) {
+      const pasted = this.expected.get(m.batch);
+      if (m.drop === 'paste' && !pasted) return refuse('not_allowed'); // we never asked for it
+      if (m.drop === 'send' && !this.cfg.acceptDrops) return refuse('not_allowed');
+      b = { kind: m.drop, dir: pasted || this.cfg.folder || DOWNLOADS, count, done: 0, ok: 0, tops: new Map(), placed: [] };
+      this.batches.set(m.batch, b);
+      this.expected.delete(m.batch);
+    }
+    const segs = String(m.rel || m.name).split('/').filter(Boolean).map(cleanName);
+    if (!segs.length) segs.push(cleanName(m.name));
+    if (!b.tops.has(segs[0])) {
+      const top = uniquePath(b.dir, segs[0]); // "Photos 2" when Photos is already there
+      b.tops.set(segs[0], path.basename(top));
+      b.placed.push(top);
+    }
+    const final = path.join(b.dir, b.tops.get(segs[0]), ...segs.slice(1));
+    const tmp = `${final}.macshare-part`;
+    let fd;
+    try {
+      fs.mkdirSync(path.dirname(tmp), { recursive: true });
+      fd = fs.openSync(tmp, 'w', 0o644);
+    } catch (e) {
+      console.error(`[drop] ${tmp}: ${e.message}`);
+      this._batchStep(m.batch, false);
+      return refuse('not_allowed');
+    }
+    this.active.set(m.id, { id: m.id, name: segs[segs.length - 1], size, tmp, final, fd, batch: m.batch, got: 0, seq: 0, hash: crypto.createHash('sha256'), at: Date.now() });
+    this.server.sendToClient({ t: P.T.FILE_ACCEPT, id: m.id });
+    this.emit('change');
+  }
+
+  // A batch file finished (or failed); after the last one: files.done, reveal, popup.
+  _batchStep(batch, ok) {
+    const b = this.batches.get(batch);
+    if (!b) return;
+    b.done++;
+    if (ok) b.ok++;
+    if (b.done < b.count) return this.emit('change');
+    this.batches.delete(batch);
+    const where = b.dir.replace(os.homedir(), '~');
+    this.server.sendToClient({ t: P.T.FILES_DONE, batch, ok: b.ok === b.count, where, files: b.ok });
+    const name = b.placed.length === 1 ? path.basename(b.placed[0]) : `${b.placed.length} items`;
+    this._remember({ name, size: 0, path: b.placed[0] || null, ok: b.ok > 0, ...(b.ok === b.count ? {} : { error: `${b.count - b.ok} of ${b.count} failed` }) });
+    if (b.ok && (this.cfg.reveal || b.kind === 'paste')) shell.showItemInFolder(b.placed[0]);
+    this.emit('batch', { kind: b.kind, files: b.ok, count: b.count, ok: b.ok === b.count });
   }
 
   // A file of a native drag (dragin.js): streamed into the drag's temp tree.
@@ -179,6 +247,17 @@ class Drop extends EventEmitter {
       return this._abort(m.id, t.got !== t.size ? 'size mismatch' : 'checksum mismatch', true);
     }
     this.active.delete(m.id);
+    if (t.batch) {
+      try {
+        fs.renameSync(t.tmp, t.final);
+        this.server.sendToClient({ t: P.T.FILE_DONE, id: t.id, ok: true, path: t.final.replace(os.homedir(), '~') });
+      } catch (e) {
+        fs.rmSync(t.tmp, { force: true });
+        this.server.sendToClient({ t: P.T.FILE_DONE, id: t.id, ok: false, error: e.message });
+        return this._batchStep(t.batch, false);
+      }
+      return this._batchStep(t.batch, true);
+    }
     if (t.drag) {
       try {
         fs.renameSync(t.tmp, t.final);
@@ -257,6 +336,7 @@ class Drop extends EventEmitter {
     if (t.fd !== null) try { fs.closeSync(t.fd); } catch { /* already closed */ }
     fs.rmSync(t.tmp, { force: true });
     if (tell) this.server.sendToClient({ t: P.T.FILE_DONE, id, ok: false, error });
+    if (t.batch) return this._batchStep(t.batch, false);
     if (t.drag) {
       this.dragIn.arrived(t, false);
       return this.emit('change');
