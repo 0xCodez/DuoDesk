@@ -13,7 +13,7 @@
   <img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue">
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black">
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4">
-  <img alt="Linux X11" src="https://img.shields.io/badge/Linux-X11-f0a30a">
+  <img alt="Linux X11 and Wayland" src="https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-f0a30a">
 </p>
 
 <p align="center">
@@ -62,11 +62,13 @@ TwinDesk also includes:
 | Mac ↔ Windows PC | Every feature above |
 | Mac ↔ Mac | Everything except Terminal |
 | PC ↔ PC | Everything except Terminal |
-| Linux ↔ Mac | Clipboard, the Mac's screen, mouse and keyboard (X11). More on the way |
+| Linux ↔ Mac, PC or Linux | Screen (Mirror), mouse and keyboard, clipboard, sound, Send files, notifications, apps and wake-on-LAN. Terminal works with a Mac or another Linux computer |
 
-<p align="center">
-  <img src=".github/assets/linux-overview.jpg" alt="TwinDesk on Linux paired with a Mac" width="720">
-</p>
+On Linux, TwinDesk runs on both X11 and Wayland. On Wayland, the mouse and keyboard go through
+evdev and uinput (the Setup screen grants access once), and screens are captured through the
+desktop portal. Opening this computer's apps on the other side needs an Xorg session. These aren't
+on Linux yet: the shared folder, copy and paste of files with shortcuts, dragging files across the
+screen edge, and Extend.
 
 ## How it works
 
@@ -85,7 +87,7 @@ capturing and injecting input, virtual displays, gestures, window capture and na
 | `windows/` | Windows app (Electron) and installer |
 | `windows-helper/` | Windows helper (C#): hooks, SendInput, Raw Input touchpad, window capture, native drag |
 | `linux/` | Linux app (Electron) |
-| `linux-helper/` | Linux helper (C): XInput2 capture, XTest injection, XRandR |
+| `linux-helper/` | Linux helper (C): XInput2 / XTest on X11, evdev / uinput on Wayland, XRandR, window list |
 | `shared/` | Wire protocol, frame generation and icons used by every app |
 
 Ports: TCP **47800** (control link) and UDP **47801** (discovery) on the local network.
@@ -121,7 +123,7 @@ npm run dist                    :: NSIS installer in windows\dist\
 The Setup screen offers to add the firewall rule and set the network to Private. It can also
 install the optional Virtual Display Driver for Extend.
 
-### Linux (X11)
+### Linux (X11 or Wayland)
 
 ```sh
 sudo apt install build-essential libx11-dev libxi-dev libxtst-dev libxrandr-dev libxfixes-dev
@@ -129,7 +131,11 @@ cd linux
 npm install
 npm run build:helper
 npm start
+npm run dist                    # AppImage and .deb in linux/dist/
 ```
+
+The Setup screen walks you through the rest. On Wayland that means input access (one admin
+prompt, then log out and back in once). It can also install OpenSSH for the terminal.
 
 ## Privacy
 
