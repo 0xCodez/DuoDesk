@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Terminal tab (copy of windows/ui-terminal.js): shells both ways as two direction cards
-// . The other computer → here: it opens a shell here (the OpenSSH server, sshd.js).
-// Here → the other computer: a shell there (terminal.js), with a Mac or another Linux computer.
+// Terminal tab (copy of windows/ui-terminal.js): shells both ways as two direction cards, with any
+// computer. The other computer → here: it opens a shell here (the OpenSSH server, sshd.js).
+// Here → the other computer: a shell there (terminal.js), also as `ssh twindesk` in any terminal.
 'use strict';
 
 UI.tab({
@@ -22,8 +22,7 @@ UI.tab({
     const pill = el('span', { class: 'pill' });
     const openBtn = UI.button('Open Terminal', () => api.openTerminal(), 'small primary');
     const status = UI.row('Shell on {name}', '', [pill, openBtn]);
-    const pathBtn = UI.button('Add to PATH', () => api.addToPath(), 'small');
-    const cmdRow = UI.row('Command', '', [pathBtn]);
+    const cmdRow = UI.row('In any terminal', '', [el('code', { class: 'mono', text: 'ssh twindesk' })]);
     const pair = UI.dirCards(
       { on: { get: (s) => s.terminal.allowMac, set: (v) => api.setTerminal({ allowMac: v }) }, label: 'Let {name} open a terminal on {me}', rows: [
         srvRow,
@@ -53,8 +52,7 @@ UI.tab({
       pill.className = 'pill ' + (t.status === 'ready' ? 'good' : t.status === 'unavailable' || t.status === 'error' ? 'bad' : 'muted');
       openBtn.disabled = t.status !== 'ready';
       status.setHint(t.message || (t.status === 'ready' ? 'As ' + t.user : t.status === 'unavailable' ? (UI.peer(s).os === 'mac' ? 'Turn on Remote Login on {name}' : 'Set up the SSH server on {name}') : ''));
-      cmdRow.setHint(t.onPath ? 'Type macshare in a new terminal' : 'So macshare works in any terminal');
-      pathBtn.hidden = t.onPath;
+      cmdRow.hidden = t.status !== 'ready';
     };
   },
 });

@@ -79,7 +79,6 @@ function setupIpc(ctx) {
   });
   handle('setupSshd', () => sshd.setup());
   handle('openTerminal', () => terminal.open());
-  handle('addToPath', () => terminal.addToPath());
   // Apps: a Mac sends its own (apps.js, through its screen stream); a PC or Linux computer through peerapps.js.
   const macPeer = () => link.peerOs === P.OS.MAC;
   handle('listApps', () => (macPeer() ? apps.refresh() : peerApps.refresh()));

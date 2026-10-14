@@ -74,7 +74,7 @@ const DEFAULT_SETTINGS = {
   ui: { tab: 'overview', setupSkipped: '' }, // setupSkipped: the missing items when Setup was skipped
   app: { openAtLogin: false, keepAwake: true, hud: true }, // hud = popup when switching computers
   audio: { send: false, receive: false, muteLocal: false, volume: 1 }, // Independent, both ways
-  terminal: { allowPc: false, connectPc: false }, // PC -> Mac shell; Mac -> PC (`ssh macshare-pc`)
+  terminal: { allowPc: false, connectPc: false }, // the other computer -> this Mac shell; this Mac -> the other one (`ssh twindesk`)
   files: { acceptDrops: true, folder: '', reveal: true, dragEdge: true, // '' = Downloads; dragEdge = drag.policy
     shortcuts: true, copyKeys: 'Control+Alt+C', pasteKeys: 'Control+Alt+V' }, // Copy/paste files
   notifs: { send: false, receive: true, hideText: false, muted: [] },

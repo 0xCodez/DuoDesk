@@ -78,7 +78,6 @@ function setupIpc(ctx) {
   });
   handle('setupSshd', () => sshd.setup());
   handle('openTerminal', () => terminal.open());
-  handle('addToPath', () => terminal.addToPath());
   handle('setFiles', (partial) => {
     // shareOn/shareFolder only change through share()/unshare()
     const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac, acceptFromMac: partial.acceptFromMac, edgeDrag: partial.edgeDrag,

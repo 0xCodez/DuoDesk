@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Terminal Mac → PC, PC side: the Mac sends `ssh.key`; with
-// "Let the Mac open a shell here" on and Windows' OpenSSH Server running, its key goes into
-// authorized_keys (administrators_authorized_keys for admin accounts, written elevated) with the
-// marker `macshare:<macId>`, and we answer `ssh.info` with this PC's host keys.
+// Terminal, the other computer → this PC (it may be a Mac, another PC or Linux): it sends `ssh.key`;
+// with "Let {name} open a terminal on {me}" on and Windows' OpenSSH Server running, its key goes
+// into authorized_keys (administrators_authorized_keys for admin accounts, written elevated) with
+// the marker `macshare:<peer id>`, and we answer `ssh.info` with this PC's host keys.
 const { execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -43,9 +43,11 @@ class Sshd {
     this.onChange();
   }
 
+  // The other computer's id: the session's, whichever side opened it (we may be the host).
   macId() {
-    const p = this.link.snapshot().paired;
-    return p ? p.macId : 'mac';
+    const snap = this.link.snapshot();
+    if (snap.session && snap.session.id) return String(snap.session.id).replace(/[^A-Za-z0-9._-]/g, '');
+    return snap.paired ? snap.paired.macId : 'mac';
   }
 
   async _onKey(m) {

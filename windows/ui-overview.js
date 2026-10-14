@@ -32,8 +32,7 @@ UI.tab({
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab.
-    // macOnly: Terminal, off with another PC for now (Linux has it since L5);
-    // 'linux': off only with a Linux peer (nothing left: Linux has Notifications and Apps too).
+    // macOnly: 'linux' = off only with a Linux peer (nothing uses it now: Linux has every row).
     const row = (label, tab, get, set, macOnly) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
       const r = UI.row(label, '', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
@@ -52,7 +51,7 @@ UI.tab({
       row('Clipboard', 'clipboard', (s) => s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
       row('Notifications', 'notifications', (s) => s.notifs.receive, (v) => api.setNotifs({ receive: v })),
       row('Shared folder', 'files', (s) => s.files.mountMac, (v) => api.setFiles({ mountMac: v })),
-      row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v }), true),
+      row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v })),
       row('Apps', 'apps', (s) => s.apps.open > 0, null),
     ];
     const p2m = [
@@ -62,7 +61,7 @@ UI.tab({
       row('Clipboard', 'clipboard', (s) => s.clipboard.send, (v) => api.setClipboard({ send: v })),
       row('Notifications', 'notifications', (s) => s.notifs.send, (v) => api.setNotifs({ send: v })),
       row('Shared folder', 'files', (s) => s.files.shareOn, (v) => api.setShareOn(v)),
-      row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v }), true),
+      row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v })),
       row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v })),
     ];
     const pair = UI.dirCards({ rows: m2p }, { rows: p2m });

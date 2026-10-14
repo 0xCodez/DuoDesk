@@ -36,7 +36,6 @@ contextBridge.exposeInMainWorld('macshare', {
   setTerminal: call('setTerminal'),
   openTerminal: call('openTerminal'),
   setupSshd: call('setupSshd'),
-  addToPath: call('addToPath'),
   setFiles: call('setFiles'),
   cancelDrop: call('cancelDrop'),
   setShareOn: call('setShareOn'),

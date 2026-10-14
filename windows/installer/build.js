@@ -46,6 +46,7 @@ async function main() {
   fs.rmSync(STAGE, { recursive: true, force: true });
   copy(WIN, path.join(STAGE, 'windows'), (name) => !SKIP.has(name));
   copy(path.join(ROOT, 'shared', 'protocol.js'), path.join(STAGE, 'shared', 'protocol.js'));
+  copy(path.join(ROOT, 'shared', 'sshconfig.js'), path.join(STAGE, 'shared', 'sshconfig.js'));
   copy(path.join(ROOT, 'shared', 'framegen.js'), path.join(STAGE, 'shared', 'framegen.js')); // Monitor 2
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));

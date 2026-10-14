@@ -47,6 +47,7 @@ async function main() {
   fs.rmSync(STAGE, { recursive: true, force: true });
   copy(LIN, path.join(STAGE, 'linux'), (name) => !SKIP.has(name));
   copy(path.join(ROOT, 'shared', 'protocol.js'), path.join(STAGE, 'shared', 'protocol.js'));
+  copy(path.join(ROOT, 'shared', 'sshconfig.js'), path.join(STAGE, 'shared', 'sshconfig.js'));
   copy(path.join(ROOT, 'shared', 'framegen.js'), path.join(STAGE, 'shared', 'framegen.js'));
   copy(path.join(ROOT, 'linux-helper', 'bin', 'macshare-linuxhelper'), path.join(STAGE, 'linux-helper', 'bin', 'macshare-linuxhelper'));
   for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md']) {

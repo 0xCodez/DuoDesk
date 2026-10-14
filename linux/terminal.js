@@ -1,19 +1,21 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Terminal, this computer → the other one (Linux version of
-// windows/terminal.js): an ed25519 key made once, handed over the paired link (ssh.key); the other
-// computer's host keys come back (ssh.info) and are pinned in our own known_hosts, so ssh never
-// asks for a password or "trust this host?". Adds a `macshare` command (~/.local/bin) and opens
-// the desktop's terminal emulator.
+// Terminal, this computer → the other one (Linux version of windows/terminal.js): an ed25519 key
+// made once, handed over the paired link (ssh.key); the other computer's host keys come back
+// (ssh.info) and are pinned in our own known_hosts, so ssh never asks for a password or "trust this
+// host?". A `Host twindesk` entry in ~/.ssh/config makes `ssh twindesk` work in any terminal; Open
+// Terminal starts the desktop's terminal emulator with it.
 const { app } = require('electron');
 const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const P = require('../shared/protocol.js');
+const SshConfig = require('../shared/sshconfig.js');
 
 const T = P.T;
 const WHY = {
-  remote_login_off: 'Remote Login is off on {name}.',
+  remote_login_off: 'Remote Login is off on {name} (System Settings → General → Sharing).',
+  sshd_off: 'The SSH server isn’t running on {name} (its Terminal tab → Set up).',
   not_allowed: '{Name} doesn’t allow shells from {me} (its Terminal tab).',
 };
 // Terminal emulators to try, best first: [command, args before the command to run].
@@ -30,14 +32,16 @@ class Terminal {
   constructor(opts) {
     Object.assign(this, opts);
     this.dir = path.join(app.getPath('userData'), 'ssh');
-    this.binDir = path.join(os.homedir(), '.local', 'bin');
     this.key = path.join(this.dir, 'macshare_ed25519');
     this.knownHosts = path.join(this.dir, 'known_hosts');
-    this.cmdFile = path.join(this.binDir, 'macshare');
     this.info = null; // last ssh.info
     this.status = 'off';
     this.message = '';
-    this.onPath = (process.env.PATH || '').split(':').includes(this.binDir);
+    // Older versions wrote a `macshare` command; `ssh twindesk` replaces it.
+    try {
+      const old = path.join(os.homedir(), '.local', 'bin', 'macshare');
+      if (fs.existsSync(old) && fs.readFileSync(old, 'utf8').includes('written by the TwinDesk app')) fs.rmSync(old);
+    } catch (_) { /* leave it */ }
 
     this.link.on('welcome', () => this.apply());
     this.link.on('closed', () => { this.info = null; this._set(this.cfg.enabled ? 'no_mac' : 'off', ''); });
@@ -56,6 +60,7 @@ class Terminal {
     if (!this.cfg.enabled) {
       if (this.info) this.link.send({ t: T.SSH_FORGET });
       this.info = null;
+      try { SshConfig.setHost(null); } catch (_) { /* config not writable */ }
       return this._set('off', '');
     }
     if (!this.available) return this._set('error', 'The OpenSSH client is missing (sudo apt install openssh-client).');
@@ -80,60 +85,39 @@ class Terminal {
   _onInfo(m) {
     if (!this.cfg.enabled) return;
     this.info = m;
-    if (!m.enabled) return this._set('unavailable', WHY[m.why] || '{Name} can’t open a shell right now.');
+    if (!m.enabled) {
+      const why = m.why === 'remote_login_off' && this.link.peerOs !== P.OS.MAC ? 'sshd_off' : m.why;
+      return this._set('unavailable', WHY[why] || '{Name} can’t open a shell right now.');
+    }
     const keys = (Array.isArray(m.hostKeys) ? m.hostKeys : [])
       .map((k) => String(k).trim().split(/\s+/).slice(0, 2).join(' '))
       .filter((k) => /^(ssh|ecdsa)-\S+ [A-Za-z0-9+/=]+$/.test(k));
-    if (!keys.length || typeof m.user !== 'string' || !/^[\w.-]+$/.test(m.user)) return this._set('error', '{Name} sent no usable host key or user name.');
+    if (!keys.length || typeof m.user !== 'string' || !/^[A-Za-z0-9._@ -]{1,100}$/.test(m.user)) return this._set('error', '{Name} sent no usable host key or user name.');
     fs.mkdirSync(this.dir, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(this.knownHosts, keys.map((k) => 'macshare ' + k).join('\n') + '\n');
-    this._writeCommand();
+    fs.writeFileSync(this.knownHosts, SshConfig.knownHosts(keys), { mode: 0o600 });
+    try {
+      this._writeHost();
+    } catch (e) {
+      return this._set('error', 'Couldn’t write the twindesk entry in ~/.ssh/config: ' + e.message);
+    }
     this._set('ready', '');
   }
 
-  // ssh arguments for the paired computer (its address can change; rebuilt each time).
-  args() {
-    const i = this.info;
-    const addr = this.link.snapshot().link.address;
-    return ['-i', this.key, '-o', 'IdentitiesOnly=yes', '-o', 'UserKnownHostsFile=' + this.knownHosts,
-      '-o', 'HostKeyAlias=macshare', '-o', 'StrictHostKeyChecking=yes', '-p', String(Number(i.port) || 22), i.user + '@' + addr];
+  // `Host twindesk` for the paired computer (its address can change; rewritten on every open).
+  _writeHost() {
+    SshConfig.setHost({ address: this.link.snapshot().link.address, port: this.info.port, user: this.info.user,
+      identityFile: this.key, knownHostsFile: this.knownHosts });
   }
 
-  _writeCommand() {
-    const q = (a) => "'" + String(a).replace(/'/g, "'\\''") + "'";
-    try {
-      fs.mkdirSync(this.binDir, { recursive: true });
-      fs.writeFileSync(this.cmdFile, '#!/bin/sh\n# TwinDesk: a shell on your paired computer (written by the TwinDesk app)\nexec ssh ' +
-        this.args().map(q).join(' ') + ' "$@"\n', { mode: 0o755 });
-    } catch (e) {
-      this.message = 'Couldn’t write the macshare command: ' + e.message;
-    }
-  }
-
-  // Opens the desktop's terminal connected to the other computer.
+  // Opens the desktop's terminal with `ssh twindesk`.
   open() {
     if (this.status !== 'ready') return;
-    this._writeCommand(); // the address may have changed
+    try { this._writeHost(); } catch (e) { return this._set('error', e.message); }
     const t = TERMINALS.find(([cmd]) => which(cmd));
-    if (!t) { this.message = 'No terminal app found. Run macshare in any terminal.'; return this.onChange(); }
-    const p = spawn(t[0], [...t[1], 'ssh', ...this.args()], { detached: true, stdio: 'ignore' });
+    if (!t) { this.message = 'No terminal app found. Run ssh twindesk in any terminal.'; return this.onChange(); }
+    const p = spawn(t[0], [...t[1], 'ssh', SshConfig.ALIAS], { detached: true, stdio: 'ignore' });
     p.on('error', (e) => { this.message = 'Couldn’t open ' + t[0] + ': ' + e.message; this.onChange(); });
     p.unref();
-  }
-
-  // ~/.local/bin on PATH for new logins (most distributions already add it when it exists).
-  async addToPath() {
-    try {
-      const f = path.join(os.homedir(), '.profile');
-      const line = '\n# TwinDesk: the macshare command\n[ -d "$HOME/.local/bin" ] && case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH="$HOME/.local/bin:$PATH" ;; esac\n';
-      const cur = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
-      if (!cur.includes('TwinDesk: the macshare command')) fs.appendFileSync(f, line);
-      this.onPath = true;
-      this.message = 'Log out and back in once for new terminals to find macshare.';
-    } catch (e) {
-      this.message = 'Couldn’t change PATH: ' + e.message;
-    }
-    this.onChange();
   }
 
   _set(status, message) {
@@ -143,7 +127,7 @@ class Terminal {
   }
 
   view() {
-    return { status: this.status, message: this.message, user: this.info && this.info.user, onPath: this.onPath, command: this.cmdFile };
+    return { status: this.status, message: this.message, user: this.info && this.info.user, command: 'ssh ' + SshConfig.ALIAS };
   }
 }
 

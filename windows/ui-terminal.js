@@ -1,11 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Terminal tab: shells both ways as two direction cards. Mac → PC: the Mac opens a
-// shell here (Windows' OpenSSH Server, sshd.js). PC → Mac: a shell on the Mac (terminal.js).
+// Terminal tab: shells both ways as two direction cards, with any computer. The other computer →
+// here: it opens a shell here (Windows' OpenSSH Server, sshd.js). Here → the other computer: a
+// shell there (terminal.js), also as `ssh twindesk` in any terminal.
 'use strict';
 
 UI.tab({
   id: 'terminal',
-  macOnly: true, // With a Mac or a Linux computer (UI.peer().limited), not between two PCs yet
   order: 60,
   title: 'Terminal',
   color: 'linear-gradient(#3a3a3c, #1c1c1e)',
@@ -22,8 +22,7 @@ UI.tab({
     const pill = el('span', { class: 'pill' });
     const openBtn = UI.button('Open Terminal', () => api.openTerminal(), 'small primary');
     const status = UI.row('Shell on {name}', '', [pill, openBtn]);
-    const pathBtn = UI.button('Add to PATH', () => api.addToPath(), 'small');
-    const cmdRow = UI.row('Command', '', [pathBtn]);
+    const cmdRow = UI.row('In any terminal', '', [el('code', { class: 'mono', text: 'ssh twindesk' })]);
     const pair = UI.dirCards(
       { on: { get: (s) => s.terminal.allowMac, set: (v) => api.setTerminal({ allowMac: v }) }, label: 'Let {name} open a terminal on {me}', rows: [
         srvRow,
@@ -52,9 +51,8 @@ UI.tab({
       pill.textContent = TEXT[t.status] || t.status;
       pill.className = 'pill ' + (t.status === 'ready' ? 'good' : t.status === 'unavailable' || t.status === 'error' ? 'bad' : 'muted');
       openBtn.disabled = t.status !== 'ready';
-      status.setHint(t.message || (t.status === 'ready' ? 'As ' + t.user : t.status === 'unavailable' ? 'Turn on Remote Login on {name}' : ''));
-      cmdRow.setHint(t.onPath ? 'Type macshare in a new terminal' : 'So macshare works in any terminal');
-      pathBtn.hidden = t.onPath;
+      status.setHint(t.message || (t.status === 'ready' ? 'As ' + t.user : t.status === 'unavailable' ? (UI.peer(s).os === 'mac' ? 'Turn on Remote Login on {name}' : 'Set up the SSH server on {name}') : ''));
+      cmdRow.hidden = t.status !== 'ready';
     };
   },
 });

@@ -39,7 +39,7 @@ account and no relay server.
 | **📁 Files and folders**<br>Drag files across the screen edge and drop them anywhere, or copy with <kbd>⌃⌥C</kbd> and paste with <kbd>⌃⌥V</kbd> (<kbd>Ctrl+Alt+C/V</kbd> on Windows). You can also send from the macOS Share menu or Explorer's *Send to*, and share a folder that shows up as a network drive on the other side. | <img src=".github/assets/ui-files.jpg" alt="Files settings" width="420"> |
 | **🪟 Apps from the other computer**<br>Open the PC's apps on the Mac (or the Mac's apps on the PC), each in its own window with its own Dock icon or Start-menu pin. Menus and pop-ups work too. | <img src=".github/assets/ui-apps-on.jpg" alt="Apps from the other computer" width="420"> |
 | **🔔 Notifications**<br>See one computer's notifications on the other as native notifications. You can hide the message text or mute single apps. | <img src=".github/assets/ui-notifications.jpg" alt="Notifications settings" width="420"> |
-| **⌨️ Terminal**<br>Open a shell on the other computer without passwords. Keys are exchanged over the paired link, so `ssh macshare-pc` just works. | <img src=".github/assets/ui-terminal.jpg" alt="Terminal settings" width="420"> |
+| **⌨️ Terminal**<br>Open a shell on the other computer without passwords, between any two computers. Keys are exchanged over the paired link, so `ssh twindesk` just works in any terminal. | <img src=".github/assets/ui-terminal.jpg" alt="Terminal settings" width="420"> |
 | **🔊 Sound**<br>Hear one computer on the other, in either direction, separate from screen sharing. | <img src=".github/assets/ui-audio.jpg" alt="Audio settings" width="420"> |
 
 TwinDesk also includes:
@@ -60,9 +60,9 @@ TwinDesk also includes:
 | Pair | Status |
 |---|---|
 | Mac ↔ Windows PC | Every feature above |
-| Mac ↔ Mac | Everything except Terminal |
-| PC ↔ PC | Everything except Terminal |
-| Linux ↔ Mac, PC or Linux | Screen (Mirror), mouse and keyboard, clipboard, sound, Send files, notifications, apps and wake-on-LAN. Terminal works with a Mac or another Linux computer |
+| Mac ↔ Mac | Every feature above |
+| PC ↔ PC | Every feature above |
+| Linux ↔ Mac, PC or Linux | Screen (Mirror), mouse and keyboard, clipboard, sound, Send files, notifications, terminal, apps and wake-on-LAN |
 
 On Linux, TwinDesk runs on both X11 and Wayland. On Wayland, the mouse and keyboard go through
 evdev and uinput (the Setup screen grants access once), and screens are captured through the

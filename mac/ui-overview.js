@@ -61,7 +61,7 @@ UI.tab({
       sw('Clipboard', 'clipboard', (s) => s.clipboard && s.clipboard.send, (v) => api.setClipboard({ send: v })),
       sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.send, (v) => api.setNotifs({ send: v }), 'linux'),
       sw('Shared folder', 'files', (s) => s.smb && s.smb.sharing, (v) => api.setShareMac(v)),
-      sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.connectPc, (v) => api.setTerminal({ connectPc: v }), 'terminal'),
+      sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.connectPc, (v) => api.setTerminal({ connectPc: v })),
       sw('Apps', 'apps', (s) => s.apps && s.apps.offer, (v) => api.setApps({ offer: v }), 'linux'),
     ];
     const w2m = [
@@ -71,7 +71,7 @@ UI.tab({
       sw('Clipboard', 'clipboard', (s) => s.clipboard && s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
       sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.receive, (v) => api.setNotifs({ receive: v }), 'linux'),
       sw('Shared folder', 'files', (s) => s.smb && s.smb.connectPc, (v) => api.setSmb({ connectPc: v })),
-      sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.allowPc, (v) => api.setTerminal({ allowPc: v }), 'terminal'),
+      sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.allowPc, (v) => api.setTerminal({ allowPc: v })),
       sw('Apps', 'apps', (s) => s.papps && s.papps.on, (v) => api.setPcApps({ on: v }), 'linux'),
     ];
     const quick = [...m2w, ...w2m];
@@ -145,7 +145,7 @@ UI.tab({
 
       for (const x of quick) {
         x.c.set(x.get(s));
-        const why = x.mixedOnly === 'terminal' ? p.terminalLimited : x.mixedOnly === 'linux' ? (p.os === 'linux' ? 'Not on Linux yet' : '') : x.mixedOnly ? p.limited : '';
+        const why = x.mixedOnly === 'linux' ? (p.os === 'linux' ? 'Not on Linux yet' : '') : x.mixedOnly ? p.limited : '';
         x.c.disable(!!why);
         x.row.setHint(why);
       }
