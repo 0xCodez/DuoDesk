@@ -1,6 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+// Portions adapted from Beamer (https://github.com/kalkman-code/beamer), Copyright (C) Kalkman Code,
+// GPL-3.0. Changed: C# port of win_app/capture_win.py hooks and raw-mouse edge push.
 // Low-level hooks (capture + hotkey), Raw Input (edge push at home, local return-edge motion),
-// dead-man timer and the safety rules of docs/KVM.md. Hook callbacks only decide and enqueue.
+// dead-man timer and the safety rules. Hook callbacks only decide and enqueue.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -14,13 +16,13 @@ namespace MacShare
         // config (kvmConfig)
         public string Side;          // crossing side of this PC (null = unknown)
         public double ResistancePx = 120;
-        // kvmConfig hotkey (docs/KVM.md "Hotkey (revision 4)"): one key, or the left and right one ("both")
+        // kvmConfig hotkey: one key, or the left and right one ("both")
         public HashSet<uint> HotkeyVks = new HashSet<uint> { 0xA5 }; // Right Alt
         public bool DriveOther;      // edge detection on
         public bool EdgeKeyboard = true; // an edge crossing also captures the keyboard
         public bool DragFiles = true; // file drags at the edge go to the Mac (drag.policy + the Files switches)
         public int DeadmanMs = 1500, DoubleTapMs = 400;
-        public bool Gestures = true; // revision 8: touchpad gestures go over as k.ge (Touchpad.cs)
+        public bool Gestures = true; // Touchpad gestures go over as k.ge (Touchpad.cs)
         Touchpad pad;
         readonly HashSet<uint> padCtrl = new HashSet<uint>(); // Ctrl that Windows made from a pinch, swallowed
 
@@ -37,7 +39,7 @@ namespace MacShare
 
         // hotkey double-tap
         bool hkDown; DateTime lastTapUp = DateTime.MinValue;
-        // Held back while capturing (docs/KVM.md "Hotkey"): a hotkey press is sent only when another
+        // Held back while capturing: a hotkey press is sent only when another
         // key or a click follows (a shortcut); a plain tap never reaches the other computer.
         uint hkPending; string hkPendingCode;
         readonly HashSet<uint> hkLocal = new HashSet<uint>(), hkRemote = new HashSet<uint>(); // pressed at home / sent over
@@ -285,7 +287,7 @@ namespace MacShare
             bool hotkey = !fakeCtrl && DetectHotkey(k.vkCode, down);
 
             if (!down && swallowVks.Remove(k.vkCode)) return (IntPtr)1;
-            // Revision 8: the Ctrl Windows injects for a touchpad pinch (Ctrl+wheel) stays here.
+            // The Ctrl Windows injects for a touchpad pinch (Ctrl+wheel) stays here.
             bool ctrl = k.vkCode == 0xA2 || k.vkCode == 0xA3 || k.vkCode == 0x11;
             if (ctrl && !down && padCtrl.Remove(k.vkCode)) return (IntPtr)1;
             if (ctrl && down && capturing && (k.flags & Native.LLKHF_INJECTED) != 0 && pad != null && pad.Pinching) { padCtrl.Add(k.vkCode); return (IntPtr)1; }
@@ -419,7 +421,7 @@ namespace MacShare
         }
 
         // Message-only window that receives WM_INPUT for the mouse (usage page 1, usage 2) and, since
-        // revision 8, the precision touchpad (digitizer page 0x0D, usage 5) for Touchpad.cs.
+        // The precision touchpad (digitizer page 0x0D, usage 5) for Touchpad.cs.
         class RawWindow : NativeWindow
         {
             readonly Action<int, int> onMove;

@@ -21,7 +21,7 @@ cp "$ROOT"/mac-helper/.build/release/macshare-helper "$ROOT"/mac-helper/.build/r
 cp -R node_modules/ws "$STAGE/node_modules/"
 mkdir -p "$STAGE/mac/node_modules" && cp -R node_modules/ws "$STAGE/mac/node_modules/"
 cp "$ROOT/LICENSE" "$STAGE/"
-[ -f "$ROOT/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/THIRD_PARTY_NOTICES.md" "$STAGE/" || [ -f "$ROOT/md/THIRD_PARTY_NOTICES.md" ] && cp "$ROOT/md/THIRD_PARTY_NOTICES.md" "$STAGE/" || true
+cp "$ROOT/THIRD_PARTY_NOTICES" "$STAGE/"
 node -e "
 const p = require('./package.json');
 require('fs').writeFileSync('$STAGE/package.json', JSON.stringify({
@@ -54,7 +54,7 @@ EOF
 
 APP="dist/TwinDesk-darwin-$ARCH/TwinDesk.app"
 rm -rf dist/TwinDesk.app && mv "$APP" dist/ && rm -rf "dist/TwinDesk-darwin-$ARCH" "$STAGE" dist/extra.plist
-# Revision 7: the Share menu extension (mac-helper/Sources/macshare-share), sandboxed as macOS requires.
+# The Share menu extension (mac-helper/Sources/macshare-share), sandboxed as macOS requires.
 APPEX=dist/TwinDesk.app/Contents/PlugIns/MacShareShare.appex
 VER="$(node -p "require('./package.json').version")"
 mkdir -p "$APPEX/Contents/MacOS"

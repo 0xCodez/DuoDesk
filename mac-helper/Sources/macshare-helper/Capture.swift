@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Event tap for shared cursor/keyboard (docs/KVM.md): edge push at home, Right-Option double-tap,
+// Event tap for shared cursor/keyboard: edge push at home, Right-Option double-tap,
 // capture (swallow + report as `ev`) per device class, dead-man, return edge while driven.
-// Safety rules (docs/KVM.md): the callback only does cheap work and enqueues output; our
+// Safety rules from Beamer's design: the callback only does cheap work and enqueues output; our
 // own injections are skipped; the hotkey stops capture locally first; releases of keys pressed
 // remotely are swallowed at home; no crossing during a drag.
 import Cocoa
@@ -54,7 +54,7 @@ final class Capture {
   // capture
   private(set) var capturing = false
   private var capMouse = false, capKeyboard = false
-  var gestures = true // revision 8: send trackpad gestures (k.ge) while capturing
+  var gestures = true // Send trackpad gestures (k.ge) while capturing
   private var dock: (motion: Int64, progress: Double)? = nil // the dock swipe in progress
   private var pinnedAt: CGPoint?            // where the pointer stays (hidden) while it is on the other computer
   private var lastCommand = 0.0
@@ -86,7 +86,7 @@ final class Capture {
                                 .otherMouseDown, .otherMouseUp, .leftMouseDragged, .rightMouseDragged,
                                 .otherMouseDragged, .scrollWheel, .keyDown, .keyUp, .flagsChanged]
     var mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
-    for raw in Capture.gestureTypes { mask |= CGEventMask(1) << CGEventMask(raw) } // trackpad gestures (revision 8)
+    for raw in Capture.gestureTypes { mask |= CGEventMask(1) << CGEventMask(raw) } // trackpad gestures
     guard let t = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap,
                                     eventsOfInterest: mask, callback: tapCallback, userInfo: nil) else {
       log("event tap failed: Accessibility / Input Monitoring not granted?")
@@ -268,7 +268,7 @@ final class Capture {
     return false
   }
 
-  // Revision 8: trackpad gestures. Event types outside CGEventType: 18 rotate, 19/20 begin/end
+  // Trackpad gestures. Event types outside CGEventType: 18 rotate, 19/20 begin/end
   // gesture, 29 gesture (pinch, smart zoom, swipe), 30 dock control (the system's 3/4-finger swipes
   // and pinches: Mission Control, Spaces, App Exposé, Launchpad, Show Desktop), 31 swipe, 32 smart zoom.
   static let gestureTypes: Set<UInt32> = [18, 19, 20, 29, 30, 31, 32]
@@ -297,7 +297,7 @@ final class Capture {
         out["exit"] = e.getDoubleValueField(Capture.fExit)
         if ProcessInfo.processInfo.environment["MACSHARE_DEBUG_GESTURES"] != nil { log("dock swipe motion \(m) progress \(p)") }
         if abs(p) > 0.1 {
-          out["mean"] = m == 1 ? (p < 0 ? "spaceLeft" : "spaceRight") // sign swapped 2026-10-13: the human saw the PC go the wrong way
+          out["mean"] = m == 1 ? (p < 0 ? "spaceLeft" : "spaceRight") // sign swapped: the PC went the wrong way
             : m == 2 ? (p < 0 ? "overview" : "appWindows") // up: Mission Control; down: App Exposé
             : (p < 0 ? "launcher" : "desktop") // pinch in: Launchpad; spread: desktop
         }
@@ -380,7 +380,7 @@ final class Capture {
     if isDown { buttonsHeld += 1 }
     if isUp { buttonsHeld = max(0, buttonsHeld - 1) }
     if type == .leftMouseDown { dragPbCount = NSPasteboard(name: .drag).changeCount }
-    // A file drag pushed through the crossing edge carries the files over (docs/ROADMAP.md).
+    // A file drag pushed through the crossing edge carries the files over.
     if type == .leftMouseDragged, !capturing, edgeEnabled, dragFiles,
        let off = Capture.push(&edge, e.location, dx, dy, side, resistance) {
       let paths = draggedFiles()

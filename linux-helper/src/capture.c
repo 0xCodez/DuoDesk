@@ -1,7 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // XInput2 raw events on the root window: edge push at home, the return edge, the hotkey, and
-// capture (pointer/keyboard grabs, the pointer hidden and parked) with the safety rules of
-// docs/KVM.md. Port of windows-helper/src/Capture.cs. Raw events reach us even while another
+// capture (pointer/keyboard grabs, the pointer hidden and parked) with the safety rules.
+// Port of windows-helper/src/Capture.cs (itself adapted from Beamer, GPL-3.0; see
+// THIRD_PARTY_NOTICES). Raw events reach us even while another
 // client (or we) hold a grab, and give deltas while the pointer is stuck at an edge.
 #include "helper.h"
 #include <math.h>
@@ -45,7 +46,7 @@ static double repeatAt, repeatDelay = 500, repeatInterval = 33;
 // hotkey double-tap
 static int hkDown;
 static double lastTapUp = -1;
-// Held back while capturing (docs/KVM.md "Hotkey"): a hotkey press is sent only when another key
+// Held back while capturing: a hotkey press is sent only when another key
 // or a click follows (a shortcut); a plain tap never reaches the other computer.
 static int hkPending = -1;
 static unsigned char hkRemote[256];

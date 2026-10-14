@@ -1,3 +1,5 @@
+//  From DeskPad (https://github.com/Stengo/DeskPad), MIT License, Copyright (c) 2022 Bastian
+//  Andelefski; see THIRD_PARTY_NOTICES. Unchanged below.
 //
 //  CGVirtualDisplayPrivate.h
 //  VirtualDisplayExp

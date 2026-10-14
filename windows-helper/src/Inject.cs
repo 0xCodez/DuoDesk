@@ -1,5 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// SendInput injection of k.* events (docs/KVM.md "Scaling, keys and scroll"). Every input carries
+// Portions adapted from Beamer (https://github.com/kalkman-code/beamer), Copyright (C) Kalkman Code,
+// GPL-3.0. Changed: C# port of the SendInput absolute-move and scan-code key approach.
+// SendInput injection of k.* events. Every input carries
 // dwExtraInfo = MARK so our own capture/edge code skips it. Held keys/buttons are tracked for
 // releaseAll.
 using System;
@@ -17,7 +19,7 @@ namespace MacShare
         double wheelRem, hwheelRem; // remainder of wheel units
 
         // Called after every injected move with the new position and the requested logical delta
-        // (the return edge watches pushes through the edge, docs/KVM.md armReturn).
+        // (the return edge watches pushes through the edge, armReturn).
         public Action<int, int, double, double> Moved;
 
         static readonly int Size = Marshal.SizeOf(typeof(Native.INPUT));

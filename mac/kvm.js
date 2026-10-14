@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Shared cursor + keyboard (docs/KVM.md): the state machine for both roles.
-//   driving: this Mac's input goes to the PC (owner, rows 1–6, 9)
-//   driven:  the PC's input drives this Mac (rows 7–9b)
-// Ownership model: docs/KVM.md (one owner of the input at a time, routes, fail open).
+// Shared cursor + keyboard: the state machine for both roles.
+//   driving: this Mac's input goes to the PC (owner)
+//   driven:  the PC's input drives this Mac
+// Ownership model adapted from Beamer (one owner of the input at a time, routes, fail open).
 //
 // Events: 'change' — this.view changed.
 'use strict';
@@ -34,7 +34,7 @@ class Kvm extends EventEmitter {
 
     setInterval(() => this._tick(), 250);
     // The host tells the layout on connect; after that either side sends it when its user changes it.
-    // Cursor sharing is remembered per pair (revision 7): on connect take this pair's value, and the
+    // Cursor sharing is remembered per pair: on connect take this pair's value, and the
     // host tells it so both computers agree; after that kvm.link keeps them in step.
     server.on('client', (ctx) => {
       this.lastName = ctx.name;
@@ -113,7 +113,7 @@ class Kvm extends EventEmitter {
         side: k.pcSide, resistancePx: k.resistancePx, keyboard: !!k.keyboard,
         driveOther: !!(this.linked && k.driveOther && k.mouse && this.server.current),
         hotkey: this.getSettings().keys.hotkey || P.HOTKEY_MAC,
-        gestures: k.gestures !== false, // revision 8: trackpad gestures go over as k.ge
+        gestures: k.gestures !== false, // Trackpad gestures go over as k.ge
         dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
       })
       .then(() => this._setTapError(null), (e) => this._setTapError(e.message));
@@ -243,7 +243,7 @@ class Kvm extends EventEmitter {
         }
         this._take({ mouse: true, where: { side: P.opposite(k.pcSide), offset: ev.offset }, paths: ev.drag && ev.drag.paths });
         break;
-      // Double-tap (docs/KVM.md "Hotkey"): switches mouse and keyboard sharing off (everything home)
+      // Double-tap: switches mouse and keyboard sharing off (everything home)
       // and on again. In keyboard-only mode (Cursor off + "Switch the keyboard with the hotkey") it
       // moves the keyboard over and back instead.
       case 'hotkey':
@@ -350,7 +350,7 @@ class Kvm extends EventEmitter {
     this.helper.send('inject', { ev });
   }
 
-  // Revision 8: a trackpad gesture from the other computer, done the Mac way. 8b: pinches and
+  // A trackpad gesture from the other computer, done the Mac way. Pinches and
   // system swipes become real macOS gesture events (Gesture.swift), so macOS itself zooms and
   // moves Spaces / Mission Control with the fingers. One-off gestures (from a PC), and everything
   // when MACSHARE_GESTURE_KEYS=1, use Mac keys (no Ctrl/Cmd swap) and Mission Control's own app.
