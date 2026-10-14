@@ -164,6 +164,5 @@ Shared-folder passwords are random and kept in the OS keychain (macOS) or encryp
 TwinDesk is free software, licensed under the [GNU General Public License v3.0](LICENSE).
 Copyright © 2026 inukaasith.
 
-Parts are adapted from [Beamer](https://github.com/kalkman-code/beamer) (GPL-3.0) and
-[DeskPad](https://github.com/Stengo/DeskPad) (MIT). See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES)
+Parts are adapted from [DeskPad](https://github.com/Stengo/DeskPad) (MIT). See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES)
 for details.
