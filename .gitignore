@@ -2,7 +2,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
-# Swift helper build output
+
 mac-helper/.build/
 mac-helper/.swiftpm/
 # C# helper build output
