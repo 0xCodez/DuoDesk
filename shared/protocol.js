@@ -1,14 +1,14 @@
 // TwinDesk — a Mac and a Windows PC that work as one.
 // Copyright (C) 2026 inukaasith. Licensed under the GNU GPL v3 (see LICENSE).
 //
-// Protocol v1 — single source of truth for both apps (see BUILD_PLAN.md and docs/KVM.md).
+// Protocol v1 — single source of truth for both apps.
 // Works as a CommonJS module in main processes (require('../shared/protocol.js'))
 // and as a plain <script> in renderers (window.MacShareProtocol).
 // The crypto helpers exist only where Node's crypto is available (main processes).
 (function (root) {
   const P = {
     PROTOCOL_VERSION: 1,
-    PORT: 47800, // WSS control channel; the host listens (docs/ROADMAP.md "Revision 4")
+    PORT: 47800, // WSS control channel; the host listens
     DISCOVERY_PORT: 47801, // UDP beacons, probes and invites; every app sends and listens
     BEACON_MS: 2000,
     PROBE_MS: 10000, // broadcast probe while not connected
@@ -23,17 +23,17 @@
     MAX_PAYLOAD: 16 * 1024 * 1024,
     SAS_LABEL: 'macshare-sas-v1',
 
-    // Mouse & keyboard sharing (docs/KVM.md)
+    // Mouse & keyboard sharing
     KVM_TAKE_TIMEOUT_MS: 1000, // owner goes home if no kvm.accept by then
     KVM_SILENCE_MS: 2000, // while driving/driven: no message from the peer for this long = link lost
     HELPER_KEEPALIVE_MS: 500, // main -> helper keepalive while capturing
     HELPER_DEADMAN_MS: 1500, // helper stops capturing by itself after this much keepalive silence
     RESISTANCE_PX: 120, // default push through an edge before crossing
     DOUBLE_TAP_MS: 400, // hotkey double-tap window
-    // The hotkey (double-tap = mouse and keyboard back home), docs/KVM.md "Hotkey (revision 4)".
+    // The hotkey (double-tap = mouse and keyboard back home).
     // Default Right Alt / Right Option on every OS; settings.keys.hotkey picks one of HOTKEYS.
     HOTKEY_MAC: 'AltRight', // Right Option
-    HOTKEY_WIN: 'AltRight', // Right Alt (was Right Ctrl before revision 4)
+    HOTKEY_WIN: 'AltRight', // Right Alt (was Right Ctrl)
     // Right, left, or either side ("Alt" = both Alt/Option keys).
     HOTKEYS: ['AltRight', 'AltLeft', 'Alt', 'ControlRight', 'ControlLeft', 'Control',
       'ShiftRight', 'ShiftLeft', 'Shift', 'MetaRight', 'MetaLeft', 'Meta'],
@@ -88,7 +88,7 @@
       K_WHEEL: 'k.wh',
       K_KEY_DOWN: 'k.kd',
       K_KEY_UP: 'k.ku',
-      // revision 8: a trackpad gesture by what it means, done natively by the driven computer:
+      // A trackpad gesture by what it means, done natively by the driven computer:
       // {g: 'zoom' (v = magnification step, + = in) | 'smartZoom' | 'rotate' (v degrees) | 'back' |
       //  'forward' | 'overview' (Mission Control / Task View) | 'appWindows' | 'desktop' |
       //  'spaceLeft' | 'spaceRight' (the desktop to the left / right) | 'launcher', phase?: 'begin'|'change'|'end'}
@@ -97,7 +97,7 @@
       CLIP: 'clip',
       CLIP_REQUEST: 'clip.request',
       CLIP_POLICY: 'clip.policy', // either way: {accept} — whether this side applies clip from the other
-      // roadmap, Bundle B (BUILD_PLAN "Roadmap messages")
+      // roadmap,
       AUDIO_POLICY: 'audio.policy', // W->M {accept}: the PC plays the Mac's sound
       SSH_KEY: 'ssh.key', // W->M {pub}
       SSH_INFO: 'ssh.info', // M->W {enabled, user, port, hostKeys, why?}
@@ -109,12 +109,12 @@
       FILE_END: 'file.end', // W->M {id, sha256}
       FILE_DONE: 'file.done', // M->W {id, ok, path?, error?}
       FILE_CANCEL: 'file.cancel', // either {id}
-      // drag across the edge, revision 3 (docs/ROADMAP.md): a native drag on the receiver, files + folders
+      // drag across the edge: a native drag on the receiver, files + folders
       DRAG_START: 'drag.start', // owner->receiver {drag, items: [{name, dir, size}], dirs: [rel], list: [{rel, size}], files, bytes}
       DRAG_CANCEL: 'drag.cancel', // owner->receiver {drag}
       DRAG_END: 'drag.end', // receiver->owner {drag, result: 'dropped'|'cancelled'|'failed', where?}
       DRAG_POLICY: 'drag.policy', // both {accept}: this side takes drags across the edge (assume true until told)
-      // revision 5 (docs/ROADMAP.md): notifications, Send files, copy/paste files with shortcuts
+      // Notifications, Send files, copy/paste files with shortcuts
       NOTIF: 'notif', // either {id, app, appName, title, subtitle, body, at}: a notification on the sender
       NOTIF_POLICY: 'notif.policy', // either {accept}: this side shows the other's notifications
       FCLIP_OFFER: 'fclip.offer', // either {id, items: [{name, dir, size}], files, bytes}: files copied with the shortcut
@@ -122,7 +122,7 @@
       FCLIP_KEY: 'fclip.key', // owner->driven {action:'copy'|'paste'}: the copy/paste shortcut pressed while driving it — do it there
       FCLIP_GONE: 'fclip.gone', // either {id}: nothing to paste any more (files moved, or a newer copy)
       FILES_DONE: 'files.done', // receiver->sender {batch, ok, where?, files}: a Send/paste batch landed
-      // roadmap, docs/ROADMAP.md (phases 7, 11, 12; PC -> Mac media)
+      // roadmap, (PC -> Mac media)
       RTC2_OFFER: 'rtc2.offer', // W->M {session, sdp, kind}
       RTC2_ANSWER: 'rtc2.answer', // M->W {session, sdp}
       RTC2_ICE: 'rtc2.ice', // either {session, candidate}
@@ -130,15 +130,15 @@
       // App-window sessions (kind 'window') also carry `win`: 'send' from the window's sender
       // (offer, its ice, stop), 'view' from the viewer (answer, its ice). Two PCs both send and
       // view windows, so this says whose session a number is; swapRole leaves these alone.
-      AUDIO_OFFER: 'audio.offer', // sender->receiver {dir:'m2w'|'w2m', session, sdp} (revision 2)
+      AUDIO_OFFER: 'audio.offer', // sender->receiver {dir:'m2w'|'w2m', session, sdp}
       AUDIO_ANSWER: 'audio.answer', // receiver->sender {dir, session, sdp}
       AUDIO_ICE: 'audio.ice', // either {dir, session, candidate}
       AUDIO_STOP: 'audio.stop', // sender->receiver {dir}
-      SCREEN_POLICY: 'screen.policy', // either, viewer->sharer {accept, width?, height?}: a viewer is open and wants the picture (revision 7: senders capture only while it is true)
-      SCREEN_CTL: 'screen.ctl', // either, viewer->sharer {share?, mode?: 'mirror'|'extend'}: start/stop or switch the other's sharing (revision 7)
-      SCREEN_STATE: 'screen.state', // either, sharer->viewer {on, mode, remote, modes}: what this side shares; remote = it takes screen.ctl (revision 7)
-      PAIR_SYNC: 'pair.sync', // either {feature, dir: 'out'|'in', on} | {key, value} (shared value, e.g. pace) | {all: {feature: {out, in}, values: {key: value}}} (host, after welcome): two-way switches shared per pair, dirs from the sender's side (revision 7b)
-      WOL_INFO: 'wol.info', // either {macs: ['aa:bb:cc:dd:ee:ff'], address}: how to wake this computer over the network (revision 7)
+      SCREEN_POLICY: 'screen.policy', // either, viewer->sharer {accept, width?, height?}: a viewer is open and wants the picture (senders capture only while it is true)
+      SCREEN_CTL: 'screen.ctl', // either, viewer->sharer {share?, mode?: 'mirror'|'extend'}: start/stop or switch the other's sharing
+      SCREEN_STATE: 'screen.state', // either, sharer->viewer {on, mode, remote, modes}: what this side shares; remote = it takes screen.ctl
+      PAIR_SYNC: 'pair.sync', // either {feature, dir: 'out'|'in', on} | {key, value} (shared value, e.g. pace) | {all: {feature: {out, in}, values: {key: value}}} (host, after welcome): two-way switches shared per pair, dirs from the sender's side
+      WOL_INFO: 'wol.info', // either {macs: ['aa:bb:cc:dd:ee:ff'], address}: how to wake this computer over the network
       SMB_OFFER: 'smb.offer', // sharer->other {share, user, password, port}
       SMB_REVOKE: 'smb.revoke', // sharer->other {share}
       SMB_STATE: 'smb.state', // other->sharer {share, mounted, error?}
@@ -149,7 +149,7 @@
       APP_WINDOWS: 'app.windows', // M->W {windows: [{wid, id, title, x, y, w, h}]} normalized rects
       APP_FOCUS: 'app.focus', // W->M {wid}
       APP_CLOSE: 'app.close', // W->M {wid}
-      // phase 13: PC apps on the Mac (docs/ROADMAP.md)
+      // PC apps on the Mac
       PAPP_POLICY: 'papp.policy', // M->W {accept}
       PAPPS_LIST: 'papps.list', // M->W
       PAPPS_RESULT: 'papps.result', // W->M {apps: [{id, name, icon}]}
@@ -200,7 +200,7 @@
       return (myOs === 'mac') !== ((peerOs || (myOs === 'mac' ? 'win' : 'mac')) === 'mac');
     },
 
-    // Role swap (docs/ROADMAP.md "Revision 4"): an app in its non-native role (a Mac as guest, a PC
+    // Role swap: an app in its non-native role (a Mac as guest, a PC
     // as host) passes every message it sends AND every message it receives through swapRole, so
     // its feature code keeps speaking its native role. Returns the messages to use instead (0–2).
     // `st` is one object per session and direction: newRoleSwapState().

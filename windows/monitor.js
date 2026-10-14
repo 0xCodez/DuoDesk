@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Monitor 2 renderer: answers the Mac's WebRTC offer and plays the video, paced as the Receive tab
-// says (revision 7: 'smooth' = about a frame of buffer, even motion; 'fast' = lowest latency).
+// says ('smooth' = about a frame of buffer, even motion; 'fast' = lowest latency).
 // With ?test=1 it plays a local moving test pattern instead (dev only, no Mac needed).
 const P = window.MacShareProtocol;
 const T = P.T;
@@ -98,7 +98,7 @@ async function onOffer(msg) {
   my.ontrack = (e) => {
     if (e.track.kind === 'video') pace(e.receiver);
     else if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0; // sound: lowest latency
-    if (e.track.kind === 'audio') { // the Mac's sound (phase 10), played next to the muted video
+    if (e.track.kind === 'audio') { // the Mac's sound, played next to the muted video
       audio.srcObject = new MediaStream([e.track]);
       applyAudio();
       return;
@@ -182,7 +182,7 @@ function toggleStats() {
 }
 api.onToggleStats(toggleStats);
 
-// ---- Details for the Display tab (revision 4): a summary once a second while a session runs ----
+// ---- Details for the Display tab: a summary once a second while a session runs ----
 
 let lastSum = null;
 async function reportStats() {

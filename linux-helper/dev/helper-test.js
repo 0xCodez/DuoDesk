@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Dev check for macshare-linuxhelper (docs/LINUX.md "Testing input"): edge, capture, keys, buttons,
+// Dev check for macshare-linuxhelper: edge, capture, keys, buttons,
 // wheel, stop at an edge, dead-man, place, injected moves and the return edge, the hotkey. Needs a
 // display nobody's mouse is over (Xephyr picks up the PC's pointer): `Xvfb :3 -screen 0
 // 1920x1080x24 &`, then `DISPLAY=:3 node linux-helper/dev/helper-test.js`. Fakes input with xt.c

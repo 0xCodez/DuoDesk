@@ -1,6 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Cursor tab: where the PC is (layout picker), directions, edge resistance, speed, scrolling.
-// Settings are saved now; the behaviour arrives in phases 4–5 (docs/KVM.md).
 'use strict';
 
 UI.tab({
@@ -10,7 +9,7 @@ UI.tab({
   title: 'Cursor',
   desc: 'Move the pointer off the edge of the screen to go to the other computer.',
   color: 'linear-gradient(#ffb340, #ff9500)',
-  // One switch (revision 7): cursor sharing, the same one the hotkey's double-tap and the other
+  // One switch: cursor sharing, the same one the hotkey's double-tap and the other
   // computer flip (kvm.link keeps both in step).
   master: { get: (s) => !!(s.kvm && s.kvm.mouse && s.kvm.linked !== false), set: (v) => UI.api.setKvm(v ? { mouse: true, linked: true } : { linked: false }) },
   badge: (s) => (s.kvm && s.kvm.mouse && s.kvm.linked !== false ? 'on' : ''),

@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
-// A host without `os` is a Mac from before revision 4.
+// A host without `os` is an older Mac.
 const osOf = (o) => (Object.values(P.OS).includes(o) ? o : P.OS.MAC);
 const HELLO_TIMEOUT_MS = P.TIMEOUT_MS; // no `welcome` this long after hello = retry
 
@@ -18,7 +18,7 @@ const PAIR_ERRORS = {
 
 class Link {
   // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null,
-  //   blocked() -> true while this PC hosts a session (revision 4: one session at a time)
+  //   blocked() -> true while this PC hosts a session (one session at a time)
   constructor(opts) {
     this.device = opts.device;
     this.blocked = opts.blocked || (() => false);
@@ -220,7 +220,7 @@ class Link {
       port: ps.port,
       fp: this.seenFp,
       token: msg.token,
-      os: osOf(msg.os), // the host's OS (revision 4); older Macs send none
+      os: osOf(msg.os), // the host's OS; older Macs send none
     };
     this.store.save(this.pairing);
     this.pairState = null;

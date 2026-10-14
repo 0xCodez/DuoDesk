@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The one session this Mac has, whichever side opened it (docs/ROADMAP.md "Revision 4"):
+// The one session this Mac has, whichever side opened it:
 //   host  — a PC or a Mac connected to our server (server.js), the usual case;
 //   guest — we connected to another Mac (link.js).
 // Feature code talks to this object exactly as it used to talk to the server: on('client'),
@@ -56,7 +56,7 @@ class Peer extends EventEmitter {
     return !!c && c.os === P.OS.MAC;
   }
 
-  // Ctrl/Cmd swap for keys from the peer (docs/KVM.md, revision 4: never between two Macs).
+  // Ctrl/Cmd swap for keys from the peer (never between two Macs).
   keySwap(settings) {
     const c = this.current;
     return settings.keys.swapCtrlCmd !== false && P.keySwapNeeded(P.OS.MAC, c && c.os);

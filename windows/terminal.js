@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Terminal, PC → Mac (phase 8, BUILD_PLAN "Roadmap messages"): an ed25519 key made once, handed to
+// Terminal, PC → Mac: an ed25519 key made once, handed to
 // the Mac over the paired link (ssh.key); the Mac's host keys come back (ssh.info) and are pinned
 // in our own known_hosts, so ssh never asks for a password or "trust this host?". Adds a
 // `macshare` command (a .cmd in userData\bin on the user PATH) and opens Windows Terminal.

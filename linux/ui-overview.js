@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Overview tab (docs/UI.md "Revision 4", copied from windows/ui-overview.js): this computer's address and Connect by address on top, the
+// Overview tab (copied from windows/ui-overview.js): this computer's address and Connect by address on top, the
 // computers found nearby (always visible), the two computers, one switch per feature and
 // direction, and what is paired.
 'use strict';
@@ -30,7 +30,7 @@ UI.tab({
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab. Features that
-    // aren't on Linux yet show the row disabled with one line (docs/UI.md "Revision 4").
+    // aren't on Linux yet show the row disabled with one line.
     const row = (label, tab, get, set) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
       const r = UI.row(label, get ? '' : 'Not on Linux yet', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
@@ -134,7 +134,7 @@ UI.tab({
           const online = known && connected;
           const mac = dev.os === 'mac';
           const btn = online || known ? null : UI.button('Pair', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
-          if (btn) btn.disabled = busy || !mac; // Linux ↔ Linux and Linux ↔ PC come in phase L4
+          if (btn) btn.disabled = busy || !mac; // Linux ↔ Linux and Linux ↔ PC come later
           if (btn && dev.invited && !busy) focus = btn;
           const hint = dev.address + (dev.invited ? ' · wants to connect' : !mac ? ' · only a Mac for now' : '');
           const r = UI.row(dev.name, hint, [

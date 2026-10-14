@@ -45,7 +45,7 @@ const { normalize, apply: applySettings } = require('./settings');
 const AUMID = app.isPackaged ? 'org.macshare.windows' : process.execPath;
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
-// Revision 7c: every sent video frame says "show me now" (RTP playout delay 0/0), the lowest latency
+// Every sent video frame says "show me now" (RTP playout delay 0/0), the lowest latency
 // whatever the viewer app does; a viewer in "Smooth" playback adds its own small buffer on top
 // (jitterBufferTarget). FlexFEC repairs lost packets without a resend round trip; it costs bandwidth
 // only while packets are lost. The Mac sets the same trials.
@@ -57,10 +57,10 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the Mac
-  app.setAppUserModelId(AUMID); // toasts need it (revision 5); the installer's shortcut carries the same id
-  // A pinned Mac app (revision 6) starts "TwinDesk.exe --mac-app=<id>": open it, else show the window.
+  app.setAppUserModelId(AUMID); // toasts need it; the installer's shortcut carries the same id
+  // A pinned Mac app starts "TwinDesk.exe --mac-app=<id>": open it, else show the window.
   app.on('second-instance', (_e, argv) => {
-    if (sendTo && sendTo.handle(argv)) return; // Explorer › Send to (revision 7)
+    if (sendTo && sendTo.handle(argv)) return; // Explorer › Send to
     if (!openMacAppArg(argv)) showMain();
   });
   app.whenReady().then(start);
@@ -86,7 +86,7 @@ let apps = null;
 let sound = null;
 let pcScreen = null;
 let pcApps = null;
-let peerApps = null; // revision 9: the other PC's apps here
+let peerApps = null; // The other PC's apps here
 let vdd = null;
 let wake = null;
 let sendTo = null;
@@ -97,7 +97,7 @@ let fileClip = null;
 let sshd = null;
 let kvm = null;
 let lastMode = 'home';
-let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check (phase 6)
+let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check
 // Started at sign-in (tray only), or by a pinned Mac app's shortcut (that app only).
 const startHidden = process.argv.includes('--hidden') || process.argv.some((a) => a.startsWith('--mac-app='));
 let pendingMacApp = null; // {id, until}: opened once the Mac connects (2 min)
@@ -176,22 +176,22 @@ function start() {
       : on ? (name ? 'With ' + name + '. ' : '') + 'Double-tap ' + key + ' to turn it off' : 'Double-tap ' + key + ' to turn it on';
     hud.show(on ? 'linkOn' : 'linkOff', 'Cursor sharing ' + (on ? 'on' : 'off'), sub);
   };
-  kvm.onWhere = (mode) => { // the switching popup (docs/KVM.md "Hotkey (revision 4)")
+  kvm.onWhere = (mode) => { // the switching popup
     const name = peerName();
     if (mode === 'driving') hud.show('away', (kvm.keyboardOnly ? 'Typing on ' : 'Using ') + name);
     else if (mode === 'driven') hud.show('driven', name + ' is using {me}');
     else hud.show('home', 'Back on {me}');
   };
   vdd = new Vdd({ helper, onChange: pushState });
-  // revision 5: notifications both ways, Send files, copy/paste files with shortcuts
+  // Notifications both ways, Send files, copy/paste files with shortcuts
   notifs = new Notifs({ link, helper, settings, save: saveSettings, selfIds: [AUMID, 'org.macshare.windows'], peerName, onChange: pushState });
   fileClip = new FileClip({ link, helper, fileDrop, fileRecv, dragRecv, settings, peerName, popup: (kind, text) => hud.show(kind, text), onChange: pushState });
-  // Revision 9b: a paste Windows copies itself (dragrecv.js) — its files skip filerecv.js.
+  // A paste Windows copies itself (dragrecv.js) — its files skip filerecv.js.
   fileRecv.claims = (m) => dragRecv._pasteOf(m);
   dragRecv.onPasted = (b) => fileClip.pasted(b);
-  kvm.fileClip = fileClip; // revision 6: our copy/paste shortcut while driving → fclip.key
+  kvm.fileClip = fileClip; // Our copy/paste shortcut while driving → fclip.key
   sendTo = new SendTo({ link, fileDrop, peerName: () => (peerView() || {}).name || '', popup: (kind, text, sub) => hud.show(kind, text, sub) });
-  // Revision 7: copy/paste and Send files show progress in the popup, like a drag. Receiving: every
+  // Copy/paste and Send files show progress in the popup, like a drag. Receiving: every
   // batch that takes longer than a moment; sending: batches over 5 MB.
   const pct = (n, total) => Math.min(99, Math.floor((n / total) * 100));
   const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
@@ -216,7 +216,7 @@ function start() {
     if (b.kind === 'paste') fileClip.pasted(b);
     else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
   };
-  wake = new Wake({ link, settings, save: saveSettings, onChange: pushState, address: () => ownAddresses()[0] }); // revision 7: wake over the network
+  wake = new Wake({ link, settings, save: saveSettings, onChange: pushState, address: () => ownAddresses()[0] }); // Wake over the network
   const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
   pcScreen = new PcScreen({ link, helper, sender, vdd, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   pcApps = new PcApps({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
@@ -226,7 +226,7 @@ function start() {
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
-  pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // revision 7b: two-way switches per pair
+  pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
   link.start();
 
@@ -241,7 +241,7 @@ function start() {
   if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
 }
 
-// Host role (revision 4): our own server, once the certificate exists (made on first start).
+// Host role: our own server, once the certificate exists (made on first start).
 async function startHost(guest) {
   try {
     const id = await identity.load();
@@ -258,7 +258,7 @@ async function startHost(guest) {
   }
 }
 
-// ---- pinned Mac apps (revision 6) ----
+// ---- pinned Mac apps ----
 
 function openMacAppArg(argv) {
   const arg = (argv || []).find((a) => typeof a === 'string' && a.startsWith('--mac-app='));
@@ -287,10 +287,10 @@ function pushState() {
   setImmediate(() => {
     pushQueued = false;
     const s = buildState();
-    if (pcScreen) pcScreen.sendState(); // revision 7: the viewer learns what we share
+    if (pcScreen) pcScreen.sendState(); // The viewer learns what we share
     if (sendTo) sendTo.sync(s.peer && s.peer.name);
-    if (pairSync) pairSync.check(); // revision 7b: tell the other computer what changed here // the Send to entry follows the peer's name
-    // A pairing code to compare: bring the window to the front (docs/UI.md).
+    if (pairSync) pairSync.check(); // Tell the other computer what changed here // the Send to entry follows the peer's name
+    // A pairing code to compare: bring the window to the front.
     const phase = s.pairing ? s.pairing.phase : null;
     if (phase === 'code' && lastPairPhase !== 'code') showMain();
     lastPairPhase = phase;
@@ -299,7 +299,7 @@ function pushState() {
   });
 }
 
-// Device names everywhere (docs/UI.md "Device names, not Mac / PC"): fill {me} (this PC's name),
+// Device names everywhere: fill {me} (this PC's name),
 // {name} / {Name} (the other computer's) in a message shown outside the main window.
 function fillNames(t) {
   if (!t || !String(t).includes('{')) return t || '';
@@ -316,7 +316,7 @@ function peerName() {
   return (p && p.name) || 'the other computer';
 }
 
-// The other computer (revision 4): {os, name, role}, null when nothing is paired.
+// The other computer: {os, name, role}, null when nothing is paired.
 // role: the other computer's role ('host' = we connected to it).
 function peerView() {
   const s = link.snapshot();
@@ -326,7 +326,7 @@ function peerView() {
   return g ? { os: g.os, name: g.name, id: g.id, role: 'guest' } : null;
 }
 
-// Setup items that aren't ready (docs/ROADMAP.md "Setup screen"). The driver is optional.
+// Setup items that aren't ready. The driver is optional.
 function missing() {
   const m = [];
   if (fw.ok === false && !fw.checking && !fw.error) m.push('firewall');
@@ -366,7 +366,7 @@ function buildState() {
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
     files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags, clip: fileClip.view() },
     notifs: { ...settings.notifs, ...notifs.view() },
-    apps: link.peerOs === P.OS.WIN ? peerApps.view() : apps.view(), // revision 9: a PC's apps come through peerapps.js
+    apps: link.peerOs === P.OS.WIN ? peerApps.view() : apps.view(), // A PC's apps come through peerapps.js
     startup: getStartup(),
     setup: { missing: miss, show: !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)) },
   };
@@ -374,7 +374,7 @@ function buildState() {
 
 // This PC's addresses for the Overview: Wi-Fi and Ethernet first, VPN/WSL/VM adapters last
 // (Copy takes the first one).
-// Revision 7b: the address the other computer can reach comes first (Overview shows only that one):
+// The address the other computer can reach comes first (Overview shows only that one):
 // on the peer's network, then physical adapters, never a VPN / Hyper-V / WSL adapter if avoidable.
 function ownAddresses() {
   const peer = String(link.snapshot().link.address || '').replace(/^::ffff:/, '');
@@ -393,7 +393,7 @@ function onKvmChange() {
   pushState();
 }
 
-// ---- phase 6: firewall, start with Windows ----
+// ---- firewall, start with Windows ----
 
 async function checkFirewall() {
   fw = { ...fw, checking: true };
@@ -491,7 +491,7 @@ function showMain() {
   mainWin.focus();
 }
 
-// Tray (docs/UI.md "Popups and the menu bar"): the app mark's two screens, white on a dark
+// Tray: the app mark's two screens, white on a dark
 // taskbar and black on a light one; the switches people reach for most, one click away.
 function trayIcon() {
   const name = trayLight ? 'tray-black' : 'tray-white';
@@ -549,7 +549,7 @@ function updateTray(s = buildState()) {
     check('Cursor Sharing', kvm.linked, (i) => kvm.setLinked(i.checked)),
     { type: 'separator' },
     check('Share Screen', sharing, (i) => pcScreen.setMode(i.checked ? 'mirror' : 'off')),
-    // Revision 10: opens/closes the screen window (opening starts the other computer's sharing).
+    // Opens/closes the screen window (opening starts the other computer's sharing).
     check('Receive Screen', watching, (i) => (i.checked ? screen.open(false) : screen.close())),
     check('Use Mouse and Keyboard on ' + other, k.driveOther, (i) => set('kvm', { driveOther: i.checked }, () => kvm.applyConfig())),
     check('Let ' + other + ' Control ' + device.name, k.beDriven, (i) => set('kvm', { beDriven: i.checked }, () => kvm.applyConfig())),

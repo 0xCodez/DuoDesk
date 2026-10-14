@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Desktop geometry for KVM (docs/KVM.md "Words"): outer edges, offsets along the crossing side,
+// Desktop geometry for KVM: outer edges, offsets along the crossing side,
 // where to land the pointer, and clamping moves to the desktop. Global CG coordinates
 // (top-left origin, points).
 import CoreGraphics

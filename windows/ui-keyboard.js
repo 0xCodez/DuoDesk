@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Keyboard tab: typing follows the pointer. The Hotkey card (double-tap = mouse and keyboard back
-// here; keyboard-only switching), then two direction cards (docs/UI.md); the directions are the
-// same switches as on the Cursor tab. Behaviour: docs/KVM.md (kvm.js + windows-helper).
+// here; keyboard-only switching), then two direction cards; the directions are the
+// same switches as on the Cursor tab. Behaviour: kvm.js and windows-helper.
 'use strict';
 
 UI.tab({

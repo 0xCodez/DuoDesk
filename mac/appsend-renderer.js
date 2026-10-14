@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 10, Mac ↔ Mac apps: the hidden window that streams this Mac's app windows to the other
+// Mac ↔ Mac apps: the hidden window that streams this Mac's app windows to the other
 // Mac, one `rtc2` session (kind 'window') per window (we offer, the viewer answers recvonly).
 // Adapted from windows/sender-renderer.js; low-latency settings as mac/capture.js.
 'use strict';
@@ -45,7 +45,7 @@ function withOpus(sdp) {
 
 // m: {session, sourceId, width, height, follow?, mbps, fps?, audio, offer: {kind, wid?}}
 // follow: the picture follows the source's size (an app window), up to width × height.
-// Every frame matters more than the last bit of sharpness (revision 7c): under pressure the encoder
+// Every frame matters more than the last bit of sharpness: under pressure the encoder
 // lowers quality, never the frame rate (dropped frames are what feels jagged and adds lag).
 async function start(m) {
   stop(m.session);

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 7b (docs/ROADMAP.md "pair.sync"): every two-way section is one setting shared by both
+// Every two-way section is one setting shared by both
 // computers, remembered per pair. "Show this PC's notifications on the Mac" is this PC's
 // notifs.send AND the Mac's notifs.receive: flip it on either computer and the other follows.
 // Directions are told from the sender's side ('out' = the sender's things on the receiver), so the
@@ -21,10 +21,10 @@ const FEATURES = {
   audio: { out: ['audio', 'send'], in: ['audio', 'receive'] },
   cursor: { out: ['kvm', 'driveOther'], in: ['kvm', 'beDriven'] },
 };
-// Revision 7c: shared values, the same on both computers (no direction): key → settings path + values.
+// Shared values, the same on both computers (no direction): key → settings path + values.
 const VALUES = {
   pace: { path: ['monitor', 'pacing'], allowed: ['fast', 'smooth'] },
-  gestures: { path: ['kvm', 'gestures'], allowed: [true, false] }, // revision 8
+  gestures: { path: ['kvm', 'gestures'], allowed: [true, false] },
 };
 
 class PairSync {

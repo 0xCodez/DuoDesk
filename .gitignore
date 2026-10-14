@@ -16,3 +16,5 @@ windows/dist/
 # Linux helper build output
 linux-helper/bin/
 linux/dist/
+# editor settings
+.vscode/

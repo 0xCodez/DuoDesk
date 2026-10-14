@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // General tab: start with Windows, the switching popup, firewall self-check (+ Fix), wake from the
-// network (revision 7), helper, this PC, about.
+// network, helper, this PC, about.
 'use strict';
 
 UI.tab({
@@ -19,7 +19,7 @@ UI.tab({
     const fwCheck = UI.button('Check again', () => api.checkFirewall(), 'small');
     const fwFix = UI.button('Fix', () => api.fixFirewall(), 'small primary');
     const fwRow = UI.row('Firewall', '', [fwPill, fwCheck, fwFix]);
-    // Revision 7b (as the Mac): wake is a switch; Send to sends files from Explorer.
+    // (as the Mac): wake is a switch; Send to sends files from Explorer.
     const wakeSw = UI.switch((v) => api.setWake(v), { label: 'Wake from the network' });
     const wakeRow = UI.row('Let the other computer wake {me}', '', [wakeSw]);
     const sendToRow = UI.row('TwinDesk in Send to', '');

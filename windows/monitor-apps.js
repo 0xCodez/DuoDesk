@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Mac app windows (phase 12): one PC window per `app.windows` entry, opened from this renderer so
+// Mac app windows: one PC window per `app.windows` entry, opened from this renderer so
 // it can show the same video stream, cropped to that window's rectangle. Input inside it is sent
 // as in.* with coordinates mapped back to the whole picture. Closing it closes the Mac window.
 (function () {

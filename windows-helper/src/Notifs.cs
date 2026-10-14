@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 5 (docs/ROADMAP.md "Notifications"): this PC's notifications, read from the
+// This PC's notifications, read from the
 // notification database %LOCALAPPDATA%\Microsoft\Windows\Notifications\wpndatabase.db (SQLite,
 // readable by the user) through winsqlite3.dll, which ships with Windows 10+. Polled once a second
 // while main asks for it; each new toast becomes an event {"event":"notif", id, app, appName,

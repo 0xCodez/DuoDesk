@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The switching popup (docs/UI.md "Popups and the menu bar"): a small pill at the bottom centre of
+// The switching popup: a small pill at the bottom centre of
 // the screen under the pointer. Click-through, never focused, top-most, excluded from screen
 // capture where the desktop supports it (not on X11), off with General › "Show a popup".
 // Copy of windows/hud.js. Transparent corners need a compositing window manager.
@@ -7,7 +7,7 @@ const path = require('path');
 const { BrowserWindow, screen } = require('electron');
 
 const W = 380, H = 64, SHOW_MS = 1400;
-const BIG_W = 460, BIG_H = 230, BIG_MS = 2200; // the cursor sharing on/off card (docs/UI.md "Cursor sharing card")
+const BIG_W = 460, BIG_H = 230, BIG_MS = 2200; // the cursor sharing on/off card
 
 class Hud {
   constructor(getSettings) {

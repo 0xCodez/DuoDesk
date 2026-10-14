@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Guest role (docs/ROADMAP.md "Revision 4"): this Mac connects to another Mac that hosts.
+// Guest role: this Mac connects to another Mac that hosts.
 // WSS client with certificate pinning, pairing as the initiator, hello, liveness, reconnect.
 // Same protocol as windows/link.js; stored hosts live in hosts.json.
 //

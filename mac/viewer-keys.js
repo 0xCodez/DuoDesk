@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Keys from a PC viewer window (phases 11, 13), taken in main via before-input-event: no renderer
+// Keys from a PC viewer window, taken in main via before-input-event: no renderer
 // hop, and ⌘Q / ⌘W / ⌘H go to the PC instead of acting on TwinDesk.
 'use strict';
 

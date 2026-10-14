@@ -1,14 +1,14 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 11, Display › PC → Mac (docs/ROADMAP.md): the PC's screen in a window on this Mac.
+// Display › PC → Mac: the PC's screen in a window on this Mac.
 // We tell the PC with `screen.policy {accept, width, height}` and answer every `rtc2.offer`
 // (recvonly) in a visible viewer window, tuned for the lowest latency (jitter buffer 0, input sent
 // the moment it arrives). Keys are taken in main (before-input-event) so Cmd+Q/W/… reach the PC;
 // mouse input comes from the viewer page. Closing the window turns the switch off.
-// Revision 10: the window is the switch. It opens only when the person opens it (Receive tab, menu
+// The window is the switch. It opens only when the person opens it (Receive tab, menu
 // bar, never because the other side started sharing); while it is open and not minimized we accept
 // (`screen.policy`), which is what makes the other computer send; opening it also starts the other
 // side's sharing when that's allowed, and closing it stops what we started.
-// Revision 7: minimizing pauses the picture (accept false: the PC stops capturing); the PC's
+// Minimizing pauses the picture (accept false: the PC stops capturing); the PC's
 // `screen.state` lets us start its sharing and switch Extend/Mirror from here (`screen.ctl`), from
 // the Receive tab or the window's toolbar; opening the window starts it when the PC allows that.
 //

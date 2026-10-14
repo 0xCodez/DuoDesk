@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Display › PC → Mac (phase 11): this PC's screen in a window on the Mac, controlled from there.
+// Display › PC → Mac: this PC's screen in a window on the Mac, controlled from there.
 // Mirror shows an existing monitor; Extend adds an extra (virtual) screen (vdd.js).
 'use strict';
 
@@ -40,12 +40,12 @@ UI.tab({
       { value: 30, label: 'High, 30 Mbps' },
       { value: 50, label: 'Best, 50 Mbps (wired)' },
     ], (v) => set({ mbps: Number(v) }));
-    const paceRow = UI.paceRow(); // revision 7c: one Playback setting, synced with the other computer
+    const paceRow = UI.paceRow(); // One Playback setting, synced with the other computer
     const sound = UI.switch((v) => set({ sound: v }), { label: 'Include sound' });
     const input = UI.switch((v) => set({ input: v }), { label: 'Receive input' });
     const inputRow = UI.row('Receive input', '', [input]); // "Receive input from Mac" / "from PC2"
     const remote = UI.switch((v) => set({ remote: v }), { label: 'Remote start' });
-    const remoteRow = UI.row('Let the other computer start and switch this screen', '', [remote]); // revision 7: screen.ctl
+    const remoteRow = UI.row('Let the other computer start and switch this screen', '', [remote]); // screen.ctl
 
     const monitorRow = UI.row('Display', '', [monitor]);
     const extendRow = UI.row('Size', '', [extendSize]);

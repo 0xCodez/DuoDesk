@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Mac apps on the PC (phase 12, docs/ROADMAP.md): app list, launch, and the windows of launched
+// Mac apps on the PC: app list, launch, and the windows of launched
 // apps as rectangles normalized over the stream picture, so the PC crops each into its own window.
 //
 // Events: 'change' — this.view changed.
@@ -20,7 +20,7 @@ class Apps extends EventEmitter {
     this.windows = [];
     this.timer = null;
     // Opening an app turns screen sharing on if it was off; it goes off again when the apps are
-    // done (human, 2026-10-13). setSharing(on) is wired by main (ipc actions).
+    // done. setSharing(on) is wired by main (ipc actions).
     this.setSharing = null;
     this.autoShare = false;
     this.emptySince = 0;

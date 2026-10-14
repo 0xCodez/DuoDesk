@@ -1,9 +1,9 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files dropped onto Monitor 2 → the Mac (phase 9, BUILD_PLAN "Roadmap messages"), and files and
-// folders dragged across the edge (revision 3: `drag.start` + `file.offer {drop:'drag', rel}`, the
+// Files dropped onto Monitor 2 → the Mac, and files and
+// folders dragged across the edge (`drag.start` + `file.offer {drop:'drag', rel}`, the
 // Mac shows a real drag and the drop target pulls the data): one file at a time over the control
 // channel in base64 chunks, with a SHA-256 check. Waits while the socket is backed up so mouse and
-// keyboard messages never sit behind a big file. Revision 5: Send files and pastes the other side
+// keyboard messages never sit behind a big file. Send files and pastes the other side
 // asked for go the same way as batches (`drop:'send'|'paste'`, `batch`, `rel`), ended by `files.done`.
 const crypto = require('crypto');
 const fs = require('fs');
@@ -28,7 +28,7 @@ class FileDrop {
     for (const t of [T.FILE_ACCEPT, T.FILE_REFUSE, T.FILE_DONE, T.FILE_CANCEL]) this.link.on(t, (m) => this._answer(m));
     this.drag = null; // {drag, name} while a drag's files are being sent
     this.link.on(T.DRAG_END, (m) => this._dragEnd(m));
-    this.batches = new Map(); // revision 5: batch → {kind, name, files, bytes}
+    this.batches = new Map(); // Batch → {kind, name, files, bytes}
     this.link.on(T.FILES_DONE, (m) => this._batchDone(m));
     this.link.on('closed', () => {
       this._abortAll('{Name} disconnected');
@@ -52,7 +52,7 @@ class FileDrop {
     this._next();
   }
 
-  // A drag across the edge (revision 3), step 1: walk the folders. Returns what kvm.take and
+  // A drag across the edge: walk the folders. Returns what kvm.take and
   // beginDrag need, or null when nothing can go. Nothing is sent yet: kvm.take goes first.
   prepareDrag(paths) {
     if (!this.settings.files.dropToMac || this.link.status.state !== 'connected') return null;
@@ -60,7 +60,7 @@ class FileDrop {
     return d && { drag: crypto.randomBytes(8).toString('hex'), ...d, count: d.items.length };
   }
 
-  // Revision 5: Send files (kind 'send') or a paste the other side asked for (kind 'paste', batch =
+  // Send files (kind 'send') or a paste the other side asked for (kind 'paste', batch =
   // the fclip id): every file offered in order with its folder path. Returns the plan, or null.
   sendBatch(paths, kind, batch = crypto.randomUUID()) {
     if (this.link.status.state !== 'connected') return null;
@@ -88,7 +88,7 @@ class FileDrop {
     this._report(b.name, !!m.ok, m.ok ? 'Sent' + (typeof m.where === 'string' && m.where ? ' to ' + m.where.slice(0, 300) : '') : 'Not everything arrived');
   }
 
-  // Step 2, right after kvm.take: describe everything in `drag.start`, then send the files.
+  // Right after kvm.take: describe everything in `drag.start`, then send the files.
   beginDrag(d) {
     this.cancelRelease(); // one drag at a time
     const { drag, items, dirs, list, jobs, bytes } = d;
@@ -171,7 +171,7 @@ class FileDrop {
         if (job.batch && this.batches.has(job.batch)) {
           const b = this.batches.get(job.batch);
           b.sent += chunk.length;
-          if (this.onBatchProgress) this.onBatchProgress(b); // revision 7: the popup for big batches
+          if (this.onBatchProgress) this.onBatchProgress(b); // The popup for big batches
         }
         this._progress();
       }
@@ -199,8 +199,8 @@ class FileDrop {
     if (w && w.types.includes(m.t)) w.resolve(m);
   }
 
-  // Input went home before the button came up: the dragged files don't go (revision 2 R4), and a
-  // revision 3 drag is cancelled on the Mac.
+  // Input went home before the button came up: the dragged files don't go, and a
+  // Drag is cancelled on the Mac.
   cancelRelease() {
     this.queue = this.queue.filter((j) => !j.release);
     if (this.current && this.current.release) this.cancel();
@@ -244,7 +244,7 @@ class FileDrop {
     const b = c && c.batch && this.batches.get(c.batch);
     return {
       current: c ? { name: c.name, size: c.size, sent: c.sent, index: c.index, count: c.count } : null,
-      // revision 5: the Send files / paste batch being sent, for the Files tab's progress bar
+      // The Send files / paste batch being sent, for the Files tab's progress bar
       batch: b ? { name: b.name, files: b.files, index: c.index, bytes: b.bytes, sent: b.sent, kind: b.kind } : null,
       queued: this.queue.length,
       last: this.last,

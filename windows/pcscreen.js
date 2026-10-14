@@ -1,10 +1,10 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 11, Display › PC → Mac (docs/ROADMAP.md): this PC's screen in a window on the Mac.
+// Display › PC → Mac: this PC's screen in a window on the Mac.
 // Mirror = one existing monitor; Extend = the virtual monitor (vdd.js). Sharing starts off every
 // time the app starts. We offer an `rtc2` session (kind `screen` / `screen+audio`) while sharing is
 // on and the Mac's `screen.policy` accepts (sender.js); `in.*` without `wid` from the Mac are
 // injected by the helper (remote-input.js).
-// Revision 7: `screen.policy` means "a viewer is open and watching" (any peer); nothing is captured
+// `screen.policy` means "a viewer is open and watching" (any peer); nothing is captured
 // while it is false. A peer that never sends one (an older app) counts as watching, after a moment
 // for its first policy to arrive. We tell the viewer what we share (`screen.state`) and, when
 // "Let <peer> start and switch this screen" is on (pcScreen.remote), obey its `screen.ctl`.
@@ -244,7 +244,7 @@ class PcScreen {
       .map((d) => ({ d, r: displays.dipToScreenRect(null, d.bounds) }))
       .filter(({ r }) => !(v && r.x === v.x && r.y === v.y))
       .map(({ d, r }, i) => {
-        // The monitor's own name; a laptop panel often has none (revision 4: real names, not 'Monitor').
+        // The monitor's own name; a laptop panel often has none (real names, not 'Monitor').
         const name = d.label || (d.internal ? 'Built-in screen' : 'Monitor ' + (i + 1));
         return { id: String(d.id), label: name + ', ' + r.width + ' × ' + r.height + (d.id === primary ? ' (main)' : '') };
       });

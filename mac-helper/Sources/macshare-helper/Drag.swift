@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files dragged in from the PC become a real drag on this Mac (docs/ROADMAP.md "Drag files across
-// the screen edge", revision 3). `dragStart` puts a nearly invisible panel under the pointer and
+// Files dragged in from the PC become a real drag on this Mac ("Drag files across
+// the screen edge"). `dragStart` puts a nearly invisible panel under the pointer and
 // injects a (marked) left-button-down into it; its mouseDown starts an NSDraggingSession with one
 // NSFilePromiseProvider per dragged item. From then on the session follows the PC's injected
 // pointer (k.mm arrive as leftMouseDragged), the PC's k.mu {b:0} drops. Main writes the promised

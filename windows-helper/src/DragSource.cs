@@ -1,11 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Drag across the edge, revision 3 (docs/ROADMAP.md): files and folders dragged from the Mac become
+// Drag across the edge: files and folders dragged from the Mac become
 // a real Windows drag at the pointer — OLE DoDragDrop with *virtual files* (FileGroupDescriptorW +
 // FileContents streams), so any drop target works (Explorer, Desktop, mail, browsers) and Explorer
 // copies in the background (IDataObjectAsyncCapability). The bytes are still arriving while the
 // person drags: a stream read waits for them (the files land in a temp folder, written by main).
 // Runs on its own STA thread so a waiting read never blocks the input hooks on the main thread.
-// Revision 9b: the paste shortcut uses the same data object, dropped straight onto the folder's
+// The paste shortcut uses the same data object, dropped straight onto the folder's
 // drop target (no mouse): Windows copies it with its own progress dialog and replace/skip prompts.
 using System;
 using System.Collections.Generic;

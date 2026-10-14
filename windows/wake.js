@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 7 (docs/ROADMAP.md "Wake over the network"): each side sends `wol.info {macs, address}`
+// Each side sends `wol.info {macs, address}`
 // after welcome; we keep it per paired device (settings.wake.peers) so Overview › Paired can wake a
 // sleeping or switched-off computer with a magic packet (6 × 0xFF, then its MAC address 16 times) to
 // every broadcast address and its last address, ports 9 and 7. The link keeps retrying by itself, so
@@ -45,7 +45,7 @@ $out = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object S
 ConvertTo-Json -Compress -InputObject $out
 `;
 
-// Revision 7b: a switch, so both ways (elevated).
+// A switch, so both ways (elevated).
 const SET = (on) => `
 Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | ForEach-Object {
   try { Set-NetAdapterPowerManagement -Name $_.Name -WakeOnMagicPacket ${on ? 'Enabled' : 'Disabled'} -ErrorAction Stop } catch {}

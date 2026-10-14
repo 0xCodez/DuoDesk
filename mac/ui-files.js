@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files tab (revision 2): drag and drop and network drives, both directions in equal places.
+// Files tab: drag and drop and network drives, both directions in equal places.
 'use strict';
 
 UI.tab({
@@ -32,7 +32,7 @@ UI.tab({
     const progress = el('div');
     const list = el('div', { class: 'history' });
 
-    // Send files (revision 5): drop zone + Choose…
+    // Send files: drop zone + Choose…
     const zoneText = el('div', { class: 'big', text: 'Drop files or folders here' });
     const zone = el('div', { class: 'dropzone' }, [el('div', {}, [zoneText, el('div', { class: 'hint', text: 'They go to the other computer’s Downloads' })])]);
     const sendBtn = UI.button('Choose…', () => api.chooseSendFiles(), 'small');
@@ -52,7 +52,7 @@ UI.tab({
     window.addEventListener('dragover', (e) => e.preventDefault());
     window.addEventListener('drop', (e) => e.preventDefault());
 
-    // Copy and paste files with shortcuts (revision 5)
+    // Copy and paste files with shortcuts
     const keysSw = UI.switch((v) => api.setFiles({ shortcuts: v }), { label: 'Copy and paste files with shortcuts' });
     const copyRec = UI.keyRecorder((v) => api.setFiles({ copyKeys: v }));
     const pasteRec = UI.keyRecorder((v) => api.setFiles({ pasteKeys: v }));

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 7 (docs/ROADMAP.md "Native share menus → Send files"): Explorer's right-click › Send to
+// Explorer's right-click › Send to
 // gets "<peer name> (TwinDesk)", a shortcut in shell:sendto to `TwinDesk.exe --send-files`. Explorer
 // appends the chosen paths; that copy of TwinDesk hands them to this one (second-instance) and they
 // go with the Send files flow (filedrop.js, drop:'send'). The shortcut follows the paired computer's

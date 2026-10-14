@@ -1,11 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Terminal tab: shells both ways as two direction cards (docs/UI.md). Mac → PC: the Mac opens a
+// Terminal tab: shells both ways as two direction cards. Mac → PC: the Mac opens a
 // shell here (Windows' OpenSSH Server, sshd.js). PC → Mac: a shell on the Mac (terminal.js).
 'use strict';
 
 UI.tab({
   id: 'terminal',
-  macOnly: true, // revision 4: off with a PC or Linux peer for now
+  macOnly: true, // Off with a PC or Linux peer for now
   order: 60,
   title: 'Terminal',
   color: 'linear-gradient(#3a3a3c, #1c1c1e)',

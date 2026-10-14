@@ -1,9 +1,9 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Mac apps on the PC (phase 12, docs/ROADMAP.md), main-process side: the app list and launching
+// Mac apps on the PC, main-process side: the app list and launching
 // for the Apps tab, and the per-app windows. Those windows are opened by the Monitor 2 renderer
 // (window.open, so they can show the same video stream, cropped); here they get the app's title,
 // icon and their own AppUserModelID, so each Mac app has its own taskbar button.
-// Revision 6: each Mac app gets a Start menu shortcut (folder "TwinDesk Apps") that starts
+// Each Mac app gets a Start menu shortcut (folder "TwinDesk Apps") that starts
 // `TwinDesk.exe --mac-app=<id>`, and its windows carry the same AppUserModelID and relaunch
 // command, so Pin to Start / Pin to taskbar work. Its windows never go full screen or past 1:1.
 const { app, BrowserWindow, nativeImage, shell, screen: displays } = require('electron');
@@ -16,7 +16,7 @@ const T = P.T;
 
 class Apps {
   // opts: link, allowed() (macApps.on), getMonitor() → BrowserWindow|null, popup(kind, text), peerName(), onChange(),
-  // onWatch() (an app window opened or closed: screen.policy may change, revision 7)
+  // onWatch() (an app window opened or closed: screen.policy may change)
   constructor(opts) {
     Object.assign(this, opts);
     this.opening = new Map(); // id → placeholder window: the app's taskbar button until its first window
@@ -69,7 +69,7 @@ class Apps {
     this.onChange();
   }
 
-  // Revision 6: the app's taskbar button right away, busy until its first window arrives.
+  // The app's taskbar button right away, busy until its first window arrives.
   _placeholder(id, name, a) {
     if (this.opening.has(id)) return;
     const win = new BrowserWindow({
@@ -94,7 +94,7 @@ class Apps {
     this.onWatch();
   }
 
-  // ---- pinning (revision 6) ----
+  // ---- pinning ----
 
   static aumid(id) {
     return 'org.macshare.macapp.' + crypto.createHash('sha1').update(id).digest('hex').slice(0, 10);
@@ -213,7 +213,7 @@ class Apps {
     const grow = Math.max(1, 200 / width, 120 / height); // tiny windows grow, keeping their shape
     width = Math.round(width * grow);
     height = Math.round(height * grow);
-    // Revision 6: never bigger than 1:1 (the stretched picture looked bad) nor than this monitor's
+    // Never bigger than 1:1 (the stretched picture looked bad) nor than this monitor's
     // work area; no full screen; maximize = the largest allowed size, centred.
     const work = displays.getDisplayMatching(win.getBounds()).workArea;
     const fit = Math.min(1, work.width / width, (work.height - 40) / height);

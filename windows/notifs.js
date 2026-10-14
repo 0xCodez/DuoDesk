@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 5, notifications both ways (docs/ROADMAP.md "Notifications"): this PC's notifications
+// Notifications both ways: this PC's notifications
 // go to the other computer while it accepts them (`notif.policy`); the helper reads them from the
 // Windows notification database. The other computer's show here as Windows toasts from TwinDesk
 // (main.js sets the AppUserModelID, or Windows shows none). Port of mac/notifs.js.
@@ -94,7 +94,7 @@ class Notifs {
     this.onChange();
   }
 
-  // Windows toasts have no subtitle: the first line is "<appName> · <peer>" (docs/ROADMAP.md).
+  // Windows toasts have no subtitle: the first line is "<appName> · <peer>".
   _show(m) {
     if (!this.cfg.receive || !Notification.isSupported()) return;
     const peer = this.peerName();

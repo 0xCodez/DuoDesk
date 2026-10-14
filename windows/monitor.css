@@ -16,7 +16,7 @@ html, body {
   cursor: none; /* the Mac's cursor is in the video */
 }
 body.input-off #video { cursor: default; } /* the Mac ignores input: show where our pointer is */
-/* Frame generation (revision 7): the canvas draws the picture in the video's box; the video stays in
+/* Frame generation: the canvas draws the picture in the video's box; the video stays in
    the layout (input maps over it) but is not seen. */
 #framegen {
   position: fixed;

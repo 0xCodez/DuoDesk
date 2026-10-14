@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Setup (docs/ROADMAP.md "Revision 4"): shown instead of the tabs while something TwinDesk needs
+// Setup: shown instead of the tabs while something TwinDesk needs
 // isn't allowed yet. "Allow" asks macOS first, which puts TwinDesk in the System Settings list, so
 // it's one switch there (no + and file browser). Closes by itself when everything is allowed.
 'use strict';

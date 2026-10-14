@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 5: other apps' notifications. macOS has no API for them, so we read the Notification
+// Other apps' notifications. macOS has no API for them, so we read the Notification
 // Center database (SQLite, read-only) once a second for records newer than the last one seen.
 // Needs Full Disk Access for the responsible app (TwinDesk). Emits `notif` and `notifState`.
 import Cocoa

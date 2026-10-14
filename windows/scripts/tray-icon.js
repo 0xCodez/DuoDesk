@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Writes assets/tray-white.png / tray-black.png (16 px) and @2x (32 px): the app mark's two
-// screens as the tray icon (docs/UI.md "Popups and the menu bar"): white for dark taskbars, black
+// screens as the tray icon: white for dark taskbars, black
 // for light ones. Same shapes as mac/dev/tray-icon.js, on a 16 px canvas. Run: node scripts/tray-icon.js
 'use strict';
 

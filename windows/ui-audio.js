@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Audio tab: sound both ways, each its own stream (revision 2): play the Mac's sound (Mac → PC)
+// Audio tab: sound both ways, each its own stream: play the Mac's sound (Mac → PC)
 // and send this PC's sound (PC → Mac). Screen sound lives in Display.
 'use strict';
 
@@ -9,7 +9,7 @@ UI.tab({
   title: 'Audio',
   color: 'linear-gradient(#ff6482, #ff2d55)',
   desc: 'Hear one computer on the other.',
-  master: { get: (s) => s.audio.send || s.audio.receive, set: (v) => UI.api.setAudio({ send: v, receive: v }) }, // revision 7b
+  master: { get: (s) => s.audio.send || s.audio.receive, set: (v) => UI.api.setAudio({ send: v, receive: v }) },
   badge: (s) => (s.audio.receiving || s.audio.sending ? 'on' : ''),
   build(body) {
     const { api } = UI;

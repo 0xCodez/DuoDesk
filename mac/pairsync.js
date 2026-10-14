@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 7b: every two-way section is one setting shared by both computers, remembered per pair.
+// Every two-way section is one setting shared by both computers, remembered per pair.
 // "Show this Mac's notifications on PC" is this Mac's notifs.send AND the PC's notifs.receive:
 // flip it on either computer and the other follows (`pair.sync`). Directions are told from the
 // sender's side ('out' = the sender's things shown on / used by the receiver), so the receiver

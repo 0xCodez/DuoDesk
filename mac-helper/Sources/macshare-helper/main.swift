@@ -60,7 +60,7 @@ func handle(_ line: String) {
                              dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight")
     Capture.shared.gestures = (msg["gestures"] as? Bool) ?? true
     reply(id)
-  case "gesture": // revision 8b: a gesture from the other computer, done by macOS itself
+  case "gesture": // A gesture from the other computer, done by macOS itself
     GesturePost.handle(msg)
   case "capture":
     if (msg["on"] as? Bool) == true {
@@ -97,7 +97,7 @@ func handle(_ line: String) {
     NotifWatch.shared.set(on: (msg["on"] as? Bool) ?? false)
     reply(id, ["readable": NotifWatch.shared.readable()])
   case "fileSource":
-    // Revision 5 copy shortcut: who is in front, and the files on the clipboard (if any).
+    // Copy shortcut: who is in front, and the files on the clipboard (if any).
     let pb = NSPasteboard.general
     let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
     reply(id, ["front": NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "",

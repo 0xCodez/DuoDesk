@@ -1,12 +1,12 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files from the PC (phase 9 + revision 2): receive file.* chunks, check size + SHA-256, save where
+// Files from the PC: receive file.* chunks, check size + SHA-256, save where
 // they were dropped — the Finder window under the point, else the Desktop if dropped on it, else
 // the Files folder — never overwriting, then reveal in Finder.
 //   drop:'point'   (Monitor 2) x,y normalized over the shared display
 //   drop:'release' (dragged across the edge) wait in a temp folder until the PC's left button comes
 //                  up while it drives this Mac (release()), then go where the pointer is.
-//   drop:'drag'    (revision 3) part of a native drag here: dragin.js says where it lands.
-//   drop:'send' / 'paste' (revision 5) a batch with folders by `rel`: Send files goes to the Files
+//   drop:'drag' part of a native drag here: dragin.js says where it lands.
+//   drop:'send' / 'paste' a batch with folders by `rel`: Send files goes to the Files
 //                  folder, a paste to the folder chosen when the paste shortcut was pressed.
 //
 // Events: 'change' — this.view changed.
@@ -72,7 +72,7 @@ class Drop extends EventEmitter {
     this.active = new Map(); // id -> transfer
     this.recent = []; // newest first: {name, size, path, at, ok, error}
     this.drag = null; // { dest: null|dir, waiting: [transfer] } while files are dragged in (drop:'release')
-    this.batches = new Map(); // revision 5: batch -> { kind, dir, count, done, ok, tops: Map, placed: [] }
+    this.batches = new Map(); // Batch -> { kind, dir, count, done, ok, tops: Map, placed: [] }
     this.expected = new Map(); // batch (fclip id) -> dir chosen when this Mac pasted
     this.dragIn = new DragIn({ server, helper, getSettings, remember: (r) => this._remember(r) });
     this.dragIn.replayOffer = (m) => this._offer(m);
@@ -150,7 +150,7 @@ class Drop extends EventEmitter {
     setTimeout(() => this.expected.delete(batch), 10 * 60 * 1000);
   }
 
-  // Revision 5: one file of a Send files / paste batch.
+  // One file of a Send files / paste batch.
   _offerBatch(m, refuse) {
     const size = Number(m.size);
     const count = Number(m.count);
@@ -307,7 +307,7 @@ class Drop extends EventEmitter {
   async release() {
     if (!this.drag || this.drag.dest) return;
     if (!this.drag.waiting.length && ![...this.active.values()].some((t) => t.release)) {
-      this.drag = null; // a revision 3 drag (dragin.js) or nothing sent: nothing to place
+      this.drag = null; // a drag (dragin.js) or nothing sent: nothing to place
       return;
     }
     const p = screen.getCursorScreenPoint();

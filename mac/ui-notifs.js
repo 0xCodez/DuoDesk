@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Notifications tab (revision 5): this Mac's notifications on the other computer, and theirs here
+// Notifications tab: this Mac's notifications on the other computer, and theirs here
 // as native notifications. Sending needs Full Disk Access (there is no API for it on macOS).
 'use strict';
 
@@ -13,7 +13,7 @@ UI.tab({
   color: 'linear-gradient(#ff6961, #ff3b30)',
   mixedOnly: true,
   limitedFor: (p) => (p.os === 'linux' ? 'Not on Linux yet' : ''), // Mac ↔ Mac works too
-  // Revision 7b: one switch for the whole tab (both directions); each direction is shared with the
+  // One switch for the whole tab (both directions); each direction is shared with the
   // other computer per pair (pairsync.js), so flipping it there flips it here.
   master: { get: (s) => !!(s.notifs && (s.notifs.send || s.notifs.receive)), set: (v) => UI.api.setNotifs({ send: v, receive: v }) },
   badge: (s) => (s.notifs && (s.notifs.send || s.notifs.receive) ? 'on' : ''),

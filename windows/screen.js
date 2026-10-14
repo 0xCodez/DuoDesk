@@ -1,11 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Screen sharing: stream state, the Monitor 2 window, and relaying stream.*/rtc.* between the
 // link (main process) and the Monitor 2 renderer, which owns the RTCPeerConnection.
-// Revision 7: we tell the other computer whether anyone watches (`screen.policy {accept}`: Monitor 2
+// We tell the other computer whether anyone watches (`screen.policy {accept}`: Monitor 2
 // shown and not minimized, or a Mac-app window open); it captures only while that is true. Its
 // `screen.state` says whether its sharing is on. When it lets us (`remote`), opening Monitor 2 starts
 // its sharing and closing it stops it again (`screen.ctl`); the Receive tab switches Extend/Mirror.
-// Revision 10: Monitor 2 never opens by itself (no "Open automatically"): only the Receive tab, the
+// Monitor 2 never opens by itself (no "Open automatically"): only the Receive tab, the
 // tray or a Mac-app window open it, and nothing is sent before that.
 const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
@@ -17,7 +17,7 @@ const INPUT = new Set([T.IN_MOVE, T.IN_DOWN, T.IN_UP, T.IN_WHEEL, T.IN_KEY_DOWN,
 
 class Screen {
   // opts: link, clip, settings (shared object, .windows.monitor bounds), saveSettings(), onChange(),
-  // isQuitting(), inputAllowed() (false while KVM drives or is driven, phases 4–5)
+  // isQuitting(), inputAllowed() (false while KVM drives or is driven)
   constructor(opts) {
     Object.assign(this, opts);
     this.state = { state: 'off', name: '', width: 0, height: 0 };
@@ -64,7 +64,7 @@ class Screen {
       const n = (v) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : null);
       this.fileDrop.drop(d.paths.filter((p) => typeof p === 'string'), n(d.x), n(d.y));
     });
-    // Details card (revision 4): the renderer's once-a-second getStats summary.
+    // Details card: the renderer's once-a-second getStats summary.
     ipcMain.on('monitor-stats', (e, st) => {
       if (!this.win || e.sender !== this.win.webContents || !st || typeof st !== 'object' || this.state.state !== 'on') return;
       this.state = { ...this.state, stats: st };
@@ -147,7 +147,7 @@ class Screen {
   _onInfo(m) {
     const width = Number(m.width) || 0;
     const height = Number(m.height) || 0;
-    // audio: the Mac's "Share sound with the screen" (revision 2) — only then is there a sound track.
+    // audio: the Mac's "Share sound with the screen" — only then is there a sound track.
     this.state = { state: 'on', name: typeof m.name === 'string' ? m.name : 'Shared screen', width, height, audio: m.audio === true };
     this.replay = []; // a fresh offer follows every stream.info
     this._relay({ t: T.STREAM_INFO, name: this.state.name, width, height, audio: this.state.audio });
@@ -161,8 +161,8 @@ class Screen {
     if (this.ready && this.win && !this.win.isDestroyed()) this.win.webContents.send('drop-progress', v);
   }
 
-  // Screen sound (revision 2): played only when the Mac shares it with the screen; local volume.
-  // Pacing (revision 7) travels with it: both come from the Receive tab's settings.
+  // Screen sound: played only when the Mac shares it with the screen; local volume.
+  // Pacing travels with it: both come from the Receive tab's settings.
   applyAudio() {
     this._pushAudio();
   }
@@ -254,7 +254,7 @@ class Screen {
     this.win = win;
     this.ready = false;
     win.streamSize = { width: this.state.width || 1920, height: this.state.height || 1080 };
-    if (this.apps) this.apps.attach(win); // Mac app windows (phase 12) open from this renderer
+    if (this.apps) this.apps.attach(win); // Mac app windows open from this renderer
     win.loadFile(path.join(__dirname, 'monitor.html'), { query: this.test ? { test: '1' } : {} });
     win.once('ready-to-show', () => { if (!this.startHidden) win.show(); this.startHidden = false; });
     for (const ev of ['show', 'hide', 'minimize', 'restore', 'closed']) win.on(ev, () => this.policy());

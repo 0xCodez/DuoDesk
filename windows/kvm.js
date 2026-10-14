@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Shared cursor and keyboard: the docs/KVM.md state machine, Windows side, both roles
-// (rows 1–6 + 9: this PC drives the Mac; rows 7–8c + 9b: the Mac drives this PC).
+// Shared cursor and keyboard: state machine, Windows side, both roles
+// (this PC drives the Mac, or the Mac drives this PC).
 const P = require('../shared/protocol.js');
 
 const T = P.T;
@@ -21,7 +21,7 @@ class Kvm {
     this.dragPending = false; // we crossed with a file drag; cleared when our left button comes up
 
     const link = this.link;
-    // kvm.layout is "either" (revision 4): pcSide = the sender's crossing side, which is where this
+    // kvm.layout is "either": pcSide = the sender's crossing side, which is where this
     // PC is seen from the sender. Adopt it, save it, never echo.
     link.on(T.KVM_LAYOUT, (m) => {
       if (!P.SIDES.includes(m.pcSide)) return;
@@ -46,7 +46,7 @@ class Kvm {
       this._setMode('home', '');
     });
     for (const t of K_TYPES) link.on(t, (m) => this._inject(m));
-    link.on(T.K_GESTURE, (m) => this._onGesture(m)); // revision 8: trackpad gestures
+    link.on(T.K_GESTURE, (m) => this._onGesture(m)); // Trackpad gestures
     link.on('welcome', () => {
       this.peerDrags = true;
       this.sentDragPolicy = undefined;
@@ -54,7 +54,7 @@ class Kvm {
       // As the host this PC sends the layout (a Mac host sends its own). Default: the other one on the right.
       if (link.hosting) link.send({ t: T.KVM_LAYOUT, pcSide: this.crossingSide || 'right' });
       if (link.hosting && !this.pcSide) this._setPcSide('left');
-      // Revision 7: cursor sharing is remembered per paired device; take this pair's value, and as
+      // Cursor sharing is remembered per paired device; take this pair's value, and as
       // the host tell it so both computers agree (kvm.link keeps them in step after that).
       const id = this._peerId();
       const by = this.cfg.linkedBy;
@@ -106,7 +106,7 @@ class Kvm {
     return this.link.status.state === 'connected';
   }
 
-  // Tell the helper where the edge is and whether to watch it (docs/KVM.md switches).
+  // Tell the helper where the edge is and whether to watch it.
   // Drags across the edge go out when our switch and our "send" are on and the Mac takes them.
   _dragsOut() {
     const f = this.settings.files;
@@ -124,7 +124,7 @@ class Kvm {
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
       dragFiles: this._dragsOut(), // the edge strip that picks up file drags
-      gestures: k.gestures !== false, // revision 8: touchpad gestures go over as k.ge while capturing
+      gestures: k.gestures !== false, // Touchpad gestures go over as k.ge while capturing
     });
     // Our switch, for the Mac (it doesn't pick up drags towards us while it's off).
     const accept = !!this.settings.files.edgeDrag;
@@ -134,7 +134,7 @@ class Kvm {
     }
   }
 
-  // Cursor sharing as a whole (docs/KVM.md "Hotkey (revision 4)", revision 4c): off = everything
+  // Cursor sharing as a whole: off = everything
   // home, no crossing either way, takes refused. tell: also switch the other computer (kvm.link).
   get linked() {
     return this.cfg.linked !== false;
@@ -143,7 +143,7 @@ class Kvm {
   // card: show the big on/off card (not when a connect restores this pair's value).
   setLinked(on, tell = true, card = true) {
     const id = this.connected && this._peerId();
-    if (id) this.cfg.linkedBy = { ...this.cfg.linkedBy, [id]: on }; // revision 7: per pair
+    if (id) this.cfg.linkedBy = { ...this.cfg.linkedBy, [id]: on }; // Per pair
     if (on === this.linked) {
       if (id && this.save) this.save();
       return;
@@ -176,13 +176,13 @@ class Kvm {
 
   _onHelper(name, msg) {
     switch (name) {
-      case 'edge': // row 1 — the helper is already capturing
+      case 'edge': // The helper is already capturing
         if (this.mode !== 'home' || !this._canDrive() || !this.cfg.mouse || !this.crossingSide) {
           this.helper.send('capture', { on: false });
           return;
         }
         {
-          // A file/folder drag crossed (revision 3): the Mac shows it as its own drag; the data follows.
+          // A file/folder drag crossed: the Mac shows it as its own drag; the data follows.
           const paths = msg.drag && Array.isArray(msg.drag.paths) && this._dragsOut() ? msg.drag.paths.filter((p) => typeof p === 'string') : [];
           const drag = paths.length ? this.fileDrop.prepareDrag(paths) : null;
           this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(drag ? { drag: { count: drag.count } } : {}) });
@@ -192,22 +192,22 @@ class Kvm {
           }
         }
         break;
-      // Double-tap (docs/KVM.md "Hotkey (revision 4)", revision 4c): cursor sharing off (everything
+      // Double-tap: cursor sharing off (everything
       // home) and on again. In keyboard-only mode (Cursor off, "Switch the keyboard with the hotkey"
       // on) it moves the keyboard over and back instead.
       case 'hotkey': {
         const k = this.cfg;
         if (k.hotkeySwitch && !k.mouse && k.keyboard && this.linked) {
-          if (this.mode !== 'home') this.home(); // rows 5 / 8c
+          if (this.mode !== 'home') this.home();
           else if (!this._canDrive()) {
             if (this.connected && !k.driveOther) this._note('Mouse and keyboard to the other computer is off');
-          } else { // row 2
+          } else {
             this.helper.send('capture', { on: true, mouse: false, keyboard: true });
             this._take({});
           }
           break;
         }
-        // Revision 7b: off (by the switch, the hotkey or the other computer) → on, mouse included: the
+        // Off (by the switch, the hotkey or the other computer) → on, mouse included: the
         // state the Cursor tab's one switch shows. On → off.
         if (this.linked && k.mouse) this.setLinked(false);
         else if (this.linked) { // linked but the mouse was off: turn the mouse on, show the card
@@ -219,12 +219,12 @@ class Kvm {
         } else this.setLinked(true); // also turns the mouse on
         break;
       }
-      case 'return': // row 8c
+      case 'return':
         if (this.mode === 'driven') this._sendHome(msg.offset);
         break;
       case 'ev':
         if (this.mode === 'driving' && msg.ev && (K_TYPES.has(msg.ev.t) || (msg.ev.t === T.K_GESTURE && this.cfg.gestures !== false))) {
-          if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there (revision 6)
+          if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there
           this.link.send(msg.ev);
           if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released on the Mac
         }
@@ -272,18 +272,18 @@ class Kvm {
 
   _onTake(m) {
     const route = Number(m.route) || 0;
-    if (this.mode === 'driving') { // row 7b
+    if (this.mode === 'driving') {
       this.link.send({ t: T.KVM_REFUSE, route, why: P.REFUSE.BUSY });
       return;
     }
-    if (this.mode === 'driven') { // row 7c
+    if (this.mode === 'driven') {
       if (route <= this.peerRoute) return;
       this.peerRoute = route;
       this.link.send({ t: T.KVM_ACCEPT, route });
       if (m.side && m.mouse !== false) this.helper.send('place', { side: m.side, offset: m.offset });
       return;
     }
-    if (!this.cfg.beDriven || !this.linked) { // row 7 (and cursor sharing off)
+    if (!this.cfg.beDriven || !this.linked) { // cursor sharing off
       this.link.send({ t: T.KVM_REFUSE, route, why: P.REFUSE.NOT_ALLOWED });
       this._note('{Name} tried to use {me}. It’s turned off here.');
       return;
@@ -319,8 +319,8 @@ class Kvm {
     if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) { this.fileRecv.onRelease(); if (this.dragRecv) this.dragRecv.onRelease(); }
   }
 
-  // Revision 8 (docs/ROADMAP.md "Revision 8"): a trackpad gesture from the other computer, done the
-  // Windows way. There is no virtual precision touchpad we could feed (WINDOWS.md 25), so each one is
+  // A trackpad gesture from the other computer, done the
+  // Windows way. There is no virtual precision touchpad we could feed, so each one is
   // its Windows shortcut; the Mac's system swipes (`dock`) act once, at their end, on what they meant.
   _onGesture(m) {
     if (this.mode !== 'driven' || this.cfg.gestures === false || !m || typeof m.g !== 'string') return;
@@ -351,7 +351,7 @@ class Kvm {
       case 'back': click(P.BUTTON.BACK); break;
       case 'forward': click(P.BUTTON.FORWARD); break;
       case 'overview': combo('MetaLeft', 'Tab'); break; // Task View
-      case 'appWindows': case 'desktop': combo('MetaLeft', 'KeyD'); break; // 4 fingers down on Windows: show desktop (human)
+      case 'appWindows': case 'desktop': combo('MetaLeft', 'KeyD'); break; // 4 fingers down on Windows: show desktop
       case 'spaceLeft': combo('ControlLeft', 'MetaLeft', 'ArrowLeft'); break;
       case 'spaceRight': combo('ControlLeft', 'MetaLeft', 'ArrowRight'); break;
       case 'launcher': combo('MetaLeft'); break; // Start
@@ -409,7 +409,7 @@ class Kvm {
       this.keepalive = null;
       this._clearAccept();
     }
-    // Silence watch while input is shared (rows 9, 9b).
+    // Silence watch while input is shared.
     clearInterval(this.silence);
     this.silence = null;
     if (mode !== 'home') {

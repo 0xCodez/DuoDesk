@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Linux checks for Setup and General (docs/LINUX.md): the desktop session (X11 needed for input
+// Linux checks for Setup and General: the desktop session (X11 needed for input
 // sharing until the Wayland phase) and the firewall (ufw or firewalld must let 47800/tcp and
 // 47801/udp in). Fix asks for the password once through pkexec.
 'use strict';

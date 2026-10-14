@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Terminal tab (revision 2): shells both ways, no passwords — keys travel over the paired link.
+// Terminal tab: shells both ways, no passwords — keys travel over the paired link.
 'use strict';
 
 UI.tab({

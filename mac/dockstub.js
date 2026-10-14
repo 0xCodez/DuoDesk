@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 13: one Dock icon per PC app. A tiny generated bundle (`~/Applications/MacShare Apps/<name>.app`:
+// One Dock icon per PC app. A tiny generated bundle (`~/Applications/MacShare Apps/<name>.app`:
 // the app's name, a per-app bundle id, its icon; mac-helper's macshare-dockstub as the executable,
 // ad-hoc signed) runs while that app has windows here. Its events: activate / focus <i> / quit.
-// Revision 6: it lives in ~/Applications so it shows in Launchpad and Spotlight and can be kept in
+// It lives in ~/Applications so it shows in Launchpad and Spotlight and can be kept in
 // the Dock; opened on its own it asks TwinDesk (macshare://pc-app/<id>) to open the PC app.
 'use strict';
 
@@ -105,7 +105,7 @@ class DockStub {
   }
 }
 
-// Revision 6: keep a PC app in the Dock before it ever ran (Apps tab › Add to Dock).
+// Keep a PC app in the Dock before it ever ran (Apps tab › Add to Dock).
 async function addToDock(appInfo) {
   const exe = await bundle(appInfo);
   if (!exe) return false;

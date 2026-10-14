@@ -1,11 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// settings.json: defaults and validation (BUILD_PLAN "Settings and storage"). Every value from
+// settings.json: defaults and validation. Every value from
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
 const TABS = ['overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general'];
 
-const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // names before revision 2
+const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
 const bool = (v, d) => (typeof v === 'boolean' ? v : d);
 // A global shortcut (Electron accelerator): Ctrl, Alt or the Windows key, plus one key.
@@ -42,20 +42,20 @@ function normalize(s) {
       speed: Math.round(num(kvm.speed, 1.0, 0.25, 3) * 100) / 100,
       reverseScroll: bool(kvm.reverseScroll, false),
       linked: bool(kvm.linked, true), // cursor sharing on (the hotkey's double-tap switches it, kvm.link)
-      // revision 7: the last `linked` per paired device id, restored on connect
+      // The last `linked` per paired device id, restored on connect
       linkedBy: kvm.linkedBy && typeof kvm.linkedBy === 'object'
         ? Object.fromEntries(Object.entries(kvm.linkedBy).filter(([, v]) => typeof v === 'boolean').slice(0, 50)) : {},
-      gestures: bool(kvm.gestures, true), // revision 8: trackpad gestures work on the other computer (pair.sync 'gestures')
+      gestures: bool(kvm.gestures, true), // Trackpad gestures work on the other computer (pair.sync 'gestures')
       hotkeySwitch: bool(kvm.hotkeySwitch, false), // keyboard only (Cursor off): double-tap moves the keyboard over and back
     },
-    // hotkey: double-tap = mouse and keyboard home (docs/KVM.md "Hotkey (revision 4)")
+    // hotkey: double-tap = mouse and keyboard home
     keys: { swapCtrlCmd: bool(keys.swapCtrlCmd, true), hotkey: P.HOTKEYS.includes(keys.hotkey) ? keys.hotkey : P.HOTKEY_WIN },
-    app: { hud: bool(appS.hud, true) }, // popup when switching computers (docs/UI.md "Popups and the menu bar")
+    app: { hud: bool(appS.hud, true) }, // popup when switching computers
     clipboard: {
       enabled: bool(c.enabled, true),
       send: bool(c.send, true),
       receive: bool(c.receive, true),
-      // revision 7: instant by default; files from before it (no rev) are upgraded once
+      // Instant by default; files from before it (no rev) are upgraded once
       mode: c.mode === 'switch' && (s.rev || 0) >= 7 ? 'switch' : 'instant',
       skipConcealed: bool(c.skipConcealed, true),
       maxKB: Math.round(num(c.maxKB, 256, 1, P.CLIP_MAX_BYTES / 1024)),
@@ -64,7 +64,7 @@ function normalize(s) {
     monitor: {
       volume: Math.round(num(mon.volume, 1, 0, 1) * 100) / 100,
       mute: bool(mon.mute, false),
-      // revision 7c: Playback of shared screens, both directions, the same on both computers (pair.sync
+      // Playback of shared screens, both directions, the same on both computers (pair.sync
       // 'pace'): 'fast' (default, shown the moment it is decoded) | 'smooth' (about a frame of buffer)
       pacing: mon.pacing === 'smooth' && (s.rev || 0) >= 8 ? 'smooth' : 'fast', // rev 8: back to Fastest once
       framegen: bool(mon.framegen, false), // in-between frames on the GPU (shared/framegen.js), off by default
@@ -87,30 +87,30 @@ function normalize(s) {
       mountMac: bool(files.mountMac, true),
       acceptFromMac: bool(files.acceptFromMac, true), // files dragged from the Mac across the edge
       edgeDrag: bool(files.edgeDrag, true), // drag files/folders across the screen edge, both ways (drag.policy)
-      // revision 5: copy and paste files with two global shortcuts (fclip.js)
+      // Copy and paste files with two global shortcuts (fclip.js)
       shortcuts: bool(files.shortcuts, true),
       copyKeys: accel(files.copyKeys, 'Control+Alt+C'),
       pasteKeys: accel(files.pasteKeys, 'Control+Alt+V'),
     },
-    notifs: { // revision 5 (notifs.js): muted = apps never sent
+    notifs: { // (notifs.js): muted = apps never sent
       send: bool(nf.send, false),
       receive: bool(nf.receive, true),
       hideText: bool(nf.hideText, false),
       muted: Array.isArray(nf.muted) ? nf.muted.filter((x) => typeof x === 'string').map((x) => x.slice(0, 300)).slice(0, 500) : [],
     },
-    pcScreen: { // Display › PC → Mac (phase 11); Off/Mirror/Extend itself is never saved
+    pcScreen: { // Display › PC → Mac; Off/Mirror/Extend itself is never saved
       monitor: typeof pcs.monitor === 'string' ? pcs.monitor : '', // Electron display id for Mirror ('' = main)
       mbps: [10, 20, 30, 50].includes(pcs.mbps) ? pcs.mbps : 30, // same presets as the Mac
       maxHeight: [0, 1080, 1440].includes(pcs.maxHeight) ? pcs.maxHeight : 1080, // stream size (0 = full pixels)
       extendSize: ['mac', '1920x1080', '2560x1440', '3840x2160'].includes(pcs.extendSize) ? pcs.extendSize : 'mac', // the virtual monitor
       sound: bool(pcs.sound, false), // the screen's sound in the same session
       input: bool(pcs.input, true), // the Mac's mouse and keyboard drive this PC
-      remote: bool(pcs.remote, true), // revision 7: the viewer may start/stop and switch it (screen.ctl)
+      remote: bool(pcs.remote, true), // The viewer may start/stop and switch it (screen.ctl)
     },
-    pairSync: pairSync(s.pairSync), // revision 7b: {deviceId: {feature: {out, in}}} (pairsync.js)
-    wake: { peers: wakePeers(wk.peers) }, // revision 7: {deviceId: {name, os, macs, address, at}} from wol.info
+    pairSync: pairSync(s.pairSync), // {deviceId: {feature: {out, in}}} (pairsync.js)
+    wake: { peers: wakePeers(wk.peers) }, // {deviceId: {name, os, macs, address, at}} from wol.info
     pcApps: { allow: bool(pca.allow, true) },
-    macApps: { on: bool(mca.on, true) }, // revision 7b: the other computer's apps open here (pair.sync 'apps' in) // phase 13: the Mac may open this PC's apps (it shows them only if it accepts)
+    macApps: { on: bool(mca.on, true) }, // The other computer's apps open here (pair.sync 'apps' in) // The Mac may open this PC's apps (it shows them only if it accepts)
     // Setup screen 'Skip for now': the missing items it was skipped for (shown again when
     // something else goes missing).
     setup: { skipped: Array.isArray(setup.skipped) ? setup.skipped.filter((x) => typeof x === 'string').slice(0, 10) : [] },

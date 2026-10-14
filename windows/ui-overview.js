@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Overview tab (docs/UI.md "Revision 4"): this PC's address and Connect by address on top, the
+// Overview tab: this PC's address and Connect by address on top, the
 // computers found nearby (always visible), the two computers, one switch per feature and
 // direction, and what is paired.
 'use strict';
@@ -32,8 +32,8 @@ UI.tab({
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab.
-    // macOnly: Terminal, off with a PC or Linux peer for now (docs/UI.md "Revision 4");
-    // 'linux': off only with a Linux peer (Notifications, revision 5; Apps, revision 9).
+    // macOnly: Terminal, off with a PC or Linux peer for now;
+    // 'linux': off only with a Linux peer (Notifications, Apps).
     const row = (label, tab, get, set, macOnly) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
       const r = UI.row(label, '', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
@@ -122,7 +122,7 @@ UI.tab({
       for (const r of m2p.concat(p2m)) r.update(s);
 
       // this PC
-      addrVal.textContent = s.addresses.length ? s.addresses[0] : 'No network'; // revision 7b: the one the other computer can reach
+      addrVal.textContent = s.addresses.length ? s.addresses[0] : 'No network'; // The one the other computer can reach
       copyBtn.hidden = !s.addresses.length;
       const busy = !!s.pairing && s.pairing.phase !== 'failed';
       ipBtn.disabled = busy || !!asking;
@@ -146,7 +146,7 @@ UI.tab({
         const rows = s.found.map((dev) => {
           const isKnown = known.has(dev.id);
           const online = dev.id === live;
-          // A Mac hosts; with a PC or Linux the one who clicks is the guest (revision 4).
+          // A Mac hosts; with a PC or Linux the one who clicks is the guest.
           const btn = online || isKnown ? null : UI.button(dev.os === 'mac' ? 'Pair' : 'Connect', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
           if (btn) btn.disabled = busy || connected;
           if (btn && dev.invited && !busy) focus = btn;
@@ -173,7 +173,7 @@ UI.tab({
       pairedList.replaceChildren(...(all.length ? all.map((x) => {
         const online = x.id === live;
         const waking = !online && wk.waking === x.id;
-        // Revision 7: an offline computer that told us how to wake it gets Wake.
+        // An offline computer that told us how to wake it gets Wake.
         const wakeBtn = !online && wk.peers[x.id] ? UI.button(waking ? 'Waking…' : 'Wake', () => api.wakePeer(x.id), 'small') : null;
         if (wakeBtn) wakeBtn.disabled = waking;
         const r = UI.row(x.name, online ? 'Connected' : waking ? 'Waking ' + x.name + '…' : x.hint, [

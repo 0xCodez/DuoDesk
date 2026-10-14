@@ -51,11 +51,11 @@ function setupIpc(ctx) {
   handle('forget', () => link.forget());
   handle('respondPair', (allow) => link.respondPair(allow === true)); // host: Allow / Deny
   handle('forgetGuest', (id) => typeof id === 'string' && link.forgetGuest(id));
-  handle('wakePeer', (id) => typeof id === 'string' && wake.wake(id)); // revision 7
-  handle('setWake', (on) => wake.set(on === true)); // revision 7b: a switch
+  handle('wakePeer', (id) => typeof id === 'string' && wake.wake(id));
+  handle('setWake', (on) => wake.set(on === true)); // A switch
   handle('checkWake', () => wake.check());
   handle('openMonitor', () => screen.open(false));
-  handle('remoteScreen', (arg) => arg && typeof arg === 'object' && screen.control({ share: arg.share, mode: arg.mode })); // revision 7: screen.ctl
+  handle('remoteScreen', (arg) => arg && typeof arg === 'object' && screen.control({ share: arg.share, mode: arg.mode })); // screen.ctl
 
   handle('setKvm', (partial) => {
     if (partial && typeof partial.linked === 'boolean') kvm.setLinked(partial.linked); // home first, tells the other side
@@ -86,7 +86,7 @@ function setupIpc(ctx) {
     Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
     change('files', p, () => { smb.applyMount(); kvm.applyConfig(); fileClip.apply(); });
   });
-  // Revision 5: Send files (paths from the drop zone or Choose…), notifications.
+  // Send files (paths from the drop zone or Choose…), notifications.
   const sendFiles = (paths) => {
     const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && path.win32.isAbsolute(p)).slice(0, 1000);
     if (list.length) fileDrop.sendBatch(list, 'send');
@@ -112,16 +112,16 @@ function setupIpc(ctx) {
   handle('removeShare', () => smb.unshare());
   handle('openMacDrive', () => smb.drive && shell.openPath(smb.drive + '\\'));
   handle('cancelDrop', () => fileDrop.cancel());
-  // Revision 9: with another PC the apps come through peerapps.js (no Monitor 2 or Start pinning).
+  // With another PC the apps come through peerapps.js (no Monitor 2 or Start pinning).
   const pcPeer = () => link.peerOs === P.OS.WIN;
   handle('listApps', () => (pcPeer() ? peerApps.refresh() : apps.refresh()));
   handle('launchApp', (id) => { if (pcPeer()) peerApps.launch(id); else { apps.launch(id); screen.ensureHidden(); } });
-  handle('pinApp', (id) => typeof id === 'string' && !pcPeer() && apps.pin(id, true)); // revision 6: Pin to Start
+  handle('pinApp', (id) => typeof id === 'string' && !pcPeer() && apps.pin(id, true)); // Pin to Start
   handle('setPcScreen', (partial) => {
     const size = settings.pcScreen.extendSize;
     change('pcScreen', partial, () => { pcScreen.applyInput(); if (!settings.pcScreen.input) pcApps.input.release(); if (settings.pcScreen.extendSize !== size) pcScreen.sizeExtend(); else pcScreen.apply(); });
   });
-  handle('setMacApps', (partial) => change('macApps', partial, () => peerApps.apply())); // revision 7b
+  handle('setMacApps', (partial) => change('macApps', partial, () => peerApps.apply()));
   handle('setPcApps', (partial) => change('pcApps', partial, () => { pcApps.apply(); pcApps.input.release(); }));
   handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
   handle('installVdd', () => vdd.install());
@@ -131,7 +131,7 @@ function setupIpc(ctx) {
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));
 
-  // Revision 7b: pairsync.js applies a value the other computer changed, with the same side effects.
+  // pairsync.js applies a value the other computer changed, with the same side effects.
   const AFTER = {
     clipboard: () => clip.applySettings(),
     monitor: () => screen.applyAudio(), // pacing (pair.sync 'pace')

@@ -1,5 +1,5 @@
 /* TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
-/* The switching popup (docs/UI.md "Popups and the menu bar"), same look as mac/hud.css. */
+/* The switching popup, same look as mac/hud.css. */
 html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font: 14px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
 body { display: grid; place-items: center; }
 .pill {

@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main window shell: sidebar + one page per registered tab (ui-*.js), pairing banner, accent
-// rendering of the state pushed by main (docs/UI.md). Same structure and look as the Mac's.
+// rendering of the state pushed by main. Same structure and look as the Mac's.
 'use strict';
 
 (() => {
@@ -11,7 +11,7 @@
   const views = new Map(); // id -> { def, page, navBtn, stateEl, master, render }
   let current = null;
 
-  // Sidebar groups (docs/UI.md "Sidebar", revision 6): no headings, one icon column, a small gap
+  // Sidebar groups: no headings, one icon column, a small gap
   // between groups; General sits below a line.
   const GROUP = { overview: 0, 'mac-pc': 1, 'pc-mac': 1, cursor: 2, keyboard: 2, clipboard: 3, notifications: 3, files: 3, terminal: 4, audio: 4, apps: 4 };
   let lastGroup;
@@ -69,7 +69,7 @@
   }
 
   function renderPage(v, s) {
-    // macOnly: true = only with a Mac; 'linux' = everything but a Linux peer (Apps, revision 9).
+    // macOnly: true = only with a Mac; 'linux' = everything but a Linux peer (Apps).
     const limited = !v.limitNote || !s.peer ? '' : v.def.macOnly === 'linux' ? (s.peer.os === 'linux' ? 'Not on Linux yet' : '') : UI.peer(s).limited;
     if (v.limitNote) v.limitNote.set(limited);
     if (v.master) {
@@ -84,7 +84,7 @@
     } catch (e) {
       console.error('render ' + v.def.id + ':', e);
     }
-    UI.fillTree(v.page); // device names in whatever the render wrote (docs/UI.md "Device names")
+    UI.fillTree(v.page); // device names in whatever the render wrote
   }
 
   function renderSidebar(s) {
@@ -130,7 +130,7 @@
 
   $('content').append(UI.setup.page); // Setup screen in place of the tabs while something isn't ready
 
-  // Titles name what is connected (docs/UI.md "Revision 4"): the Display tabs and every
+  // Titles name what is connected: the Display tabs and every
   // direction card title follow the peer.
   let peerKey = '';
   function renderPeer(s) {
@@ -146,7 +146,7 @@
     }
     for (const e of document.querySelectorAll('[data-dir="m2p"]')) e.textContent = p.toMe;
     for (const e of document.querySelectorAll('[data-dir="p2m"]')) e.textContent = p.fromMe;
-    // Revision 7b: sentences and route heads with the real name ({name}, {the}, {them}).
+    // Sentences and route heads with the real name ({name}, {the}, {them}).
     for (const e of document.querySelectorAll('[data-peer]')) e.textContent = e.dataset.peer.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
     for (const e of document.querySelectorAll('[data-os="peer"]')) e.className = 'os-ico ' + (p.os === 'mac' ? 'mac' : 'pc');
     for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', [...e.querySelectorAll('.nm')].map((n) => n.textContent).join(' to '));

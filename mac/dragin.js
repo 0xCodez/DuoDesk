@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files and folders dragged in from the PC as a native drag here (docs/ROADMAP.md "Drag files
-// across the screen edge", revision 3). `drag.start` → the helper starts an NSDraggingSession with
+// Files and folders dragged in from the PC as a native drag here ("Drag files
+// across the screen edge"). `drag.start` → the helper starts an NSDraggingSession with
 // one file promise per top-level item; the files stream into a private temp tree as they arrive
 // (drop.js does the transfer, `drop:'drag'` offers land at <tmp>/<rel>). When the drop target asks
 // for an item (`dragWrite`), we wait until all of its files are here, move the tree to the target's

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 11 Extend: a virtual monitor for this PC that only the Mac shows, from the Virtual Display
+// Extend: a virtual monitor for this PC that only the Mac shows, from the Virtual Display
 // Driver (https://github.com/VirtualDrivers/Virtual-Display-Driver — MIT, signed by SignPath
 // Foundation; an IddCx driver). Installed once, elevated (scripts\vdd-install.ps1); after that the
 // monitor is switched on/off without a prompt through two SYSTEM scheduled tasks the user may run.

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// XTest injection of k.* events (docs/KVM.md "Scaling, keys and scroll"). Moves are absolute
+// XTest injection of k.* events. Moves are absolute
 // (current position + delta, clamped to the desktop), so X's pointer acceleration isn't applied a
 // second time. XTest events come from the XTest slave device, which capture.c skips (rule 4).
 // Held keys and buttons are tracked for releaseAll.

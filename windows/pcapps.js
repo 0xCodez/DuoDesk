@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 13, PC apps on the Mac (docs/ROADMAP.md): the Start-menu apps with icons, opened on the
+// PC apps on the Mac: the Start-menu apps with icons, opened on the
 // Mac's request; every visible window of an app opened that way is streamed on its own (`rtc2`
 // kind 'window', sender.js) while the Mac's `papp.policy` accepts and "Let the Mac open this PC's
 // apps" is on — menus, drop-downs and other pop-ups too, as `popup` entries with their `owner` and
@@ -295,7 +295,7 @@ class PcApps {
   }
 }
 
-// Revision 6: the work area of the monitor a window is on, in physical px (the Mac never lets its
+// The work area of the monitor a window is on, in physical px (the Mac never lets its
 // copy of the window grow past it).
 function workArea(w) {
   try {

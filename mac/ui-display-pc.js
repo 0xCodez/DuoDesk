@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Display › PC → Mac: the PC's screen in a window on this Mac (phase 11). Same structure as
+// Display › PC → Mac: the PC's screen in a window on this Mac. Same structure as
 // Mac → PC; the PC picks what it shares (Off / Mirror / Extend), this Mac picks how it shows it.
 'use strict';
 
@@ -12,7 +12,7 @@ UI.tab({
   icon: 'receive',
   desc: 'See its screen in a window here.',
   color: 'linear-gradient(#5ac8fa, #0a84ff)',
-  // Revision 10: the switch is the screen window (open = watching = the other side sends).
+  // The switch is the screen window (open = watching = the other side sends).
   master: { get: (s) => !!(s.receive && s.receive.open), set: (v) => (v ? UI.api.showPcView() : UI.api.closePcView()) },
   badge: (s) => (s.receive && s.receive.status === 'live' ? 'on' : ''),
   build(body) {
@@ -24,7 +24,7 @@ UI.tab({
     const ctlRow = UI.row('Control {name} from its window', '', [inputSw]);
     const showBtn = UI.button('Open', () => api.showPcView(), 'primary');
     const winRow = UI.row('Screen window', '', [showBtn]);
-    // Revision 7: run the other computer's sharing from here (screen.ctl), when it allows that.
+    // Run the other computer's sharing from here (screen.ctl), when it allows that.
     // One control, the same three choices as on the PC itself, kept in step (screen.state).
     const rMode = UI.segmented([
       { value: 'off', label: 'Off' },

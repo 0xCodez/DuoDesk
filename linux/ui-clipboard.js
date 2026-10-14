@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Clipboard tab (copied from windows/): accept (Mac → Linux) and send (Linux → Mac) as two direction cards (docs/UI.md), then
-// timing, privacy and the Recent list for both (docs/KVM.md "Clipboard").
+// Clipboard tab (copied from windows/): accept (Mac → Linux) and send (Linux → Mac) as two direction cards, then
+// timing, privacy and the Recent list for both.
 'use strict';
 
 UI.tab({

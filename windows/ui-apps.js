@@ -1,18 +1,18 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Apps tab. Mac → PC (phase 12): the Mac's apps with their icons; click one and it opens on the Mac,
+// Apps tab. Mac → PC: the Mac's apps with their icons; click one and it opens on the Mac,
 // its windows appearing here as their own windows with their own taskbar buttons. PC → Mac (phase
 // 13): the Mac opens this PC's apps; each of their windows is streamed on its own to a Mac window.
-// Revision 9: between two PCs the same both ways (peerapps.js here, pcapps.js there); no Pin to Start.
+// Between two PCs the same both ways (peerapps.js here, pcapps.js there); no Pin to Start.
 'use strict';
 
 UI.tab({
   id: 'apps',
-  macOnly: 'linux', // revision 9: Mac ↔ PC and PC ↔ PC
+  macOnly: 'linux', // Mac ↔ PC and PC ↔ PC
   order: 80,
   title: 'Apps',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
   desc: 'Use apps from the other computer in their own windows.',
-  master: { get: (s) => s.macApps.on || s.pcApps.allow, set: (v) => { UI.api.setMacApps({ on: v }); UI.api.setPcApps({ allow: v }); } }, // revision 7b
+  master: { get: (s) => s.macApps.on || s.pcApps.allow, set: (v) => { UI.api.setMacApps({ on: v }); UI.api.setPcApps({ allow: v }); } },
   badge: (s) => (s.apps.open + s.pcApps.streaming ? String(s.apps.open + s.pcApps.streaming) : ''),
   build(body) {
     const { el, api } = UI;
@@ -62,7 +62,7 @@ UI.tab({
         ]);
         b.onclick = () => api.launchApp(x.id);
         if (a.peerPc) return b; // apps of another PC: no Start shortcut yet
-        // Revision 6: Pin to Start (a shortcut in Start › TwinDesk Apps), on hover or right-click.
+        // Pin to Start (a shortcut in Start › TwinDesk Apps), on hover or right-click.
         const pin = el('span', { class: 'app-pin', title: 'Pin to Start', attrs: { role: 'button', tabindex: '0', 'aria-label': 'Pin ' + x.name + ' to Start' } }, [UI.icon('pin')]);
         pin.onclick = (e) => { e.stopPropagation(); api.pinApp(x.id); };
         pin.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); api.pinApp(x.id); } };

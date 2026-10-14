@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Screen sharing: hidden capture window (getDisplayMedia + RTCPeerConnection, the offerer),
 // session numbering, rtc.* relay between the capture window and the Windows client, stats.
-// Revision 7: we capture only while a viewer is open on the other side (its `screen.policy
+// We capture only while a viewer is open on the other side (its `screen.policy
 // {accept}`); a peer that never sends one is an older app and always gets the picture.
 //
 // Events: 'change' — this.view changed (pushed to the control window as state.stream).

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Clipboard text sharing, copied from windows/clip.js (docs/KVM.md "Clipboard"): directions, switch/instant mode, concealed
+// Clipboard text sharing, copied from windows/clip.js: directions, switch/instant mode, concealed
 // filter, size limit, clip.policy both ways, and the in-memory Recent list (never on disk).
 const { clipboard } = require('electron');
 const P = require('../shared/protocol.js');

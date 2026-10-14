@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Discovery v2 (docs/ROADMAP.md "Revision 4"): one UDP socket on DISCOVERY_PORT that sends our
+// Discovery v2: one UDP socket on DISCOVERY_PORT that sends our
 // beacon to every broadcast address, answers probes, sends probes, takes invites, and keeps the
 // list of other TwinDesk computers nearby (Macs, PCs, other Linux computers).
 //
@@ -173,7 +173,7 @@ class Discovery extends EventEmitter {
     if (m.t === P.T.PROBE) return this._send(this._beaconMsg(), rinfo.address, rinfo.port);
     if (m.t !== P.T.BEACON && m.t !== P.T.INVITE) return;
     const port = Number.isInteger(m.port) && m.port > 0 && m.port < 65536 ? m.port : P.PORT;
-    // Beacons from before revision 4 came only from Macs.
+    // Older beacons came only from Macs.
     const o = Object.values(P.OS).includes(m.os) ? m.os : P.OS.MAC;
     const old = this.found.get(m.id);
     const d = {

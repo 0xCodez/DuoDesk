@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Display › Mac → PC: the Mac's screen in the Monitor 2 window; this PC owns the window, the screen
-// sound volume and F11/F9. Revision 7: when the other computer lets us (its screen.state `remote`),
+// sound volume and F11/F9. When the other computer lets us (its screen.state `remote`),
 // Open and the switch start/stop its sharing there and Extend | Mirror switches it (screen.ctl).
-// Revision 10: no "Open automatically" — the other computer sends nothing until Open here.
+// No "Open automatically" — the other computer sends nothing until Open here.
 'use strict';
 
 UI.tab({
@@ -24,7 +24,7 @@ UI.tab({
     const { el, api } = UI;
     const openBtn = UI.button('Open', () => api.openMonitor(), 'primary');
     const winRow = UI.row('Screen window', '', [openBtn]);
-    // Revision 7b (as the Mac): one control, the same three choices as on the other computer itself,
+    // (as the Mac): one control, the same three choices as on the other computer itself,
     // kept in step by its screen.state; choosing sends screen.ctl.
     const mode = UI.segmented([
       { value: 'off', label: 'Off' },
@@ -34,7 +34,7 @@ UI.tab({
     const modeRow = UI.row('{Name} shares', '', [mode]);
     const volume = UI.slider({ min: 0, max: 1, step: 0.05, format: (v) => Math.round(v * 100) + '%' }, (v) => api.setMonitor({ volume: v }));
     const mute = UI.switch((v) => api.setMonitor({ mute: !v }), { label: 'Play sound' });
-    const paceRow = UI.paceRow(); // revision 7c: one Playback setting, synced with the other computer
+    const paceRow = UI.paceRow(); // One Playback setting, synced with the other computer
     const framegen = UI.switch((v) => api.setMonitor({ framegen: v }), { label: 'Frame generation' });
 
     const details = UI.details(['Status', 'Display', 'Picture', 'Speed', 'Round trip', 'Codec', 'Decoder', 'Delay', 'Frames dropped', 'Freezes']);

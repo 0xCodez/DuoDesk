@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Cursor tab: share the pointer across the screen edge. Two direction cards (docs/UI.md), the
+// Cursor tab: share the pointer across the screen edge. Two direction cards, the
 // layout (pick where the Mac is; either side can change it) and the live state below. Copy of
-// windows/ui-cursor.js. Behaviour: docs/KVM.md (kvm.js + linux-helper).
+// windows/ui-cursor.js. Behaviour: kvm.js and linux-helper.
 'use strict';
 
 UI.tab({
@@ -10,7 +10,7 @@ UI.tab({
   title: 'Cursor',
   color: 'linear-gradient(#ffb340, #ff9500)',
   desc: 'Move the pointer off the edge of the screen to go to the other computer.',
-  // One switch (revision 7): cursor sharing, the same one the hotkey's double-tap and the Mac flip
+  // One switch: cursor sharing, the same one the hotkey's double-tap and the Mac flip
   // (kvm.link keeps both in step); on also turns the mouse on.
   master: { get: (s) => s.kvm.mouse && s.kvm.linked, set: (v) => UI.api.setKvm(v ? { mouse: true, linked: true } : { linked: false }) },
   badge: (s) => (s.kvm.mouse && s.kvm.linked ? 'on' : ''),
@@ -23,7 +23,7 @@ UI.tab({
 
     const speed = UI.slider({ min: 0.25, max: 3, step: 0.05, format: (v) => v.toFixed(2) + '×' }, (v) => set({ speed: v }));
     const reverse = UI.switch((v) => set({ reverseScroll: v }), { label: 'Reverse scrolling' });
-    const gestures = UI.switch((v) => set({ gestures: v }), { label: 'Trackpad gestures' }); // revision 8
+    const gestures = UI.switch((v) => set({ gestures: v }), { label: 'Trackpad gestures' });
     const gestureRow = UI.row('Trackpad gestures from the Mac', 'Pinch to zoom, swipe between workspaces, the overview, back and forward — done with this desktop’s shortcuts', [gestures]);
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => (v ? v + ' px' : 'None') }, (v) => set({ resistancePx: v }));
     const pair = UI.dirCards(
@@ -43,7 +43,7 @@ UI.tab({
     const SIDE_OF = { 1: 'top', 3: 'left', 5: 'right', 7: 'bottom' };
     for (let i = 0; i < 9; i++) {
       const c = el('div', { class: i === 4 ? 'screen pc-screen' : '', text: i === 4 ? 'This computer' : '' });
-      if (SIDE_OF[i]) c.onclick = () => api.setLayout(SIDE_OF[i]); // revision 4: kvm.layout from either side
+      if (SIDE_OF[i]) c.onclick = () => api.setLayout(SIDE_OF[i]); // kvm.layout from either side
       cells.push(c);
       grid.append(c);
     }

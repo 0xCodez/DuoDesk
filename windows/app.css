@@ -135,12 +135,12 @@ select { padding: 3px 24px 3px 8px; border-radius: 6px; border: 1px solid var(--
 input[type="text"] { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--control-line); background: var(--control); box-shadow: var(--shadow); min-width: 190px; user-select: text; }
 input[type="text"]:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }
 .switch:hover:not(:disabled) { filter: brightness(1.05); }
-/* Direction cards (docs/UI.md "Tabs — equal places") */
+/* Direction cards */
 .dir-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; align-items: start; }
 @media (max-width: 900px) { .dir-pair { grid-template-columns: 1fr; } }
 .dir-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
 .dir-head { display: flex; align-items: center; gap: 12px; padding: 13px 16px 12px; border-bottom: 1px solid var(--row-line); }
-/* Revision 7b: route head — device + name, a line ending in an arrowhead, the other device. */
+/* Route head — device + name, a line ending in an arrowhead, the other device. */
 .route { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .route .node { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; font-weight: 600; }
 .route .node .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
@@ -155,7 +155,7 @@ input[type="text"]:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-sof
 .dir-card.off > .row:not(.dir-main), .dir-card.soon-card > .row { opacity: 0.5; }
 .dir-card .row .hint { overflow-wrap: anywhere; }
 
-/* ---------- motion (docs/UI.md "Voice and motion"; same as the Mac app) ---------- */
+/* ---------- motion (same as the Mac app) ---------- */
 :root { --ease: cubic-bezier(0.2, 0.8, 0.2, 1); --spring: cubic-bezier(0.34, 1.4, 0.64, 1); }
 .page:not([hidden]) .page-head { animation: rise 0.32s var(--ease) both; }
 .page:not([hidden]) .page-body > * { animation: rise 0.42s var(--ease) both; }

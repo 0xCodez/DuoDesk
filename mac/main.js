@@ -24,13 +24,13 @@
 //   displayMode: 'extend'|'mirror'|'custom',    // what Monitor 2 shows (Display tab)
 //   streamInput: bool,                          // accept mouse/keyboard from Monitor 2
 //   stream: { status, display, width, height, fps, mbps, encoder, codec, qp, ... },   // stream.js
-//   kvm: settings.kvm, keys: settings.keys,     // Cursor / Keyboard tabs (behaviour: phases 4–5)
+//   kvm: settings.kvm, keys: settings.keys,     // Cursor / Keyboard tabs
 //   clipboard: { ...settings.clipboard, peerAccepts, lastSkip,
 //                history: [{ dir: 'out'|'in', at, size, text (preview) }] },
-//   receive: { on, fullScreen, input, session, kind, status, stats, open },   // phase 11 (pcview.js)
-//   papps: { on, apps: [{id, name, icon}], listing, launch: {id: ''|'ok'|why}, windows: [{wid, id, title, live}] },   // phase 13
+//   receive: { on, fullScreen, input, session, kind, status, stats, open },   // (pcview.js)
+//   papps: { on, apps: [{id, name, icon}], listing, launch: {id: ''|'ok'|why}, windows: [{wid, id, title, live}] },   //
 //   ui: { tab }, app: { openAtLogin, keepAwake },
-//   wake: { womp, peers: {id: {name, os, at}}, last },   // revision 7 (wake.js)
+//   wake: { womp, peers: {id: {name, os, at}}, last },   // (wake.js)
 // }
 'use strict';
 
@@ -94,7 +94,7 @@ const state = {
   connect: { busy: false, message: '', error: false },
 };
 
-// macshare://pc-app/<id> from a PC app's Dock icon / Launchpad entry (revision 6). It can arrive
+// macshare://pc-app/<id> from a PC app's Dock icon / Launchpad entry. It can arrive
 // before the services exist, so it waits in `linkQueue`.
 let linkQueue = [];
 function handleLink(url) {
@@ -129,7 +129,7 @@ function pushState() {
   pushQueued = true;
   setImmediate(() => {
     pushQueued = false;
-    // The address the other computer can reach, first (revision 7b: the UI shows only this one):
+    // The address the other computer can reach, first (the UI shows only this one):
     // on the peer's network, then real adapters (en*), the default route, VPN tunnels and bridges last.
     const peerNet = String((peer && peer.current && peer.current.address) || '').replace(/^::ffff:/, '').split('.').slice(0, 3).join('.');
     const rank = (i) => (peerNet && i.address.startsWith(`${peerNet}.`) ? 0 : /^en\d/.test(i.name) ? 1
@@ -189,7 +189,7 @@ function pushState() {
   });
 }
 
-// Revision 7: tell the viewer what we share, so it can show Start / Extend / Mirror itself
+// Tell the viewer what we share, so it can show Start / Extend / Mirror itself
 // (screen.state); only when something changed or the peer is new.
 let screenStateKey = '';
 function sendScreenState() {
@@ -202,7 +202,7 @@ function sendScreenState() {
   peer.sendToClient(msg);
 }
 
-// Revision 7: the viewer on the other computer starts/stops our sharing or switches Extend/Mirror.
+// The viewer on the other computer starts/stops our sharing or switches Extend/Mirror.
 function onScreenCtl(m) {
   if (settings.sharing.remote === false) return void (screenStateKey = '', pushState()); // re-send: remote false
   if (m.mode === 'extend' || m.mode === 'mirror') {
@@ -211,7 +211,7 @@ function onScreenCtl(m) {
   if (typeof m.share === 'boolean' && m.share !== !!settings.sharing.on) actions.setSharing(m.share, 'remote');
 }
 
-// macshare://send?p=<path>&p=… from the Share menu extension (revision 7): Send files to the peer.
+// macshare://send?p=<path>&p=… from the Share menu extension: Send files to the peer.
 function handleSendLink(url) {
   let u;
   try { u = new URL(url); } catch { return; }

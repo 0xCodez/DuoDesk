@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// This PC's host identity (revision 4, PC ↔ PC): a self-signed TLS certificate made once by
+// This PC's host identity (PC ↔ PC): a self-signed TLS certificate made once by
 // PowerShell (New-SelfSignedCertificate, exported to userData\identity.pfx with a random
 // passphrase kept next to it, then removed from the certificate store) and its fingerprint.
 'use strict';

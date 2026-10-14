@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The pointer is hidden on this PC while it drives the Mac (docs/UI.md "Crossing between the
+// The pointer is hidden on this PC while it drives the Mac ("Crossing between the
 // computers"): every system cursor is swapped for a blank one, and the user's own cursors are
 // reloaded from their settings when it comes back. Also reloaded when the helper starts, in case a
 // crash ever left them blank.

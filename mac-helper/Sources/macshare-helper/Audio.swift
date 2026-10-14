@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// System audio capture for "Mac sound on the PC" (phase 10) with ScreenCaptureKit (macOS 13+;
+// System audio capture for "Mac sound on the PC" with ScreenCaptureKit (macOS 13+;
 // needs only Screen Recording). Writes raw PCM — 48 kHz, stereo, float32 interleaved — to fd 3
 // (a pipe main opened next to stdout), so audio never mixes with the JSON lines.
 import Cocoa

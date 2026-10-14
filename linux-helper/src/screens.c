@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Monitors from XRandR (physical pixels), outer edges, offsets along a side (docs/KVM.md
+// Monitors from XRandR (physical pixels), outer edges, offsets along a side (
 // "Words"), landing points and clamping. Port of windows-helper/src/Screens.cs.
 #include "helper.h"
 #include <math.h>

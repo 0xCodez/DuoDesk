@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 13, Apps › PC apps on this Mac (docs/ROADMAP.md): list and open the PC's apps; each of
+// Apps › PC apps on this Mac: list and open the PC's apps; each of
 // their windows arrives as its own `rtc2` session (kind `window`, `wid`) and is shown in its own
-// Mac window (the phase 11 low-latency viewer), sized like on the PC. Each PC app gets its own
+// Mac window (low-latency viewer), sized like on the PC. Each PC app gets its own
 // Dock icon (dockstub.js). Input carries `wid`; focus / close / resize go back to the PC window.
 //
 // Events: 'change' — this.view changed.
@@ -123,7 +123,7 @@ class PcApps extends EventEmitter {
         wid: Number(raw.wid), id: String(raw.id == null ? '' : raw.id), title: String(raw.title || '').slice(0, 300),
         w: Math.max(80, Number(raw.w) || 800), h: Math.max(60, Number(raw.h) || 600), scale: Math.min(4, Math.max(1, Number(raw.scale) || 1)),
         popup: raw.popup === true, owner: Number(raw.owner), x: Number(raw.x) || 0, y: Number(raw.y) || 0,
-        // Revision 6: the PC screen's work area (physical px) — windows here never grow past it.
+        // The PC screen's work area (physical px) — windows here never grow past it.
         maxW: Number(raw.maxW) > 0 ? Number(raw.maxW) : 0, maxH: Number(raw.maxH) > 0 ? Number(raw.maxH) : 0,
       };
       if (info.popup) {
@@ -157,7 +157,7 @@ class PcApps extends EventEmitter {
     };
   }
 
-  // A pop-up (docs/ROADMAP.md "Phase 13"): borderless, shadowed, non-activating panel above its
+  // A pop-up: borderless, shadowed, non-activating panel above its
   // owner — keys stay with the owner; mouse in it goes to the pop-up's wid.
   _createPopup(info) {
     const owner = this.wins.get(info.owner);

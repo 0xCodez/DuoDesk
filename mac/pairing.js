@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Pairing (numeric comparison, BUILD_PLAN.md "Pairing"), paired.json, and `hello` auth.
+// Pairing (numeric comparison), paired.json, and `hello` auth.
 //
 // Events: 'change' — the pending request or the paired list changed;
 //         'request' — a new code is ready to show (bring the window to the front).

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Clipboard tab: directions, when to sync, privacy and limits, Recent list (docs/KVM.md).
+// Clipboard tab: directions, when to sync, privacy and limits, Recent list.
 'use strict';
 
 UI.tab({

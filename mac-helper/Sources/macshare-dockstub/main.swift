@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 13: the Dock icon of one PC app. TwinDesk copies this binary into a generated bundle per PC
+// The Dock icon of one PC app. TwinDesk copies this binary into a generated bundle per PC
 // app (name + icon in Info.plist / Resources) and runs it while that app has windows on this Mac.
 // stdout (lines): `activate` (Dock click, ⌘-Tab), `focus <i>` (Dock menu item), `quit` (Dock › Quit).
 // stdin (lines): `menu <JSON array of window titles>`, `exit`. stdin closed → exit.

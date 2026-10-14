@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Notifications tab (revision 5, docs/UI.md): the other computer's notifications here as Windows
+// Notifications tab: the other computer's notifications here as Windows
 // toasts from TwinDesk, and this PC's on the other computer (read from Windows' notification
 // database by the helper). Two direction cards, then the apps seen sending.
 'use strict';
@@ -11,7 +11,7 @@ UI.tab({
   icon: 'bell',
   color: 'linear-gradient(#ff6961, #ff3b30)',
   desc: 'See one computer’s notifications on the other.',
-  // Revision 7b: one switch for the whole tab (both directions); each direction is shared with the
+  // One switch for the whole tab (both directions); each direction is shared with the
   // other computer per pair (pair.sync), so flipping it there flips it here.
   master: { get: (s) => s.notifs.send || s.notifs.receive, set: (v) => UI.api.setNotifs({ send: v, receive: v }) },
   badge: (s) => (s.notifs.send || s.notifs.receive ? 'on' : ''),

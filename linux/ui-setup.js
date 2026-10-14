@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Setup screen (docs/ROADMAP.md "Setup screen", docs/UI.md "Revision 4"): a full page before the
+// Setup screen: a full page before the
 // tabs while something isn't ready: the desktop session (X11 for mouse and keyboard sharing) and
 // the firewall (Fix asks for the password once) and the mouse and keyboard helper. "Skip for now" is remembered until something
 // new is missing. No sidebar while it shows.

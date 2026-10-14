@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Overview tab (docs/UI.md "Revision 4"): this Mac's address and Connect by address on top, the
+// Overview tab: this Mac's address and Connect by address on top, the
 // computers nearby (always visible), the two computers, one switch per feature and direction,
 // and everything paired.
 'use strict';
@@ -161,7 +161,7 @@ UI.tab({
           const online = c && c.id === x.id;
           const r = UI.row(x.name, online ? 'Connected' : `Last seen ${UI.ago(x.lastSeen)}`,
             [online ? el('span', { class: 'pill good', text: 'Online' }) : null,
-              // Revision 7: wake it over the network (it told us how while connected).
+              // Wake it over the network (it told us how while connected).
               !online && wk[x.id] ? UI.button(s.wake.last && s.wake.last.id === x.id && Date.now() - s.wake.last.at < 20000 ? 'Waking…' : 'Wake', () => api.wakePeer(x.id), 'small') : null,
               UI.button('Forget', () => api.forget(x.id), 'small')]);
           r.querySelector('.text').prepend(UI.osIcon(x.os));

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 5, copy and paste files between the computers with two global shortcuts (default
+// Copy and paste files between the computers with two global shortcuts (default
 // ⌃⌥C / ⌃⌥V, Files tab). Copy announces the files selected in Finder (else the files on the
 // clipboard) with `fclip.offer`; paste on the other computer asks for them with `fclip.paste` and
 // they arrive as a batch (filesend.js / drop.js, drop:'paste') in the folder that was in front.
@@ -145,7 +145,7 @@ class FileClip extends EventEmitter {
     if (!plan) return this.emit('popup', 'home', 'Nothing to copy there');
     if (this.offer) this.server.sendToClient({ t: T.FCLIP_GONE, id: this.offer.id }); // newest copy wins
     this.offer = { id: crypto.randomUUID(), paths, items: plan.items, files: plan.files, bytes: plan.bytes };
-    // list / dirs (revision 9b): the whole tree, so a PC pastes it with Windows' own copy dialog.
+    // list / dirs: the whole tree, so a PC pastes it with Windows' own copy dialog.
     this.server.sendToClient({
       t: T.FCLIP_OFFER, id: this.offer.id, items: plan.items, files: plan.files, bytes: plan.bytes,
       list: plan.list.map((f) => ({ rel: f.rel, size: f.size })), dirs: plan.dirs,

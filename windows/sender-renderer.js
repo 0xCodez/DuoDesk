@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Hidden sender window (phases 11, 13): each `rtc2` session captures one monitor of this PC (phase
-// 11, optionally with its sound) or one app window (phase 13) and sends it to the Mac (we offer, the
+// Hidden sender window: each `rtc2` session captures one monitor of this PC (phase
+// 11, optionally with its sound) or one app window and sends it to the Mac (we offer, the
 // Mac answers recvonly). Low-latency settings as mac/capture.js.
 'use strict';
 
@@ -45,7 +45,7 @@ function withOpus(sdp) {
 
 // m: {session, sourceId, width, height, follow?, mbps, fps?, audio, offer: {kind, wid?}}
 // follow: the picture follows the source's size (an app window), up to width × height.
-// Every frame matters more than the last bit of sharpness (revision 7c): under pressure the encoder
+// Every frame matters more than the last bit of sharpness: under pressure the encoder
 // lowers quality, never the frame rate (dropped frames are what feels jagged and adds lag).
 async function start(m) {
   stop(m.session);

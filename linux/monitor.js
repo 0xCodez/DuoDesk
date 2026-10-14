@@ -47,7 +47,7 @@ async function onOffer(msg) {
   my.ontrack = (e) => {
     if ('jitterBufferTarget' in e.receiver) e.receiver.jitterBufferTarget = 0;
     else e.receiver.playoutDelayHint = 0; // lowest latency
-    if (e.track.kind === 'audio') { // the Mac's sound (phase 10), played next to the muted video
+    if (e.track.kind === 'audio') { // the Mac's sound, played next to the muted video
       audio.srcObject = new MediaStream([e.track]);
       applyAudio();
       return;

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// macshare-winhelper: JSON lines on stdin (commands) / stdout (replies and events), docs/KVM.md
+// macshare-winhelper: JSON lines on stdin (commands) / stdout (replies and events),
 // "Helper interface". The main thread runs the WinForms message loop (hooks and raw input need
 // it); a reader thread hands each line to it; one writer thread does all stdout I/O.
 using System;
@@ -19,7 +19,7 @@ namespace MacShare
         static Capture capture;
         static Injector injector;
         static DropEdge dropEdge;
-        static DragSession drag; // the drag from the Mac on this PC (revision 3)
+        static DragSession drag; // the drag from the Mac on this PC
 
         [STAThread]
         static int Main(string[] args)
@@ -41,9 +41,9 @@ namespace MacShare
             HideCursor.Restore(); // in case a crash left the cursors blank
             capture.Start();
             capture.Flash = new Flash();
-            AppWindows.Watch(delegate { Dictionary<string, object> e = new Dictionary<string, object>(); e["event"] = "winShown"; Emit(e); }); // phase 13: menus
+            AppWindows.Watch(delegate { Dictionary<string, object> e = new Dictionary<string, object>(); e["event"] = "winShown"; Emit(e); }); // Menus
             dropEdge = new DropEdge(capture, Emit);
-            Notifs.Emit = Emit; // revision 5 // file drags across the edge (shown only while dragging)
+            Notifs.Emit = Emit; // // file drags across the edge (shown only while dragging)
 
             Thread writer = new Thread(WriteLoop);
             writer.IsBackground = true;
@@ -179,9 +179,9 @@ namespace MacShare
                         if (ev != null) injector.Apply(ev);
                         break;
                     case "releaseAll": injector.ReleaseAll(); break;
-                    case "moveTo": Injector.MoveTo((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0)); break; // phase 11: the Mac's pointer on this PC's screen
+                    case "moveTo": Injector.MoveTo((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0)); break; // The Mac's pointer on this PC's screen
                     case "displays": c["displays"] = Display.List(); break;
-                    // phase 13: PC apps on the Mac
+                    // PC apps on the Mac
                     case "windows": Async(c, delegate (Dictionary<string, object> r) { r["windows"] = AppWindows.List(); }); return;
                     case "icons":
                         System.Collections.IList paths = c.ContainsKey("paths") ? c["paths"] as System.Collections.IList : null;
@@ -193,7 +193,7 @@ namespace MacShare
                             r["icons"] = icons;
                         });
                         return;
-                    // drag across the edge, revision 3: a native drag of virtual files
+                    // drag across the edge: a native drag of virtual files
                     case "dragStart":
                         if (drag != null) drag.CancelRequested = true;
                         drag = new DragSession();
@@ -215,7 +215,7 @@ namespace MacShare
                         List<string> dnames = new List<string>();
                         System.Collections.IList nl = c.ContainsKey("names") ? c["names"] as System.Collections.IList : null;
                         if (nl != null) foreach (object o in nl) dnames.Add(Convert.ToString(o));
-                        string into = Json.Str(c, "into", ""); // revision 9b: paste = drop onto this folder
+                        string into = Json.Str(c, "into", ""); // Paste = drop onto this folder
                         if (into != "") drag.DropDir = into;
                         drag.Start(dnames);
                         break;
@@ -250,7 +250,7 @@ namespace MacShare
                         c["path"] = folder;
                         c["desktop"] = desktop;
                         break;
-                    // revision 5: notifications, copy/paste files (docs/ROADMAP.md)
+                    // Notifications, copy/paste files
                     case "notifWatch":
                         bool nOn = Json.Bool(c, "on", false);
                         List<string> selfIds = Strings(c, "self");

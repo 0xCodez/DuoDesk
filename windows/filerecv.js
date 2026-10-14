@@ -1,9 +1,9 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files dragged from the Mac across the edge (revision 2 R4, docs/ROADMAP.md): `file.offer
+// Files dragged from the Mac across the edge: `file.offer
 // {drop:'release'}` from the Mac → a temp folder; when the Mac's left button comes up on this PC
 // (k.mu b:0 while driven, see kvm.js) they go to the Explorer folder under the pointer, else the
 // Desktop if the pointer is on it, else Downloads — never overwriting — and are shown in Explorer.
-// Revision 5: `drop:'send'` / `'paste'` batches (Send files, the paste shortcut): every file with
+// `drop:'send'` / `'paste'` batches (Send files, the paste shortcut): every file with
 // its `rel` path straight into Downloads or the folder chosen at paste time, then `files.done`.
 const { app } = require('electron');
 const { spawn } = require('child_process');
@@ -22,7 +22,7 @@ class FileRecv {
     this.files = new Map(); // id → {name, size, got, seq, hash, out, tmp, done, released}
     this.target = null;     // folder chosen at release time for this drag
     this.last = null;       // {name, ok, text, at} for the Files tab
-    this.batches = new Map(); // revision 5: batch → {kind, dir, count, done, ok, tops: Map, placed: []}
+    this.batches = new Map(); // Batch → {kind, dir, count, done, ok, tops: Map, placed: []}
     this.bfiles = new Map();  // id → batch file {id, batch, name, size, final, tmp, got, seq, hash, out}
     this.expected = new Map(); // batch (fclip id) → {dir, bytes} chosen when this PC pasted
     const link = this.link;
@@ -41,7 +41,7 @@ class FileRecv {
 
   _offer(m) {
     if (typeof m.id !== 'string' || this.files.has(m.id) || this.bfiles.has(m.id) || m.drop === 'drag') return; // drags: dragrecv.js
-    if (this.claims && this.claims(m)) return; // a paste Windows copies itself (dragrecv.js, revision 9b)
+    if (this.claims && this.claims(m)) return; // a paste Windows copies itself (dragrecv.js)
     const refuse = (why) => this.link.send({ t: T.FILE_REFUSE, id: m.id, why });
     if (m.drop === 'send' || m.drop === 'paste') return this._offerBatch(m, refuse);
     if (!this.settings.files.acceptFromMac) return refuse('not_allowed');
@@ -66,7 +66,7 @@ class FileRecv {
     f.hash.update(buf);
     f.out.write(buf);
     const b = f.batch && this.batches.get(f.batch);
-    if (b) { // revision 7: copy/paste and Send files show progress like a drag
+    if (b) { // Copy/paste and Send files show progress like a drag
       b.got += buf.length;
       if (this.onBatchProgress) this.onBatchProgress(b);
     }
@@ -131,10 +131,10 @@ class FileRecv {
     this.onChange();
   }
 
-  // ---- revision 5: Send files / paste batches ----
+  // ---- Send files / paste batches ----
 
   // This PC pressed paste: the files of that batch go to `dir`. bytes: the batch's size from
-  // fclip.offer, for the progress popup (revision 7).
+  // fclip.offer, for the progress popup.
   expectBatch(batch, dir, bytes = 0) {
     this.expected.set(batch, { dir, bytes });
     setTimeout(() => this.expected.delete(batch), 10 * 60 * 1000);

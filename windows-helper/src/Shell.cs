@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Where is the pointer, file-wise? The folder of the Explorer window under it, or the Desktop
-// (docs/ROADMAP.md "Drag files across the screen edge": the receiver places files there).
+// (the receiver places files there).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -55,7 +55,7 @@ namespace MacShare
             catch (Exception) { /* no folder: the caller falls back to Downloads */ }
         }
 
-        // ---- revision 5: copy and paste files with shortcuts (docs/ROADMAP.md) ----
+        // ---- copy and paste files with shortcuts ----
 
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
 

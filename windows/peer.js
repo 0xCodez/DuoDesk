@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The one session this PC has, whichever side opened it (docs/ROADMAP.md "Revision 4"):
+// The one session this PC has, whichever side opened it:
 //   guest — we connected to a Mac or another computer (link.js), the usual case;
 //   host  — another PC or a Linux computer connected to our server (server.js + hostpair.js).
 // Feature code talks to this object exactly as it used to talk to link.js: on(type | 'welcome' |

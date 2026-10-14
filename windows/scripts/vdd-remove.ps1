@@ -1,5 +1,5 @@
 # TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-# Phase 11, run elevated (vdd.js): removes the Extend tasks and — only if MacShare installed it —
+# Run elevated (vdd.js): removes the Extend tasks and — only if MacShare installed it —
 # the Virtual Display Driver device and driver package. C:\VirtualDisplayDriver is left alone.
 param([Parameter(Mandatory = $true)][string]$Log)
 $ErrorActionPreference = 'Stop'

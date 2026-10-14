@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Host role (revision 4): pairing responder (numeric comparison, BUILD_PLAN.md "Pairing"),
+// Host role: pairing responder (numeric comparison),
 // paired.json (the computers that connect to this PC), and `hello` auth. Port of mac/pairing.js.
 //
 // Events: 'change' — the pending request or the paired list changed;

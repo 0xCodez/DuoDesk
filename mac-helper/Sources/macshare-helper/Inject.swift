@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Input injection with CGEvent: absolute stream input (`input`, phase 3) and releaseAll.
-// Relative KVM input (`inject`, phase 5) is in InjectRelative.swift.
+// Input injection with CGEvent: absolute stream input (`input`) and releaseAll.
+// Relative KVM input (`inject`) is in InjectRelative.swift.
 // Every injected event is marked with eventSourceUserData = 0x4D53 so our own tap can skip it.
 import Cocoa
 

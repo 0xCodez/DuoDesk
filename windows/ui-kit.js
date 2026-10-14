@@ -191,8 +191,8 @@ const UI = {
   },
 
   // Register a tab: { id, order, title, heading?, group?, icon?, desc, color, phase?, bottom?,
-  //   master?, badge?, build } — sorted by order (both apps use the same numbers, docs/UI.md).
-  // A feature that isn't built yet (BUILD_PLAN "Roadmap"): what it will do, how, its phase, and
+  //   master?, badge?, build } — sorted by order (both apps use the same numbers).
+  // A feature that isn't built yet: what it will do, how, its phase, and
   // the switches it will have (disabled). r: { id, title, desc, color, phase, what: [[t, d]], how, settings: [label] }
   comingTab(r) {
     UI.tab({
@@ -220,7 +220,7 @@ const UI = {
     });
   },
 
-  // Live Details card (docs/UI.md "Revision 4"): labels → value cells. set({label: text}) fills
+  // Live Details card: labels → value cells. set({label: text}) fills
   // them; rows without a value are hidden.
   details(labels) {
     const vals = {};
@@ -244,16 +244,16 @@ const UI = {
     return (hw ? 'Hardware' : 'Software') + (name ? ' (' + name + ')' : '');
   },
 
-  // Who the other computer is (docs/UI.md "Revision 4"): titles name what is connected. With a
+  // Who the other computer is: titles name what is connected. With a
   // Mac (or Linux): "Mac → PC" / "PC → Mac". With another PC, or nothing paired yet, this PC is
-  // "PC1" and the other "PC2" (human, 2026-10-13: "by default say pc1 pc2"); real names show in the
+  // "PC1" and the other "PC2"; real names show in the
   // overview and the paired list. toMe = the peer's things here, fromMe = this PC's things there.
   peer(s) {
     const p = s && s.peer;
     const os = p ? p.os : 'win';
     const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux' };
     const same = os === 'win';
-    // Device names everywhere (docs/UI.md "Device names, not Mac / PC"): this PC by its own name,
+    // Device names everywhere: this PC by its own name,
     // the other computer by its name (or "the other computer" before anything was paired).
     const me = (s && s.device && s.device.name) || 'This PC';
     const name = (p && p.name) || 'the other computer';
@@ -286,7 +286,7 @@ const UI = {
     }
   },
 
-  // Playback of shared screens (revision 7c, both directions, the same on both computers via
+  // Playback of shared screens (both directions, the same on both computers via
   // pair.sync): one row used by Share and Receive. Returns the row with .render(state).
   paceRow() {
     const seg = UI.segmented([
@@ -310,14 +310,14 @@ const UI = {
     return String(t).replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
   },
 
-  // Small computer glyph by OS (Revision 4 lists).
+  // Small computer glyph by OS.
   osIcon(os) {
     return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
   },
 
-  // Two equal direction cards (docs/UI.md "Tabs — equal places"), always Mac → PC then PC → Mac.
+  // Two equal direction cards, always Mac → PC then PC → Mac.
   // Each def: { on?: {get(s), set(v), disabled?}, label?, hint?, rows: [], soon?: 'phase N' }.
-  // Revision 7b (as the Mac): the head is a route — device icon + real name, a line with an
+  // (as the Mac): the head is a route — device icon + real name, a line with an
   // arrowhead, the other device; this PC's side tinted. The switch sits in the first row, whose
   // label is a sentence with real names ({name} = the other computer, filled in by app.js).
   // Returns { el, update(s) }; each card has .main (that first row, when there is a switch).
@@ -359,7 +359,7 @@ const UI = {
     return String(acc || '').split('+').map((p) => ({ Control: 'Ctrl', Super: 'Win' }[p] || p)).join('+');
   },
 
-  // A shortcut recorder (revision 5): click, press the keys (with Ctrl, Alt or Win), Esc cancels.
+  // A shortcut recorder: click, press the keys (with Ctrl, Alt or Win), Esc cancels.
   // onChange(accelerator).
   keyRecorder(onChange) {
     const b = UI.el('button', { class: 'btn small keyrec' });
@@ -393,7 +393,7 @@ const UI = {
     return { el: b, set(v) { if (!recording) { value = v || ''; show(); } } };
   },
 
-  // The hotkey choices (P.HOTKEYS, docs/KVM.md "Hotkey (revision 4)") as this PC names them.
+  // The hotkey choices (P.HOTKEYS) as this PC names them.
   // Right, left or either side (P.HOTKEYS), in this PC's words ("Left Ctrl", "Alt (either side)").
   HOTKEYS: Object.fromEntries(window.MacShareProtocol.HOTKEYS.map((c) => [c, window.MacShareProtocol.hotkeyName(c, 'win')])),
   hotkeyName(s) {

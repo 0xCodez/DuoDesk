@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Network drives (phase 7, docs/ROADMAP.md): mount the PC's share when it offers one, and share
+// Network drives: mount the PC's share when it offers one, and share
 // one folder of this Mac with the PC (admin setup once via scripts/smb-share.sh).
 // The share password is kept encrypted with Electron safeStorage (Keychain-backed) in settings.
 //

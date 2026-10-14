@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 1 self-check: a minimal Windows-side client. Pairs once (the human clicks Allow),
+// Self-check: a minimal Windows-side client. Pairs once (click Allow),
 // saves {fp, token} in dev/.probe.json, then says hello, pings for 5 s and prints the RTT.
 // Usage: npm run probe [-- <host>]
 'use strict';

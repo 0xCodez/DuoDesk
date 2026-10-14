@@ -1,10 +1,10 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// A drag from the Mac across the edge, revision 3 (docs/ROADMAP.md): on `drag.start` while the Mac
+// A drag from the Mac across the edge: on `drag.start` while the Mac
 // drives this PC, the helper starts a real Windows drag at the pointer (virtual files: the whole
 // tree described up front, contents streamed from temp files as `file.*` chunks arrive). The Mac's
 // left-button-up drops it wherever the pointer is — Explorer, the Desktop, an app. `drag.end` tells
 // the Mac how it went.
-// Revision 9b: the paste shortcut uses the same virtual files, dropped by the helper straight onto
+// The paste shortcut uses the same virtual files, dropped by the helper straight onto
 // the folder that was in front (`into`), so Windows copies them with its own progress dialog. The
 // files come as the paste batch (`file.offer drop:'paste'`); the end is `files.done`, not drag.end.
 const { app } = require('electron');
@@ -95,7 +95,7 @@ class DragRecv {
     return { dir, files, entries, names, count: items.length };
   }
 
-  // Revision 9b: this PC pasted (fclip.js) a tree it knows in full: the helper drops it onto `dir`
+  // This PC pasted (fclip.js) a tree it knows in full: the helper drops it onto `dir`
   // and Windows copies it (its dialog). Returns false when it can't (fclip.js then saves directly).
   startPaste({ batch, list, dirs, items, dir }) {
     if (typeof batch !== 'string' || !Array.isArray(list) || list.length > MAX_FILES || !(list.length || (dirs && dirs.length))) return false;

@@ -34,7 +34,7 @@ UI.tab({
     const loginSw = UI.switch((v) => api.setApp({ openAtLogin: v }), { label: 'Open at login' });
     const awakeSw = UI.switch((v) => api.setApp({ keepAwake: v }), { label: 'Keep the display awake' });
     const hudSw = UI.switch((v) => api.setApp({ hud: v }), { label: 'Show a popup when switching' });
-    // Revision 7: wake this Mac from the other computer; the Share menu entry.
+    // Wake this Mac from the other computer; the Share menu entry.
     const wakeSw = UI.switch((v) => api.setWakeOnLan(v), { label: 'Wake from the network' });
     const wakeRow = UI.row('Let {name} wake {me}', '', [wakeSw]);
     const shareRow = UI.row('TwinDesk in the Share menu', 'Share › TwinDesk sends files to the other computer',

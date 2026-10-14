@@ -55,7 +55,6 @@ contextBridge.exposeInMainWorld('macshare', {
   checkFirewall: call('checkFirewall'),
   fixFirewall: call('fixFirewall'),
   setStartup: call('setStartup'),
-  // revision 5
   sendFiles: call('sendFiles'),
   chooseSendFiles: call('chooseSendFiles'),
   pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files → paths

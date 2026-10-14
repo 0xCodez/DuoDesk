@@ -1,10 +1,10 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 5, copy and paste files between the computers with two global shortcuts (default
-// Ctrl+Alt+C / Ctrl+Alt+V, Files tab; docs/ROADMAP.md "Copy and paste files with shortcuts").
+// Copy and paste files between the computers with two global shortcuts (default
+// Ctrl+Alt+C / Ctrl+Alt+V, Files tab).
 // Copy announces the files selected in the Explorer window in front (else the files on the
 // clipboard) with `fclip.offer`; paste on the other computer asks for them with `fclip.paste` and
 // they arrive as a batch (filedrop.js / filerecv.js, drop:'paste') in the folder that was in front.
-// Port of mac/fclip.js. Revision 9b: when the offer lists every file (`list`, `dirs`), the paste is
+// Port of mac/fclip.js. When the offer lists every file (`list`, `dirs`), the paste is
 // done by Windows itself — dragrecv.js drops the files as virtual files onto the folder, so the
 // native copy dialog (progress, replace/skip) shows, as for a drag.
 const { app, globalShortcut } = require('electron');
@@ -30,7 +30,7 @@ class FileClip {
       if (typeof m.id !== 'string' || !Array.isArray(m.items)) return;
       const items = m.items.slice(0, 1000).map((i) => ({ name: String((i && i.name) || '').slice(0, 200), dir: !!(i && i.dir), size: Number(i && i.size) || 0 }));
       this.incoming = { id: m.id, items, files: Number(m.files) || 0, bytes: Number(m.bytes) || 0, at: Date.now(),
-        list: Array.isArray(m.list) ? m.list : null, dirs: Array.isArray(m.dirs) ? m.dirs : [] }; // revision 9b: the whole tree
+        list: Array.isArray(m.list) ? m.list : null, dirs: Array.isArray(m.dirs) ? m.dirs : [] }; // The whole tree
       this.onChange();
     });
     link.on(T.FCLIP_GONE, (m) => {
@@ -42,7 +42,7 @@ class FileClip {
       this.onChange();
     });
     link.on(T.FCLIP_PASTE, (m) => this._send(m.id));
-    // Revision 6: the other computer's keyboard pressed its copy/paste shortcut while the pointer
+    // The other computer's keyboard pressed its copy/paste shortcut while the pointer
     // is here (it drives this PC): do it here.
     link.on(T.FCLIP_KEY, (m) => {
       if (m.action === 'copy') this.copy();
@@ -137,7 +137,7 @@ class FileClip {
     if (this.offer) this.link.send({ t: T.FCLIP_GONE, id: this.offer.id }); // newest copy wins
     const files = plan.jobs.length;
     this.offer = { id: crypto.randomUUID(), paths, items: plan.items, files, bytes: plan.bytes };
-    // list/dirs (revision 9b): every file and folder, so a PC can paste it with Windows' own copy.
+    // list/dirs: every file and folder, so a PC can paste it with Windows' own copy.
     this.link.send({ t: T.FCLIP_OFFER, id: this.offer.id, items: plan.items, files, bytes: plan.bytes, list: plan.list, dirs: plan.dirs });
     this.popup('away', 'Copied ' + (plan.items.length === 1 ? plan.items[0].name : plural(plan.items.length, 'item')) + ' for ' + this.peerName());
     this.onChange();
@@ -152,7 +152,7 @@ class FileClip {
       dir = (await this.helper.request('frontFolder')).path || '';
     } catch (_) { /* Desktop */ }
     if (!dir || !fs.existsSync(dir)) dir = app.getPath('desktop');
-    // Revision 9b: Windows' own copy (its dialog) when we know the whole tree; else straight in.
+    // Windows' own copy (its dialog) when we know the whole tree; else straight in.
     const native = inc.list && this.dragRecv && this.dragRecv.startPaste({ batch: inc.id, list: inc.list, dirs: inc.dirs, items: inc.items, dir });
     if (!native) this.fileRecv.expectBatch(inc.id, dir, inc.bytes);
     this.pasting = { id: inc.id, files: inc.files };

@@ -3,7 +3,7 @@
 //   request(cmd, args) -> Promise<reply>   (has an id, waits for {"id","ok"})
 //   send(cmd, args)                        (fire-and-forget)
 // Events: 'event' (name, msg) for {"event":...} lines; 'ready' after each start; 'exit' (code).
-// The helper is restarted after it exits (phase 6), unless stop() was called.
+// The helper is restarted after it exits, unless stop() was called.
 const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
 const fs = require('fs');

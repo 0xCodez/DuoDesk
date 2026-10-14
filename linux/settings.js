@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// settings.json: defaults and validation (BUILD_PLAN "Settings and storage"), the parts of
+// settings.json: defaults and validation, the parts of
 // windows/settings.js the Linux app has so far. Every value from disk or the UI goes through
 // normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
@@ -35,7 +35,7 @@ function normalize(s) {
       gestures: bool(kvm.gestures, true), // the Mac's trackpad gestures done the Linux way
       hotkeySwitch: bool(kvm.hotkeySwitch, false), // keyboard only (Cursor off): double-tap moves the keyboard over and back
     },
-    // hotkey: double-tap = cursor sharing off/on (docs/KVM.md "Hotkey (revision 4)")
+    // hotkey: double-tap = cursor sharing off/on
     keys: { swapCtrlCmd: bool(keys.swapCtrlCmd, true), hotkey: P.HOTKEYS.includes(keys.hotkey) ? keys.hotkey : P.HOTKEY_WIN },
     clipboard: {
       enabled: bool(c.enabled, true),
@@ -50,7 +50,7 @@ function normalize(s) {
     // "Skip for now" on the Setup screen: the missing items it was skipped for (shown again when
     // something else goes missing).
     setup: { skipped: Array.isArray(setup.skipped) ? setup.skipped.filter((x) => typeof x === 'string').slice(0, 10) : [] },
-    app: { hud: bool(appS.hud, true) }, // popup when switching computers (docs/UI.md "Popups and the menu bar")
+    app: { hud: bool(appS.hud, true) }, // popup when switching computers
     ui: { tab: TABS.includes(ui.tab) ? ui.tab : 'overview' },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };

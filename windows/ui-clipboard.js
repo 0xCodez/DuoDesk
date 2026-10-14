@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Clipboard tab: accept (Mac → PC) and send (PC → Mac) as two direction cards (docs/UI.md), then
-// timing, privacy and the Recent list for both (docs/KVM.md "Clipboard").
+// Clipboard tab: accept (Mac → PC) and send (PC → Mac) as two direction cards, then
+// timing, privacy and the Recent list for both.
 'use strict';
 
 UI.tab({
@@ -18,7 +18,7 @@ UI.tab({
     const peerRow = UI.row('', '');
     const skipNote = UI.note('info', '');
     const mode = UI.segmented([
-      { value: 'instant', label: 'Instantly' }, // the default since revision 7
+      { value: 'instant', label: 'Instantly' }, // the default
       { value: 'switch', label: 'When you switch' },
     ], (v) => set({ mode: v }));
     const modeRow = UI.row('Sync', '', [mode]);

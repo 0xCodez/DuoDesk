@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Mac apps on the PC (phase 12, docs/ROADMAP.md): list apps with icons, launch, watch the windows
+// Mac apps on the PC: list apps with icons, launch, watch the windows
 // of launched apps, move them onto the shared display, raise / close one (Accessibility API).
 import Cocoa
 
@@ -74,7 +74,7 @@ enum Apps {
   }
 
   /// Normal on-screen windows of these processes, front to back, global CG coordinates.
-  /// popups (revision 10): also the app's menus and pop-ups (layers above normal windows), marked
+  /// popups: also the app's menus and pop-ups (layers above normal windows), marked
   /// `popup`, front to back as the window server lists them.
   static func windows(pids: Set<Int>, popups: Bool = false) -> [[String: Any]] {
     let list = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []

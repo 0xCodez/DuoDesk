@@ -59,7 +59,7 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 .soon-item { padding: 8px 14px; }
 .soon-item .hint { color: var(--muted); margin-top: 1px; }
 
-/* Symmetric direction cards (docs/UI.md "equal places") */
+/* Symmetric direction cards */
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; align-items: start; }
 .pair .card { margin-bottom: 0; }
 @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
@@ -77,7 +77,7 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 .dir-role { color: var(--muted); font-size: 11px; }
 .soon-card .row { opacity: 0.55; }
 .soon-card .dir-role { color: var(--accent); font-weight: 600; }
-/* Apps › the PC's apps (phase 13) */
+/* Apps › the PC's apps */
 .app-tools { display: flex; gap: 8px; padding: 10px 12px 4px; }
 .app-filter { flex: 1; font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--sep, rgba(128,128,128,.3)); background: transparent; color: inherit; }
 .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; padding: 8px 12px 12px; max-height: 360px; overflow-y: auto; }
@@ -92,7 +92,7 @@ kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius:
 .app-tile.running .app-state { color: #30d158; opacity: 1; }
 .app-empty { grid-column: 1 / -1; opacity: .6; padding: 12px 0; font-size: 12px; }
 
-/* Revision 4: overview address, nearby list, OS glyphs, setup page, details */
+/* Overview address, nearby list, OS glyphs, setup page, details */
 input[type="text"] { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--control-line); background: var(--control); color: var(--text); width: 150px; font: inherit; box-shadow: var(--shadow); }
 input[type="text"]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 .value.addr { color: var(--text); font-variant-numeric: tabular-nums; user-select: text; }
@@ -112,7 +112,7 @@ body.setup #sidebar { display: none; }
 .setup-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
 .setup-page:not([hidden]) .card { animation: rise 0.42s var(--ease) both; }
 
-/* Revision 5: Send files drop zone, shortcut recorder */
+/* Send files drop zone, shortcut recorder */
 .dropzone { margin: 12px 14px; height: 96px; border: 1.5px dashed var(--control-line); border-radius: 10px; display: grid; place-items: center; text-align: center; color: var(--muted); transition: border-color 0.2s, background-color 0.2s, transform 0.25s var(--spring); }
 .dropzone .big { color: var(--text); font-weight: 500; }
 .dropzone.over { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.01); }
@@ -122,7 +122,7 @@ body.setup #sidebar { display: none; }
 .btn.keyrec { min-width: 74px; font-variant-numeric: tabular-nums; }
 .btn.keyrec.on { border-color: var(--accent); color: var(--accent); }
 
-/* Revision 6: Add to Dock pin on a PC app tile */
+/* Add to Dock pin on a PC app tile */
 .app-tile { position: relative; }
 .app-pin { position: absolute; top: 2px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; opacity: 0; transform: scale(0.7); transition: opacity 0.15s, transform 0.2s var(--spring); }
 .app-pin svg { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; }

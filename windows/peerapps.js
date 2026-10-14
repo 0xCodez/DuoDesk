@@ -1,11 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Apps between two PCs (docs/ROADMAP.md "Phase 13", "Revision 9"): the other PC's apps on this
+// Apps between two PCs : the other PC's apps on this
 // one. Port of mac/pcapps.js: list and open the other PC's Start-menu apps (papps.list /
 // papp.launch); each of their windows arrives as its own `rtc2` session (kind 'window') and is
 // shown in its own window here (appview.html), sized like over there, grouped on the taskbar per
 // app with the app's icon. Input carries `wid`; focus / close / resize go back to its window.
 // The other direction (this PC's apps there) is pcapps.js. Only with a PC peer: a Mac shows our
-// windows itself, and sends its own apps by phase 12 (apps.js).
+// windows itself, and sends its own apps (apps.js).
 const path = require('path');
 const crypto = require('crypto');
 const { BrowserWindow, ipcMain, nativeImage, screen: displays } = require('electron');
@@ -82,7 +82,7 @@ class PeerApps {
     return this.settings.macApps;
   }
 
-  // A PC on the other end (the Mac does phase 12 with apps.js instead).
+  // A PC on the other end (the Mac does with apps.js instead).
   get active() {
     return this.link.status.state === 'connected' && this.link.peerOs === P.OS.WIN;
   }
@@ -190,7 +190,7 @@ class PeerApps {
       height: Math.min(Math.round(info.h / info.scale), wa.height - 40),
       useContentSize: true,
       backgroundColor: '#000000',
-      fullscreenable: false, // full screen stretched the picture (revision 6); maximize resizes it over there
+      fullscreenable: false, // full screen stretched the picture; maximize resizes it over there
       autoHideMenuBar: true,
       webPreferences: this._webPrefs(),
     });

@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files tab: Send files (drop zone + Choose…) and copy/paste files with shortcuts (revision 5),
-// then two direction cards (docs/UI.md) — files and the Mac's folder coming here, files and
-// this PC's folder going to the Mac — then transfers. Drags across the edge (revision 2 R4),
-// Monitor 2 drops (phase 9), network drives in one switch each (phase 7, R6).
+// Files tab: Send files (drop zone + Choose…) and copy/paste files with shortcuts,
+// then two direction cards — files and the Mac's folder coming here, files and
+// this PC's folder going to the Mac — then transfers. Drags across the edge,
+// Monitor 2 drops, network drives in one switch each.
 'use strict';
 
 UI.tab({
@@ -30,7 +30,7 @@ UI.tab({
         pcShare,
       ] },
     );
-    // Send files (revision 5): drop zone + Choose…
+    // Send files: drop zone + Choose…
     const zoneText = el('div', { class: 'big', text: 'Drop files or folders here' });
     const zoneHint = el('div', { class: 'hint', text: '' });
     const zone = el('div', { class: 'dropzone' }, [el('div', {}, [zoneText, zoneHint])]);
@@ -51,7 +51,7 @@ UI.tab({
     window.addEventListener('dragover', (e) => e.preventDefault());
     window.addEventListener('drop', (e) => e.preventDefault());
 
-    // Copy and paste files with shortcuts (revision 5)
+    // Copy and paste files with shortcuts
     const keysSw = sw('Copy and paste files with shortcuts', (v) => api.setFiles({ shortcuts: v }));
     const copyRec = UI.keyRecorder((v) => api.setFiles({ copyKeys: v }));
     const pasteRec = UI.keyRecorder((v) => api.setFiles({ pasteKeys: v }));

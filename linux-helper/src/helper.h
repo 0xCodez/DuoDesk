@@ -1,13 +1,13 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // macshare-linuxhelper: shared declarations. JSON lines on stdin/stdout, the same commands and
-// events as windows-helper (docs/KVM.md "Helper interface", docs/LINUX.md "Helper").
+// events as windows-helper.
 #ifndef MACSHARE_HELPER_H
 #define MACSHARE_HELPER_H
 
 #include <stddef.h>
 #include <X11/Xlib.h>
 
-// Two X connections (docs/LINUX.md): one for capture (raw events, grabs), one for injection and
+// Two X connections: one for capture (raw events, grabs), one for injection and
 // queries, so injection never waits behind event reading.
 extern Display *dpy_ev, *dpy_in;
 extern Window root_ev, root_in;

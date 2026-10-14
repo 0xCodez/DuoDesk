@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Creates the helper-backed services and wires them together: display, stream, Monitor 2 input,
-// clipboard, shared cursor/keyboard. Restarts the helper if it dies (phase 6) and keeps the display
+// clipboard, shared cursor/keyboard. Restarts the helper if it dies and keeps the display
 // awake while a PC is connected.
 'use strict';
 
@@ -35,7 +35,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   const hub = new AudioHub(helper, s);
   const stream = new Stream(server, displays, s, hub);
   let kvm = null;
-  // Stream input only when "Receive input" is on and shared input is home (docs/KVM.md).
+  // Stream input only when "Receive input" is on and shared input is home.
   const input = new Input(server, helper, displays, {
     enabled: () => s().streamInput !== false && (!kvm || kvm.mode === 'home'),
     swapKeys: () => server.keySwap(s()), // never between two Macs
@@ -55,7 +55,7 @@ function startServices({ server, getSettings, pushState, onHelperReady }) {
   const notifs = new Notifs({ server, helper, getSettings: s, saveSettings: () => store.saveSettings(s()) });
   const fileClip = new FileClip({ server, helper, fileSend, drop, getSettings: s });
   kvm.fileClip = fileClip;
-  const appSend = new AppSend({ server, helper, getSettings: s }); // revision 10: this Mac's apps on another Mac
+  const appSend = new AppSend({ server, helper, getSettings: s }); // This Mac's apps on another Mac
   const wake = new Wake({ server, getSettings: s, saveSettings: () => store.saveSettings(s()) });
   kvm.blockEdge = () => pcView.focused || pcApps.focused; // moving inside the PC window never crosses to the PC
 

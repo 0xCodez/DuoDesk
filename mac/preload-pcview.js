@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Small API for the PC-screen viewer window (phase 11).
+// Small API for the PC-screen viewer window.
 'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');
@@ -9,5 +9,5 @@ contextBridge.exposeInMainWorld('pcview', {
   send: (msg) => ipcRenderer.send('pcview:out', msg),
   state: (s) => ipcRenderer.send('pcview:state', s),
   ready: () => ipcRenderer.send('pcview:ready'),
-  ctl: (m) => ipcRenderer.send('pcview:ctl', m), // revision 7 toolbar: {share?, mode?, framegen?, fullScreen?}
+  ctl: (m) => ipcRenderer.send('pcview:ctl', m), // Toolbar: {share?, mode?, framegen?, fullScreen?}
 });

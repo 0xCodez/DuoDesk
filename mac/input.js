@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Phase 3: input inside Monitor 2 (in.* -> mac-helper `input`, keys swapped Ctrl<->Cmd when
+// Input inside Monitor 2 (in.* -> mac-helper `input`, keys swapped Ctrl<->Cmd when
 // `swapKeys()`). The clipboard lives in clipboard.js.
 //
-// Stream input is applied only while `enabled()` is true (KVM home; phases 4–5 switch it off).
+// Stream input is applied only while `enabled()` is true (KVM home; switch it off).
 // Everything we hold is released when the PC goes away, when Monitor 2 loses focus (Windows
 // sends `clip.request` then), and when the stream restarts.
 'use strict';

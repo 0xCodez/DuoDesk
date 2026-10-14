@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 10: this Mac's apps on another Mac, the phase 13 way (port of windows/pcapps.js +
+// This Mac's apps on another Mac, way (port of windows/pcapps.js +
 // sender.js). The other Mac's viewer (its pcapps.js) asks for the list (`papps.list`), opens an app
 // (`papp.launch` → `open -b` through the helper), and gets `papp.windows` for the apps it opened:
 // their windows and their menus / pop-ups (`popup`, `owner`, offset). Every window is its own `rtc2`

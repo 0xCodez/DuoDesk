@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Apps tab (revision 2): Mac apps on the PC and PC apps on this Mac, in equal places.
+// Apps tab: Mac apps on the PC and PC apps on this Mac, in equal places.
 'use strict';
 
 UI.tab({

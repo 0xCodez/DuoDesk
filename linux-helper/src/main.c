@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// macshare-linuxhelper: JSON lines on stdin (commands) / stdout (replies and events), docs/KVM.md
+// macshare-linuxhelper: JSON lines on stdin (commands) / stdout (replies and events),
 // "Helper interface", the same commands and events as windows-helper. One thread: poll() on
 // stdin and the capture connection; X queues input for us, so nothing here can block the
 // desktop's input (rule 3) and no event callback has a deadline like a Windows hook. Logs go to

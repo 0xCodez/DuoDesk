@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Sends files to the PC (docs/ROADMAP.md "Drag files across the screen edge", revision 3): a drag
+// Sends files to the PC: a drag
 // of files and folders is planned (every folder and file by relative path), announced with
 // `drag.start`, then each file is offered (`drop:'drag'`, `rel`) and sent one at a time in order —
 // chunks with backpressure on the socket (so input and pings never wait behind a big file), then
@@ -81,7 +81,7 @@ class FileSend extends EventEmitter {
     this.outgoing = new Map(); // id -> { id, name, size, path, sent, state, drag? } in sending order
     this.recent = []; // newest first: { name, size, at, ok, where|error }
     this.drags = new Map(); // drag id -> { name, bytes }
-    this.batches = new Map(); // revision 5: batch id -> { kind: 'send'|'paste', name, files, bytes }
+    this.batches = new Map(); // Batch id -> { kind: 'send'|'paste', name, files, bytes }
     this.pumping = false;
     server.on(`t:${P.T.FILE_ACCEPT}`, (m) => {
       const f = this.outgoing.get(m.id);
@@ -134,7 +134,7 @@ class FileSend extends EventEmitter {
     return drag;
   }
 
-  // Revision 5: Send files (kind 'send') or a paste the peer asked for (kind 'paste', batch = the
+  // Send files (kind 'send') or a paste the peer asked for (kind 'paste', batch = the
   // fclip id). Every file is offered in order with its relative path; the peer answers files.done.
   sendBatch(paths, kind, batch = crypto.randomUUID()) {
     const plan = planDrag(paths);

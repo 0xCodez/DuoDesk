@@ -178,8 +178,8 @@ const UI = {
   },
 
   // Register a tab: { id, order, title, heading?, group?, icon?, desc, color, phase?, bottom?,
-  //   master?, badge?, build } — sorted by order (both apps use the same numbers, docs/UI.md).
-  // A feature that isn't built yet (BUILD_PLAN "Roadmap"): what it will do, how, its phase, and
+  //   master?, badge?, build } — sorted by order (both apps use the same numbers).
+  // A feature that isn't built yet: what it will do, how, its phase, and
   // the switches it will have (disabled). r: { id, title, desc, color, phase, what: [[t, d]], how, settings: [label] }
   comingTab(r) {
     UI.tab({
@@ -207,12 +207,12 @@ const UI = {
     });
   },
 
-  // Small computer glyph by OS (Revision 4 lists).
+  // Small computer glyph by OS.
   osIcon(os) {
     return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
   },
 
-  // Two equal direction cards (docs/UI.md "Tabs — equal places"), always Mac → PC then PC → Mac.
+  // Two equal direction cards, always Mac → PC then PC → Mac.
   // Each def: { on?: {get(s), set(v), disabled?}, rows: [], soon?: 'phase N' }. Returns { el, update(s) }.
   dirCards(m2p, p2m) {
     const make = (dir, def) => {
@@ -232,7 +232,7 @@ const UI = {
     return { el: UI.el('div', { class: 'dir-pair' }, [a, b]), update: (s) => { a.update(s); b.update(s); } };
   },
 
-  // The hotkey choices (P.HOTKEYS, docs/KVM.md "Hotkey (revision 4)") in Linux words
+  // The hotkey choices (P.HOTKEYS) in Linux words
   // ("Right Alt", "Ctrl (either side)", "Left Super").
   HOTKEYS: Object.fromEntries(window.MacShareProtocol.HOTKEYS.map((c) => [c, window.MacShareProtocol.hotkeyName(c, 'win').replace('Windows key', 'Super')])),
   hotkeyName(s) {

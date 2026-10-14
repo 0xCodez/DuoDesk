@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Control window: a tiny UI kit (window.UI) and the shell (sidebar, tabs, pairing banner).
-// Tabs live in ui-*.js and call UI.tab({...}); ui-start.js boots the window (docs/UI.md).
+// Tabs live in ui-*.js and call UI.tab({...}); ui-start.js boots the window.
 // Controls are built once per tab; render(state) only updates values, so a state push never
 // interrupts a drag, an open menu or keyboard focus.
 'use strict';
@@ -166,7 +166,7 @@ const UI = {
     return wrap;
   },
 
-  // Who the other computer is (docs/UI.md "Revision 4"): the session's peer, else the most recent
+  // Who the other computer is: the session's peer, else the most recent
   // pairing. Mac ↔ PC keeps "Mac" / "PC"; two Macs are "Mac1" (this one) / "Mac2".
   peer(s) {
     const c = s && s.client;
@@ -178,7 +178,7 @@ const UI = {
     os = os || 'win';
     const same = os === 'mac';
     const kind = os === 'linux' ? 'Linux' : same ? 'Mac' : 'PC';
-    // Revision 7b: computers are called by their names everywhere — this one by its own name, the
+    // Computers are called by their names everywhere — this one by its own name, the
     // other by its name (or "the other computer" before anything was paired).
     const me = (s && s.macName) || 'This Mac';
     name = name || 'the other computer';
@@ -186,8 +186,7 @@ const UI = {
     return {
       os, same, kind, me, name, Name,
       there: name, here: me, meName: me, // older templates
-      // Terminal, Apps: only Mac ↔ PC so far (docs/ROADMAP.md "Revision 4", docs/LINUX.md).
-      // Revision 10: Apps work Mac ↔ Mac too; Terminal is still Mac ↔ PC only (its tab says so).
+      // Apps work Mac ↔ Mac too; Terminal is still Mac ↔ PC only (its tab says so).
       limited: os === 'linux' ? 'Not on Linux yet' : '',
       terminalLimited: os === 'linux' ? 'Not on Linux yet' : os === 'mac' ? 'Only between a Mac and a PC for now' : '',
       out: `${me} → ${name}`,
@@ -220,9 +219,9 @@ const UI = {
     return String(t).replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
   },
 
-  // A direction card for the symmetric layout (docs/UI.md "equal places"). dir: 'm2w' | 'w2m'
+  // A direction card for the symmetric layout. dir: 'm2w' | 'w2m'
   // (m2w = from this Mac). The names follow the peer (UI.peer) on every render.
-  // Revision 7b: the head is a route — device icon + real name, a line with an arrowhead, the
+  // The head is a route — device icon + real name, a line with an arrowhead, the
   // other device — so which way things go is clear without reading.
   dir(dir, rows, { role = '', soon = '' } = {}) {
     const node = (me) => {

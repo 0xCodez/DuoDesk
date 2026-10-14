@@ -44,7 +44,7 @@
     }
     page.append(el('header', { class: 'page-head' }, [titles, master ? master.el : null]));
     const body = el('div', { class: 'page-body' });
-    // Features that only work between a Mac and a PC so far (docs/ROADMAP.md "Revision 4").
+    // Features that only work between a Mac and a PC so far.
     const mixedNote = def.mixedOnly ? UI.note('info', 'Only between a Mac and a PC for now.') : null;
     if (mixedNote) {
       mixedNote.hidden = true;

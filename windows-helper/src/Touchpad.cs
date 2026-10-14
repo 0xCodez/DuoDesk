@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Revision 8 (docs/ROADMAP.md "Revision 8"): this PC's precision touchpad while we drive the other
+// This PC's precision touchpad while we drive the other
 // computer. Raw Input from HID usage page 0x0D / usage 0x05 (the touchpad collection) gives the
 // contacts; the HID parser (hid.dll HidP_*) reads tip switch, contact id, X and Y per finger. Frames
 // go to a small recogniser: pinch → `zoom` (begin / change / end, v = magnification step), three
@@ -7,7 +7,7 @@
 // `spaceRight` / `spaceLeft` (as Windows: fingers left, the desktop on the right), a quick three-finger tap → `launcher`. Capture.cs sends them as k.ge
 // and uses Pinching / Fingers to swallow the Ctrl+wheel Windows makes from a pinch.
 // Windows' own three- and four-finger shell gestures can't be stopped from user mode: while
-// capturing they may also act on this PC (see docs/WINDOWS.md, step 23).
+// capturing they may also act on this PC.
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;

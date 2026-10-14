@@ -64,7 +64,7 @@ function setupIpc(ctx) {
     save();
   }
 
-  // "Connect by address" / Pair on a found device (docs/ROADMAP.md "Revision 4"): a Mac host is
+  // "Connect by address" / Pair on a found device: a Mac host is
   // paired as its guest, a PC gets an invite (it pairs with this Mac, which stays the host).
   const connect = ctx.state.connect;
   const report = (message, error = false) => {
@@ -144,12 +144,12 @@ function setupIpc(ctx) {
         ctx.displays.applyVirtual(); // removes the virtual display
       }
     },
-    // Revision 7: who may start our sharing, and smoothness vs. sharpness.
+    // Who may start our sharing, and smoothness vs. sharpness.
     setSharingOpts(partial) {
       setGroup('sharing', partial);
       ctx.pcView.applySettings(); // playback pace in the open viewer
     },
-    // Revision 7: start/stop the other computer's sharing or switch its Extend/Mirror from here.
+    // Start/stop the other computer's sharing or switch its Extend/Mirror from here.
     remoteScreen(arg) {
       ctx.pcView.control(arg || {});
     },
@@ -221,7 +221,7 @@ function setupIpc(ctx) {
       ctx.fileSend.sendPolicy();
       ctx.kvm.config();
     },
-    // Revision 5: Send files (paths from the drop zone or the Choose… dialog).
+    // Send files (paths from the drop zone or the Choose… dialog).
     sendFiles(paths) {
       const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && p.startsWith('/')).slice(0, 1000);
       if (list.length && ctx.server.current) ctx.fileSend.sendBatch(list, 'send');

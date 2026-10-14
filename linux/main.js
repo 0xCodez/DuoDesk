@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Main process (Linux, docs/LINUX.md): lifecycle, windows, tray, IPC and the state pushed to the
-// main window. Follows windows/main.js; phases L0–L2: discovery, pairing with the Mac as its
+// Main process (Linux): lifecycle, windows, tray, IPC and the state pushed to the
+// main window. Follows windows/main.js: discovery, pairing with the Mac as its
 // guest, clipboard, the Mac's screen in a window; L3: mouse and keyboard (kvm.js + linux-helper).
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme } = require('electron');
 const crypto = require('crypto');
@@ -106,7 +106,7 @@ function start() {
       : on ? (name ? 'With ' + name + '. ' : '') + 'Double-tap ' + key + ' to turn it off' : 'Double-tap ' + key + ' to turn it on';
     hud.show(on ? 'linkOn' : 'linkOff', 'Cursor sharing ' + (on ? 'on' : 'off'), sub);
   };
-  kvm.onWhere = (mode) => { // the switching popup (docs/KVM.md "Hotkey (revision 4)")
+  kvm.onWhere = (mode) => { // the switching popup
     const name = peerName();
     if (mode === 'driving') hud.show('away', (kvm.keyboardOnly ? 'Typing on ' : 'Using ') + name);
     else if (mode === 'driven') hud.show('driven', name + ' is using ' + device.name);
@@ -142,7 +142,7 @@ function pushState() {
   });
 }
 
-// Setup items that aren't ready (docs/ROADMAP.md "Setup screen").
+// Setup items that aren't ready.
 function missing() {
   const m = [];
   if (session.type !== 'x11') m.push('session');
@@ -299,7 +299,7 @@ function createTray() {
   updateTray(buildState());
 }
 
-// The tray menu (docs/UI.md "Popups and the menu bar"), rebuilt when what it shows changes (some
+// The tray menu, rebuilt when what it shows changes (some
 // Linux trays only take a new menu, not changes to the old one).
 let trayKey = '';
 function updateTray(s) {
