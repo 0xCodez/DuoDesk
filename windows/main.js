@@ -1,6 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main process: lifecycle, windows, tray, IPC and the state pushed to the main window.
-const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification } = require('electron');
+const { Updates } = require('../shared/updates.js');
 const { execFile } = require('child_process');
 const crypto = require('crypto');
 const os = require('os');
@@ -89,6 +90,8 @@ let pcApps = null;
 let peerApps = null; // The other PC's apps here
 let vdd = null;
 let wake = null;
+let updates = null;
+let updateNote = null; // the update notification, kept so it isn't collected before a click
 let sendTo = null;
 let pairSync = null;
 let fileRecv = null;
@@ -224,7 +227,18 @@ function start() {
   helper.on('exit', pushState);
   helper.start();
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
-  const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, settings, save: saveSettings, push: pushState, buildState,
+  // New releases on GitHub: a notification once per version, the tray item and General › Updates.
+  updates = new Updates({
+    current: app.getVersion(), platform: 'win', getSettings: () => settings, save: saveSettings, onChange: pushState,
+    notify: (title, body, onClick) => {
+      if (!Notification.isSupported()) return;
+      updateNote = new Notification({ title, body });
+      updateNote.on('click', onClick);
+      updateNote.show();
+    },
+  });
+  updates.start();
+  const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, updates, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
@@ -358,6 +372,7 @@ function buildState() {
     ui: settings.ui,
     app: settings.app,
     version: app.getVersion(),
+    updates: updates ? updates.view : null,
     firewall: fw,
     audio: { ...settings.audio, ...sound.view() },
     pcScreen: pcScreen.view(),
@@ -531,7 +546,7 @@ function updateTray(s = buildState()) {
   // Rebuild only when something in the menu changed (state pushes are frequent).
   const watching = screen.sentAccept === true;
   const key = JSON.stringify([name, rtt, away, kvm.linked, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
-    settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os])]);
+    settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
   if (key === trayKey) return;
   trayKey = key;
   const other = name || 'Other Computer';
@@ -568,6 +583,7 @@ function updateTray(s = buildState()) {
     ] },
     check('Show a Popup When Switching', settings.app.hud, (i) => set('app', { hud: i.checked })),
     { type: 'separator' },
+    ...(s.updates && s.updates.available ? [{ label: 'Download TwinDesk ' + s.updates.latest + '…', click: () => updates.open() }] : []),
     { label: 'Open TwinDesk…', click: showMain },
     { label: 'Quit TwinDesk', click: () => app.quit() },
   ]));

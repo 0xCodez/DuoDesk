@@ -28,6 +28,7 @@ function normalize(s) {
   const mca = s.macApps || {};
   const setup = s.setup || {};
   const appS = s.app || {};
+  const up = s.updates || {};
   const nf = s.notifs || {};
   const wk = s.wake || {};
   return {
@@ -51,6 +52,8 @@ function normalize(s) {
     // hotkey: double-tap = mouse and keyboard home
     keys: { swapCtrlCmd: bool(keys.swapCtrlCmd, true), hotkey: P.HOTKEYS.includes(keys.hotkey) ? keys.hotkey : P.HOTKEY_WIN },
     app: { hud: bool(appS.hud, true) }, // popup when switching computers
+    // New releases on GitHub (shared/updates.js); notified = the last version announced
+    updates: { auto: bool(up.auto, true), notified: typeof up.notified === 'string' ? up.notified.slice(0, 40) : '' },
     clipboard: {
       enabled: bool(c.enabled, true),
       send: bool(c.send, true),

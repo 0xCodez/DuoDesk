@@ -50,6 +50,9 @@ TwinDesk also includes:
   per pair.
 - **Wake-on-LAN.** Wake a paired computer from the other one.
 - **Device names.** Every label uses your computers' real names.
+- **Update checks.** Each app looks for new [releases](https://github.com/InukaAsith/TwinDesk/releases)
+  on start and every few hours, shows a notification and offers the download for your platform
+  (General › Updates, or the menu bar / tray).
 
 <p align="center">
   <img src=".github/assets/ui-overview.jpg" alt="Overview: both computers, the link and what is shared in each direction" width="820">
@@ -137,11 +140,24 @@ npm run dist                    # AppImage and .deb in linux/dist/
 The Setup screen walks you through the rest. On Wayland that means input access (one admin
 prompt, then log out and back in once). It can also install OpenSSH for the terminal.
 
+### Publishing a release
+
+Create a GitHub release with a version tag newer than the apps' `version` (for example `v0.2.0`)
+and attach the builds. The apps pick their file by name:
+
+| Platform | Attach |
+|---|---|
+| macOS | The `.dmg` from `mac/dist/` (put `arm64` or `x64` in the name when you attach both) |
+| Windows | The setup `.exe` from `windows/dist/` |
+| Linux | `.AppImage` and `.deb` from `linux/dist/` (`x86_64` / `amd64`, `arm64`) |
+
 ## Privacy
 
 TwinDesk only talks to computers you have paired with, directly over your local network. It has no
-accounts, telemetry or cloud relay. Shared-folder passwords are random and kept in the OS
-keychain (macOS) or encrypted with DPAPI (Windows).
+accounts, telemetry or cloud relay. The only internet request is the update check, which asks
+GitHub's public API for the latest release (it can be turned off in General › Updates).
+Shared-folder passwords are random and kept in the OS keychain (macOS) or encrypted with DPAPI
+(Windows).
 
 ## License
 

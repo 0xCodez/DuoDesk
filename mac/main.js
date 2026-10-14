@@ -35,7 +35,7 @@
 'use strict';
 
 const path = require('path');
-const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences, Notification } = require('electron');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 // The hidden capture window plays system audio into WebRTC without any user gesture.
@@ -65,13 +65,14 @@ const { setupIpc } = require('./ipc');
 const login = require('./login');
 const { Hud } = require('./hud');
 const { PairSync } = require('./pairsync');
+const { Updates } = require('../shared/updates.js');
 
 let win = null;
 let tray = null;
 let hud = null;
 let quitting = false;
 let startHidden = process.argv.includes('--hidden');
-let settings, id, server, pairing, discovery, link, peer, svc, actions, pairSync;
+let settings, id, server, pairing, discovery, link, peer, svc, actions, pairSync, updates;
 
 const state = {
   macName: '',
@@ -182,6 +183,7 @@ function pushState() {
       state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
     if (svc) state.wake = svc.wake.view;
+    if (updates) state.updates = updates.view;
     if (pairSync) pairSync.check();
     sendScreenState();
     if (win && !win.isDestroyed()) win.webContents.send('state', state);
@@ -336,6 +338,7 @@ function updateTray() {
       },
       check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
       { type: 'separator' },
+      ...(updates && updates.status.available ? [{ label: `Download TwinDesk ${updates.status.latest}…`, click: () => updates.open() }] : []),
       { label: 'Open TwinDesk…', click: showWindow },
       { label: 'Quit TwinDesk', click: () => app.quit() },
     ]),
@@ -409,7 +412,19 @@ app.whenReady().then(() => {
   pairSync = new PairSync({ server: peer, getSettings: () => settings, saveSettings: () => store.saveSettings(settings),
     apply: (f, dir, on) => (f !== 'value' ? SYNC_ACTIONS[f](dir, on)
       : dir === 'gestures' ? actions.setKvm({ gestures: on }) : actions.setSharingOpts({ [dir]: on })) });
-  actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions });
+  // New releases on GitHub: a notification once per version, the menu bar item and General › Updates.
+  updates = new Updates({
+    current: app.getVersion(), platform: 'mac', getSettings: () => settings,
+    save: () => store.saveSettings(settings), onChange: pushState,
+    notify: (title, body, onClick) => {
+      if (!Notification.isSupported()) return;
+      const n = new Notification({ title, body });
+      n.on('click', onClick);
+      n.show();
+    },
+  });
+  updates.start();
+  actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions, updates });
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
   hud = new Hud(() => settings);
   svc.kvm.on('where', (mode) => {

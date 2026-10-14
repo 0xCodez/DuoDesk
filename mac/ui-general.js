@@ -11,7 +11,8 @@ UI.tab({
   bottom: true,
   badge: (s) => {
     const p = s.permissions;
-    return p && (p.screen !== 'granted' || !p.accessibility || p.inputMonitoring === false) ? '!' : '';
+    if (p && (p.screen !== 'granted' || !p.accessibility || p.inputMonitoring === false)) return '!';
+    return s.updates && s.updates.available ? '1' : '';
   },
   build(body) {
     const { el, api } = UI;
@@ -37,6 +38,12 @@ UI.tab({
     // Wake this Mac from the other computer; the Share menu entry.
     const wakeSw = UI.switch((v) => api.setWakeOnLan(v), { label: 'Wake from the network' });
     const wakeRow = UI.row('Let {name} wake {me}', '', [wakeSw]);
+    // Updates: new releases of TwinDesk on GitHub.
+    const updStatus = el('span', { class: 'value' });
+    const updCheck = UI.button('Check now', () => api.checkUpdates(), 'small');
+    const updGet = UI.button('Download', () => api.openUpdate(), 'small primary');
+    const updRow = UI.row('TwinDesk', '', [updStatus, updGet, updCheck]);
+    const updAuto = UI.switch((v) => api.setUpdates({ auto: v }), { label: 'Check for updates automatically' });
     const shareRow = UI.row('TwinDesk in the Share menu', 'Share › TwinDesk sends files to the other computer',
       [UI.button('Extensions…', () => api.openSettings('extensions'), 'small')]);
 
@@ -52,6 +59,10 @@ UI.tab({
       ]),
       UI.card('Network and sharing', [wakeRow, shareRow]),
       UI.card('This computer', [deviceRow, helperRow]),
+      UI.card('Updates', [
+        updRow,
+        UI.row('Check automatically', 'Looks for new releases on GitHub every few hours', [updAuto]),
+      ], { cls: 'keep-on' }),
       UI.card('About', [
         versionRow,
         UI.row('Made by', 'inukaasith'),
@@ -79,6 +90,17 @@ UI.tab({
       wakeRow.setHint(w.womp == null ? 'Checking…' : 'Wake for network access. Asks for your password to change it');
       helperVal.textContent = s.helper && s.helper.running ? 'Running' : 'Not running';
       versionRow.setHint(s.version ? `Version ${s.version}` : '');
+      const u = s.updates;
+      if (u) {
+        updAuto.set(u.auto);
+        updCheck.disabled = u.checking;
+        updGet.hidden = !u.available;
+        updStatus.textContent = u.checking ? 'Checking…' : u.available ? `${u.latest} is available` : u.checkedAt ? 'Up to date' : '';
+        updRow.setHint(u.error ? `Couldn’t check: ${u.error}`
+          : u.available ? `You have ${u.current}. ${u.download ? `Download ${u.download.name}` : 'Opens the release page'}`
+            : u.noReleases ? `Version ${u.current}. No releases published yet`
+              : `Version ${u.current}${u.checkedAt ? ` · checked ${new Date(u.checkedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`);
+      }
       deviceName.textContent = s.macName || '';
     };
   },

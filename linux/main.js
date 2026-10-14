@@ -5,7 +5,8 @@
 // responder, peer.js with P.swapRole: Linux ↔ Linux, Linux ↔ PC); L5 this screen and sound on the
 // other computer, files, notifications, wake; L6 Wayland (portal screen capture; input through the
 // helper's uinput backend); L7 packages (package.json "build").
-const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification } = require('electron');
+const { Updates } = require('../shared/updates.js');
 const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
@@ -79,6 +80,8 @@ let fileRecv = null;
 let pcScreen = null;
 let notifs = null;
 let wake = null;
+let updates = null;
+let updateNote = null; // the update notification, kept so it isn't collected before a click
 let pairSync = null;
 let terminal = null;
 let sshd = null;
@@ -203,7 +206,18 @@ function start() {
   const { screen: displays } = require('electron');
   for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) displays.on(ev, sendScreens);
   helper.start();
-  const ipc = setupIpc({ link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, settings, save: saveSettings, push: pushState, buildState,
+  // New releases on GitHub: a notification once per version, the tray item and General › Updates.
+  updates = new Updates({
+    current: app.getVersion(), platform: 'linux', prefer: process.env.APPIMAGE || !app.isPackaged ? 'appimage' : 'deb', getSettings: () => settings, save: saveSettings, onChange: pushState,
+    notify: (title, body, onClick) => {
+      if (!Notification.isSupported()) return;
+      updateNote = new Notification({ title, body });
+      updateNote.on('click', onClick);
+      updateNote.show();
+    },
+  });
+  updates.start();
+  const ipc = setupIpc({ link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, updates, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, fixInput, setStartup, onApp: () => updateTray(buildState()) });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', pushState);
@@ -341,6 +355,7 @@ function buildState() {
     ui: settings.ui,
     app: settings.app,
     version: app.getVersion(),
+    updates: updates ? updates.view : null,
     firewall: fw,
     session: { ...session, input: helper.backend || '', access: session.type === 'wayland' ? system.inputAccess() : null, inputNote, helperError: helper.error || '' },
     audio: { ...settings.audio, ...sound.view() },
@@ -505,7 +520,7 @@ function updateTray(s) {
   const found = s.found.filter((d) => !s.peer || d.id !== s.peer.id);
   const rtt = connected && s.link.rtt != null ? ' · ' + s.link.rtt + ' ms' : '';
   const key = JSON.stringify([name, rtt, away, kvm.linked, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
-    settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os])]);
+    settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
   if (key === trayKey) return;
   trayKey = key;
   const other = name || 'Other Computer';
@@ -541,6 +556,7 @@ function updateTray(s) {
     ] },
     check('Show a Popup When Switching', settings.app.hud, (i) => set('app', { hud: i.checked })),
     { type: 'separator' },
+    ...(s.updates && s.updates.available ? [{ label: 'Download TwinDesk ' + s.updates.latest + '…', click: () => updates.open() }] : []),
     { label: 'Open TwinDesk…', click: showMain },
     { label: 'Quit TwinDesk', click: () => app.quit() },
   ]));

@@ -73,6 +73,7 @@ const DEFAULT_SETTINGS = {
   },
   ui: { tab: 'overview', setupSkipped: '' }, // setupSkipped: the missing items when Setup was skipped
   app: { openAtLogin: false, keepAwake: true, hud: true }, // hud = popup when switching computers
+  updates: { auto: true, notified: '' }, // check GitHub for new releases; notified = last version announced
   audio: { send: false, receive: false, muteLocal: false, volume: 1 }, // Independent, both ways
   terminal: { allowPc: false, connectPc: false }, // the other computer -> this Mac shell; this Mac -> the other one (`ssh twindesk`)
   files: { acceptDrops: true, folder: '', reveal: true, dragEdge: true, // '' = Downloads; dragEdge = drag.policy
@@ -91,7 +92,7 @@ function loadSettings() {
   const s = read('settings.json', {});
   if (s.sharing) s.sharing.on = false; // screen sharing never starts by itself
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['wake', 'sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['wake', 'sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs', 'updates']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   if ((s.rev || 0) < 7) { // Clipboard instant by default
     out.clipboard.mode = 'instant';
     out.rev = 7;

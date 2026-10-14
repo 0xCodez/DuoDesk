@@ -35,6 +35,7 @@ const SCHEMA = {
   },
   keys: { swapCtrlCmd: bool, hotkey: oneOf(P.HOTKEYS, 'AltRight') },
   app: { openAtLogin: bool, keepAwake: bool, hud: bool },
+  updates: { auto: bool },
   audio: { send: bool, receive: bool, muteLocal: bool, volume: clamp(0, 1, 1) },
   terminal: { allowPc: bool, connectPc: bool },
   files: { acceptDrops: bool, reveal: bool, dragEdge: bool, shortcuts: bool, copyKeys: accel('Control+Alt+C'), pasteKeys: accel('Control+Alt+V') },
@@ -322,6 +323,16 @@ function setupIpc(ctx) {
       setGroup('app', partial);
       ctx.login.apply(settings.app.openAtLogin);
       ctx.updateAwake();
+    },
+    setUpdates(partial) {
+      setGroup('updates', partial);
+      ctx.updates.start();
+    },
+    checkUpdates() {
+      ctx.updates.check(true);
+    },
+    openUpdate() {
+      ctx.updates.open();
     },
     setKeys(partial) {
       setGroup('keys', partial);
