@@ -49,30 +49,30 @@ UI.tab({
     ]);
 
     // ---- feature switches ----
-    const sw = (label, tab, get, set, mixedOnly) => {
+    const sw = (label, tab, get, set) => {
       const c = UI.switch(set, { label });
       const row = UI.row(label, '', [c, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
-      return { c, row, get, mixedOnly };
+      return { c, row, get };
     };
     const m2w = [
       sw('Screen', 'share', (s) => s.sharing && s.sharing.on, (v) => api.setSharing(v)),
       sw('Sound', 'audio', (s) => s.audio && s.audio.send, (v) => api.setAudio({ send: v })),
       sw('Mouse and keyboard', 'cursor', (s) => s.kvm && s.kvm.driveOther, (v) => api.setKvm({ driveOther: v })),
       sw('Clipboard', 'clipboard', (s) => s.clipboard && s.clipboard.send, (v) => api.setClipboard({ send: v })),
-      sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.send, (v) => api.setNotifs({ send: v }), 'linux'),
+      sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.send, (v) => api.setNotifs({ send: v })),
       sw('Shared folder', 'files', (s) => s.smb && s.smb.sharing, (v) => api.setShareMac(v)),
       sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.connectPc, (v) => api.setTerminal({ connectPc: v })),
-      sw('Apps', 'apps', (s) => s.apps && s.apps.offer, (v) => api.setApps({ offer: v }), 'linux'),
+      sw('Apps', 'apps', (s) => s.apps && s.apps.offer, (v) => api.setApps({ offer: v })),
     ];
     const w2m = [
       sw('Screen', 'receive', (s) => s.receive && s.receive.open, (v) => (v ? api.showPcView() : api.closePcView())),
       sw('Sound', 'audio', (s) => s.audio && s.audio.receive, (v) => api.setAudio({ receive: v })),
       sw('Mouse and keyboard', 'cursor', (s) => s.kvm && s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
       sw('Clipboard', 'clipboard', (s) => s.clipboard && s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
-      sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.receive, (v) => api.setNotifs({ receive: v }), 'linux'),
+      sw('Notifications', 'notifications', (s) => s.notifs && s.notifs.receive, (v) => api.setNotifs({ receive: v })),
       sw('Shared folder', 'files', (s) => s.smb && s.smb.connectPc, (v) => api.setSmb({ connectPc: v })),
       sw('Terminal', 'terminal', (s) => s.terminal && s.terminal.allowPc, (v) => api.setTerminal({ allowPc: v })),
-      sw('Apps', 'apps', (s) => s.papps && s.papps.on, (v) => api.setPcApps({ on: v }), 'linux'),
+      sw('Apps', 'apps', (s) => s.papps && s.papps.on, (v) => api.setPcApps({ on: v })),
     ];
     const quick = [...m2w, ...w2m];
     const pairedList = el('div');
@@ -145,9 +145,6 @@ UI.tab({
 
       for (const x of quick) {
         x.c.set(x.get(s));
-        const why = x.mixedOnly === 'linux' ? (p.os === 'linux' ? 'Not on Linux yet' : '') : x.mixedOnly ? p.limited : '';
-        x.c.disable(!!why);
-        x.row.setHint(why);
       }
 
       // paired: guests (they connect to us) and hosts (we connect to them)

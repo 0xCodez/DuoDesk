@@ -44,16 +44,10 @@
     }
     page.append(el('header', { class: 'page-head' }, [titles, master ? master.el : null]));
     const body = el('div', { class: 'page-body' });
-    // Features that only work between a Mac and a PC so far.
-    const mixedNote = def.mixedOnly ? UI.note('info', 'Only between a Mac and a PC for now.') : null;
-    if (mixedNote) {
-      mixedNote.hidden = true;
-      body.append(mixedNote);
-    }
     page.append(body);
     pages.append(page);
     const render = def.build(body, page) || (() => {});
-    views.set(def.id, { def, page, navBtn, stateEl, master, render, mixedNote });
+    views.set(def.id, { def, page, navBtn, stateEl, master, render });
   }
 
   function show(id, user) {
@@ -74,14 +68,11 @@
   }
 
   function renderPage(v, s) {
-    const limited = v.def.limitedFor ? v.def.limitedFor(UI.peer(s)) : UI.peer(s).limited;
-    const unsupported = !!v.mixedNote && !!limited;
-    if (v.mixedNote) v.mixedNote.set(unsupported ? `${limited}.` : '');
     if (v.master) {
       const on = !!v.def.master.get(s);
       v.master.set(on);
-      v.master.disable(unsupported || !!v.def.master.disabled);
-      v.page.classList.toggle('off', !on || unsupported);
+      v.master.disable(!!v.def.master.disabled);
+      v.page.classList.toggle('off', !on);
     }
     try {
       v.render(s);

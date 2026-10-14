@@ -7,7 +7,6 @@ UI.tab({
   group: 'More',
   order: 80,
   title: 'Apps',
-  mixedOnly: true,
   desc: 'Open apps from the other computer in their own windows.',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',
   master: { get: (s) => !!((s.apps && s.apps.offer) || (s.papps && s.papps.on)), set: (v) => { UI.api.setApps({ offer: v }); UI.api.setPcApps({ on: v }); } },

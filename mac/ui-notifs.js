@@ -11,8 +11,6 @@ UI.tab({
   icon: 'bell',
   desc: 'See one computer’s notifications on the other.',
   color: 'linear-gradient(#ff6961, #ff3b30)',
-  mixedOnly: true,
-  limitedFor: (p) => (p.os === 'linux' ? 'Not on Linux yet' : ''), // Mac ↔ Mac works too
   // One switch for the whole tab (both directions); each direction is shared with the
   // other computer per pair (pairsync.js), so flipping it there flips it here.
   master: { get: (s) => !!(s.notifs && (s.notifs.send || s.notifs.receive)), set: (v) => UI.api.setNotifs({ send: v, receive: v }) },

@@ -186,8 +186,6 @@ const UI = {
     return {
       os, same, kind, me, name, Name,
       there: name, here: me, meName: me, // older templates
-      // Apps work Mac ↔ Mac too; Terminal works with any computer.
-      limited: os === 'linux' ? 'Not on Linux yet' : '',
       out: `${me} → ${name}`,
       in: `${name} → ${me}`,
       thereScreen: `${name}’s screen`,
