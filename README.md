@@ -16,6 +16,8 @@
   <img alt="Linux X11 and Wayland" src="https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-f0a30a">
 </p>
 
+##[twin-desk.vercel.app](https://twin-desk.vercel.app)
+
 <p align="center">
   <img src=".github/assets/hero.svg" alt="A Mac and a PC side by side, linked by TwinDesk" width="100%">
 </p>
@@ -140,16 +142,6 @@ npm run dist                    # AppImage and .deb in linux/dist/
 The Setup screen walks you through the rest. On Wayland that means input access (one admin
 prompt, then log out and back in once). It can also install OpenSSH for the terminal.
 
-### Publishing a release
-
-Create a GitHub release with a version tag newer than the apps' `version` (for example `v0.2.0`)
-and attach the builds. The apps pick their file by name:
-
-| Platform | Attach |
-|---|---|
-| macOS | The `.dmg` from `mac/dist/` (put `arm64` or `x64` in the name when you attach both) |
-| Windows | The setup `.exe` from `windows/dist/` |
-| Linux | `.AppImage` and `.deb` from `linux/dist/` (`x86_64` / `amd64`, `arm64`) |
 
 ## Privacy
 
