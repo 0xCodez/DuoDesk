@@ -16,7 +16,7 @@
   <img alt="Linux X11 and Wayland" src="https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-f0a30a">
 </p>
 
-##[twin-desk.vercel.app](https://twin-desk.vercel.app)
+## [twin-desk.vercel.app](https://twin-desk.vercel.app)
 
 <p align="center">
   <img src=".github/assets/hero.svg" alt="A Mac and a PC side by side, linked by TwinDesk" width="100%">
