@@ -2,7 +2,7 @@
   <img src=".github/assets/icon.png" width="112" alt="TwinDesk icon">
 </p>
 
-<h1 align="center">TwinDesk</h1>
+<h1 align="center"><a href="https://twin-desk.vercel.app">TwinDesk</h1></a>
 
 <p align="center">
   Use two computers as one desk: Mac, Windows and Linux on the same network.<br>
@@ -16,7 +16,6 @@
   <img alt="Linux X11 and Wayland" src="https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-f0a30a">
 </p>
 
-## [twin-desk.vercel.app](https://twin-desk.vercel.app)
 
 <p align="center">
   <img src=".github/assets/hero.svg" alt="A Mac and a PC side by side, linked by TwinDesk" width="100%">
