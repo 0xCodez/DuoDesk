@@ -3,6 +3,7 @@
 const { ipcMain, dialog, shell, BrowserWindow, clipboard } = require('electron');
 const path = require('path');
 const P = require('../shared/protocol.js');
+const { LINKS } = require('../shared/about.js');
 const { apply } = require('./settings');
 
 // ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
@@ -68,6 +69,7 @@ function setupIpc(ctx) {
   handle('setUpdates', (partial) => change('updates', { auto: !!(partial && partial.auto) }, () => ctx.updates.start()));
   handle('checkUpdates', () => ctx.updates.check(true));
   handle('openUpdate', () => ctx.updates.open());
+  handle('openLink', (key) => Object.hasOwn(LINKS, key) && shell.openExternal(LINKS[key])); // About page: only its own links
   handle('setMonitor', (partial) => change('monitor', partial, () => screen.applyAudio()));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));

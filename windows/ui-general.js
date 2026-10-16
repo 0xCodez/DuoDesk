@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // General tab: start with Windows, the switching popup, firewall self-check (+ Fix), wake from the
-// network, helper, this PC, about.
+// network, helper, this PC.
 'use strict';
 
 UI.tab({
@@ -10,7 +10,7 @@ UI.tab({
   color: 'linear-gradient(#aeaeb2, #636366)',
   desc: '',
   bottom: true,
-  badge: (s) => (s.firewall && s.firewall.ok === false && !s.firewall.checking ? 'warn' : s.updates && s.updates.available ? '1' : ''),
+  badge: (s) => (s.firewall && s.firewall.ok === false && !s.firewall.checking ? 'warn' : ''),
   build(body) {
     const { el, api } = UI;
     const startup = UI.switch((v) => api.setStartup(v), { label: 'Start with Windows' });
@@ -27,13 +27,6 @@ UI.tab({
     const helperRow = UI.row('Mouse and keyboard helper', '', [helperPill]);
     const deviceName = el('span', { class: 'value' });
     const deviceRow = UI.row('Computer name', 'How other computers see this one', [deviceName]);
-    const versionRow = UI.row('TwinDesk for Windows', '');
-    // Updates: new releases of TwinDesk on GitHub.
-    const updStatus = el('span', { class: 'value' });
-    const updCheck = UI.button('Check now', () => api.checkUpdates(), 'small');
-    const updGet = UI.button('Download', () => api.openUpdate(), 'small primary');
-    const updRow = UI.row('TwinDesk', '', [updStatus, updGet, updCheck]);
-    const updAuto = UI.switch((v) => api.setUpdates({ auto: v }), { label: 'Check for updates automatically' });
 
     body.append(
       UI.card('App', [
@@ -42,15 +35,6 @@ UI.tab({
       ]),
       UI.card('Network and sharing', [fwRow, wakeRow, sendToRow]),
       UI.card('This computer', [deviceRow, helperRow]),
-      UI.card('Updates', [
-        updRow,
-        UI.row('Check automatically', 'Looks for new releases on GitHub every few hours', [updAuto]),
-      ], { cls: 'keep-on' }),
-      UI.card('About', [
-        versionRow,
-        UI.row('Made by', 'inukaasith'),
-        UI.row('Licence', 'Free and open source, GPL v3. Copyright © 2026 inukaasith'),
-      ], { cls: 'keep-on' }),
     );
 
     return (s) => {
@@ -74,18 +58,6 @@ UI.tab({
       helperPill.className = 'pill ' + (h ? (h === 'starting' ? 'muted' : 'bad') : 'good');
       helperRow.setHint(h && h !== 'starting' ? h : '');
       deviceName.textContent = s.device.name;
-      versionRow.setHint('Version ' + s.version);
-      const u = s.updates;
-      if (u) {
-        updAuto.set(u.auto);
-        updCheck.disabled = u.checking;
-        updGet.hidden = !u.available;
-        updStatus.textContent = u.checking ? 'Checking…' : u.available ? u.latest + ' is available' : u.checkedAt ? 'Up to date' : '';
-        updRow.setHint(u.error ? 'Couldn’t check: ' + u.error
-          : u.available ? 'You have ' + u.current + '. ' + (u.download ? 'Download ' + u.download.name : 'Opens the release page')
-            : u.noReleases ? 'Version ' + u.current + '. No releases published yet'
-              : 'Version ' + u.current + (u.checkedAt ? ' · checked ' + new Date(u.checkedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''));
-      }
     };
   },
 });

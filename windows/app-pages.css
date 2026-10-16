@@ -111,3 +111,11 @@ body.setup #sidebar { display: none; }
 .app-pin { position: absolute; top: 2px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; opacity: 0; transform: scale(0.7); transition: opacity 0.15s, transform 0.2s var(--spring); }
 .app-pin svg { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .app-tile:hover .app-pin, .app-pin:focus-visible { opacity: 1; transform: none; }
+
+/* About: app icon, name and version */
+.about-hero { display: flex; flex-direction: column; align-items: center; padding: 26px 20px 22px; text-align: center; }
+.about-icon { width: 96px; height: 96px;
+  background: image-set(url(assets/sidebar-icon@2x.png) 1x, url(assets/sidebar-icon@4x.png) 2x) center / contain no-repeat; }
+.about-name { font-weight: 700; font-size: 20px; letter-spacing: -0.2px; margin-top: 12px; }
+.about-ver { color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 2px; user-select: text; }
+.about-tag { color: var(--muted); font-size: 12px; margin-top: 8px; }

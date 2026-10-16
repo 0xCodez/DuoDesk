@@ -7,6 +7,7 @@
 // helper's uinput backend); L7 packages (package.json "build").
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification } = require('electron');
 const { Updates } = require('../shared/updates.js');
+const { aboutInfo } = require('../shared/about.js');
 const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
@@ -65,6 +66,7 @@ if (!app.requestSingleInstanceLock()) {
 let mainWin = null;
 let tray = null;
 let hud = null;
+let about = null; // shared/about.js, read once for the About page
 let quitting = false;
 let discovery = null;
 let link = null;
@@ -206,7 +208,7 @@ function start() {
   const { screen: displays } = require('electron');
   for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) displays.on(ev, sendScreens);
   helper.start();
-  // New releases on GitHub: a notification once per version, the tray item and General › Updates.
+  // New releases on GitHub: a notification once per version, the tray item and About › Updates.
   updates = new Updates({
     current: app.getVersion(), platform: 'linux', prefer: process.env.APPIMAGE || !app.isPackaged ? 'appimage' : 'deb', getSettings: () => settings, save: saveSettings, onChange: pushState,
     notify: (title, body, onClick) => {
@@ -355,6 +357,7 @@ function buildState() {
     ui: settings.ui,
     app: settings.app,
     version: app.getVersion(),
+    about: about || (about = aboutInfo(app)), // About page: this app and this computer
     updates: updates ? updates.view : null,
     firewall: fw,
     session: { ...session, input: helper.backend || '', access: session.type === 'wayland' ? system.inputAccess() : null, inputNote, helperError: helper.error || '' },

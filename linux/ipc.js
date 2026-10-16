@@ -1,9 +1,10 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main-window actions (preload-app.js → here; copy of windows/ipc.js without the shared folder and
 // the virtual display). Every value is validated by settings.apply().
-const { app, ipcMain, dialog, BrowserWindow, clipboard } = require('electron');
+const { app, ipcMain, dialog, shell, BrowserWindow, clipboard } = require('electron');
 const path = require('path');
 const P = require('../shared/protocol.js');
+const { LINKS } = require('../shared/about.js');
 const { apply } = require('./settings');
 
 // ctx: link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps,
@@ -69,6 +70,7 @@ function setupIpc(ctx) {
   handle('setUpdates', (partial) => change('updates', { auto: !!(partial && partial.auto) }, () => ctx.updates.start()));
   handle('checkUpdates', () => ctx.updates.check(true));
   handle('openUpdate', () => ctx.updates.open());
+  handle('openLink', (key) => Object.hasOwn(LINKS, key) && shell.openExternal(LINKS[key])); // About page: only its own links
   handle('setMonitor', (partial) => change('monitor', partial, () => screen.applyAudio()));
   handle('setClipboard', (partial) => change('clipboard', partial, () => clip.applySettings()));
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));

@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('macshare', {
   setUpdates: call('setUpdates'),
   checkUpdates: call('checkUpdates'),
   openUpdate: call('openUpdate'),
+  openLink: call('openLink'),
   setMonitor: call('setMonitor'),
   setClipboard: call('setClipboard'),
   copyHistory: call('copyHistory'),

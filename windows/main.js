@@ -2,6 +2,7 @@
 // Main process: lifecycle, windows, tray, IPC and the state pushed to the main window.
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification } = require('electron');
 const { Updates } = require('../shared/updates.js');
+const { aboutInfo } = require('../shared/about.js');
 const { execFile } = require('child_process');
 const crypto = require('crypto');
 const os = require('os');
@@ -72,6 +73,7 @@ let tray = null;
 let trayKey = '';
 let trayLight = false; // the taskbar is light: black tray glyph
 let hud = null;
+let about = null; // shared/about.js, read once for the About page
 let quitting = false;
 let discovery = null;
 let link = null;
@@ -227,7 +229,7 @@ function start() {
   helper.on('exit', pushState);
   helper.start();
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
-  // New releases on GitHub: a notification once per version, the tray item and General › Updates.
+  // New releases on GitHub: a notification once per version, the tray item and About › Updates.
   updates = new Updates({
     current: app.getVersion(), platform: 'win', getSettings: () => settings, save: saveSettings, onChange: pushState,
     notify: (title, body, onClick) => {
@@ -372,6 +374,7 @@ function buildState() {
     ui: settings.ui,
     app: settings.app,
     version: app.getVersion(),
+    about: about || (about = aboutInfo(app)), // About page: this app and this computer
     updates: updates ? updates.view : null,
     firewall: fw,
     audio: { ...settings.audio, ...sound.view() },

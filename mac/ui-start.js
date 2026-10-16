@@ -12,7 +12,7 @@
 
   let lastGroup = null;
   for (const def of UI.tabs.slice().sort((a, b) => (a.order ?? 50) - (b.order ?? 50))) {
-    if (def.bottom) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } }));
+    if (def.bottom && !nav.querySelector('.sep')) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } })); // one line above General and About
     // Groups (System Settings style): a small gap before each, no heading, icons in one column.
     if (def.group !== lastGroup && !def.bottom && nav.children.length) nav.append(el('li', { class: 'gap', attrs: { role: 'presentation' } }));
     lastGroup = def.group;

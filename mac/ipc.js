@@ -4,6 +4,7 @@
 
 const { ipcMain, shell, app, screen, dialog, clipboard } = require('electron');
 const P = require('../shared/protocol.js');
+const { LINKS } = require('../shared/about.js');
 const store = require('./store');
 
 const SETTINGS_URLS = {
@@ -14,7 +15,7 @@ const SETTINGS_URLS = {
   fullDisk: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
-const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general'];
+const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -333,6 +334,9 @@ function setupIpc(ctx) {
     },
     openUpdate() {
       ctx.updates.open();
+    },
+    openLink(key) { // About page: only its own links
+      if (Object.hasOwn(LINKS, key)) shell.openExternal(LINKS[key]);
     },
     setKeys(partial) {
       setGroup('keys', partial);

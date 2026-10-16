@@ -19,7 +19,7 @@
     const group = GROUP[def.id];
     if (!def.bottom && lastGroup !== undefined && group !== lastGroup) nav.append(el('li', { class: 'gap', attrs: { role: 'presentation' } }));
     lastGroup = group;
-    if (def.bottom) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } }));
+    if (def.bottom && !nav.querySelector('.sep')) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } })); // one line above General and About
     const stateEl = el('span', { class: 'state' });
     const navLabel = el('span', { class: 'label', text: def.title });
     const tile = el('span', { class: 'tile' }, [UI.icon(def.icon || def.id)]);

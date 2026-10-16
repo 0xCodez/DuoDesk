@@ -53,7 +53,7 @@ TwinDesk also includes:
 - **Device names.** Every label uses your computers' real names.
 - **Update checks.** Each app looks for new [releases](https://github.com/InukaAsith/TwinDesk/releases)
   on start and every few hours, shows a notification and offers the download for your platform
-  (General › Updates, or the menu bar / tray).
+  (About › Updates, or the menu bar / tray).
 
 <p align="center">
   <img src=".github/assets/ui-overview.jpg" alt="Overview: both computers, the link and what is shared in each direction" width="820">
@@ -146,7 +146,7 @@ prompt, then log out and back in once). It can also install OpenSSH for the term
 
 TwinDesk only talks to computers you have paired with, directly over your local network. It has no
 accounts, telemetry or cloud relay. The only internet request is the update check, which asks
-GitHub's public API for the latest release (it can be turned off in General › Updates).
+GitHub's public API for the latest release (it can be turned off in About › Updates).
 Shared-folder passwords are random and kept in the OS keychain (macOS) or encrypted with DPAPI
 (Windows).
 

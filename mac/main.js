@@ -66,6 +66,7 @@ const login = require('./login');
 const { Hud } = require('./hud');
 const { PairSync } = require('./pairsync');
 const { Updates } = require('../shared/updates.js');
+const { aboutInfo } = require('../shared/about.js');
 
 let win = null;
 let tray = null;
@@ -352,7 +353,7 @@ app.whenReady().then(() => {
   store.init(app.getPath('userData'));
   settings = store.loadSettings();
   id = identity.load(settings);
-  Object.assign(state, { macName: id.macName, macId: id.macId, fp: id.fp, version: app.getVersion() });
+  Object.assign(state, { macName: id.macName, macId: id.macId, fp: id.fp, version: app.getVersion(), about: aboutInfo(app) });
   console.log(`[main] ${id.macName} (${id.macId}) fp ${id.fp}`);
 
   server = new Server(id);
@@ -412,7 +413,7 @@ app.whenReady().then(() => {
   pairSync = new PairSync({ server: peer, getSettings: () => settings, saveSettings: () => store.saveSettings(settings),
     apply: (f, dir, on) => (f !== 'value' ? SYNC_ACTIONS[f](dir, on)
       : dir === 'gestures' ? actions.setKvm({ gestures: on }) : actions.setSharingOpts({ [dir]: on })) });
-  // New releases on GitHub: a notification once per version, the menu bar item and General › Updates.
+  // New releases on GitHub: a notification once per version, the menu bar item and About › Updates.
   updates = new Updates({
     current: app.getVersion(), platform: 'mac', getSettings: () => settings,
     save: () => store.saveSettings(settings), onChange: pushState,
