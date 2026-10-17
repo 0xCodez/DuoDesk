@@ -64,19 +64,23 @@ class Session extends EventEmitter {
     const cp = await adb.shell(serial, `cp ${DEVICE_JAR} ${this.jar}`, { timeout: 8000 });
     if (cp.code !== 0) throw new Error(`Couldn’t prepare the screen helper (${cp.err.trim() || cp.out.trim()})`);
     this.port = await adb.forward(serial, `scrcpy_${this.scid}`);
-    const args = [
-      `scid=${this.scid}`, 'log_level=info', 'tunnel_forward=true', 'send_dummy_byte=true',
-      `video=${!!opts.video}`, `audio=${!!opts.audio}`, `control=${!!opts.control}`,
-      'video_codec=h264', 'audio_codec=raw', 'cleanup=true', 'power_on=true',
-      `clipboard_autosync=${!!opts.clipboardAutosync}`,
-    ];
+    // Only what differs from the server's defaults (video, audio, control, cleanup, power_on,
+    // send_dummy_byte, clipboard_autosync and vd_destroy_content on; h264; audio from the output):
+    // some Samsung phones (Galaxy A05, Android 15) abort in the video encoder's setup when the
+    // process's command line passes 256 bytes ("stack corruption detected" in
+    // CCodec::customConfigVideoEncoder), so it has to stay short.
+    const args = [`scid=${this.scid}`, 'tunnel_forward=true'];
+    if (!opts.video) args.push('video=false');
+    if (!opts.audio) args.push('audio=false');
+    else args.push('audio_codec=raw');
+    if (!opts.control) args.push('control=false');
+    else if (!opts.clipboardAutosync) args.push('clipboard_autosync=false');
     if (opts.video && opts.maxSize) args.push(`max_size=${opts.maxSize | 0}`);
     if (opts.video && opts.maxFps) args.push(`max_fps=${opts.maxFps}`);
     if (opts.video && opts.videoBitRate) args.push(`video_bit_rate=${opts.videoBitRate | 0}`);
-    if (opts.audio && opts.audioSource) args.push(`audio_source=${opts.audioSource}`);
+    if (opts.audio && opts.audioSource && opts.audioSource !== 'output') args.push(`audio_source=${opts.audioSource}`);
     if (opts.newDisplay != null) args.push(`new_display=${opts.newDisplay}`);
     if (opts.flex) args.push('flex_display=true');
-    if (opts.newDisplay != null) args.push('vd_destroy_content=true');
     if (opts.displayId != null) args.push(`display_id=${opts.displayId | 0}`);
     if (opts.stayAwake) args.push('stay_awake=true');
     if (opts.keepActive) args.push('keep_active=true');
