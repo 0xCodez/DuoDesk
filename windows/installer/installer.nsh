@@ -13,6 +13,16 @@
   nsExec::Exec '"$INSTDIR\resources\app\windows\vendor\adb\adb.exe" kill-server'
 !macroend
 
+; In place of electron-builder's "TwinDesk is running, close it" check, before the old version's
+; uninstaller and the file copy: a running TwinDesk is closed rather than asked about, and the old
+; app folder goes, so every file is the new version's (none left over from earlier releases).
+!macro customCheckAppRunning
+  nsExec::Exec 'taskkill /f /t /im TwinDesk.exe'
+  nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
+  Sleep 500
+  RMDir /r "$INSTDIR\resources\app"
+!macroend
+
 !macro customInstall
   ; Renamed from MacShare: its rules (and its Program Files folder's exe) go.
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare"'
