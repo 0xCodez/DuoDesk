@@ -55,7 +55,8 @@ class Phone extends EventEmitter {
       this.emit('change');
     });
     on(T.ADB_STATE, (m) => {
-      this.adb = { devOptions: !!m.devOptions, wifi: !!m.wifi, canEnable: !!m.canEnable, address: str(m.address, 64) };
+      // full: the build with notification access (older apps didn't say: they all had it).
+      this.adb = { devOptions: !!m.devOptions, wifi: !!m.wifi, canEnable: !!m.canEnable, address: str(m.address, 64), full: m.full !== false };
       this.emit('adb', this.adb);
       this.emit('change');
     });

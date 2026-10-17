@@ -14,6 +14,8 @@
 // Events: 'change' — this.view changed; 'popup' (kind, text) — for the HUD.
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { Adb } = require('./adb');
@@ -25,6 +27,22 @@ const APP_ID = 'com.twindesk.android';
 const POLL_MS = 3000;
 const BUTTON = { 0: 1, 1: 2, 2: 4, 3: 8, 4: 16 }; // our button numbers -> MotionEvent.BUTTON_*
 const isPhone = (ctx) => !!ctx && ctx.os === P.OS.ANDROID;
+
+// TwinDesk for Android with notification access (the "full" build). People download the standard
+// build (Play Protect blocks downloaded apps that read notifications); this one we install over it
+// through wireless debugging, which Play Protect doesn't check. In the app: vendor/ (build-app.sh
+// copies it there); from a checkout: the Android build's dist/.
+function fullApk() {
+  const vendor = path.join(__dirname, 'vendor', 'twindesk-android-full.apk');
+  if (fs.existsSync(vendor)) return vendor;
+  const dist = path.join(__dirname, '..', 'android', 'dist');
+  try {
+    const f = fs.readdirSync(dist).filter((n) => /-full\.apk$/.test(n)).sort().pop();
+    return f ? path.join(dist, f) : null;
+  } catch {
+    return null;
+  }
+}
 
 class PhoneBridge extends EventEmitter {
   constructor({ server, phone, getSettings, clipboard }) {
@@ -40,11 +58,22 @@ class PhoneBridge extends EventEmitter {
     this.keys = new KeyState();
     this.views = null; // phoneview.js sets this
     this.setupDone = new Set(); // serials granted this run
+    this.install = null; // {state: 'installing'|'done'|'failed', message} for the full build
 
     phone.on('adb', () => this._kick());
+    // The pairing code typed on the phone (its guide's notification), with its pairing port.
+    server.on(`t:${T.ADB_PAIR}`, (m, ctx) => {
+      if (!isPhone(ctx)) return;
+      const port = Number(m.port) | 0;
+      const address = (this.phone.adb && this.phone.adb.address) || ctx.address;
+      this.pair(m.code, port > 0 && port < 65536 ? `${address}:${port}` : '');
+    });
     phone.on('info', () => this._kick());
     server.on('client', (ctx) => {
-      if (isPhone(ctx)) return this._kick();
+      if (isPhone(ctx)) {
+        this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message });
+        return this._kick();
+      }
       this._stopAll('');
     });
     server.on('closed', () => {
@@ -57,6 +86,7 @@ class PhoneBridge extends EventEmitter {
     return {
       state: this.state, message: this.message, serial: this.serial, available: this.adb.available,
       control: !!(this.control && !this.control.closed), driving: !!this.kvm,
+      install: this.install, fullApk: !!fullApk(),
       windows: this.views ? this.views.list() : [],
     };
   }
@@ -66,6 +96,8 @@ class PhoneBridge extends EventEmitter {
     console.log(`[phone] ${state}${message ? `: ${message}` : ''}`);
     this.state = state;
     this.message = message;
+    // The phone's guide shows how it's going.
+    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.ADB_BRIDGE, state, message });
     this.emit('change');
   }
 
@@ -220,6 +252,35 @@ class PhoneBridge extends EventEmitter {
     if (text === this.lastPhoneClip) return;
     this.lastPhoneClip = text;
     this.server.inject({ t: T.CLIP, text });
+  }
+
+  // Install the full build over the phone's TwinDesk: settings and pairing stay (same app, same
+  // signature). The app restarts, so we grant notification access, open it and invite it back.
+  async installFull() {
+    const apk = fullApk();
+    const c = this.server.current;
+    if (!this.serial || !isPhone(c)) return this._install('failed', 'Set up wireless debugging first.');
+    if (!apk) return this._install('failed', 'This build of TwinDesk doesn’t carry the Android app.');
+    const id = c.deviceId;
+    const serial = this.serial;
+    this._install('installing', `Installing on ${c.name}…`);
+    const r = await this.adb.run(['-s', serial, 'install', '-r', apk], { timeout: 180000 });
+    const text = `${r.out}${r.err}`.trim();
+    if (!/Success/.test(text)) {
+      const why = /INSTALL_FAILED_USER_RESTRICTED/.test(text) ? 'The phone refused: allow “Install via USB” in Developer options (Xiaomi), then try again.'
+        : (text.split('\n').pop() || 'no answer');
+      return this._install('failed', `Couldn’t install (${why})`);
+    }
+    await this.adb.shell(serial, `cmd notification allow_listener ${APP_ID}/${APP_ID}.NotifListener`, { timeout: 8000 });
+    await this.adb.shell(serial, `am start -n ${APP_ID}/.MainActivity`, { timeout: 8000 });
+    this._install('done', 'Installed. The phone’s notifications can show here now.');
+    setTimeout(() => this.phone.connect(id), 3000); // the app restarted: ask it to come back
+  }
+
+  _install(state, message) {
+    this.install = { state, message };
+    this.emit('change');
+    if (state !== 'installing') this.emit('popup', state === 'done' ? 'driven' : 'home', message);
   }
 
   // ---- the Mac's mouse and keyboard on the phone (Kvm drives us) ----

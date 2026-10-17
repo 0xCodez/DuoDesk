@@ -172,6 +172,8 @@ fun App(core: Core, resumed: Int) {
     val ctx = LocalContext.current
     var setupDone by rememberSaveable { mutableStateOf(false) }
     if (!setupDone && SetupCheck.shouldShow(ctx, core)) return SetupScreen(core, ctx, v + resumed) { setupDone = true }
+    // Then the wireless debugging guide (first launch, or opened from General › Setup / Cursor).
+    if (Guide.open.value || Guide.firstTime(core)) return WirelessGuide(core, ctx, v + resumed)
 
     Box(Modifier.fillMaxSize().background(pal.content)) {
         if (wide) {
@@ -307,7 +309,9 @@ private fun OverviewPage(core: Core, v: Int) {
     val link = core.link
     val host = core.host
     val me = core.store.deviceName
-    if (LocalConfiguration.current.screenWidthDp >= 600) PageHead("TwinDesk", me) else PageHead(me, "This device")
+    val ip = remember(v) { core.adb.address() } // this phone's Wi-Fi address, for pairing by address on the computer
+    if (LocalConfiguration.current.screenWidthDp >= 600) PageHead("TwinDesk", listOf(me, ip).filter { it.isNotEmpty() }.joinToString(" · "))
+    else PageHead(me, listOf("This device", ip).filter { it.isNotEmpty() }.joinToString(" · "))
 
     core.invite?.let { inv ->
         Note("${inv.name} wants to pair with this device.")
@@ -400,7 +404,7 @@ private fun OverviewPage(core: Core, v: Int) {
                 DirHead(me, true, host.name, false)
                 SwitchRow("Sound", "Through wireless debugging", core.sync.get("audio", "out"), first = true) { core.sync.set("audio", "out", it) }
                 SwitchRow("Clipboard", "", core.sync.get("clipboard", "out")) { core.sync.set("clipboard", "out", it) }
-                SwitchRow("Notifications", if (core.notifs.hasAccess) "" else "Needs Notification access (General)", core.sync.get("notifs", "out")) { core.sync.set("notifs", "out", it) }
+                SwitchRow("Notifications", if (core.notifs.hasAccess) "" else if (!core.notifs.supported) "Needs TwinDesk with notifications (Notifications page)" else "Needs Notification access (General)", core.sync.get("notifs", "out")) { core.sync.set("notifs", "out", it) }
             }
         }
         if (wide) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { m2p(Modifier.weight(1f)); p2m(Modifier.weight(1f)) }
@@ -519,7 +523,10 @@ private fun CursorPage(core: Core, v: Int) {
         },
         if (!core.adb.wifiDebugging || !core.pointer.allowed) "warn" else "info",
     )
-    if (!core.adb.wifiDebugging) Row(Modifier.padding(bottom = 14.dp)) { Primary("Turn on wireless debugging") { core.adb.turnOn() } }
+    if (!core.adb.wifiDebugging || !core.adb.paired) Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!core.adb.wifiDebugging) Primary("Turn on wireless debugging") { core.adb.turnOn() }
+        if (!core.adb.paired) Secondary("Set up") { Guide.open.value = true }
+    }
     MacCard {
         DirHead(name, false, me, true)
         SwitchRow("Use $name’s mouse and keyboard on $me", "Push the pointer past the edge", core.sync.get("cursor", "in"), first = true) { core.sync.set("cursor", "in", it) }
@@ -603,12 +610,18 @@ private fun NotificationsPage(core: Core, v: Int) {
     val ctx = LocalContext.current
     PageHead("Notifications", "See each other’s notifications.")
     if (core.host == null) NotConnected(core, v)
-    if (!core.notifs.hasAccess) Note("Allow Notification access so this device’s notifications can go to $name.", "warn")
+    if (!core.notifs.supported) Note(
+        "This build of TwinDesk can’t read this device’s notifications: Android’s Play Protect blocks downloaded apps that can. " +
+            "$name installs TwinDesk with notifications for you once wireless debugging is set up: on $name, Phone page › Install. Your settings and pairing stay.",
+        "warn",
+    )
+    else if (!core.notifs.hasAccess) Note("Allow Notification access so this device’s notifications can go to $name.", "warn")
     MacCard {
         DirHead(me, true, name, false)
         SwitchRow("Show this device’s notifications on $name", "${core.notifs.sent} sent", core.sync.get("notifs", "out"), first = true) { core.sync.set("notifs", "out", it) }
         SwitchRow("Hide the message text", "Only the app and title go to $name", core.store.flag("notifs.hideText", false)) { core.store.setFlag("notifs.hideText", it); core.changed() }
-        if (!core.notifs.hasAccess) MacRow("Notification access", "Needed to read them") { Primary("Allow") { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } }
+        if (core.notifs.supported && !core.notifs.hasAccess) MacRow("Notification access", "Needed to read them") { Primary("Allow") { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } }
+        if (!core.notifs.supported && !core.adb.paired) MacRow("Wireless debugging", "Set it up first, then install from $name") { Primary("Guide") { Guide.open.value = true } }
     }
     MacCard {
         DirHead(name, false, me, true)
@@ -737,19 +750,27 @@ private fun GeneralPage(core: Core, v: Int) {
     fun Setup(label: String, hint: String, done: Boolean, action: String, first: Boolean = false, onClick: () -> Unit) =
         MacRow(label, hint, first) { if (done) Pill("Allowed", "good") else Primary(action, onClick) }
     MacCard("Setup") {
-        Setup("Notification access", "To show this device’s notifications on $name", core.notifs.hasAccess, "Allow", first = true) {
+        if (core.notifs.supported) Setup("Notification access", "To show this device’s notifications on $name", core.notifs.hasAccess, "Allow", first = true) {
             ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
+        } else MacRow("Notification access", "Comes with TwinDesk with notifications, which $name installs (its Phone page)", first = true)
         Setup("Run in the background", "So $name can reach this device any time", pm.isIgnoringBatteryOptimizations(ctx.packageName), "Allow") {
             @Suppress("BatteryLife")
             ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")))
         }
-        Setup(
+        MacRow(
             "Wireless debugging",
-            if (core.adb.canEnable) "For this screen and sound on $name, and its mouse and keyboard here. TwinDesk turns it on when it connects"
-            else "For this screen and sound on $name, and its mouse and keyboard here. Turn it on once and pair from your Mac; after that TwinDesk turns it on by itself",
-            core.adb.wifiDebugging, "Turn on",
-        ) { core.adb.turnOn() }
+            when {
+                core.adb.paired -> "Paired with $name: this screen and sound there, its mouse and keyboard here"
+                core.adb.wifiDebugging -> "On. Pair it with $name once (the guide walks you through it)"
+                else -> "For this screen and sound on $name, and its mouse and keyboard here"
+            },
+        ) {
+            if (core.adb.paired && core.adb.wifiDebugging) Pill("Paired", "good")
+            else {
+                if (!core.adb.wifiDebugging) Secondary("Turn on") { core.adb.turnOn() }
+                Primary("Guide") { Guide.open.value = true }
+            }
+        }
         Setup("Show the pointer", "Draws $name’s pointer over other apps", core.pointer.allowed, "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}")))
         }

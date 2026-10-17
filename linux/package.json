@@ -10,6 +10,7 @@
     "start": "electron .",
     "build:helper": "sh ../linux-helper/build.sh",
     "test:monitor": "electron . --test-monitor",
+    "fetch-adb": "node scripts/fetch-adb.js",
     "dist": "node installer/build.js"
   },
   "dependencies": {

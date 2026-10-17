@@ -143,6 +143,7 @@ function setupIpc(ctx) {
   phone('phoneOpenApp', (arg) => arg && typeof arg.id === 'string' && ctx.phoneViews.openApp(arg.id.slice(0, 200), String(arg.name || '').slice(0, 100)));
   phone('phoneCloseView', (id) => ctx.phoneViews.close(Number(id)));
   phone('phoneRetry', () => ctx.phone.bridge._kick());
+  phone('phoneInstallFull', () => ctx.phone.bridge.installFull());
   handle('phoneAssets', () => (ctx.phone ? ctx.phone.assetsView() : { wallpaper: '', apps: [] }));
   handle('installVdd', () => vdd.install());
   handle('removeVdd', () => vdd.remove());

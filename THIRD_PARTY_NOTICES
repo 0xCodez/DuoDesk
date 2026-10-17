@@ -53,8 +53,9 @@ License: Apache-2.0 (see licenses/Apache-2.0.txt)
          Copyright (C) 2018-2026 Romain Vimont
 
 Included unmodified as mac/vendor/scrcpy-server (and windows/vendor/scrcpy-server in the Windows
-installer). It runs on the phone, started over wireless debugging, for the phone's screen, sound,
-touch, mouse, keyboard and clipboard (mac/scrcpy.js, windows/scrcpy.js speak its protocol).
+installer, linux/vendor/scrcpy-server in the Linux packages). It runs on the phone, started over
+wireless debugging, for the phone's screen, sound, touch, mouse, keyboard and clipboard
+(mac/scrcpy.js, windows/scrcpy.js, linux/scrcpy.js speak its protocol).
 
 
 Android SDK Platform-Tools (adb)
@@ -63,10 +64,12 @@ Source:  https://developer.android.com/tools/releases/platform-tools
          https://android.googlesource.com/platform/packages/modules/adb
 License: Apache-2.0 (see licenses/Apache-2.0.txt) — Copyright (C) The Android Open Source Project.
          The prebuilt binaries are distributed by Google under the Android SDK terms; their full
-         notices ship next to them (windows/vendor/adb/NOTICE.txt in the Windows installer).
+         notices ship next to them (windows/vendor/adb/NOTICE.txt in the Windows installer,
+         linux/vendor/adb/NOTICE.txt in the Linux packages).
 
 adb.exe, AdbWinApi.dll and AdbWinUsbApi.dll are downloaded from Google when the Windows installer
-is built (windows/scripts/fetch-adb.js) and included in it, for wireless debugging with the phone.
+is built (windows/scripts/fetch-adb.js) and included in it, for wireless debugging with the phone;
+adb for Linux likewise when the Linux packages are built (linux/scripts/fetch-adb.js).
 
 
 Downloaded at run time (not included in this repository)

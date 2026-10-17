@@ -93,6 +93,12 @@ class Discovery extends EventEmitter {
     else for (const target of this._targets()) this._send(msg, target);
   }
 
+  // Ask a phone at address to connect to us (the phone tile; a phone has no server to pair with).
+  invite(address) {
+    const { id, name, os: o, port, fp } = this.self;
+    this._send({ t: P.T.INVITE, v: P.PROTOCOL_VERSION, id, name, os: o, port, fp }, address);
+  }
+
   // Ask one address who is there; resolves to the device or null after PROBE_REPLY_MS.
   ask(address) {
     if (!isIPv4(address)) return Promise.resolve(null);

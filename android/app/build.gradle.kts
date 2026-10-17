@@ -13,6 +13,22 @@ android {
         versionCode = 20000
         versionName = "2.0.0"
     }
+    // Two builds of the same app (same id and signature, so one installs over the other):
+    //   standard — what people download: no notification access, which Play Protect blocks on apps
+    //              installed from a browser, a messaging app or a file manager;
+    //   full     — with it (the phone's notifications on the computer): the computer installs it over
+    //              the standard one through wireless debugging, which Play Protect doesn't check.
+    flavorDimensions += "dist"
+    productFlavors {
+        create("standard") {
+            dimension = "dist"
+            buildConfigField("boolean", "NOTIF_LISTENER", "false")
+        }
+        create("full") {
+            dimension = "dist"
+            buildConfigField("boolean", "NOTIF_LISTENER", "true")
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false

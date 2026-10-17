@@ -3,11 +3,14 @@
 // layout as the repo (linux/, shared/, linux-helper/bin/), then electron-builder → AppImage and
 // .deb (x64). Same approach as windows/installer/build.js: the layout is kept so
 // '../shared/protocol.js' and the helper path work unchanged; no asar, so the helper is a real file.
-// Run it on Linux (or in WSL) with the X11 dev packages installed.
+// Run it on Linux (or in WSL) with the X11 dev packages installed. For a phone as the peer it also
+// carries adb (downloaded, scripts/fetch-adb.js) and the scrcpy server (mac/vendor/scrcpy-server)
+// in linux/vendor/.
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const builder = require('electron-builder');
+const { fetchAdb } = require('../scripts/fetch-adb');
 
 const LIN = path.join(__dirname, '..');
 const ROOT = path.join(LIN, '..');
@@ -52,7 +55,12 @@ async function main() {
   copy(path.join(ROOT, 'shared', 'about.js'), path.join(STAGE, 'shared', 'about.js'));
   copy(path.join(ROOT, 'shared', 'framegen.js'), path.join(STAGE, 'shared', 'framegen.js'));
   copy(path.join(ROOT, 'linux-helper', 'bin', 'macshare-linuxhelper'), path.join(STAGE, 'linux-helper', 'bin', 'macshare-linuxhelper'));
-  for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md']) {
+  // A phone: its screen, apps and input go through adb and scrcpy-server (phone-bridge.js).
+  if (!fs.existsSync(path.join(LIN, 'vendor', 'scrcpy-server'))) {
+    copy(path.join(ROOT, 'mac', 'vendor', 'scrcpy-server'), path.join(STAGE, 'linux', 'vendor', 'scrcpy-server'));
+  }
+  await fetchAdb(path.join(STAGE, 'linux', 'vendor', 'adb'));
+  for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md', 'licenses']) {
     if (fs.existsSync(path.join(ROOT, f))) copy(path.join(ROOT, f), path.join(STAGE, f));
   }
   copyDeps(Object.keys(pkg.dependencies || {}));

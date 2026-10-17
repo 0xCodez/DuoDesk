@@ -33,7 +33,8 @@ UI.tab({
 
     // One switch per feature and direction, labels only; the row opens the tab.
     // later: not on Linux yet, always off (nothing uses it now: Linux has every row).
-    const row = (label, tab, get, set, later) => {
+    // phone: false = hidden while a phone is the peer.
+    const row = (label, tab, get, set, later, { phone = true } = {}) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
       const r = UI.row(label, '', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
       r.update = (s) => {
@@ -41,18 +42,20 @@ UI.tab({
         sw.set(!limited && get(s));
         sw.disable(!set || !!limited);
         r.setHint(limited);
+        r.hidden = !phone && UI.isPhone(s);
       };
       return r;
     };
+    const notPhone = { phone: false };
     const m2p = [
-      row('Screen', 'mac-pc', (s) => s.stream.state === 'on'),
+      row('Screen', 'mac-pc', (s) => s.stream.state === 'on', null, undefined, notPhone),
       row('Sound', 'audio', (s) => s.audio.receive, (v) => api.setAudio({ receive: v })),
       row('Mouse and keyboard', 'cursor', (s) => s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
       row('Clipboard', 'clipboard', (s) => s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
       row('Notifications', 'notifications', (s) => s.notifs.receive, (v) => api.setNotifs({ receive: v })),
       row('Shared folder', 'files', (s) => s.files.mountMac, (v) => api.setFiles({ mountMac: v })),
-      row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v })),
-      row('Apps', 'apps', (s) => s.apps.open > 0, null),
+      row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v }), undefined, notPhone),
+      row('Apps', 'apps', (s) => s.apps.open > 0, null, undefined, notPhone),
     ];
     const p2m = [
       row('Screen', 'pc-mac', (s) => s.pcScreen.mode !== 'off', (v) => api.setPcScreenMode(v ? 'mirror' : 'off')),
@@ -61,8 +64,8 @@ UI.tab({
       row('Clipboard', 'clipboard', (s) => s.clipboard.send, (v) => api.setClipboard({ send: v })),
       row('Notifications', 'notifications', (s) => s.notifs.send, (v) => api.setNotifs({ send: v })),
       row('Shared folder', 'files', (s) => s.files.shareOn, (v) => api.setShareOn(v)),
-      row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v })),
-      row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v })),
+      row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v }), undefined, notPhone),
+      row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v }), undefined, notPhone),
     ];
     const pair = UI.dirCards({ rows: m2p }, { rows: p2m });
 
@@ -107,7 +110,9 @@ UI.tab({
       pcName.textContent = s.device.name;
       const p = UI.peer(s);
       macName.textContent = s.peer ? s.peer.name : 'The other computer';
-      peerDev.className = 'device ' + (p.os === 'mac' ? 'mac' : 'pc');
+      peerDev.className = 'device ' + UI.osClass(p.os);
+      if (UI.phoneWall && p.phone) peerDev.style.setProperty('--phone-wall', UI.phoneWall);
+      else peerDev.style.removeProperty('--phone-wall');
       linkLine.className = 'hero-link' + (connected ? ' up' : '');
       linkText.textContent = connected ? (l.rtt != null ? l.rtt + ' ms' : 'Connected')
         : s.pairing ? 'Pairing…' : s.paired ? 'Connecting…' : 'Not connected';
@@ -146,7 +151,8 @@ UI.tab({
           const isKnown = known.has(dev.id);
           const online = dev.id === live;
           // A Mac hosts; with a PC or another Linux computer the one who clicks is the guest (L4).
-          const btn = online || isKnown ? null : UI.button(dev.os === 'mac' ? 'Pair' : 'Connect', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
+          // A phone is asked to pair.
+          const btn = online || isKnown ? null : UI.button(dev.os === 'mac' || dev.os === 'android' ? 'Pair' : 'Connect', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
           if (btn) btn.disabled = busy || connected;
           if (btn && dev.invited && !busy) focus = btn;
           const r = UI.row(dev.name, dev.address + (dev.invited ? ' · wants to connect' : ''), [

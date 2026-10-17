@@ -10,7 +10,7 @@ const ACTIONS = [
   'pairRespond', 'forget', 'openSettings', 'relaunch',
   'keepPcAppInDock', 'sendFiles', 'chooseSendFiles', 'setNotifs', 'muteNotifApp', 'allowFullDisk',
   'connectAddress', 'pairWith', 'confirmGuestCode', 'cancelGuestPair', 'forgetHost', 'refreshDiscovery', 'copyText', 'allowPermission', 'skipSetup',
-  'connectPhone', 'disconnectPhone', 'setPhone', 'phonePair', 'phoneScreen', 'phoneOpenApp', 'phoneCloseView', 'phoneRetry',
+  'connectPhone', 'disconnectPhone', 'setPhone', 'phonePair', 'phoneScreen', 'phoneOpenApp', 'phoneCloseView', 'phoneRetry', 'phoneInstallFull',
   'setUpdates', 'checkUpdates', 'openUpdate', 'openLink',
 ];
 

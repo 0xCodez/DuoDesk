@@ -38,7 +38,10 @@ UI.tab({
     code.onkeydown = where.onkeydown = (e) => { if (e.key === 'Enter') pairBtn.click(); };
     const pairRow = UI.row('Pairing code', 'On the phone: Settings › Developer options › Wireless debugging › Pair device with pairing code.', [code, where, pairBtn]);
     const steps = UI.note('info', '');
-    const adbCard = UI.card('Screen, mouse and keyboard', [adbRow, pairRow, steps]);
+    // The phone runs the standard build (no notification access): install the full one over it.
+    const fullBtn = UI.button('Install', () => api.phoneInstallFull(), 'small primary');
+    const fullRow = UI.row('Notifications from the phone', '', [fullBtn]);
+    const adbCard = UI.card('Screen, mouse and keyboard', [adbRow, pairRow, steps, fullRow]);
 
     // ---- apps ----
     const search = el('input', { type: 'search', placeholder: 'Search apps', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Search apps' } });
@@ -102,6 +105,16 @@ UI.tab({
       steps.set(br.state === 'waitingWifi'
         ? 'On the phone: Settings › About phone › tap Build number 7 times (Developer options). Then Settings › System › Developer options › Wireless debugging: on. After pairing once, TwinDesk turns it on by itself.'
         : br.state === 'needsPair' ? 'TwinDesk pairs with the phone’s wireless debugging once. After that the phone’s screen, apps, mouse and keyboard work without this step.' : '');
+
+      // The standard build can't read notifications (Play Protect blocks downloaded apps that do).
+      const full = !ph.adb || ph.adb.full !== false;
+      const inst = br.install;
+      fullRow.hidden = full && !(inst && inst.state === 'done');
+      fullBtn.hidden = full;
+      fullBtn.disabled = !ready || !br.fullApk || (inst && inst.state === 'installing');
+      fullRow.setHint(inst && inst.state !== 'failed' && inst.message ? inst.message
+        : !br.fullApk ? 'This build of TwinDesk doesn’t carry the Android app.'
+          : `${inst && inst.state === 'failed' ? `${inst.message} ` : ''}The TwinDesk you downloaded can’t read the phone’s notifications (Play Protect blocks downloaded apps that can). Install the full app over it: its settings and pairing stay.${ready ? '' : ' Needs wireless debugging.'}`);
 
       const settings = ph.settings || {};
       sound.set(settings.sound !== false);

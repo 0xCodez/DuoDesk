@@ -47,10 +47,11 @@ async function checkFirewall(fixed) {
   return { ok: true, tool: '', message: 'No firewall is on' };
 }
 
+// Also mDNS (5353/udp): adb finds a phone's wireless debugging with it (phone-bridge.js).
 async function fixFirewall(tool) {
   const script = tool === 'firewalld'
-    ? 'firewall-cmd --permanent --add-port=' + PORTS.tcp + '/tcp --add-port=' + PORTS.udp + '/udp && firewall-cmd --reload'
-    : 'ufw allow ' + PORTS.tcp + '/tcp && ufw allow ' + PORTS.udp + '/udp';
+    ? 'firewall-cmd --permanent --add-port=' + PORTS.tcp + '/tcp --add-port=' + PORTS.udp + '/udp --add-service=mdns && firewall-cmd --reload'
+    : 'ufw allow ' + PORTS.tcp + '/tcp && ufw allow ' + PORTS.udp + '/udp && ufw allow 5353/udp';
   const r = await run('pkexec', ['sh', '-c', script], 120000);
   if (r.ok) return true;
   throw new Error(r.code === 126 ? 'the password prompt was closed' : r.err || 'pkexec failed');

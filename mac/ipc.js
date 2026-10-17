@@ -127,6 +127,9 @@ function setupIpc(ctx) {
     phoneCloseView(id) {
       ctx.phoneViews.close(Number(id));
     },
+    phoneInstallFull() {
+      ctx.phone.bridge.installFull();
+    },
     phoneRetry() {
       ctx.phone.bridge._kick();
     },

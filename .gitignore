@@ -13,10 +13,14 @@ mac/dev/.probe.json
 mac/dist/
 # Windows installer output
 windows/dist/
-# adb for a dev run (windows/scripts/fetch-adb.js)
+# adb for a dev run (windows/ and linux/scripts/fetch-adb.js)
 windows/vendor/adb/
+linux/vendor/adb/
 # Linux helper build output
 linux-helper/bin/
 linux/dist/
 # editor settings
 .vscode/
+
+# The full Android build, copied in at build time (mac/build-app.sh)
+mac/vendor/twindesk-android-full.apk

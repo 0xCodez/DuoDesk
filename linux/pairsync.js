@@ -25,6 +25,10 @@ const FEATURES = {
 const VALUES = {
   pace: { path: ['monitor', 'pacing'], allowed: ['fast', 'smooth'] },
   gestures: { path: ['kvm', 'gestures'], allowed: [true, false] },
+  // Set on either side for this computer's mouse and keyboard on a phone (its Cursor and Keyboard pages).
+  keyboard: { path: ['kvm', 'keyboard'], allowed: [true, false], phone: true },
+  speed: { path: ['kvm', 'speed'], allowed: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3], phone: true },
+  reverseScroll: { path: ['kvm', 'reverseScroll'], allowed: [true, false], phone: true },
 };
 
 class PairSync {
@@ -47,10 +51,11 @@ class PairSync {
     this.link.on('closed', () => { this.last = null; this.peerId = ''; });
     this.link.on(T.PAIR_SYNC, (m) => {
       if (!this.last) return;
-      if (VALUES[m.key] && VALUES[m.key].allowed.includes(m.value)) return this._adopt({ values: { [m.key]: m.value } });
+      const vals = this._values();
+      if (vals[m.key] && vals[m.key].allowed.includes(m.value)) return this._adopt({ values: { [m.key]: m.value } });
       if (m.all && typeof m.all === 'object') {
         const mine = { values: {} };
-        for (const [k, d] of Object.entries(VALUES)) if (m.all.values && d.allowed.includes(m.all.values[k])) mine.values[k] = m.all.values[k];
+        for (const [k, d] of Object.entries(vals)) if (m.all.values && d.allowed.includes(m.all.values[k])) mine.values[k] = m.all.values[k];
         for (const f of Object.keys(FEATURES)) {
           const v = m.all[f];
           if (v && typeof v === 'object') mine[f] = { out: v.in, in: v.out }; // their in = our out
@@ -62,21 +67,28 @@ class PairSync {
     });
   }
 
+  // The shared values with this peer: the phone-only ones only with a phone.
+  _values() {
+    const phone = this.link.peerOs === P.OS.ANDROID;
+    return Object.fromEntries(Object.entries(VALUES).filter(([, d]) => phone || !d.phone));
+  }
+
   values() {
     const out = {};
     for (const [f, d] of Object.entries(FEATURES)) {
       out[f] = { out: !!this.settings[d.out[0]][d.out[1]], in: !!this.settings[d.in[0]][d.in[1]] };
     }
     out.values = {};
-    for (const [k, d] of Object.entries(VALUES)) out.values[k] = this.settings[d.path[0]][d.path[1]];
+    for (const [k, d] of Object.entries(this._values())) out.values[k] = this.settings[d.path[0]][d.path[1]];
     return out;
   }
 
   // Take values from the peer (or our saved ones) without sending them back.
   _adopt(vals) {
     const now = this.values();
+    const known = this._values();
     for (const [k, v] of Object.entries(vals.values || {})) {
-      const d = VALUES[k];
+      const d = known[k];
       if (!d || !d.allowed.includes(v) || now.values[k] === v) continue;
       now.values[k] = v;
       this.last = now;
@@ -113,7 +125,7 @@ class PairSync {
         this.link.send({ t: T.PAIR_SYNC, feature: f, dir, on: now[f][dir] });
       }
     }
-    for (const k of Object.keys(VALUES)) {
+    for (const k of Object.keys(now.values)) {
       if (now.values[k] === (this.last.values || {})[k]) continue;
       changed = true;
       this.link.send({ t: T.PAIR_SYNC, key: k, value: now.values[k] });

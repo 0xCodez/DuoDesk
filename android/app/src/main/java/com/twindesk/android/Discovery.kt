@@ -147,7 +147,7 @@ class Discovery(
         val old = found[id]
         val d = Found(
             id = id,
-            name = m.optString("name").take(100).ifEmpty { if (os == "mac") "Mac" else "PC" },
+            name = m.optString("name").take(100).ifEmpty { when (os) { "mac" -> "Mac"; "linux" -> "Linux"; else -> "PC" } },
             os = os,
             address = address,
             port = m.optInt("port", Proto.PORT).takeIf { it in 1..65535 } ?: Proto.PORT,

@@ -16,8 +16,13 @@ class Notifs(core: Core) : Feature(core) {
     @Volatile var shown = 0; private set
     private val muted get() = core.store.prefsSet("notifs.muted")
 
+    // The standard build (what people download) has no notification listener: Play Protect blocks
+    // sideloaded apps with one. The computer installs the full build over it (adb, not checked).
+    val supported get() = BuildConfig.NOTIF_LISTENER
+
     val hasAccess: Boolean
         get() {
+            if (!supported) return false
             val flat = Settings.Secure.getString(core.ctx.contentResolver, "enabled_notification_listeners") ?: return false
             val me = ComponentName(core.ctx, NotifListener::class.java).flattenToString()
             return flat.split(':').any { it == me }

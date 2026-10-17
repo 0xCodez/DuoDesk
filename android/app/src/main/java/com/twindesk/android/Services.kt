@@ -65,6 +65,10 @@ class ActionReceiver : BroadcastReceiver() {
             FCLIP_COPY -> core.fclip.fetch(arg, save = false)
             FCLIP_SAVE -> core.fclip.fetch(arg, save = true)
             ADB_ON -> core.adb.turnOn()
+            PAIR_CODE -> {
+                val code = android.app.RemoteInput.getResultsFromIntent(intent)?.getCharSequence("code")?.toString() ?: ""
+                core.adb.sendPairCode(code)
+            }
         }
     }
 
@@ -75,6 +79,7 @@ class ActionReceiver : BroadcastReceiver() {
         const val FCLIP_COPY = "com.twindesk.android.FCLIP_COPY"
         const val FCLIP_SAVE = "com.twindesk.android.FCLIP_SAVE"
         const val ADB_ON = "com.twindesk.android.ADB_ON"
+        const val PAIR_CODE = "com.twindesk.android.PAIR_CODE"
     }
 }
 

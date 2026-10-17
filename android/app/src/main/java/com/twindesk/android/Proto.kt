@@ -67,6 +67,8 @@ object Proto {
         const val PHONE_POINTER = "phone.pointer"
         const val ADB_STATE = "adb.state"
         const val ADB_ENABLE = "adb.enable"
+        const val ADB_PAIR = "adb.pair"
+        const val ADB_BRIDGE = "adb.bridge"
         const val WOL_INFO = "wol.info"
     }
 

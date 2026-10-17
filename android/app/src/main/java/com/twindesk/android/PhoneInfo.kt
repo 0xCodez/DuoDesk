@@ -165,6 +165,13 @@ class Adb(core: Core) : Feature(core) {
     // the person to turn it on (MIUI and HyperOS switch it off on every Wi-Fi change, screen lock or
     // reboot, and may refuse to let us switch it back).
     @Volatile var off = false; private set
+    // The computer's side of wireless debugging (adb.bridge): needsPair, connecting, ready…
+    @Volatile var bridge = ""; private set
+    @Volatile var bridgeMessage = ""; private set
+    val paired get() = bridge == "ready"
+    @Volatile var pairing = false; private set // a code went to the computer, waiting for the answer
+    private var nsd: android.net.nsd.NsdManager.DiscoveryListener? = null
+    @Volatile private var pairPort = 0 // our own "Pair device with pairing code" port, from mDNS
 
     init {
         val obs = object : ContentObserver(main) {
@@ -187,7 +194,7 @@ class Adb(core: Core) : Feature(core) {
     }.getOrNull() ?: ""
 
     fun sendState() {
-        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to wifiDebugging, "canEnable" to canEnable, "address" to address()))
+        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to wifiDebugging, "canEnable" to canEnable, "address" to address(), "full" to BuildConfig.NOTIF_LISTENER))
         core.changed()
     }
 
@@ -242,9 +249,74 @@ class Adb(core: Core) : Feature(core) {
     }
 
     override fun onMessage(t: String, m: JSONObject): Boolean {
-        if (t != Proto.T.ADB_ENABLE) return false
-        enable(m.optBoolean("on", true))
-        sendState()
+        when (t) {
+            Proto.T.ADB_ENABLE -> { enable(m.optBoolean("on", true)); sendState() }
+            Proto.T.ADB_BRIDGE -> {
+                val was = bridge
+                bridge = m.optString("state")
+                bridgeMessage = m.optString("message")
+                if (pairing && bridge != "connecting") {
+                    pairing = false
+                    if (bridge == "ready") Notify.pairResult(core.ctx, "Paired with ${core.host?.name ?: "your computer"}", "Its screen, mouse, keyboard and sound work with this device now.", false)
+                    else if (bridge == "needsPair") Notify.pairResult(core.ctx, "Pairing didn’t work", bridgeMessage.ifEmpty { "Try a new code." }, true)
+                }
+                if (bridge == "ready" && was != "ready") stopPortSearch()
+                core.changed()
+            }
+            else -> return false
+        }
         return true
+    }
+
+    // ---- pairing from the phone: the code typed in TwinDesk's notification goes to the computer ----
+
+    // "Pair device with pairing code" is open (or about to be): ask for the code in a notification
+    // (typing it there keeps Settings' dialog open), and look for our own pairing port meanwhile.
+    fun askForCode() {
+        findPairPort()
+        Notify.pairCode(core.ctx, core.host?.name ?: "your computer")
+    }
+
+    fun sendPairCode(code: String) {
+        val digits = code.filter { it.isDigit() }
+        if (digits.length != 6) return Notify.pairResult(core.ctx, "The pairing code has six digits", "Type the code Settings shows.", true)
+        if (!core.link.connected) return Notify.pairResult(core.ctx, "Not connected", "Connect to your computer in TwinDesk first.", true)
+        pairing = true
+        core.send(msg(Proto.T.ADB_PAIR, "code" to digits, "port" to pairPort))
+        Notify.pairResult(core.ctx, "Pairing…", "Sent to ${core.host?.name ?: "your computer"}", false, progress = true)
+        core.changed()
+    }
+
+    private fun findPairPort() {
+        if (nsd != null) return
+        val mgr = core.ctx.getSystemService(android.net.nsd.NsdManager::class.java) ?: return
+        val me = address()
+        val l = object : android.net.nsd.NsdManager.DiscoveryListener {
+            override fun onDiscoveryStarted(serviceType: String) {}
+            override fun onDiscoveryStopped(serviceType: String) {}
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { nsd = null }
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+            override fun onServiceLost(info: android.net.nsd.NsdServiceInfo) {}
+            override fun onServiceFound(info: android.net.nsd.NsdServiceInfo) {
+                @Suppress("DEPRECATION")
+                runCatching {
+                    mgr.resolveService(info, object : android.net.nsd.NsdManager.ResolveListener {
+                        override fun onResolveFailed(i: android.net.nsd.NsdServiceInfo, errorCode: Int) {}
+                        override fun onServiceResolved(i: android.net.nsd.NsdServiceInfo) {
+                            val host = i.host?.hostAddress ?: ""
+                            if (me.isEmpty() || host == me) pairPort = i.port
+                        }
+                    })
+                }
+            }
+        }
+        nsd = l
+        runCatching { mgr.discoverServices("_adb-tls-pairing._tcp", android.net.nsd.NsdManager.PROTOCOL_DNS_SD, l) }.onFailure { nsd = null }
+    }
+
+    private fun stopPortSearch() {
+        val l = nsd ?: return
+        nsd = null
+        runCatching { core.ctx.getSystemService(android.net.nsd.NsdManager::class.java).stopServiceDiscovery(l) }
     }
 }

@@ -115,7 +115,12 @@ class PcScreen {
   _extendSize() {
     const m = /^(\d+)x(\d+)$/.exec(this.cfg.extendSize);
     if (m) return [Number(m[1]), Number(m[2])];
-    return this.mac.width ? [this.mac.width, this.mac.height] : [1920, 1080];
+    if (!this.mac.width) return [1920, 1080];
+    // A phone tells its pixels: a monitor half that size, so text is readable there (the Mac's
+    // Extend for a phone has the same size in points).
+    const even = (v, min) => Math.max(min, Math.round(v / 4) * 2);
+    if (this.link.peerOs === P.OS.ANDROID) return [even(this.mac.width, 480), even(this.mac.height, 360)];
+    return [this.mac.width, this.mac.height];
   }
 
   // Extend size changed while Extend is on: a size the driver doesn't know yet needs a device restart.

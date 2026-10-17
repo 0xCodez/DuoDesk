@@ -22,6 +22,7 @@ object Notify {
     const val ID_INVITE = 2
     const val ID_FCLIP = 3
     const val ID_ADB = 4
+    const val ID_PAIR = 5
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -115,6 +116,46 @@ object Notify {
     }
 
     fun cancelAdbOff(ctx: Context) = nm(ctx).cancel(ID_ADB)
+
+    // The pairing code box: type the code from "Pair device with pairing code" right here, so
+    // Settings' dialog stays open (it closes when you switch apps).
+    fun pairCode(ctx: Context, computer: String) {
+        val input = android.app.RemoteInput.Builder("code").setLabel("6-digit pairing code").build()
+        val pi = PendingIntent.getBroadcast(
+            ctx, 40, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.PAIR_CODE),
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        nm(ctx).notify(
+            ID_PAIR,
+            Notification.Builder(ctx, CH_INVITE)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("Type the pairing code here")
+                .setContentText("Settings shows a 6-digit code. Type it here to pair with $computer.")
+                .setStyle(Notification.BigTextStyle().bigText("Settings shows a 6-digit code under “Pair with device”. Tap Enter code, type it, and send. $computer does the rest."))
+                .setOnlyAlertOnce(false)
+                .addAction(Notification.Action.Builder(null, "Enter code", pi).addRemoteInput(input).build())
+                .build(),
+        )
+    }
+
+    fun pairResult(ctx: Context, title: String, text: String, again: Boolean, progress: Boolean = false) {
+        val b = Notification.Builder(ctx, CH_INVITE)
+            .setSmallIcon(R.drawable.ic_stat)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(!progress)
+        if (progress) b.setProgress(0, 0, true).setOngoing(true)
+        if (again) {
+            val input = android.app.RemoteInput.Builder("code").setLabel("6-digit pairing code").build()
+            val pi = PendingIntent.getBroadcast(
+                ctx, 40, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.PAIR_CODE),
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            b.addAction(Notification.Action.Builder(null, "Enter code", pi).addRemoteInput(input).build())
+        }
+        nm(ctx).notify(ID_PAIR, b.build())
+    }
 
     // Files on their way (progress) and when they are here (open / show).
     fun files(ctx: Context, key: Int, title: String, text: String, progress: Int?, open: Intent?) {

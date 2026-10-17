@@ -73,6 +73,11 @@ async function main() {
     copy(path.join(ROOT, 'mac', 'vendor', 'scrcpy-server'), path.join(STAGE, 'windows', 'vendor', 'scrcpy-server'));
   }
   await fetchAdb(path.join(STAGE, 'windows', 'vendor', 'adb'));
+  // TwinDesk for Android with notification access, which this PC installs over wireless debugging.
+  const dist = path.join(ROOT, 'android', 'dist');
+  const full = fs.existsSync(dist) && fs.readdirSync(dist).filter((n) => /-full\.apk$/.test(n)).sort().pop();
+  if (full) copy(path.join(dist, full), path.join(STAGE, 'windows', 'vendor', 'twindesk-android-full.apk'));
+  else console.log('note: no android/dist/*-full.apk — the installer won’t offer the full Android build');
   for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md', 'licenses']) {
     if (fs.existsSync(path.join(ROOT, f))) copy(path.join(ROOT, f), path.join(STAGE, f));
   }
