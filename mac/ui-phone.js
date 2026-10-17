@@ -35,7 +35,7 @@ UI.tab({
     const where = el('input', { type: 'text', placeholder: 'Address:port (optional)', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Pairing address' } });
     const pairBtn = UI.button('Pair', () => api.phonePair({ code: code.value, where: where.value }), 'small primary');
     code.onkeydown = where.onkeydown = (e) => { if (e.key === 'Enter') pairBtn.click(); };
-    const pairRow = UI.row('Pairing code', 'On the phone: Settings › Developer options › Wireless debugging › Pair device with pairing code.', [code, where, pairBtn]);
+    const pairRow = UI.row('Pairing code', 'Or type it on the phone, in TwinDesk’s notification', [code, where, pairBtn]);
     const steps = UI.note('info', '');
     // The phone runs the standard build (no notification access): install the full one over it.
     const fullBtn = UI.button('Install', () => api.phoneInstallFull(), 'small primary');
@@ -67,8 +67,15 @@ UI.tab({
       UI.row('Mouse and keyboard', 'Push the pointer off the edge of the screen to use the phone. Double-tap the hotkey to come back.', [UI.button('Cursor Settings', () => UI.go('cursor'), 'small')]),
     ]);
 
+    // ---- the phone in Finder (phonedrive.js): through the cable, or wireless debugging ----
+    const mountBtn = UI.button('Mount', () => api.phoneMount(), 'small primary');
+    const unmountBtn = UI.button('Unmount', () => api.phoneUnmount(), 'small');
+    const driveRow = UI.row('Show in Finder', '', [mountBtn, unmountBtn]);
+    const askMount = UI.switch((v) => api.setPhone({ askMount: v }), { label: 'Ask to mount' });
+    const driveCard = UI.card('Finder', [driveRow, UI.row('Ask when a phone is plugged in', 'With a USB cable', [askMount])]);
+
     const notConnected = UI.note('info', '');
-    body.append(notConnected, hero, adbCard, appsCard, winCard, optsCard);
+    body.append(notConnected, hero, adbCard, driveCard, appsCard, winCard, optsCard);
 
     let appsKey = '';
     let winKey = '';
@@ -84,6 +91,21 @@ UI.tab({
       const br = ph.bridge || { state: 'off' };
       for (const x of [hero, adbCard, appsCard, winCard, optsCard]) x.hidden = !c;
       notConnected.set(c ? '' : ph.nearby && ph.nearby.length ? 'Click the phone above Overview to connect it.' : 'No phone connected. Open TwinDesk on the phone and pair it from Overview › Nearby.');
+
+      // Finder: also for a phone that's only plugged in
+      const d = ph.drive || {};
+      driveCard.hidden = !(c || d.plugged || d.mounted);
+      mountBtn.hidden = !!d.mounted;
+      mountBtn.textContent = d.busy === 'mounting' ? 'Mounting…' : 'Mount';
+      mountBtn.disabled = !!d.busy;
+      unmountBtn.hidden = !d.mounted;
+      unmountBtn.disabled = !!d.busy;
+      driveRow.setHint(d.message || (d.mounted ? `${d.name} is in Finder under Locations (${d.via === 'usb' ? 'through the cable' : 'over wireless debugging'}).`
+        : d.via === 'usb' ? `${d.name}’s storage as a drive in Finder, through the cable.`
+          : d.via === 'wifi' ? `${d.name}’s storage as a drive in Finder, over wireless debugging (plug in the cable for speed).`
+            : d.usb && d.usb.state === 'unauthorized' ? 'Allow USB debugging on the phone (the prompt on its screen).'
+              : d.plugged ? 'Turn on USB debugging on the phone (Developer options) to see it in Finder.' : 'Plug the phone in with a USB cable, or set up wireless debugging.'));
+      askMount.set((ph.settings || {}).askMount !== false);
       if (!c) return;
 
       h1.textContent = c.name;
@@ -100,7 +122,7 @@ UI.tab({
       adbPill.className = `pill ${cls}`;
       adbPill.textContent = label;
       adbRow.setHint(ready ? 'The phone’s screen, touch, mouse and keyboard, and its clipboard in the background' : br.message);
-      pairRow.hidden = br.state !== 'needsPair';
+      pairRow.hidden = br.state !== 'needsPair' && !br.canPair;
       steps.set(br.state === 'waitingWifi'
         ? 'On the phone: Settings › About phone › tap Build number 7 times (Developer options). Then Settings › System › Developer options › Wireless debugging: on. After pairing once, TwinDesk turns it on by itself.'
         : br.state === 'needsPair' ? 'TwinDesk pairs with the phone’s wireless debugging once. After that the phone’s screen, apps, mouse and keyboard work without this step.' : '');

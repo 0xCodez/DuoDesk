@@ -172,8 +172,8 @@ fun App(core: Core, resumed: Int) {
     val ctx = LocalContext.current
     var setupDone by rememberSaveable { mutableStateOf(false) }
     if (!setupDone && SetupCheck.shouldShow(ctx, core)) return SetupScreen(core, ctx, v + resumed) { setupDone = true }
-    // Then the wireless debugging guide (first launch, or opened from General › Setup / Cursor).
-    if (Guide.open.value || Guide.firstTime(core)) return WirelessGuide(core, ctx, v + resumed)
+    // The wireless debugging guide when opened from General › Setup / Cursor (Overview has it as a card).
+    if (Guide.open.value) return WirelessGuide(core, ctx, v + resumed)
 
     Box(Modifier.fillMaxSize().background(pal.content)) {
         if (wide) {
@@ -386,6 +386,9 @@ private fun OverviewPage(core: Core, v: Int) {
             }
         }
     }
+
+    // Wireless debugging, under the connected card, until the computer is paired with it.
+    WirelessCard(core, LocalContext.current)
 
     if (host != null) {
         val wide = LocalConfiguration.current.screenWidthDp >= 840

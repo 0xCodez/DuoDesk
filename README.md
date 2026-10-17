@@ -42,6 +42,7 @@ account and no relay server.
 | **🔔 Notifications**<br>See one computer's notifications on the other as native notifications. You can hide the message text or mute single apps. | <img src=".github/assets/ui-notifications.jpg" alt="Notifications settings" width="420"> |
 | **⌨️ Terminal**<br>Open a shell on the other computer without passwords, between any two computers. Keys are exchanged over the paired link, so `ssh twindesk` just works in any terminal. | <img src=".github/assets/ui-terminal.jpg" alt="Terminal settings" width="420"> |
 | **🔊 Sound**<br>Hear one computer on the other, in either direction, separate from screen sharing. | <img src=".github/assets/ui-audio.jpg" alt="Audio settings" width="420"> |
+| **📱 Your Android phone**<br>Pair an Android phone and it works like another computer: files from the share sheet, the clipboard, notifications both ways, and through wireless debugging its screen and apps in windows of their own, with your mouse and keyboard across the screen edge. On a Mac, plug it in with a cable and it shows up in Finder. | <img src=".github/assets/ui-phone.jpg" alt="The phone page: wireless debugging ready, the phone in Finder" width="420"> |
 
 TwinDesk also includes:
 
@@ -67,6 +68,7 @@ TwinDesk also includes:
 | Mac ↔ Mac | Every feature above |
 | PC ↔ PC | Every feature above |
 | Linux ↔ Mac, PC or Linux | Every feature above (see the notes below) |
+| Android phone ↔ Mac, PC or Linux | Files, clipboard, notifications, sound, the phone's screen and apps, mouse and keyboard (see [Android](#android)) |
 
 On Linux, TwinDesk runs on both X11 and Wayland. On Wayland, the mouse and keyboard go through
 evdev and uinput (the Setup screen grants access once), and screens are captured through the
@@ -87,6 +89,34 @@ desktop portal. A few things work a little differently:
   graphics driver (not available on NVIDIA's driver).
 - **Apps.** Opening this computer's apps on the other side needs an Xorg session.
 
+## Android
+
+Install TwinDesk on the phone (from the [releases](https://github.com/InukaAsith/TwinDesk/releases)),
+open it next to TwinDesk on the computer and pair from Overview › Nearby. A paired phone nearby
+shows above Overview on the computer; click it to connect.
+
+Files, the clipboard and notifications work right away. The phone's screen, its apps in windows,
+touch, your mouse and keyboard on the phone and its sound go through **wireless debugging**, which
+TwinDesk pairs with once:
+
+<p align="center">
+  <img src=".github/assets/ui-phone-pair.jpg" alt="Overview: the wireless debugging card under the connected computers, with the pairing code" width="820">
+</p>
+
+- Until it's paired, a card under the connected computers on Overview (on the computer and on the
+  phone) walks you through it. Open *Developer options › Wireless debugging › Pair device with
+  pairing code* on the phone and type the 6-digit code on the computer, or on the phone in
+  TwinDesk's notification (Settings' dialog stays open). The phone sends the code to whichever
+  computer it's connected to: Mac, PC or Linux.
+- After that TwinDesk switches wireless debugging on by itself when it needs it, follows it to its
+  new port every time it restarts, and keeps the pairing from expiring (Android otherwise forgets
+  a computer after 7 days unused). Phones that switch it off on every Wi-Fi change or screen lock
+  (MIUI, HyperOS) get it switched back on, or a prompt if they refuse.
+- **On a Mac, the phone in Finder.** Plug the phone in with a USB cable and TwinDesk asks whether to
+  mount it; it shows under Locations like any server (Phone page › Finder, or the menu bar, does
+  it any time). It goes through the cable when USB debugging is allowed, else over wireless
+  debugging. Finder's `.DS_Store` and `._` files never land on the phone.
+
 ## How it works
 
 <p align="center">
@@ -105,6 +135,7 @@ capturing and injecting input, virtual displays, gestures, window capture and na
 | `windows-helper/` | Windows helper (C#): hooks, SendInput, Raw Input touchpad, window capture, native drag |
 | `linux/` | Linux app (Electron) |
 | `linux-helper/` | Linux helper (C): XInput2 / XTest on X11, evdev / uinput on Wayland, XRandR, window list, XDND edge strip |
+| `android/` | Android app (Kotlin, Jetpack Compose); the computers drive the phone through adb and [scrcpy](https://github.com/Genymobile/scrcpy)'s server |
 | `shared/` | Wire protocol, frame generation and icons used by every app |
 
 Ports: TCP **47800** (control link) and UDP **47801** (discovery) on the local network.
@@ -125,7 +156,13 @@ npm run dist && npm run dmg     # build TwinDesk.app and TwinDesk.dmg in mac/dis
 ```
 
 On first launch, TwinDesk asks for **Screen Recording**, **Accessibility** and **Input
-Monitoring**. The General tab shows each permission's status.
+Monitoring** (once; after that the General tab shows each permission's status).
+
+`npm run dist` signs the app with a certificate of its own, made the first time in
+`~/.twindesk-signing` (keep a backup). macOS keeps permissions per signature, so with the same
+certificate they carry over when an update is dragged into Applications. An app built without it is
+signed ad-hoc, and macOS treats every update as a new app; TwinDesk then clears the stale entries so
+Allow works again.
 
 ### Windows 10 / 11
 
@@ -141,8 +178,10 @@ npm run dist -- arm64           :: the Windows on ARM installer (or `x64 arm64` 
 `npm run dist` also works on a Mac or Linux: it skips the helper build and packages the
 `macshare-winhelper.exe` already in `windows-helper\bin\` (for example, one taken from a release).
 
-The Setup screen offers to add the firewall rule and set the network to Private. It can also
-install the optional Virtual Display Driver for Extend.
+The installer adds the firewall rules (for every network profile, so a standard account on a
+Public network doesn't need an administrator later). The Setup screen, shown once, offers to fix
+the firewall if something changed (that needs an administrator) and to install the optional Virtual
+Display Driver for Extend.
 
 ### Linux (X11 or Wayland)
 
@@ -160,6 +199,33 @@ prompt, then log out and back in once). It can also install OpenSSH for the term
 GNOME Wayland uses Python 3 with GObject and GStreamer's PipeWire plugin (`python3-gi`,
 `gstreamer1.0-pipewire`), which GNOME desktops already have.
 
+
+#### Testing the Linux app from a Mac
+
+`linux/scripts/vm-test.sh` runs it in a [Parallels Desktop](https://www.parallels.com) Linux VM
+(Ubuntu with the packages above and Node.js): it copies this checkout into the VM, builds the
+helper, starts TwinDesk in the VM's desktop session and drives it from the Mac.
+
+```sh
+linux/scripts/vm-test.sh start            # sync, build and (re)start it in the VM
+linux/scripts/vm-test.sh shot linux.png   # screenshot of its window
+linux/scripts/vm-test.sh eval "UI.go('cursor')"
+linux/scripts/vm-test.sh log
+```
+
+On the VM's shared network it finds the Mac's TwinDesk and pairs like any Linux computer.
+
+### Android
+
+```sh
+cd android
+./gradlew assembleRelease        # JDK 17+; app/build/outputs/apk/{standard,full}/release/
+```
+
+`standard` is the build people download. `full` adds notification access, which Play Protect
+blocks in downloaded apps; the computers install it over wireless debugging (Phone page ›
+Notifications from the phone), so `npm run dist` on each platform bundles the newest
+`android/dist/*-full.apk`.
 
 ## Privacy
 

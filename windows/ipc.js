@@ -147,7 +147,7 @@ function setupIpc(ctx) {
   handle('phoneAssets', () => (ctx.phone ? ctx.phone.assetsView() : { wallpaper: '', apps: [] }));
   handle('installVdd', () => vdd.install());
   handle('removeVdd', () => vdd.remove());
-  handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing }));
+  handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing, done: true }));
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));

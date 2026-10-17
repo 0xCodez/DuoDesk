@@ -55,7 +55,7 @@ class Phone extends EventEmitter {
       this.emit('change');
     });
     on(T.ADB_STATE, (m) => {
-      this.adb = { devOptions: !!m.devOptions, wifi: !!m.wifi, canEnable: !!m.canEnable, address: str(m.address, 64) };
+      this.adb = { devOptions: !!m.devOptions, wifi: !!m.wifi, canEnable: !!m.canEnable, address: str(m.address, 64), port: Number(m.port) | 0 };
       this.emit('adb', this.adb);
       this.emit('change');
     });

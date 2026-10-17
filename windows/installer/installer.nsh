@@ -1,7 +1,7 @@
 ; TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 ; NSIS hooks for electron-builder (installer/build.js). The installer runs elevated (per-machine),
-; so it adds the same firewall rule the app's Fix button would (firewall.js), and the uninstaller
-; removes it. A helper (or our adb server) left running would lock its .exe, so it is stopped first.
+; so it adds the same firewall rules the app's Fix button would (firewall.js), for every network
+; profile so a standard account on a Public network never needs Fix; the uninstaller removes them. A helper (or our adb server) left running would lock its .exe, so it is stopped first.
 
 !macro customInit
   nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
@@ -28,13 +28,13 @@
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare (TCP 47800)"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk" program="$INSTDIR\TwinDesk.exe"'
-  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk" dir=in action=allow program="$INSTDIR\TwinDesk.exe" profile=private enable=yes'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk" dir=in action=allow program="$INSTDIR\TwinDesk.exe" profile=any enable=yes'
   ; This PC also listens (PC ↔ PC host), so the port gets its own rule.
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (TCP 47800)"'
-  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk (TCP 47800)" dir=in action=allow protocol=TCP localport=47800 program="$INSTDIR\TwinDesk.exe" profile=private enable=yes'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk (TCP 47800)" dir=in action=allow protocol=TCP localport=47800 program="$INSTDIR\TwinDesk.exe" profile=any enable=yes'
   ; A phone: adb finds its wireless debugging over mDNS (phone-bridge.js).
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (adb)"'
-  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk (adb)" dir=in action=allow program="$INSTDIR\resources\app\windows\vendor\adb\adb.exe" profile=private enable=yes'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk (adb)" dir=in action=allow program="$INSTDIR\resources\app\windows\vendor\adb\adb.exe" profile=any enable=yes'
 !macroend
 
 !macro customUnInstall

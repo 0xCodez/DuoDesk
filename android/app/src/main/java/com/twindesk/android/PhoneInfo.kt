@@ -172,6 +172,11 @@ class Adb(core: Core) : Feature(core) {
     @Volatile var pairing = false; private set // a code went to the computer, waiting for the answer
     private var nsd: android.net.nsd.NsdManager.DiscoveryListener? = null
     @Volatile private var pairPort = 0 // our own "Pair device with pairing code" port, from mDNS
+    // Our own wireless debugging port (it changes every time it's switched on), from mDNS here: the
+    // computer connects to it straight away instead of waiting for its own mDNS, which misses
+    // phones often enough (MIUI, One UI) that it used to look like the pairing was gone.
+    private var connectNsd: android.net.nsd.NsdManager.DiscoveryListener? = null
+    @Volatile private var connectPort = 0
 
     init {
         val obs = object : ContentObserver(main) {
@@ -194,7 +199,9 @@ class Adb(core: Core) : Feature(core) {
     }.getOrNull() ?: ""
 
     fun sendState() {
-        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to wifiDebugging, "canEnable" to canEnable, "address" to address(), "full" to BuildConfig.NOTIF_LISTENER))
+        val on = wifiDebugging
+        if (on && core.link.connected) watchConnectPort() else { stopConnectWatch(); connectPort = 0 }
+        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to on, "canEnable" to canEnable, "address" to address(), "full" to BuildConfig.NOTIF_LISTENER, "port" to connectPort))
         core.changed()
     }
 
@@ -216,6 +223,9 @@ class Adb(core: Core) : Feature(core) {
         if (!canEnable) return false
         return runCatching {
             if (on) Settings.Global.putInt(cr, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 1)
+            // Android forgets a computer's pairing after 7 days without a connection (the default
+            // "adb authorization timeout"); 0 keeps it.
+            if (on) runCatching { Settings.Global.putLong(cr, "adb_allowed_connection_time", 0L) }
             Settings.Global.putInt(cr, "adb_wifi_enabled", if (on) 1 else 0)
         }.isSuccess
     }
@@ -245,6 +255,7 @@ class Adb(core: Core) : Feature(core) {
     }
 
     override fun onClosed() {
+        stopConnectWatch()
         main.post { check() }
     }
 
@@ -289,12 +300,33 @@ class Adb(core: Core) : Feature(core) {
 
     private fun findPairPort() {
         if (nsd != null) return
-        val mgr = core.ctx.getSystemService(android.net.nsd.NsdManager::class.java) ?: return
+        nsd = watchOwn("_adb-tls-pairing._tcp", { nsd = null }) { pairPort = it }
+    }
+
+    private fun watchConnectPort() {
+        if (connectNsd != null) return
+        connectNsd = watchOwn("_adb-tls-connect._tcp", { connectNsd = null }) { port ->
+            if (port != connectPort) {
+                connectPort = port
+                main.post { sendState() }
+            }
+        }
+    }
+
+    private fun stopConnectWatch() {
+        val l = connectNsd ?: return
+        connectNsd = null
+        runCatching { core.ctx.getSystemService(android.net.nsd.NsdManager::class.java).stopServiceDiscovery(l) }
+    }
+
+    // Look for one of our own wireless debugging services over mDNS (this device's address).
+    private fun watchOwn(type: String, failed: () -> Unit, found: (Int) -> Unit): android.net.nsd.NsdManager.DiscoveryListener? {
+        val mgr = core.ctx.getSystemService(android.net.nsd.NsdManager::class.java) ?: return null
         val me = address()
         val l = object : android.net.nsd.NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) {}
             override fun onDiscoveryStopped(serviceType: String) {}
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { nsd = null }
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { failed() }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
             override fun onServiceLost(info: android.net.nsd.NsdServiceInfo) {}
             override fun onServiceFound(info: android.net.nsd.NsdServiceInfo) {
@@ -304,14 +336,13 @@ class Adb(core: Core) : Feature(core) {
                         override fun onResolveFailed(i: android.net.nsd.NsdServiceInfo, errorCode: Int) {}
                         override fun onServiceResolved(i: android.net.nsd.NsdServiceInfo) {
                             val host = i.host?.hostAddress ?: ""
-                            if (me.isEmpty() || host == me) pairPort = i.port
+                            if (me.isEmpty() || host == me) found(i.port)
                         }
                     })
                 }
             }
         }
-        nsd = l
-        runCatching { mgr.discoverServices("_adb-tls-pairing._tcp", android.net.nsd.NsdManager.PROTOCOL_DNS_SD, l) }.onFailure { nsd = null }
+        return runCatching { mgr.discoverServices(type, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, l); l }.getOrElse { null }
     }
 
     private fun stopPortSearch() {

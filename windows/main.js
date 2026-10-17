@@ -392,6 +392,15 @@ function missing() {
   return m;
 }
 
+// Setup shows once: until everything is ready or it's skipped.
+function setupShows(miss) {
+  if (!settings.setup.done && !fw.checking && !miss.length) {
+    settings.setup.done = true;
+    saveSettings();
+  }
+  return (!settings.setup.done && !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)));
+}
+
 function buildState() {
   const miss = missing();
   return {
@@ -425,7 +434,7 @@ function buildState() {
     notifs: { ...settings.notifs, ...notifs.view() },
     apps: link.peerOs !== P.OS.MAC ? peerApps.view() : apps.view(), // A PC's (or Linux computer's) apps come through peerapps.js
     startup: getStartup(),
-    setup: { missing: miss, show: !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)) },
+    setup: { missing: miss, show: setupShows(miss) },
     phone: phone ? { ...phone.view, settings: settings.phone } : null,
   };
 }

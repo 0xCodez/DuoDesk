@@ -76,12 +76,30 @@ UI.tab({
       sw('Apps', 'apps', (s) => s.papps && s.papps.on, (v) => api.setPcApps({ on: v }), notPhone),
     ];
     const quick = [...m2w, ...w2m];
+
+    // ---- permissions missing after Setup (it shows only once): a row here, the switches in General ----
+    const PERMS = [['screen', 'Screen Recording', (p) => p.screen !== 'granted'], ['accessibility', 'Accessibility', (p) => !p.accessibility], ['inputMonitoring', 'Input Monitoring', (p) => p.inputMonitoring === false]];
+    const permRow = UI.row('', '', [UI.button('Open General', () => UI.go('general'), 'small primary')]);
+    const permCard = UI.card('', [permRow]);
+
+    // ---- a connected phone's wireless debugging, until it works (the Phone page has it too) ----
+    const ADB = { needsPair: ['bad', 'Pair once'], waitingWifi: ['bad', 'Off'], connecting: ['muted', 'Looking…'], missing: ['bad', 'Missing'], error: ['bad', 'Problem'] };
+    const adbPill = el('span', { class: 'pill bad' });
+    const adbRow = UI.row('Wireless debugging', '', [adbPill, UI.button('Try Again', () => api.phoneRetry(), 'small')]);
+    const adbCode = el('input', { type: 'text', placeholder: '123456', maxLength: 6, inputMode: 'numeric', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Pairing code' } });
+    const adbWhere = el('input', { type: 'text', placeholder: 'Address:port (optional)', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Pairing address' } });
+    const adbPair = UI.button('Pair', () => api.phonePair({ code: adbCode.value, where: adbWhere.value }), 'small primary');
+    adbCode.onkeydown = adbWhere.onkeydown = (e) => { if (e.key === 'Enter') adbPair.click(); };
+    const adbPairRow = UI.row('Pairing code', 'Or type it on the phone, in TwinDesk’s notification', [adbCode, adbWhere, adbPair]);
+    const adbCard = UI.card('Phone screen, mouse and keyboard', [adbRow, adbPairRow]);
     const pairedList = el('div');
 
     body.append(
+      permCard,
       UI.card('', [addrRow, ipRow]),
       UI.card('Nearby', [discRow, foundList], { actions: [refresh] }),
       hero,
+      adbCard,
       UI.pair(UI.dir('m2w', m2w.map((x) => x.row)), UI.dir('w2m', w2m.map((x) => x.row))),
       UI.card('Paired', [pairedList]),
     );
@@ -101,6 +119,12 @@ UI.tab({
       ipBtn.disabled = !!cn.busy || !!(gp && gp.phase !== 'failed');
       ipRow.setHint(gp && gp.phase === 'failed' ? gp.error : cn.message);
       ipRow.hint.classList.toggle('bad', !!(cn.error || (gp && gp.phase === 'failed')));
+
+      // permissions
+      const lost = s.permissions && s.ui && s.ui.setupDone ? PERMS.filter(([, , miss]) => miss(s.permissions)).map(([, label]) => label) : [];
+      permCard.hidden = !lost.length;
+      permRow.label.textContent = `${lost.join(', ')} ${lost.length > 1 ? 'aren’t' : 'isn’t'} allowed`;
+      permRow.setHint('TwinDesk needs it to share this Mac with the other computer. After an update, allow it again.');
 
       // nearby
       const d = s.discovery || { on: true, localNetwork: true };
@@ -145,6 +169,19 @@ UI.tab({
           : pairedIds.size ? 'Open TwinDesk on the other computer to connect.'
             : 'Pick a computer above, or connect by address.');
       status.classList.toggle('bad', !!bad);
+
+      // the phone's wireless debugging: only while it needs something
+      const ph = s.phone || {};
+      const br = (ph.connected && ph.bridge) || { state: 'off' };
+      const pairable = br.state === 'needsPair' || !!br.canPair;
+      adbCard.hidden = !ph.connected || !(pairable || ['waitingWifi', 'missing', 'error'].includes(br.state));
+      if (!adbCard.hidden) {
+        const [cls, label] = ADB[br.state] || ADB.error;
+        adbPill.className = `pill ${cls}`;
+        adbPill.textContent = label;
+        adbRow.setHint(br.message || '');
+        adbPairRow.hidden = !pairable;
+      }
 
       for (const x of quick) {
         x.c.set(x.get(s));

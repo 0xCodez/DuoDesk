@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The wireless debugging guide, on first launch (after setup) and from General › Setup: the steps
-// to let the computer show this screen and use its mouse and keyboard here, each ticked off as
-// it happens. The pairing code is typed in TwinDesk's notification (Settings' code dialog closes if
+// The wireless debugging steps, to let the computer show this screen and use its mouse and
+// keyboard here, each ticked off as it happens: a card on Overview while the computer isn't
+// paired with it, and a page from General › Setup. The pairing code is typed in TwinDesk's notification (Settings' code dialog closes if
 // you switch apps), or here when Settings is side by side; the phone sends it to the computer,
 // which pairs (adb.pair), and says how it went (adb.bridge).
 package com.twindesk.android
@@ -33,6 +33,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,15 +49,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Open from anywhere (General › Setup, the Cursor page): App shows the guide while this is true.
+// Open from anywhere (General › Setup, the Cursor page): App shows the guide page while this is
+// true. It never opens by itself: Overview has the same steps in a card under the connected card
+// while the computer isn't paired with wireless debugging (Hide puts it away; Setup still has it).
 object Guide {
     val open = mutableStateOf(false)
 
-    // First launch: once a computer is paired (the guide needs it), until done or skipped.
-    fun firstTime(core: Core) = !core.store.flag("guide.seen", false) && !core.adb.paired && core.hosts().isNotEmpty()
+    fun hidden(core: Core) = core.store.flag("guide.seen", false)
+
+    fun hide(core: Core) {
+        core.store.setFlag("guide.seen", true)
+        core.changed()
+    }
 
     fun close(core: Core) {
-        core.store.setFlag("guide.seen", true)
         open.value = false
         core.changed()
     }
@@ -64,12 +70,24 @@ object Guide {
 
 private val xiaomi = Build.MANUFACTURER.equals("Xiaomi", true) || Build.BRAND.equals("POCO", true) || Build.BRAND.equals("Redmi", true)
 
+// Overview's card: connected, and the computer says wireless debugging isn't working yet.
+@Composable
+fun WirelessCard(core: Core, ctx: Context) {
+    val a = core.adb
+    if (core.host == null || a.bridge.isEmpty() || a.paired || Guide.hidden(core)) return
+    WirelessSteps(core, ctx, "Wireless debugging") {
+        Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Files, the clipboard and notifications work without it.", color = pal.faint, fontSize = 12.5.sp, modifier = Modifier.weight(1f))
+            TextButton(onClick = { Guide.hide(core) }) { Text("Hide", color = pal.muted) }
+        }
+    }
+}
+
 @Composable
 fun WirelessGuide(core: Core, ctx: Context, v: Int) {
     @Suppress("UNUSED_EXPRESSION") v
     val a = core.adb
     val name = core.host?.name ?: core.hosts().firstOrNull()?.name ?: "your computer"
-    val connected = core.host != null
 
     Box(Modifier.fillMaxSize().background(pal.content).safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp)) {
@@ -82,66 +100,70 @@ fun WirelessGuide(core: Core, ctx: Context, v: Int) {
             }
             Spacer(Modifier.height(20.dp))
             if (a.paired) Note("Done: $name is paired with this device’s wireless debugging.", "info")
-
-            MacCard {
-                Step(1, "Connect to $name", if (connected) "Connected" else "Open TwinDesk on $name, then tap Connect on Overview (or Pair if it’s new).", connected, first = true) {
-                    if (!connected) core.hosts().firstOrNull()?.let { h -> Secondary("Connect") { core.connect(h) } }
-                }
-                Step(
-                    2, "Turn on Developer options",
-                    if (a.devOptions) "On" else if (xiaomi) "Settings › About phone › tap “MIUI version” (or “OS version”) 7 times." else "Settings › About phone › tap “Build number” 7 times.",
-                    a.devOptions,
-                ) { if (!a.devOptions) Secondary("About phone") { ctx.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-                if (xiaomi) Step(
-                    3, "Allow it on Xiaomi phones",
-                    "In Developer options: turn on “USB debugging (Security settings)” and “Install via USB”. Without them $name can’t use the mouse and keyboard here.",
-                    false, optional = true,
-                ) { Secondary("Open") { a.openSettings() } }
-                val n = if (xiaomi) 4 else 3
-                Step(n, "Turn on Wireless debugging", if (a.wifiDebugging) "On" else "Developer options › Wireless debugging: on (allow on this network).", a.wifiDebugging) {
-                    if (!a.wifiDebugging) Secondary("Open") { a.turnOn() }
-                }
-                Step(
-                    n + 1, "Pair with $name",
-                    when {
-                        a.paired -> "Paired"
-                        a.pairing -> "Pairing…"
-                        else -> "Tap Wireless debugging › “Pair device with pairing code”. TwinDesk’s notification asks for the 6-digit code: type it there."
-                    },
-                    a.paired,
-                ) {
-                    if (!a.paired) Primary("Pair") { a.askForCode(); a.openSettings() }
-                }
-                if (!a.paired && a.bridgeMessage.isNotEmpty() && a.bridge == "needsPair") Row(Modifier.padding(start = 58.dp, end = 16.dp, bottom = 12.dp)) {
-                    Text(a.bridgeMessage, color = pal.muted, fontSize = 12.5.sp)
-                }
-            }
-
-            // Settings side by side (tablets, split screen): type the code here instead.
-            if (!a.paired && connected) MacCard("Or type the code here") {
-                var code by remember { mutableStateOf("") }
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        code, { code = it.filter { c -> c.isDigit() }.take(6) }, placeholder = { Text("123456", color = pal.faint) }, singleLine = true,
-                        modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp, color = pal.text, letterSpacing = 3.sp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    )
-                    Primary("Pair") { a.askForCode(); a.sendPairCode(code) }
-                }
-                Text("With Settings open next to TwinDesk (split screen), the code dialog stays open while you type here.", color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
-            }
-
+            WirelessSteps(core, ctx, "")
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = { Guide.close(core) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = pal.accent, contentColor = Color.White),
-            ) { Text(if (a.paired) "Done" else "Skip for now", modifier = Modifier.padding(vertical = 4.dp)) }
-            if (!a.paired) Text(
-                "Files, the clipboard and notifications work without it. You can come back here from General › Setup.",
-                color = pal.faint, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
+            ) { Text("Done", modifier = Modifier.padding(vertical = 4.dp)) }
         }
+    }
+}
+
+// The steps, each ticked off as it happens, and the code field for Settings side by side.
+@Composable
+private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Composable () -> Unit = {}) {
+    val a = core.adb
+    val name = core.host?.name ?: core.hosts().firstOrNull()?.name ?: "your computer"
+    val connected = core.host != null
+    MacCard(title) {
+        Step(1, "Connect to $name", if (connected) "Connected" else "Open TwinDesk on $name, then tap Connect on Overview (or Pair if it’s new).", connected, first = true) {
+            if (!connected) core.hosts().firstOrNull()?.let { h -> Secondary("Connect") { core.connect(h) } }
+        }
+        Step(
+            2, "Turn on Developer options",
+            if (a.devOptions) "On" else if (xiaomi) "Settings › About phone › tap “MIUI version” (or “OS version”) 7 times." else "Settings › About phone › tap “Build number” 7 times.",
+            a.devOptions,
+        ) { if (!a.devOptions) Secondary("About phone") { ctx.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+        if (xiaomi) Step(
+            3, "Allow it on Xiaomi phones",
+            "In Developer options: turn on “USB debugging (Security settings)” and “Install via USB”. Without them $name can’t use the mouse and keyboard here.",
+            false, optional = true,
+        ) { Secondary("Open") { a.openSettings() } }
+        val n = if (xiaomi) 4 else 3
+        Step(n, "Turn on Wireless debugging", if (a.wifiDebugging) "On" else "Developer options › Wireless debugging: on (allow on this network).", a.wifiDebugging) {
+            if (!a.wifiDebugging) Secondary("Open") { a.turnOn() }
+        }
+        Step(
+            n + 1, "Pair with $name",
+            when {
+                a.paired -> "Paired"
+                a.pairing -> "Pairing…"
+                else -> "Tap Wireless debugging › “Pair device with pairing code”. TwinDesk’s notification asks for the 6-digit code: type it there."
+            },
+            a.paired,
+        ) {
+            if (!a.paired) Primary("Pair") { a.askForCode(); a.openSettings() }
+        }
+        if (!a.paired && a.bridgeMessage.isNotEmpty() && a.bridge != "ready") Row(Modifier.padding(start = 58.dp, end = 16.dp, bottom = 12.dp)) {
+            Text(a.bridgeMessage, color = pal.muted, fontSize = 12.5.sp)
+        }
+        // Settings side by side (tablets, split screen): type the code here instead.
+        if (!a.paired && connected) {
+            var code by remember { mutableStateOf("") }
+            Box(Modifier.padding(start = 58.dp).fillMaxWidth().height(1.dp).background(pal.line))
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    code, { code = it.filter { c -> c.isDigit() }.take(6) }, placeholder = { Text("Pairing code", color = pal.faint) }, singleLine = true,
+                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp, color = pal.text, letterSpacing = 3.sp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                )
+                Primary("Pair") { a.askForCode(); a.sendPairCode(code) }
+            }
+            Text("Or type the code here with Settings open next to TwinDesk (split screen). $name pairs with it, and so would any other computer you connect.", color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
+        }
+        foot()
     }
 }
 

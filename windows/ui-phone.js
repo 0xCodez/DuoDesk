@@ -36,7 +36,7 @@ UI.tab({
     const where = el('input', { type: 'text', placeholder: 'Address:port (optional)', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Pairing address' } });
     const pairBtn = UI.button('Pair', () => api.phonePair({ code: code.value, where: where.value }), 'small primary');
     code.onkeydown = where.onkeydown = (e) => { if (e.key === 'Enter') pairBtn.click(); };
-    const pairRow = UI.row('Pairing code', 'On the phone: Settings › Developer options › Wireless debugging › Pair device with pairing code.', [code, where, pairBtn]);
+    const pairRow = UI.row('Pairing code', 'Or type it on the phone, in TwinDesk’s notification', [code, where, pairBtn]);
     const steps = UI.note('info', '');
     // The phone runs the standard build (no notification access): install the full one over it.
     const fullBtn = UI.button('Install', () => api.phoneInstallFull(), 'small primary');
@@ -101,7 +101,7 @@ UI.tab({
       adbPill.className = `pill ${cls}`;
       adbPill.textContent = label;
       adbRow.setHint(ready ? 'The phone’s screen, touch, mouse and keyboard, and its clipboard in the background' : br.message);
-      pairRow.hidden = br.state !== 'needsPair';
+      pairRow.hidden = br.state !== 'needsPair' && !br.canPair;
       steps.set(br.state === 'waitingWifi'
         ? 'On the phone: Settings › About phone › tap Build number 7 times (Developer options). Then Settings › System › Developer options › Wireless debugging: on. After pairing once, TwinDesk turns it on by itself.'
         : br.state === 'needsPair' ? 'TwinDesk pairs with the phone’s wireless debugging once. After that the phone’s screen, apps, mouse and keyboard work without this step.' : '');

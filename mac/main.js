@@ -35,7 +35,7 @@
 'use strict';
 
 const path = require('path');
-const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences, Notification, dialog } = require('electron');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 // The hidden capture window plays system audio into WebRTC without any user gesture.
@@ -68,6 +68,7 @@ const { PairSync } = require('./pairsync');
 const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
+const { PhoneDrive } = require('./phonedrive');
 const { Updates } = require('../shared/updates.js');
 const { aboutInfo } = require('../shared/about.js');
 
@@ -187,7 +188,7 @@ function pushState() {
       state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
     if (svc) state.wake = svc.wake.view;
-    if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone };
+    if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone, drive: svc.phoneDrive ? svc.phoneDrive.view : null };
     if (updates) state.updates = updates.view;
     if (pairSync) pairSync.check();
     sendScreenState();
@@ -243,10 +244,52 @@ function refreshPermissions() {
     svc.helper.request('permissions').then((r) => {
       state.permissions.inputMonitoring = !!r.inputMonitoring;
       if (r.screen === true) state.permissions.screen = 'granted'; // the helper sees a fresh grant first
+      setupSeen();
+      clearStalePermissions();
       pushState();
     }, () => {});
   }
   pushState();
+}
+
+// After an update signed differently (every ad-hoc build was), macOS still lists TwinDesk as
+// allowed but the grant belongs to the old signature, so the switches are on and nothing works,
+// and switching them on again does nothing. Once per new signature: whatever reads as missing is
+// reset (tccutil drops the stale entry), so Allow asks afresh and the switch in System Settings
+// really is ours. Builds signed with TwinDesk's certificate keep one signature (build-app.sh).
+let staleChecked = false;
+function clearStalePermissions() {
+  if (staleChecked || !app.isPackaged) return;
+  staleChecked = true;
+  const bundle = path.resolve(process.execPath, '..', '..', '..');
+  require('child_process').execFile('/usr/bin/codesign', ['-dr', '-', bundle], (err, out, errOut) => {
+    const m = /designated => (.+)/.exec(`${out}${errOut}`);
+    if (!m || m[1] === settings.app.signature) return;
+    const p = state.permissions;
+    const services = [
+      p.screen !== 'granted' && 'ScreenCapture',
+      !p.accessibility && 'Accessibility',
+      p.inputMonitoring === false && 'ListenEvent',
+    ].filter(Boolean);
+    const id = 'org.macshare.mac';
+    let left = services.length;
+    const done = () => {
+      settings.app.signature = m[1];
+      store.saveSettings(settings);
+      refreshPermissions();
+    };
+    if (!left) return done();
+    console.log(`[permissions] new signature: resetting ${services.join(', ')}`);
+    for (const svcName of services) require('child_process').execFile('/usr/bin/tccutil', ['reset', svcName, id], () => --left || done());
+  });
+}
+
+// Setup shows once: when everything is allowed it's done for good (like Skip for now).
+function setupSeen() {
+  const p = state.permissions;
+  if (settings.ui.setupDone || p.screen !== 'granted' || !p.accessibility || p.inputMonitoring !== true) return;
+  settings.ui.setupDone = true;
+  store.saveSettings(settings);
 }
 
 function createWindow() {
@@ -307,6 +350,28 @@ function showWindow() {
   app.focus({ steal: true });
 }
 
+// A phone was plugged in: show it in Finder? (Phone page and the menu bar do it any time.)
+let asking = false;
+async function askMount(p) {
+  if (asking || settings.phone.askMount === false || svc.phoneDrive.mountPath) return;
+  asking = true;
+  app.focus({ steal: true });
+  const r = await dialog.showMessageBox({
+    type: 'question',
+    message: `Show ${p.name} in Finder?`,
+    detail: 'TwinDesk mounts the phone’s storage as a drive under Locations, through the cable (USB debugging) or wireless debugging.',
+    buttons: ['Mount', 'Not Now'], defaultId: 0, cancelId: 1,
+    checkboxLabel: 'Don’t ask again', icon: nativeImage.createFromPath(path.join(__dirname, '..', 'shared', 'icon', 'teindesk-dark-mac.png')),
+  });
+  asking = false;
+  if (r.checkboxChecked) {
+    settings.phone.askMount = false;
+    store.saveSettings(settings);
+    pushState();
+  }
+  if (r.response === 0) svc.phoneDrive.mount();
+}
+
 // Menu bar: the app mark as a template icon; the switches people reach for most, one click away.
 function updateTray() {
   if (!tray) return;
@@ -341,6 +406,7 @@ function updateTray() {
           { label: 'Look Again', click: () => actions.refreshDiscovery() },
         ],
       },
+      ...phoneDriveItems(),
       check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
       { type: 'separator' },
       ...(updates && updates.status.available ? [{ label: `Download TwinDesk ${updates.status.latest}…`, click: () => updates.open() }] : []),
@@ -348,6 +414,14 @@ function updateTray() {
       { label: 'Quit TwinDesk', click: () => app.quit() },
     ]),
   );
+}
+
+// Menu bar: the phone in Finder, while one is plugged in, connected or mounted.
+function phoneDriveItems() {
+  const d = svc && svc.phoneDrive && svc.phoneDrive.view;
+  if (!d || !(d.plugged || d.via || d.mounted)) return [];
+  if (d.mounted) return [{ label: `Show ${d.name} in Finder`, click: () => svc.phoneDrive.reveal() }, { label: `Unmount ${d.name}`, click: () => svc.phoneDrive.unmount() }];
+  return [{ label: d.busy ? `Mounting ${d.name}…` : `Mount ${d.name} in Finder`, enabled: !d.busy, click: () => svc.phoneDrive.mount() }];
 }
 
 app.whenReady().then(() => {
@@ -414,6 +488,10 @@ app.whenReady().then(() => {
   svc.phone.bridge.on('change', pushState);
   svc.phoneViews = new PhoneViews({ bridge: svc.phone.bridge, phone: svc.phone, getSettings: () => settings, server: peer, fileSend: svc.fileSend });
   svc.phoneViews.on('change', pushState);
+  // A phone plugged in with a cable: in Finder, through adb (wireless debugging when the cable can't).
+  svc.phoneDrive = new PhoneDrive({ adb: svc.phone.bridge.adb, bridge: svc.phone.bridge, phone: svc.phone });
+  svc.phoneDrive.on('change', pushState);
+  svc.phoneDrive.on('plugged', (p) => askMount(p));
   svc.kvm.local = svc.phone.bridge;
   const blockEdge = svc.kvm.blockEdge;
   svc.kvm.blockEdge = () => blockEdge() || svc.phoneViews.focused; // moving inside the phone window never crosses
@@ -493,6 +571,7 @@ app.on('will-quit', () => {
 app.on('before-quit', () => {
   quitting = true;
   if (svc && svc.phoneViews) svc.phoneViews.shutdown();
+  if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input
   if (discovery) discovery.stop();
   if (link) link.stop();

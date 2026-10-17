@@ -90,11 +90,23 @@ UI.tab({
     const foundList = el('div');
     const refresh = UI.button('Refresh', () => api.refreshFound(), 'small');
 
+    // ---- a connected phone's wireless debugging, until it works (the Phone page has it too) ----
+    const ADB = { needsPair: ['bad', 'Pair once'], waitingWifi: ['bad', 'Off'], connecting: ['muted', 'Looking…'], missing: ['bad', 'Missing'], error: ['bad', 'Problem'] };
+    const adbPill = el('span', { class: 'pill bad' });
+    const adbRow = UI.row('Wireless debugging', '', [adbPill, UI.button('Try Again', () => api.phoneRetry(), 'small')]);
+    const adbCode = el('input', { type: 'text', placeholder: '123456', maxLength: 6, inputMode: 'numeric', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Pairing code' } });
+    const adbWhere = el('input', { type: 'text', placeholder: 'Address:port (optional)', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Pairing address' } });
+    const adbPair = UI.button('Pair', () => api.phonePair({ code: adbCode.value, where: adbWhere.value }), 'small primary');
+    adbCode.onkeydown = adbWhere.onkeydown = (e) => { if (e.key === 'Enter') adbPair.click(); };
+    const adbPairRow = UI.row('Pairing code', 'Or type it on the phone, in TwinDesk’s notification', [adbCode, adbWhere, adbPair]);
+    const adbCard = UI.card('Phone screen, mouse and keyboard', [adbRow, adbPairRow]);
+
     const pairedList = el('div');
     body.append(
       UI.card('', [addrRow, ipRow]),
       UI.card('Found nearby', [discRow, foundList], { actions: [refresh] }),
       hero,
+      adbCard,
       pair.el,
       UI.card('Paired', [pairedList]),
     );
@@ -124,6 +136,19 @@ UI.tab({
       status.classList.toggle('bad', bad);
 
       for (const r of m2p.concat(p2m)) r.update(s);
+
+      // the phone's wireless debugging: only while it needs something
+      const ph = s.phone || {};
+      const br = (ph.connected && ph.bridge) || { state: 'off' };
+      const pairable = br.state === 'needsPair' || !!br.canPair;
+      adbCard.hidden = !ph.connected || !(pairable || ['waitingWifi', 'missing', 'error'].includes(br.state));
+      if (!adbCard.hidden) {
+        const [cls, label] = ADB[br.state] || ADB.error;
+        adbPill.className = `pill ${cls}`;
+        adbPill.textContent = label;
+        adbRow.setHint(br.message || '');
+        adbPairRow.hidden = !pairable;
+      }
 
       // this PC
       addrVal.textContent = s.addresses.length ? s.addresses[0] : 'No network'; // The one the other computer can reach

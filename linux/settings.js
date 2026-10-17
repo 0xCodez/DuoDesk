@@ -122,9 +122,10 @@ function normalize(s) {
       wallpaper: bool(ph.wallpaper, true),
     },
     macApps: { on: bool(mca.on, true) }, // The other computer's apps open here (pair.sync 'apps' in) // The Mac may open this PC's apps (it shows them only if it accepts)
-    // Setup screen 'Skip for now': the missing items it was skipped for (shown again when
-    // something else goes missing).
-    setup: { skipped: Array.isArray(setup.skipped) ? setup.skipped.filter((x) => typeof x === 'string').slice(0, 10) : [] },
+    // Setup screen: shown once. done: everything was ready, or 'Skip for now' was pressed; after that
+    // General and Display show what's missing (a firewall that changes with the network, a helper
+    // that restarts, a phone connecting don't bring the screen back).
+    setup: { skipped: Array.isArray(setup.skipped) ? setup.skipped.filter((x) => typeof x === 'string').slice(0, 10) : [], done: bool(setup.done, Array.isArray(setup.skipped) && setup.skipped.length > 0) },
     ui: { tab: OLD_TABS[ui.tab] || (TABS.includes(ui.tab) ? ui.tab : 'overview') },
     windows: s.windows && typeof s.windows === 'object' ? s.windows : {},
   };

@@ -161,7 +161,9 @@ class Discovery extends EventEmitter {
         this.sendErrors.add(key);
         console.error(`[discovery] send to ${address} failed: ${err.code || err.message}`);
       }
-      if (LOCAL_NETWORK_ERRORS.has(err.code) && this.status.localNetwork) {
+      // Only a broadcast tells: a probe to one address (a phone asleep or off Wi-Fi, a computer
+      // that left) fails with EHOSTUNREACH too, and that isn't the permission.
+      if (LOCAL_NETWORK_ERRORS.has(err.code) && this.status.localNetwork && this._targets().has(address)) {
         this.status.localNetwork = false;
         this.emit('change');
       }

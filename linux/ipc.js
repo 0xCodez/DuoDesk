@@ -145,7 +145,7 @@ function setupIpc(ctx) {
   phone('phoneCloseView', (id) => ctx.phoneViews.close(Number(id)));
   phone('phoneRetry', () => ctx.phone.bridge._kick());
   handle('phoneAssets', () => (ctx.phone ? ctx.phone.assetsView() : { wallpaper: '', apps: [] }));
-  handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing }));
+  handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing, done: true }));
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('fixInput', () => ctx.fixInput()); // Wayland: uinput rule + input group (L6)

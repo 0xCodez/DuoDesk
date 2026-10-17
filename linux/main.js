@@ -401,6 +401,15 @@ function missing() {
   return m;
 }
 
+// Setup shows once: until everything is ready or it's skipped (no desktop session: always).
+function setupShows(miss) {
+  if (!settings.setup.done && !fw.checking && !miss.length) {
+    settings.setup.done = true;
+    saveSettings();
+  }
+  return miss.includes('session') || (!settings.setup.done && !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)));
+}
+
 function buildState() {
   const miss = missing();
   return {
@@ -435,7 +444,7 @@ function buildState() {
     macApps: settings.macApps,
     notifs: { ...settings.notifs, ...notifs.view() },
     startup: autostart.get(),
-    setup: { missing: miss, show: !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)) },
+    setup: { missing: miss, show: setupShows(miss) },
     phone: phone ? { ...phone.view, settings: settings.phone } : null,
   };
 }

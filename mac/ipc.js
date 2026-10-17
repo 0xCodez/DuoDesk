@@ -46,7 +46,7 @@ const SCHEMA = {
   receive: { on: bool, fullScreen: bool, input: bool, framegen: bool },
   sharing: { remote: bool, pace: oneOf(['fast', 'smooth'], 'fast') },
   papps: { on: bool },
-  phone: { sound: bool, bitrateMbps: (v) => Math.round(clamp(2, 40, 8)(v)), maxSize: oneOf([0, 1920, 1600, 1280, 1024], 0), wallpaper: bool },
+  phone: { sound: bool, bitrateMbps: (v) => Math.round(clamp(2, 40, 8)(v)), maxSize: oneOf([0, 1920, 1600, 1280, 1024], 0), wallpaper: bool, askMount: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'instant'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -133,6 +133,13 @@ function setupIpc(ctx) {
     phoneRetry() {
       ctx.phone.bridge._kick();
     },
+    // The phone in Finder (phonedrive.js).
+    phoneMount() {
+      ctx.phoneDrive.mount();
+    },
+    phoneUnmount() {
+      ctx.phoneDrive.unmount();
+    },
     pairWith(deviceId) {
       const dev = ctx.discovery.get(String(deviceId));
       if (dev) connectTo(dev);
@@ -166,6 +173,7 @@ function setupIpc(ctx) {
     },
     skipSetup(missing) {
       settings.ui.setupSkipped = String(missing || '').slice(0, 200);
+      settings.ui.setupDone = true;
       save();
     },
     // by: 'apps' when Mac apps on the PC turned it on/off by themselves; a person's switch ends that.

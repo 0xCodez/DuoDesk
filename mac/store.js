@@ -71,7 +71,9 @@ const DEFAULT_SETTINGS = {
     maxKB: 256,
     historySize: 20, // memory only
   },
-  ui: { tab: 'overview', setupSkipped: '' }, // setupSkipped: the missing items when Setup was skipped
+  // setupSkipped: the missing items when Setup was skipped; setupDone: Setup has been through once
+  // (everything allowed, or skipped), so it never takes over the window again (General shows the rest).
+  ui: { tab: 'overview', setupSkipped: '', setupDone: false },
   app: { openAtLogin: false, keepAwake: true, hud: true }, // hud = popup when switching computers
   updates: { auto: true, notified: '' }, // check GitHub for new releases; notified = last version announced
   audio: { send: false, receive: false, muteLocal: false, volume: 1 }, // Independent, both ways
@@ -81,7 +83,9 @@ const DEFAULT_SETTINGS = {
   notifs: { send: false, receive: true, hideText: false, muted: [] },
   apps: { offer: true }, // The PC can list and open this Mac's apps
   papps: { on: true }, // PC apps on this Mac, each window here with its own Dock icon
-  phone: { sound: true, bitrateMbps: 8, maxSize: 0, wallpaper: true }, // A phone as the peer: its screen window, apps and setup
+  // A phone as the peer: its screen window, apps and setup. askMount: ask to show a phone plugged
+  // in with a cable in Finder (phonedrive.js).
+  phone: { sound: true, bitrateMbps: 8, maxSize: 0, wallpaper: true, askMount: true },
   // The other computer's screen in a window here; framegen: shared/framegen.js.
   receive: { on: true, fullScreen: false, input: true, framegen: false },
   wake: { peers: {} }, // {deviceId: {name, macs, address, at}} from wol.info, for Wake
@@ -94,6 +98,7 @@ function loadSettings() {
   if (s.sharing) s.sharing.on = false; // screen sharing never starts by itself
   const out = { ...DEFAULT_SETTINGS, ...s };
   for (const k of ['wake', 'sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs', 'updates', 'phone']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  if (s.ui && s.ui.setupSkipped && s.ui.setupDone === undefined) out.ui.setupDone = true;
   if ((s.rev || 0) < 7) { // Clipboard instant by default
     out.clipboard.mode = 'instant';
     out.rev = 7;

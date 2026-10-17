@@ -58,6 +58,9 @@ class PhoneBridge extends EventEmitter {
     this.keys = new KeyState();
     this.views = null; // phoneview.js sets this
     this.setupDone = new Set(); // serials granted this run
+    this.lastPort = new Map(); // phone address -> the wireless debugging port that last worked
+    this.misses = 0; // tries in a row that found no way in
+    this.canPair = false; // still looking, but the code field shows (its pairing may be gone)
     this.install = null; // {state: 'installing'|'done'|'failed', message} for the full build
 
     phone.on('adb', () => this._kick());
@@ -84,7 +87,7 @@ class PhoneBridge extends EventEmitter {
 
   get view() {
     return {
-      state: this.state, message: this.message, serial: this.serial, available: this.adb.available,
+      state: this.state, message: this.message, serial: this.serial, available: this.adb.available, canPair: this.canPair,
       control: !!(this.control && !this.control.closed), driving: !!this.kvm,
       install: this.install, fullApk: !!fullApk(),
       windows: this.views ? this.views.list() : [],
@@ -96,6 +99,7 @@ class PhoneBridge extends EventEmitter {
     console.log(`[phone] ${state}${message ? `: ${message}` : ''}`);
     this.state = state;
     this.message = message;
+    if (state !== 'connecting') this.canPair = false;
     // The phone's guide shows how it's going.
     if (isPhone(this.server.current)) this.server.sendToClient({ t: T.ADB_BRIDGE, state, message });
     this.emit('change');
@@ -157,23 +161,45 @@ class PhoneBridge extends EventEmitter {
       }
       return this._set('waitingWifi', a.devOptions ? 'Turn on Wireless debugging on the phone.' : 'Turn on Developer options and Wireless debugging on the phone.');
     }
-    // Wireless debugging is on: connect where it listens (it advertises itself over mDNS).
+    // Wireless debugging is on: connect where it listens. The phone tells us its port (it finds
+    // itself over mDNS), our own mDNS may see it, and the port that worked last time is worth a try.
+    // It moves to a new port every time it's switched on, and mDNS misses phones often (MIUI,
+    // One UI), so a refused or unseen port only means "not yet": only adb's "failed to
+    // authenticate", or a phone never reached, asks for the pairing code again.
+    await this._dropStale(address);
     const services = await this.adb.mdns();
-    const conn = services.find((s) => s.type === 'connect' && s.address === address);
-    if (conn) {
-      const r = await this.adb.connect(conn.address, conn.port);
-      if (r.ok) {
-        const serial = await this._findDevice(address);
-        if (serial) return this._kick();
+    const seen = services.filter((s) => s.type === 'connect' && s.address === address).map((s) => s.port);
+    const ports = [...new Set([a.port, ...seen, this.lastPort.get(address)])].filter((n) => n > 0 && n < 65536);
+    let unpaired = false;
+    for (const port of ports) {
+      const r = await this.adb.connect(address, port);
+      if (r.ok && await this._findDevice(address)) {
+        this.lastPort.set(address, port);
+        this.misses = 0;
+        return this._kick();
       }
-      if (/authenticat|unauthorized|refused/i.test(r.text) || !r.ok) {
-        return this._set('needsPair', 'Pair this Mac with the phone once: on the phone, Wireless debugging › Pair device with pairing code.');
-      }
+      if (/authenticat|unauthorized/i.test(r.text)) unpaired = true;
     }
     this.pairing = services.find((s) => s.type === 'pairing' && s.address === address) || null;
-    this._set('needsPair', this.pairing
-      ? 'Type the code the phone shows.'
-      : 'On the phone: Settings › Developer options › Wireless debugging › Pair device with pairing code.');
+    this.misses++;
+    // Paired before (this phone reached us since TwinDesk started): keep looking, with the code
+    // field there in case its pairing really was removed.
+    if (!unpaired && !this.pairing && (this.lastPort.has(address) || this.misses < 5)) {
+      this.canPair = this.misses >= 5;
+      return this._set('connecting', this.canPair
+        ? 'Can’t reach the phone’s wireless debugging. Check it’s on (same Wi-Fi), or pair again if it was reset.'
+        : 'Looking for the phone’s wireless debugging…');
+    }
+    this._set('needsPair', unpaired ? 'Pair this Mac with the phone once: on the phone, Wireless debugging › Pair device with pairing code.'
+      : this.pairing ? 'Type the code the phone shows.'
+        : 'On the phone: Settings › Developer options › Wireless debugging › Pair device with pairing code.');
+  }
+
+  // Old connections to this phone's earlier ports linger as "offline" and get in the way.
+  async _dropStale(address) {
+    for (const d of await this.adb.devices()) {
+      if (d.state !== 'device' && d.serial.startsWith(`${address}:`)) await this.adb.disconnect(d.serial);
+    }
   }
 
   async _findDevice(address) {
@@ -216,6 +242,8 @@ class PhoneBridge extends EventEmitter {
     this._set('connecting', 'Setting up the phone…');
     const cmds = [
       `pm grant ${APP_ID} android.permission.WRITE_SECURE_SETTINGS`,
+      // Android forgets a computer's pairing after 7 days without a connection; 0 keeps it.
+      'settings put global adb_allowed_connection_time 0',
       `pm grant ${APP_ID} android.permission.POST_NOTIFICATIONS`,
       `appops set ${APP_ID} SYSTEM_ALERT_WINDOW allow`,
       `cmd notification allow_listener ${APP_ID}/${APP_ID}.NotifListener`,
