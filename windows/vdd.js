@@ -11,9 +11,13 @@ const path = require('path');
 const { run, runElevated, q } = require('./ps');
 const Helper = require('./helper');
 
-// Pinned release (driver package only, x64 despite the asset's name — see the project's silent-install.ps1).
-const URL = 'https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.7.23/VirtualDisplayDriver-x86.Driver.Only.zip';
-const SHA256 = 'E24210692B442B39AF763536330CE78B423F19342B7A7792C26DE3944E418B3A';
+// Pinned release, driver package only: the "x86" one is x64 despite its name (see the project's
+// silent-install.ps1). Windows on ARM needs the ARM64 one (same files and settings layout).
+const RELEASE = 'https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.7.23/';
+const DRIVERS = {
+  x64: { url: RELEASE + 'VirtualDisplayDriver-x86.Driver.Only.zip', sha256: 'E24210692B442B39AF763536330CE78B423F19342B7A7792C26DE3944E418B3A' },
+  arm64: { url: RELEASE + 'VirtualDisplayDriver-ARM64.Driver.Only.zip', sha256: 'DCD487161469C726BAB60F174A7E7F70EE02AFD437CAD0D5C0E6755953DE5A25' },
+};
 const SETTINGS_XML = 'C:\\VirtualDisplayDriver\\vdd_settings.xml';
 const ADAPTER = /virtual display driver/i; // the device name in MttVDD.inf
 const SCHTASKS = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'schtasks.exe');
@@ -56,10 +60,14 @@ class Vdd {
     const log = path.join(app.getPath('userData'), 'vdd-result.txt');
     try {
       try { fs.unlinkSync(log); } catch (_) { /* none */ }
-      const sid = (await run('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value')).trim();
+      // The driver must match Windows, not this app (the x64 app also runs on ARM, emulated), so
+      // ask WMI: Win32_Processor.Architecture 12 = ARM64.
+      const [sid, cpu] = (await run('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value; '
+        + '(Get-CimInstance Win32_Processor | Select-Object -First 1).Architecture')).trim().split(/\s+/);
       if (!/^S-1-[\d-]+$/.test(sid)) throw new Error('couldn’t read this account’s id');
+      const driver = DRIVERS[cpu === '12' ? 'arm64' : 'x64'];
       const script = '& ' + q(path.join(__dirname, 'scripts', 'vdd-install.ps1')) + ' -Helper ' + q(Helper.EXE) + ' -UserSid ' + q(sid)
-        + ' -Log ' + q(log) + ' -Url ' + q(URL) + ' -Sha256 ' + q(SHA256);
+        + ' -Log ' + q(log) + ' -Url ' + q(driver.url) + ' -Sha256 ' + q(driver.sha256);
       await runElevated(script, 300000);
       const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: the setup didn’t finish';
       if (r !== 'ok') throw new Error(r.replace(/^error: /, ''));

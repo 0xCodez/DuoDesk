@@ -3,6 +3,9 @@
 // as the repo (windows/, shared/protocol.js, windows-helper/bin/), then electron-builder → NSIS.
 // The layout is kept so '../shared/protocol.js' and the helper path work unchanged; no asar, so
 // the helper .exe and the .ps1 scripts are real files Windows can run.
+// `node installer/build.js [x64] [arm64]`: one installer per architecture, x64 when none is named.
+// The x64 one keeps the name every release has used; arm64 gets -arm64 (the update check picks by
+// that). One AnyCPU helper .exe serves both (build.cmd).
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -15,6 +18,8 @@ const pkg = require(path.join(WIN, 'package.json'));
 const electronVersion = require(path.join(WIN, 'node_modules', 'electron', 'package.json')).version;
 
 const SKIP = new Set(['node_modules', 'dist', 'installer', 'package-lock.json']);
+const ARCHS = process.argv.slice(2).length ? process.argv.slice(2) : ['x64'];
+for (const a of ARCHS) if (a !== 'x64' && a !== 'arm64') throw new Error('Unknown architecture ' + a + ' (x64 or arm64)');
 
 function copy(from, to, filter = () => true) {
   const st = fs.statSync(from);
@@ -69,9 +74,14 @@ async function main() {
     license: pkg.license, author: 'inukaasith', main: 'windows/main.js', dependencies: pkg.dependencies,
   }, null, 2));
 
-  console.log('Packaging…');
+  for (const arch of ARCHS) await pack(arch);
+}
+
+async function pack(arch) {
+  const name = 'TwinDesk-Setup-' + pkg.version + (arch === 'x64' ? '' : '-' + arch) + '.exe';
+  console.log('Packaging ' + arch + '…');
   await builder.build({
-    targets: builder.Platform.WINDOWS.createTarget('nsis', builder.Arch.x64),
+    targets: builder.Platform.WINDOWS.createTarget('nsis', builder.Arch[arch]),
     projectDir: WIN,
     config: {
       appId: 'org.macshare.windows',
@@ -95,11 +105,11 @@ async function main() {
         createDesktopShortcut: true,
         createStartMenuShortcut: true,
         runAfterFinish: true,
-        artifactName: 'TwinDesk-Setup-${version}.exe',
+        artifactName: name,
       },
     },
   });
-  console.log('Done: ' + path.join(WIN, 'dist', 'TwinDesk-Setup-' + pkg.version + '.exe'));
+  console.log('Done: ' + path.join(WIN, 'dist', name));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

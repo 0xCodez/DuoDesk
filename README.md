@@ -122,7 +122,11 @@ npm install
 npm run build:helper            :: uses the .NET Framework C# compiler that ships with Windows
 npm start
 npm run dist                    :: NSIS installer in windows\dist\
+npm run dist -- arm64           :: the Windows on ARM installer (or `x64 arm64` for both)
 ```
+
+`npm run dist` also works on a Mac or Linux: it skips the helper build and packages the
+`macshare-winhelper.exe` already in `windows-helper\bin\` (for example, one taken from a release).
 
 The Setup screen offers to add the firewall rule and set the network to Private. It can also
 install the optional Virtual Display Driver for Extend.
