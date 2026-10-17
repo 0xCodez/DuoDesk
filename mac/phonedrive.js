@@ -5,13 +5,13 @@
 // debugging (the network) while the phone is connected to TwinDesk; it switches between the two
 // as the cable comes and goes, and unmounts when neither is there.
 //
-// Plugging a phone in (adb sees it on USB, or macOS sees an Android maker's USB device) emits
-// 'plugged' (main.js asks whether to mount it); the Phone page and the menu bar mount it too.
+// Nothing runs until Mount is clicked on the Mount page: no polling, no adb, no server. It looks
+// for the phone then, and only watches it while the volume is mounted.
 //
 // Finder's own files (.DS_Store, ._* AppleDouble) stay in memory here, so nothing of the Mac's
 // lands on the phone. Basic auth with a password made per run keeps other local apps out.
 //
-// Events: 'change' — this.view changed; 'plugged' ({name, serial}) — a phone was plugged in.
+// Events: 'change' — this.view changed.
 'use strict';
 
 const http = require('http');
@@ -22,11 +22,6 @@ const { EventEmitter } = require('events');
 const ROOT = '/sdcard';
 const POLL_MS = 3000;
 const LIST_CACHE_MS = 2000;
-// USB vendor ids of Android makers (for a phone plugged in without USB debugging).
-const ANDROID_VENDORS = new Set([
-  0x18d1, 0x04e8, 0x2717, 0x12d1, 0x2a70, 0x22d9, 0x2d95, 0x22b8, 0x1004, 0x0fce, 0x0bb4, 0x0b05,
-  0x17ef, 0x19d2, 0x0e8d, 0x1782, 0x2b4c, 0x2ae5, 0x05c6, 0x1ebf, 0x29a9, 0x2970, 0x1bbb, 0x0489,
-]);
 // Finder asks for these everywhere; they never exist on a phone (or live in memory: SIDECAR).
 const MAC_ONLY = /^(\.metadata_never_index.*|\.Spotlight-V100|\.Trashes|\.fseventsd|\.hidden|\.localized|Backups\.backupdb|\.ql_disable.*|\.VolumeIcon\.icns|\.com\.apple\..*|mach_kernel|\.TemporaryItems)$/;
 const SIDECAR = /^(\.DS_Store|\._.*)$/;
@@ -43,7 +38,6 @@ class PhoneDrive extends EventEmitter {
     super();
     Object.assign(this, { adb, bridge, phone });
     this.usb = null; // {serial, state: 'device'|'unauthorized'|…, name}
-    this.plugged = null; // macOS sees an Android phone on USB: {name}
     this.server = null;
     this.port = 0;
     this.user = 'twindesk';
@@ -54,15 +48,13 @@ class PhoneDrive extends EventEmitter {
     this.message = '';
     this.sidecars = new Map(); // phone path -> {data, mtime}
     this.lists = new Map(); // dir -> {at, entries}
-    this.timer = setInterval(() => this._poll().catch(() => {}), POLL_MS);
-    this._poll().catch(() => {});
+    this.timer = null; // only while mounted
   }
 
   get view() {
     const via = this._via();
     return {
       usb: this.usb && { state: this.usb.state, name: this.usb.name },
-      plugged: !!(this.usb || this.plugged),
       name: this._name(),
       via, // 'usb' | 'wifi' | ''
       mounted: this.mountPath, busy: this.busy, message: this.message,
@@ -84,12 +76,11 @@ class PhoneDrive extends EventEmitter {
 
   _name() {
     const c = this.phone.connected && this.bridge.server.current;
-    return (this.usb && this.usb.name) || (this.plugged && this.plugged.name) || (c && c.name) || 'Phone';
+    return (this.usb && this.usb.name) || (c && c.name) || 'Phone';
   }
 
-  async _poll() {
-    const was = JSON.stringify(this.view);
-    const hadPhone = !!(this.usb || this.plugged);
+  // adb: is the phone on the cable? (Wireless debugging is the bridge's own.)
+  async _detect() {
     // adb: devices on USB have no ':' in their serial (wireless ones are address:port).
     const list = this.adb.available ? await this.adb.run(['devices', '-l'], { timeout: 5000 }) : { out: '' };
     const usb = list.out.split('\n').slice(1).map((l) => l.trim().split(/\s+/)).find((p) => p.length >= 2 && !p[0].includes(':') && !p[0].startsWith('emulator-'));
@@ -105,12 +96,15 @@ class PhoneDrive extends EventEmitter {
         this.usb = { serial, state, name: name || 'Android phone' };
       }
     } else this.usb = null;
-    this.plugged = this.usb ? null : await usbAndroid();
-    const hasPhone = !!(this.usb || this.plugged);
-    if (hasPhone && !hadPhone) this.emit('plugged', { name: this._name(), serial: this.usb && this.usb.serial });
+  }
+
+  // While mounted: follow the cable, and notice an eject in Finder.
+  async _poll() {
+    const was = JSON.stringify(this.view);
+    await this._detect();
     // Mounted, but no way to the phone any more (cable out and no wireless debugging): unmount.
     if (this.mountPath && !this._via() && !this.busy) await this.unmount('The phone went away.');
-    if (this.mountPath && !(await mountedAt(this.port))) { this.mountPath = ''; this.message = ''; } // ejected in Finder
+    if (this.mountPath && !(await mountedAt(this.port))) { this.mountPath = ''; this.message = ''; this._watch(false); } // ejected in Finder
     if (JSON.stringify(this.view) !== was) this.emit('change');
   }
 
@@ -119,9 +113,12 @@ class PhoneDrive extends EventEmitter {
   async mount() {
     if (this.busy) return;
     if (this.mountPath) return this.reveal();
+    this._set('mounting', '');
+    await this._detect().catch(() => {});
+    this.busy = '';
     if (!this._via()) {
       this.message = this.usb && this.usb.state === 'unauthorized' ? 'Allow USB debugging on the phone (the prompt on its screen), then Mount again.'
-        : this.usb || this.plugged ? 'Turn on USB debugging on the phone (Developer options), or connect it to TwinDesk with wireless debugging.'
+        : this.usb ? 'Turn on USB debugging on the phone (Developer options), or connect it to TwinDesk with wireless debugging.'
           : 'Plug the phone in with a USB cable (USB debugging on), or connect it to TwinDesk.';
       return this.emit('change');
     }
@@ -132,6 +129,7 @@ class PhoneDrive extends EventEmitter {
       const url = `http://127.0.0.1:${this.port}/${encodeURIComponent(this.volume)}`;
       this.mountPath = await mountVolume(url, this.user, this.password, this.port);
       this._set('', '');
+      this._watch(true);
       this.reveal();
     } catch (e) {
       this._set('', `Couldn’t mount the phone: ${String(e.message).split('\n')[0]}`);
@@ -139,14 +137,30 @@ class PhoneDrive extends EventEmitter {
   }
 
   async unmount(message = '') {
+    this._watch(false);
     const at = this.mountPath || (await mountedAt(this.port));
-    if (!at) return;
+    if (!at) return this.emit('change');
     this._set('unmounting', '');
     await new Promise((res) => execFile('/usr/sbin/diskutil', ['unmount', 'force', at], { timeout: 15000 }, () => res()));
     this.mountPath = '';
     this.sidecars.clear();
     this.lists.clear();
     this._set('', message);
+  }
+
+  // Mount page switched off: unmount, and the server goes too.
+  async stop() {
+    await this.unmount();
+    if (this.server) this.server.close();
+    this.server = null;
+    this.port = 0;
+    this.usb = null;
+    this._set('', '');
+  }
+
+  _watch(on) {
+    clearInterval(this.timer);
+    this.timer = on ? setInterval(() => this._poll().catch(() => {}), POLL_MS) : null;
   }
 
   reveal() {
@@ -410,25 +424,6 @@ class PhoneDrive extends EventEmitter {
         return done(405);
     }
   }
-}
-
-// An Android maker's device on USB, as macOS sees it (no USB debugging needed): {name} or null.
-function usbAndroid() {
-  return new Promise((resolve) => {
-    execFile('/usr/sbin/ioreg', ['-p', 'IOUSB', '-l', '-w0'], { timeout: 5000, maxBuffer: 8 * 1024 * 1024 }, (err, out) => {
-      if (err) return resolve(null);
-      for (const block of String(out).split('+-o ')) {
-        const vid = /"idVendor" = (\d+)/.exec(block);
-        if (!vid || !ANDROID_VENDORS.has(Number(vid[1]))) continue;
-        const name = (/"USB Product Name" = "([^"]*)"/.exec(block) || [])[1] || '';
-        // Some makers' vendor ids cover other gadgets too: take phones (MTP/PTP, or "Android").
-        if (/android|phone|mtp|ptp|galaxy|pixel|redmi|poco|xiaomi|infinix|tecno|oneplus|oppo|vivo|realme|moto/i.test(`${name} ${block}`)) {
-          return resolve({ name: name.replace(/_/g, ' ').replace(/\s*Android\s*$/i, '').trim() || 'Android phone' });
-        }
-      }
-      resolve(null);
-    });
-  });
 }
 
 // Where the volume served on this port is mounted ('' if it isn't).

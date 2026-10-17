@@ -26,6 +26,14 @@ const APP_ID = 'com.twindesk.android';
 const POLL_MS = 3000;
 const BUTTON = { 0: 1, 1: 2, 2: 4, 3: 8, 4: 16 }; // our button numbers -> MotionEvent.BUTTON_*
 const isPhone = (ctx) => !!ctx && ctx.os === P.OS.ANDROID;
+const knownFile = () => path.join(require('electron').app.getPath('userData'), 'phone-adb-known.json');
+function readJson(file, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
 
 class PhoneBridge extends EventEmitter {
   constructor({ server, phone, getSettings, clipboard }) {
@@ -43,6 +51,11 @@ class PhoneBridge extends EventEmitter {
     this.setupDone = new Set(); // serials granted this run
     this.lastPort = new Map(); // phone address -> the wireless debugging port that last worked
     this.misses = 0; // tries in a row that found no way in
+    // Phones (by id) adb has reached before. Android keeps the computer's key (Settings lists it),
+    // so not finding one again (wireless debugging back on, at a new port, after a screen lock on
+    // MIUI) is "not yet", never "pair again": only adb refusing the key asks for a code. Kept
+    // across restarts.
+    this.known = new Set(readJson(knownFile(), []));
     this.canPair = false; // still looking, but the code field shows (its pairing may be gone)
 
     phone.on('adb', () => this._kick());
@@ -134,6 +147,7 @@ class PhoneBridge extends EventEmitter {
     const address = a.address || (this.server.current && this.server.current.address);
     const ready = await this._findDevice(address);
     if (ready) {
+      this._known(true);
       this.serial = ready;
       await this._setup(ready);
       return this._startControl();
@@ -168,8 +182,10 @@ class PhoneBridge extends EventEmitter {
     this.misses++;
     // Paired before (this phone reached us since TwinDesk started): keep looking, with the code
     // field there in case its pairing really was removed.
-    if (!unpaired && !this.pairing && (this.lastPort.has(address) || this.misses < 5)) {
-      this.canPair = this.misses >= 5;
+    if (unpaired) this._known(false);
+    const known = !unpaired && this.known.has(this.server.current.id);
+    if (!unpaired && !this.pairing && (known || this.lastPort.has(address) || this.misses < 5)) {
+      this.canPair = this.misses >= (known ? 20 : 5);
       return this._set('connecting', this.canPair
         ? 'Can’t reach the phone’s wireless debugging. Check it’s on (same Wi-Fi), or pair again if it was reset.'
         : 'Looking for the phone’s wireless debugging…');
@@ -177,6 +193,16 @@ class PhoneBridge extends EventEmitter {
     this._set('needsPair', unpaired ? 'Pair this computer with the phone once: on the phone, Wireless debugging › Pair device with pairing code.'
       : this.pairing ? 'Type the code the phone shows.'
         : 'On the phone: Settings › Developer options › Wireless debugging › Pair device with pairing code.');
+  }
+
+  _known(on) {
+    const id = this.server.current && this.server.current.id;
+    if (!id || this.known.has(id) === on) return;
+    if (on) this.known.add(id);
+    else this.known.delete(id);
+    try {
+      fs.writeFileSync(knownFile(), JSON.stringify([...this.known]));
+    } catch {}
   }
 
   // Old connections to this phone's earlier ports linger as "offline" and get in the way.

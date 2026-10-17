@@ -100,6 +100,27 @@ const state = {
   connect: { busy: false, message: '', error: false },
 };
 
+// A phone app kept in the Dock (phoneview.js pin): open it once the phone's wireless debugging is
+// ready, connecting a paired phone nearby first if none is connected; tries for 2 minutes.
+let pendingPhoneApp = null; // {pkg, until}
+function openPhoneApp(pkg) {
+  if (!/^[\w.]{1,200}$/.test(pkg)) return;
+  const phone = svc.phone;
+  if (phone.connected && phone.bridge.state === 'ready') {
+    pendingPhoneApp = null;
+    return svc.phoneViews.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
+  }
+  if (!pendingPhoneApp) hud.show('home', 'Opening it when the phone is ready…');
+  pendingPhoneApp = { pkg, until: (pendingPhoneApp && pendingPhoneApp.until) || Date.now() + 2 * 60 * 1000 };
+  clearTimeout(openPhoneApp.timer);
+  if (Date.now() > pendingPhoneApp.until) return (pendingPhoneApp = null);
+  if (!phone.connected && !phone.connecting) {
+    const near = phone.nearby()[0];
+    if (near) phone.connect(near.id);
+  }
+  openPhoneApp.timer = setTimeout(() => pendingPhoneApp && openPhoneApp(pendingPhoneApp.pkg), 2000);
+}
+
 // macshare://pc-app/<id> from a PC app's Dock icon / Launchpad entry. It can arrive
 // before the services exist, so it waits in `linkQueue`.
 let linkQueue = [];
@@ -109,6 +130,7 @@ function handleLink(url) {
   const m = /^macshare:\/\/pc-app\/(.+)$/.exec(String(url));
   if (!m) return;
   const id = decodeURIComponent(m[1]).slice(0, 1024);
+  if (id.startsWith('phone:')) return openPhoneApp(id.slice(6));
   if (!settings.papps.on) actions.setPcApps({ on: true });
   svc.pcApps.openFromLink(id);
 }
@@ -188,7 +210,8 @@ function pushState() {
       state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
     if (svc) state.wake = svc.wake.view;
-    if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone, drive: svc.phoneDrive ? svc.phoneDrive.view : null };
+    if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone };
+    if (svc && svc.phoneDrive) state.mount = { ...svc.phoneDrive.view, on: !!settings.mount.on };
     if (updates) state.updates = updates.view;
     if (pairSync) pairSync.check();
     sendScreenState();
@@ -350,28 +373,6 @@ function showWindow() {
   app.focus({ steal: true });
 }
 
-// A phone was plugged in: show it in Finder? (Phone page and the menu bar do it any time.)
-let asking = false;
-async function askMount(p) {
-  if (asking || settings.phone.askMount === false || svc.phoneDrive.mountPath) return;
-  asking = true;
-  app.focus({ steal: true });
-  const r = await dialog.showMessageBox({
-    type: 'question',
-    message: `Show ${p.name} in Finder?`,
-    detail: 'TwinDesk mounts the phone’s storage as a drive under Locations, through the cable (USB debugging) or wireless debugging.',
-    buttons: ['Mount', 'Not Now'], defaultId: 0, cancelId: 1,
-    checkboxLabel: 'Don’t ask again', icon: nativeImage.createFromPath(path.join(__dirname, '..', 'shared', 'icon', 'teindesk-dark-mac.png')),
-  });
-  asking = false;
-  if (r.checkboxChecked) {
-    settings.phone.askMount = false;
-    store.saveSettings(settings);
-    pushState();
-  }
-  if (r.response === 0) svc.phoneDrive.mount();
-}
-
 // Menu bar: the app mark as a template icon; the switches people reach for most, one click away.
 function updateTray() {
   if (!tray) return;
@@ -406,7 +407,6 @@ function updateTray() {
           { label: 'Look Again', click: () => actions.refreshDiscovery() },
         ],
       },
-      ...phoneDriveItems(),
       check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
       { type: 'separator' },
       ...(updates && updates.status.available ? [{ label: `Download TwinDesk ${updates.status.latest}…`, click: () => updates.open() }] : []),
@@ -414,14 +414,6 @@ function updateTray() {
       { label: 'Quit TwinDesk', click: () => app.quit() },
     ]),
   );
-}
-
-// Menu bar: the phone in Finder, while one is plugged in, connected or mounted.
-function phoneDriveItems() {
-  const d = svc && svc.phoneDrive && svc.phoneDrive.view;
-  if (!d || !(d.plugged || d.via || d.mounted)) return [];
-  if (d.mounted) return [{ label: `Show ${d.name} in Finder`, click: () => svc.phoneDrive.reveal() }, { label: `Unmount ${d.name}`, click: () => svc.phoneDrive.unmount() }];
-  return [{ label: d.busy ? `Mounting ${d.name}…` : `Mount ${d.name} in Finder`, enabled: !d.busy, click: () => svc.phoneDrive.mount() }];
 }
 
 app.whenReady().then(() => {
@@ -488,10 +480,9 @@ app.whenReady().then(() => {
   svc.phone.bridge.on('change', pushState);
   svc.phoneViews = new PhoneViews({ bridge: svc.phone.bridge, phone: svc.phone, getSettings: () => settings, server: peer, fileSend: svc.fileSend });
   svc.phoneViews.on('change', pushState);
-  // A phone plugged in with a cable: in Finder, through adb (wireless debugging when the cable can't).
+  // The phone in Finder, through adb (the cable, else wireless debugging): only when Mount is clicked.
   svc.phoneDrive = new PhoneDrive({ adb: svc.phone.bridge.adb, bridge: svc.phone.bridge, phone: svc.phone });
   svc.phoneDrive.on('change', pushState);
-  svc.phoneDrive.on('plugged', (p) => askMount(p));
   svc.kvm.local = svc.phone.bridge;
   const blockEdge = svc.kvm.blockEdge;
   svc.kvm.blockEdge = () => blockEdge() || svc.phoneViews.focused; // moving inside the phone window never crosses

@@ -2,7 +2,7 @@
 // Actions from the control window (and the menu bar): validate, save settings, apply.
 'use strict';
 
-const { ipcMain, shell, app, screen, dialog, clipboard } = require('electron');
+const { ipcMain, shell, app, screen, dialog, clipboard, Menu } = require('electron');
 const P = require('../shared/protocol.js');
 const { LINKS } = require('../shared/about.js');
 const store = require('./store');
@@ -15,7 +15,7 @@ const SETTINGS_URLS = {
   fullDisk: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
-const TABS = ['phone', 'overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -46,7 +46,8 @@ const SCHEMA = {
   receive: { on: bool, fullScreen: bool, input: bool, framegen: bool },
   sharing: { remote: bool, pace: oneOf(['fast', 'smooth'], 'fast') },
   papps: { on: bool },
-  phone: { sound: bool, bitrateMbps: (v) => Math.round(clamp(2, 40, 8)(v)), maxSize: oneOf([0, 1920, 1600, 1280, 1024], 0), wallpaper: bool, askMount: bool },
+  phone: { sound: bool, bitrateMbps: (v) => Math.round(clamp(2, 40, 8)(v)), maxSize: oneOf([0, 1920, 1600, 1280, 1024], 0), wallpaper: bool },
+  mount: { on: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'instant'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -127,6 +128,15 @@ function setupIpc(ctx) {
     phoneCloseView(id) {
       ctx.phoneViews.close(Number(id));
     },
+    // Right-click on a phone app: open it, or keep it in the Dock (phoneview.js).
+    phoneAppMenu(arg) {
+      if (!arg || typeof arg.id !== 'string' || !/^[\w.]{1,200}$/.test(arg.id)) return;
+      const name = String(arg.name || arg.id).slice(0, 100);
+      Menu.buildFromTemplate([
+        { label: 'Open in a Window', click: () => ctx.phoneViews.openApp(arg.id, name) },
+        { label: 'Add to Dock', click: () => ctx.phoneViews.pin(arg.id, name) },
+      ]).popup();
+    },
     phoneInstallFull() {
       ctx.phone.bridge.installFull();
     },
@@ -135,7 +145,12 @@ function setupIpc(ctx) {
     },
     // The phone in Finder (phonedrive.js).
     phoneMount() {
-      ctx.phoneDrive.mount();
+      if (settings.mount.on) ctx.phoneDrive.mount();
+    },
+    // The Mount page's switch: off unmounts and stops everything (nothing runs until Mount anyway).
+    setMount(partial) {
+      setGroup('mount', partial);
+      if (!settings.mount.on) ctx.phoneDrive.stop();
     },
     phoneUnmount() {
       ctx.phoneDrive.unmount();

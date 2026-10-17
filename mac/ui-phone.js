@@ -67,15 +67,9 @@ UI.tab({
       UI.row('Mouse and keyboard', 'Push the pointer off the edge of the screen to use the phone. Double-tap the hotkey to come back.', [UI.button('Cursor Settings', () => UI.go('cursor'), 'small')]),
     ]);
 
-    // ---- the phone in Finder (phonedrive.js): through the cable, or wireless debugging ----
-    const mountBtn = UI.button('Mount', () => api.phoneMount(), 'small primary');
-    const unmountBtn = UI.button('Unmount', () => api.phoneUnmount(), 'small');
-    const driveRow = UI.row('Show in Finder', '', [mountBtn, unmountBtn]);
-    const askMount = UI.switch((v) => api.setPhone({ askMount: v }), { label: 'Ask to mount' });
-    const driveCard = UI.card('Finder', [driveRow, UI.row('Ask when a phone is plugged in', 'With a USB cable', [askMount])]);
 
     const notConnected = UI.note('info', '');
-    body.append(notConnected, hero, adbCard, driveCard, appsCard, winCard, optsCard);
+    body.append(notConnected, hero, adbCard, appsCard, winCard, optsCard);
 
     let appsKey = '';
     let winKey = '';
@@ -92,20 +86,6 @@ UI.tab({
       for (const x of [hero, adbCard, appsCard, winCard, optsCard]) x.hidden = !c;
       notConnected.set(c ? '' : ph.nearby && ph.nearby.length ? 'Click the phone above Overview to connect it.' : 'No phone connected. Open TwinDesk on the phone and pair it from Overview › Nearby.');
 
-      // Finder: also for a phone that's only plugged in
-      const d = ph.drive || {};
-      driveCard.hidden = !(c || d.plugged || d.mounted);
-      mountBtn.hidden = !!d.mounted;
-      mountBtn.textContent = d.busy === 'mounting' ? 'Mounting…' : 'Mount';
-      mountBtn.disabled = !!d.busy;
-      unmountBtn.hidden = !d.mounted;
-      unmountBtn.disabled = !!d.busy;
-      driveRow.setHint(d.message || (d.mounted ? `${d.name} is in Finder under Locations (${d.via === 'usb' ? 'through the cable' : 'over wireless debugging'}).`
-        : d.via === 'usb' ? `${d.name}’s storage as a drive in Finder, through the cable.`
-          : d.via === 'wifi' ? `${d.name}’s storage as a drive in Finder, over wireless debugging (plug in the cable for speed).`
-            : d.usb && d.usb.state === 'unauthorized' ? 'Allow USB debugging on the phone (the prompt on its screen).'
-              : d.plugged ? 'Turn on USB debugging on the phone (Developer options) to see it in Finder.' : 'Plug the phone in with a USB cable, or set up wireless debugging.'));
-      askMount.set((ph.settings || {}).askMount !== false);
       if (!c) return;
 
       h1.textContent = c.name;
@@ -152,8 +132,9 @@ UI.tab({
         appsKey = ak;
         grid.replaceChildren(...shown.slice(0, 400).map((a) => {
           const img = el('img', { src: a.icon || '', alt: '' });
-          const b = el('button', { class: 'app-tile', title: `Open ${a.name} in a window`, disabled: !ready }, [img, el('span', { text: a.name })]);
+          const b = el('button', { class: 'app-tile', title: `Open ${a.name} in a window (right-click to add it to the Dock)`, disabled: !ready }, [img, el('span', { text: a.name })]);
           b.onclick = () => api.phoneOpenApp({ id: a.id, name: a.name });
+          b.oncontextmenu = (e) => { e.preventDefault(); api.phoneAppMenu({ id: a.id, name: a.name }); }; // Add to Dock
           return b;
         }));
       }

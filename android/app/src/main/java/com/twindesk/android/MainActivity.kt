@@ -388,7 +388,7 @@ private fun OverviewPage(core: Core, v: Int) {
     }
 
     // Wireless debugging, under the connected card, until the computer is paired with it.
-    WirelessCard(core, LocalContext.current)
+    WirelessCard(core, LocalContext.current, v)
 
     if (host != null) {
         val wide = LocalConfiguration.current.screenWidthDp >= 840
@@ -526,9 +526,9 @@ private fun CursorPage(core: Core, v: Int) {
         },
         if (!core.adb.wifiDebugging || !core.pointer.allowed) "warn" else "info",
     )
-    if (!core.adb.wifiDebugging || !core.adb.paired) Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    if (!core.adb.wifiDebugging || core.adb.setupNeeded) Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!core.adb.wifiDebugging) Primary("Turn on wireless debugging") { core.adb.turnOn() }
-        if (!core.adb.paired) Secondary("Set up") { Guide.open.value = true }
+        if (core.adb.setupNeeded) Secondary("Set up") { Guide.open.value = true }
     }
     MacCard {
         DirHead(name, false, me, true)
@@ -764,6 +764,7 @@ private fun GeneralPage(core: Core, v: Int) {
             "Wireless debugging",
             when {
                 core.adb.paired -> "Paired with $name: this screen and sound there, its mouse and keyboard here"
+                core.adb.wifiDebugging && !core.adb.setupNeeded -> "Paired with $name, reconnecting…"
                 core.adb.wifiDebugging -> "On. Pair it with $name once (the guide walks you through it)"
                 else -> "For this screen and sound on $name, and its mouse and keyboard here"
             },

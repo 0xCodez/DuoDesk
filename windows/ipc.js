@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main-window actions (preload-app.js → here). Every value is validated by settings.apply().
-const { ipcMain, dialog, shell, BrowserWindow, clipboard } = require('electron');
+const { ipcMain, dialog, shell, BrowserWindow, clipboard, Menu } = require('electron');
 const path = require('path');
 const P = require('../shared/protocol.js');
 const { LINKS } = require('../shared/about.js');
@@ -142,6 +142,15 @@ function setupIpc(ctx) {
   });
   phone('phoneOpenApp', (arg) => arg && typeof arg.id === 'string' && ctx.phoneViews.openApp(arg.id.slice(0, 200), String(arg.name || '').slice(0, 100)));
   phone('phoneCloseView', (id) => ctx.phoneViews.close(Number(id)));
+  // Right-click on a phone app: open it, or pin it to Start (phoneview.js).
+  phone('phoneAppMenu', (arg) => {
+    if (!arg || typeof arg.id !== 'string' || !/^[\w.]{1,200}$/.test(arg.id)) return;
+    const name = String(arg.name || arg.id).slice(0, 100);
+    Menu.buildFromTemplate([
+      { label: 'Open in a Window', click: () => ctx.phoneViews.openApp(arg.id, name) },
+      { label: 'Pin to Start', click: () => ctx.phoneViews.pin(arg.id, name) },
+    ]).popup();
+  });
   phone('phoneRetry', () => ctx.phone.bridge._kick());
   phone('phoneInstallFull', () => ctx.phone.bridge.installFull());
   handle('phoneAssets', () => (ctx.phone ? ctx.phone.assetsView() : { wallpaper: '', apps: [] }));

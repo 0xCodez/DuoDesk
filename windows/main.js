@@ -67,7 +67,7 @@ if (!app.requestSingleInstanceLock()) {
   // A pinned Mac app starts "TwinDesk.exe --mac-app=<id>": open it, else show the window.
   app.on('second-instance', (_e, argv) => {
     if (sendTo && sendTo.handle(argv)) return; // Explorer › Send to
-    if (!openMacAppArg(argv)) showMain();
+    if (!openMacAppArg(argv) && !openPhoneAppArg(argv)) showMain();
   });
   app.whenReady().then(start);
 }
@@ -111,7 +111,7 @@ let phoneViews = null; // its screen and apps in windows here (phoneview.js)
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check
 // Started at sign-in (tray only), or by a pinned Mac app's shortcut (that app only).
-const startHidden = process.argv.includes('--hidden') || process.argv.some((a) => a.startsWith('--mac-app='));
+const startHidden = process.argv.includes('--hidden') || process.argv.some((a) => a.startsWith('--mac-app=') || a.startsWith('--phone-app='));
 let pendingMacApp = null; // {id, until}: opened once the Mac connects (2 min)
 let lastPairPhase = null;
 
@@ -260,7 +260,7 @@ function start() {
   });
   createTray();
   createMainWindow();
-  if (!sendTo.handle(process.argv)) openMacAppArg(process.argv);
+  if (!sendTo.handle(process.argv) && !openMacAppArg(process.argv)) openPhoneAppArg(process.argv);
   setTimeout(checkFirewall, 3000);
   if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
 }
@@ -296,7 +296,14 @@ function startPhone(server, pairing) {
   // The phone's Keyboard page names this PC's hotkey (double-tap = everything back here).
   pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && pl.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_WIN, 'win') }));
   phone.bridge = new PhoneBridge({ server: pl, phone, getSettings: () => settings, clipboard: clip });
-  phone.bridge.on('change', pushState);
+  phone.bridge.on('change', () => {
+    pushState();
+    if (pendingPhoneApp && phone.bridge.state === 'ready') {
+      const p = pendingPhoneApp;
+      pendingPhoneApp = null;
+      if (Date.now() < p.until) openPhoneApp(p.pkg);
+    }
+  });
   phone.bridge.on('popup', (kind, text) => hud.show(kind, text));
   phoneViews = new PhoneViews({ bridge: phone.bridge, phone, getSettings: () => settings, server: pl, fileSend: fileDrop });
   phoneViews.on('change', pushState);
@@ -321,6 +328,32 @@ function openMacAppArg(argv) {
   const id = arg.slice('--mac-app='.length).slice(0, 1024);
   if (id) openMacApp(id);
   return true;
+}
+
+// A pinned phone app starts "TwinDesk.exe --phone-app=<package>": open it once the phone's
+// wireless debugging is ready (connecting a paired phone nearby first, if none is connected).
+let pendingPhoneApp = null; // {pkg, until}
+function openPhoneAppArg(argv) {
+  const arg = (argv || []).find((a) => typeof a === 'string' && a.startsWith('--phone-app='));
+  if (!arg) return false;
+  const pkg = arg.slice('--phone-app='.length);
+  if (/^[\w.]{1,200}$/.test(pkg)) openPhoneApp(pkg);
+  return true;
+}
+
+function openPhoneApp(pkg) {
+  if (phone && phoneViews && phone.connected && phone.bridge.state === 'ready') return phoneViews.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
+  const first = !pendingPhoneApp;
+  pendingPhoneApp = { pkg, until: (pendingPhoneApp && pendingPhoneApp.until) || Date.now() + 2 * 60 * 1000 };
+  if (first && hud) hud.show('home', 'Opening it when the phone is ready…');
+  // Until then, every 2 s: the phone may not be up (TwinDesk just started) or nearby yet.
+  clearTimeout(openPhoneApp.timer);
+  if (Date.now() > pendingPhoneApp.until) return (pendingPhoneApp = null);
+  if (phone && !phone.connected && !phone.connecting) {
+    const near = phone.nearby()[0];
+    if (near) phone.connect(near.id);
+  }
+  openPhoneApp.timer = setTimeout(() => pendingPhoneApp && openPhoneApp(pendingPhoneApp.pkg), 2000);
 }
 
 function openMacApp(id) {

@@ -3,16 +3,19 @@
 // window of their own on a virtual display of the window's size (scrcpy new_display + flex, so
 // resizing the window resizes the app). One scrcpy session per window (scrcpy.js); the window
 // decodes the H.264 itself (phoneview-renderer.js) and sends touches, keys and scrolls back.
+// A phone app with windows here has a Dock icon of its own (dockstub.js, like a PC app), and pin()
+// keeps it in the Dock: opened from there, it asks TwinDesk for macshare://pc-app/phone:<package>.
 //
 // Events: 'change' — the window list changed.
 'use strict';
 
 const path = require('path');
-const { BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { Session, ACTION, TYPE } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
+const { DockStub, addToDock } = require('./dockstub');
 
 let nextId = 1;
 
@@ -21,6 +24,7 @@ class PhoneViews extends EventEmitter {
     super();
     Object.assign(this, { bridge, phone, getSettings, server, fileSend });
     this.views = new Map(); // id -> {id, kind, app, title, win, session, keys, size}
+    this.stubs = new Map(); // package -> DockStub, while that app has a window here
     bridge.views = this;
     ipcMain.on('phoneview:in', (e, m) => {
       const v = [...this.views.values()].find((x) => x.win && !x.win.isDestroyed() && x.win.webContents === e.sender);
@@ -96,6 +100,7 @@ class PhoneViews extends EventEmitter {
     });
     const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [] };
     this.views.set(id, v);
+    if (kind === 'app') setImmediate(() => this._stubs());
     win.loadFile(path.join(__dirname, 'phoneview.html'), { query: { kind, title } });
     if (!hidden) win.once('ready-to-show', () => win.show());
     win.webContents.once('did-finish-load', () => {
@@ -105,6 +110,7 @@ class PhoneViews extends EventEmitter {
     win.on('closed', () => {
       if (v.session) v.session.stop();
       this.views.delete(id);
+      this._stubs();
       this.emit('change');
     });
     this.emit('change');
@@ -174,6 +180,44 @@ class PhoneViews extends EventEmitter {
 
   shutdown() {
     this.closeAll();
+    for (const st of this.stubs.values()) st.stop();
+    this.stubs.clear();
+  }
+
+  // ---- the Dock ----
+
+  _info(pkg, name) {
+    const a = (this.phone.apps || []).find((x) => x.id === pkg);
+    return { id: `phone:${pkg}`, name: (a && a.name) || name || pkg, icon: (a && a.icon) || '' };
+  }
+
+  // One Dock icon per phone app with windows here: click brings them up, Quit closes them.
+  _stubs() {
+    const open = new Map();
+    for (const v of this.views.values()) if (v.kind === 'app' && v.win && !v.win.isDestroyed()) open.set(v.app, [...(open.get(v.app) || []), v]);
+    for (const [pkg, st] of this.stubs) if (!open.has(pkg)) { st.stop(); this.stubs.delete(pkg); }
+    for (const [pkg, vs] of open) {
+      if (!this.stubs.has(pkg)) {
+        this.stubs.set(pkg, new DockStub(this._info(pkg, vs[0].title), (ev, i) => {
+          const ws = [...this.views.values()].filter((v) => v.kind === 'app' && v.app === pkg && v.win && !v.win.isDestroyed());
+          if (ev === 'quit') return ws.forEach((v) => v.win.close());
+          const w = ws[ev === 'focus' ? i : 0];
+          if (w) {
+            app.focus({ steal: true }); // TwinDesk has no Dock icon of its own
+            w.win.show();
+            w.win.focus();
+          }
+        }));
+      }
+      this.stubs.get(pkg).menu(vs.map((v) => v.title));
+    }
+  }
+
+  // Phone page › an app › Add to Dock (and ~/Applications/MacShare Apps, for Launchpad and Spotlight).
+  async pin(pkg, name) {
+    const info = this._info(pkg, name);
+    const ok = await addToDock(info);
+    this.bridge.emit('popup', ok ? 'home' : 'driven', ok ? `${info.name} is in the Dock` : `Couldn’t add ${info.name} to the Dock`);
   }
 }
 

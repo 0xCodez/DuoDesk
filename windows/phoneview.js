@@ -4,12 +4,16 @@
 // resizing the window resizes the app). One scrcpy session per window (scrcpy.js); the window
 // decodes the H.264 itself (phoneview-renderer.js) and sends touches, keys and scrolls back.
 // Port of mac/phoneview.js: Windows title bar (its own buttons drawn over ours), no Ctrl/Cmd swap.
+// A phone app's windows have a taskbar identity of their own (its icon, Pin to taskbar starts it),
+// and pin() puts it in Start › TwinDesk Apps: both start "TwinDesk.exe --phone-app=<package>".
 //
 // Events: 'change' — the window list changed; 'focus' — a phone window got or lost focus.
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
-const { BrowserWindow, ipcMain, screen } = require('electron');
+const crypto = require('crypto');
+const { app, BrowserWindow, ipcMain, screen, shell, nativeImage } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { Session, ACTION, TYPE } = require('./scrcpy');
@@ -99,6 +103,7 @@ class PhoneViews extends EventEmitter {
     const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [] };
     this.views.set(id, v);
     win.loadFile(path.join(__dirname, 'phoneview.html'), { query: { kind, title } });
+    if (kind === 'app') this._details(win, app, title);
     if (!hidden) win.once('ready-to-show', () => win.show());
     win.webContents.once('did-finish-load', () => {
       v.ready = true;
@@ -178,6 +183,71 @@ class PhoneViews extends EventEmitter {
 
   shutdown() {
     this.closeAll();
+  }
+
+  // ---- pinning ----
+
+  static aumid(pkg) {
+    return 'org.macshare.phoneapp.' + crypto.createHash('sha1').update(pkg).digest('hex').slice(0, 10);
+  }
+
+  // How this copy of TwinDesk opens one phone app: "TwinDesk.exe --phone-app=<package>".
+  static relaunch(pkg) {
+    const args = (app.isPackaged ? [] : [app.getAppPath()]).concat('--phone-app=' + pkg);
+    return { target: process.execPath, args: args.map((x) => (/\s/.test(x) ? '"' + x + '"' : x)).join(' ') };
+  }
+
+  _app(pkg) {
+    return (this.phone.apps || []).find((a) => a.id === pkg) || null;
+  }
+
+  // The app's icon as an .ico (Start shortcuts and taskbar buttons take only files).
+  _ico(pkg) {
+    const a = this._app(pkg);
+    const img = a && a.icon ? nativeImage.createFromDataURL(a.icon) : null;
+    if (!img || img.isEmpty()) return '';
+    try {
+      const dir = path.join(app.getPath('userData'), 'app-icons');
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, 'phone.' + pkg.replace(/[^\w.-]/g, '_') + '.ico');
+      const png = img.resize({ width: 64, height: 64 }).toPNG();
+      const head = Buffer.alloc(22);
+      head.writeUInt16LE(0, 0); head.writeUInt16LE(1, 2); head.writeUInt16LE(1, 4); // ICONDIR: 1 image
+      head.writeUInt8(64, 6); head.writeUInt8(64, 7); head.writeUInt8(0, 8); head.writeUInt8(0, 9);
+      head.writeUInt16LE(1, 10); head.writeUInt16LE(32, 12); head.writeUInt32LE(png.length, 14); head.writeUInt32LE(22, 18);
+      fs.writeFileSync(file, Buffer.concat([head, png]));
+      return file;
+    } catch (_) { return ''; }
+  }
+
+  _details(win, pkg, name) {
+    const a = this._app(pkg);
+    const img = a && a.icon ? nativeImage.createFromDataURL(a.icon) : null;
+    if (img && !img.isEmpty()) win.setIcon(img);
+    const ico = this._ico(pkg);
+    const r = PhoneViews.relaunch(pkg);
+    win.setAppDetails({ appId: PhoneViews.aumid(pkg), relaunchCommand: '"' + r.target + '" ' + r.args, relaunchDisplayName: name, ...(ico ? { appIconPath: ico, appIconIndex: 0 } : {}) });
+  }
+
+  // Phone page › an app › Pin to Start: a shortcut in Start › TwinDesk Apps (pin it from there).
+  pin(pkg, name) {
+    const a = this._app(pkg) || { id: pkg, name: name || pkg };
+    const dir = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'TwinDesk Apps');
+    const safe = String(a.name).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '').slice(0, 100) || 'Phone app';
+    const file = path.join(dir, safe + '.lnk');
+    const ico = this._ico(pkg);
+    const r = PhoneViews.relaunch(pkg);
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const ok = shell.writeShortcutLink(file, fs.existsSync(file) ? 'replace' : 'create', {
+        target: r.target, args: r.args, description: a.name + ' on ' + ((this.server.current && this.server.current.name) || 'the phone') + ' (TwinDesk)',
+        appUserModelId: PhoneViews.aumid(pkg), ...(ico ? { icon: ico, iconIndex: 0 } : {}),
+      });
+      if (!ok) throw new Error('Windows refused the shortcut');
+      this.bridge.emit('popup', 'home', a.name + ' is in Start › TwinDesk Apps');
+    } catch (e) {
+      this.bridge.emit('popup', 'driven', 'Couldn’t add ' + a.name + ' to Start: ' + e.message);
+    }
   }
 }
 

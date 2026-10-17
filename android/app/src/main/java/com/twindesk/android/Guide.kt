@@ -72,12 +72,13 @@ private val xiaomi = Build.MANUFACTURER.equals("Xiaomi", true) || Build.BRAND.eq
 
 // Overview's card: connected, and the computer says wireless debugging isn't working yet.
 @Composable
-fun WirelessCard(core: Core, ctx: Context) {
+fun WirelessCard(core: Core, ctx: Context, v: Int) {
+    @Suppress("UNUSED_EXPRESSION") v // redraw on every Core change (Compose skips unread parameters)
     val a = core.adb
-    if (core.host == null || a.bridge.isEmpty() || a.paired || Guide.hidden(core)) return
+    if (core.host == null || a.bridge.isEmpty() || !a.setupNeeded || Guide.hidden(core)) return
     WirelessSteps(core, ctx, "Wireless debugging") {
-        Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Files, the clipboard and notifications work without it.", color = pal.faint, fontSize = 12.5.sp, modifier = Modifier.weight(1f))
+        Row(Modifier.padding(start = 16.dp, end = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("For the screen, mouse and keyboard. Files and the rest work without it.", color = pal.faint, fontSize = 12.sp, modifier = Modifier.weight(1f))
             TextButton(onClick = { Guide.hide(core) }) { Text("Hide", color = pal.muted) }
         }
     }
@@ -110,76 +111,80 @@ fun WirelessGuide(core: Core, ctx: Context, v: Int) {
     }
 }
 
-// The steps, each ticked off as it happens, and the code field for Settings side by side.
+// The steps, short enough for one screen: the finished ones as one line of ticks, the current one
+// with its hint and button, the rest as titles. The code field is for Settings side by side.
 @Composable
 private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Composable () -> Unit = {}) {
     val a = core.adb
     val name = core.host?.name ?: core.hosts().firstOrNull()?.name ?: "your computer"
     val connected = core.host != null
+    class S(val title: String, val hint: String, val done: Boolean, val optional: Boolean = false, val action: @Composable () -> Unit = {})
+    val steps = listOfNotNull(
+        S("Connect to $name", "Open TwinDesk on $name, then tap Connect on Overview.", connected) {
+            core.hosts().firstOrNull()?.let { h -> Secondary("Connect") { core.connect(h) } }
+        },
+        S(
+            "Turn on Developer options",
+            if (xiaomi) "About phone › tap “OS version” 7 times." else "About phone › tap “Build number” 7 times.", a.devOptions,
+        ) { Secondary("Open") { ctx.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
+        if (xiaomi) S("Xiaomi: “USB debugging (Security settings)”", "", false, optional = true) { Secondary("Open") { a.openSettings() } } else null,
+        S("Turn on Wireless debugging", "Developer options › Wireless debugging.", a.wifiDebugging) { Secondary("Open") { a.turnOn() } },
+        S(
+            "Pair with $name",
+            if (a.pairing) "Pairing…" else "“Pair device with pairing code”, then type the code in TwinDesk’s notification.", a.paired,
+        ) { Primary("Pair") { a.askForCode(); a.openSettings() } },
+    )
+    val current = steps.indexOfFirst { !it.done && !it.optional }
     MacCard(title) {
-        Step(1, "Connect to $name", if (connected) "Connected" else "Open TwinDesk on $name, then tap Connect on Overview (or Pair if it’s new).", connected, first = true) {
-            if (!connected) core.hosts().firstOrNull()?.let { h -> Secondary("Connect") { core.connect(h) } }
+        val done = steps.filter { it.done }
+        if (done.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(22.dp).clip(CircleShape).background(pal.good), contentAlignment = Alignment.Center) {
+                Text("✓", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+            Text(done.joinToString(" · ") { it.title.removePrefix("Turn on ").removeSuffix(" with $name").removeSuffix(" to $name") }, color = pal.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 10.dp))
         }
-        Step(
-            2, "Turn on Developer options",
-            if (a.devOptions) "On" else if (xiaomi) "Settings › About phone › tap “MIUI version” (or “OS version”) 7 times." else "Settings › About phone › tap “Build number” 7 times.",
-            a.devOptions,
-        ) { if (!a.devOptions) Secondary("About phone") { ctx.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-        if (xiaomi) Step(
-            3, "Allow it on Xiaomi phones",
-            "In Developer options: turn on “USB debugging (Security settings)” and “Install via USB”. Without them $name can’t use the mouse and keyboard here.",
-            false, optional = true,
-        ) { Secondary("Open") { a.openSettings() } }
-        val n = if (xiaomi) 4 else 3
-        Step(n, "Turn on Wireless debugging", if (a.wifiDebugging) "On" else "Developer options › Wireless debugging: on (allow on this network).", a.wifiDebugging) {
-            if (!a.wifiDebugging) Secondary("Open") { a.turnOn() }
+        var first = done.isEmpty()
+        steps.forEachIndexed { i, st ->
+            if (st.done) return@forEachIndexed
+            Step(i + 1, st.title, if (i == current) st.hint else "", false, first = first, optional = st.optional, compact = i != current) {
+                if (i == current || st.optional) st.action()
+            }
+            first = false
         }
-        Step(
-            n + 1, "Pair with $name",
-            when {
-                a.paired -> "Paired"
-                a.pairing -> "Pairing…"
-                else -> "Tap Wireless debugging › “Pair device with pairing code”. TwinDesk’s notification asks for the 6-digit code: type it there."
-            },
-            a.paired,
-        ) {
-            if (!a.paired) Primary("Pair") { a.askForCode(); a.openSettings() }
-        }
-        if (!a.paired && a.bridgeMessage.isNotEmpty() && a.bridge != "ready") Row(Modifier.padding(start = 58.dp, end = 16.dp, bottom = 12.dp)) {
-            Text(a.bridgeMessage, color = pal.muted, fontSize = 12.5.sp)
-        }
+        if (!a.paired && a.bridgeMessage.isNotEmpty() && a.bridge != "ready") Text(
+            a.bridgeMessage, color = pal.muted, fontSize = 12.sp, maxLines = 2, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        )
         // Settings side by side (tablets, split screen): type the code here instead.
         if (!a.paired && connected) {
             var code by remember { mutableStateOf("") }
-            Box(Modifier.padding(start = 58.dp).fillMaxWidth().height(1.dp).background(pal.line))
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(pal.line))
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    code, { code = it.filter { c -> c.isDigit() }.take(6) }, placeholder = { Text("Pairing code", color = pal.faint) }, singleLine = true,
+                    code, { code = it.filter { c -> c.isDigit() }.take(6) }, placeholder = { Text("Or type the code here", color = pal.faint, fontSize = 14.sp) }, singleLine = true,
                     modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 18.sp, color = pal.text, letterSpacing = 3.sp),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp, color = pal.text, letterSpacing = 3.sp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 )
                 Primary("Pair") { a.askForCode(); a.sendPairCode(code) }
             }
-            Text("Or type the code here with Settings open next to TwinDesk (split screen). $name pairs with it, and so would any other computer you connect.", color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
         }
         foot()
     }
 }
 
-// One numbered step, ticked when done (like the Mac's setup rows).
+// One numbered step (like the Mac's setup rows); compact: a later step, title only.
 @Composable
-private fun Step(n: Int, title: String, hint: String, done: Boolean, first: Boolean = false, optional: Boolean = false, action: @Composable () -> Unit) {
+private fun Step(n: Int, title: String, hint: String, done: Boolean, first: Boolean = false, optional: Boolean = false, compact: Boolean = false, action: @Composable () -> Unit) {
     Column {
-        if (!first) Box(Modifier.padding(start = 58.dp).fillMaxWidth().height(1.dp).background(pal.line))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!first) Box(Modifier.padding(start = 50.dp).fillMaxWidth().height(1.dp).background(pal.line))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = if (compact) 6.dp else 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(30.dp).clip(CircleShape).background(if (done) pal.good else if (optional) pal.trackOff else pal.accentSoft),
+                Modifier.size(if (compact) 22.dp else 26.dp).clip(CircleShape).background(if (done) pal.good else if (optional || compact) pal.trackOff else pal.accentSoft),
                 contentAlignment = Alignment.Center,
-            ) { Text(if (done) "✓" else "$n", color = if (done) Color.White else pal.accent, fontWeight = FontWeight.Bold) }
+            ) { Text(if (done) "✓" else "$n", color = if (done) Color.White else if (compact) pal.muted else pal.accent, fontWeight = FontWeight.Bold, fontSize = if (compact) 12.sp else 14.sp) }
             Column(Modifier.weight(1f).padding(start = 12.dp, end = 10.dp)) {
-                Text(title + if (optional) " (if asked)" else "", color = pal.text, fontSize = 15.sp)
-                Text(hint, color = pal.muted, fontSize = 12.5.sp)
+                Text(title, color = if (compact && !optional) pal.muted else pal.text, fontSize = if (compact) 13.5.sp else 15.sp)
+                if (hint.isNotEmpty()) Text(hint, color = pal.muted, fontSize = 12.5.sp)
             }
             if (!done) action()
         }

@@ -60,7 +60,10 @@ UI.tab({
         const ok = p.kind === 'screen' ? v === 'granted' : v === true;
         const unknown = v === null || v === undefined || v === 'unknown';
         pill.className = `pill ${unknown ? 'muted' : ok ? 'good' : 'bad'}`;
-        pill.textContent = unknown ? 'Unknown' : ok ? 'Allowed' : 'Not allowed';
+        // macOS counts Accessibility as enough for TwinDesk's keyboard tap: Input Monitoring reads
+        // as allowed then, with its own switch in System Settings still off (that's fine).
+        const viaAx = p.kind === 'inputMonitoring' && ok && s.permissions.accessibility === true;
+        pill.textContent = unknown ? 'Unknown' : viaAx ? 'Allowed by Accessibility' : ok ? 'Allowed' : 'Not allowed';
       }
       if (s.app) {
         loginSw.set(s.app.openAtLogin);

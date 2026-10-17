@@ -42,7 +42,7 @@ account and no relay server.
 | **🔔 Notifications**<br>See one computer's notifications on the other as native notifications. You can hide the message text or mute single apps. | <img src=".github/assets/ui-notifications.jpg" alt="Notifications settings" width="420"> |
 | **⌨️ Terminal**<br>Open a shell on the other computer without passwords, between any two computers. Keys are exchanged over the paired link, so `ssh twindesk` just works in any terminal. | <img src=".github/assets/ui-terminal.jpg" alt="Terminal settings" width="420"> |
 | **🔊 Sound**<br>Hear one computer on the other, in either direction, separate from screen sharing. | <img src=".github/assets/ui-audio.jpg" alt="Audio settings" width="420"> |
-| **📱 Your Android phone**<br>Pair an Android phone and it works like another computer: files from the share sheet, the clipboard, notifications both ways, and through wireless debugging its screen and apps in windows of their own, with your mouse and keyboard across the screen edge. On a Mac, plug it in with a cable and it shows up in Finder. | <img src=".github/assets/ui-phone.jpg" alt="The phone page: wireless debugging ready, the phone in Finder" width="420"> |
+| **📱 Your Android phone**<br>Pair an Android phone and it works like another computer: files from the share sheet, the clipboard, notifications both ways, and through wireless debugging its screen and apps in windows of their own, with your mouse and keyboard across the screen edge. On a Mac, mount it in Finder from the Mount tab. | <img src=".github/assets/ui-phone.jpg" alt="The phone page: wireless debugging ready, the phone in Finder" width="420"> |
 
 TwinDesk also includes:
 
@@ -112,10 +112,9 @@ TwinDesk pairs with once:
   new port every time it restarts, and keeps the pairing from expiring (Android otherwise forgets
   a computer after 7 days unused). Phones that switch it off on every Wi-Fi change or screen lock
   (MIUI, HyperOS) get it switched back on, or a prompt if they refuse.
-- **On a Mac, the phone in Finder.** Plug the phone in with a USB cable and TwinDesk asks whether to
-  mount it; it shows under Locations like any server (Phone page › Finder, or the menu bar, does
-  it any time). It goes through the cable when USB debugging is allowed, else over wireless
-  debugging. Finder's `.DS_Store` and `._` files never land on the phone.
+- **On a Mac, the phone in Finder.** Turn it on in the Mount tab and click Mount: the phone shows
+  under Locations like any server. Until then TwinDesk never looks at the phone's files. It goes
+  through the cable when USB debugging is allowed, else over wireless debugging. Finder's `.DS_Store` and `._` files never land on the phone.
 
 ## How it works
 
