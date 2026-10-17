@@ -265,7 +265,7 @@ const UI = {
       them: name, us: me, the: name, there: name, There: Name, // older templates
       toMe: name + ' → ' + me,
       fromMe: me + ' → ' + name,
-      limited: 'Not on Linux yet', // the Mac-only tabs (Terminal, Apps) aren't on Linux
+      limited: '', // every tab works with every computer now
     };
   },
 

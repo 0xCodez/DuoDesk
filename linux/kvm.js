@@ -1,15 +1,16 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Shared cursor and keyboard: state machine, Linux side, both roles (this computer drives the Mac,
-// or the Mac drives this computer). Copy of
-// windows/kvm.js without the file drags and file copy/paste (not on Linux yet); gestures are done
-// with the desktop's own shortcuts.
+// or the Mac drives this computer). Copy of windows/kvm.js; gestures are done with the desktop's
+// own shortcuts. File drags across the edge: in, a drop into a folder (dragrecv.js); out, on X11,
+// the helper's edge strip (drop.c) hands us the dragged paths with its `edge` event.
 const P = require('../shared/protocol.js');
 
 const T = P.T;
 const K_TYPES = new Set([T.K_MOVE, T.K_DOWN, T.K_UP, T.K_WHEEL, T.K_KEY_DOWN, T.K_KEY_UP]);
 
 class Kvm {
-  // opts: link, helper, clip, settings (shared object), save(), onChange(); main.js sets onLinked/onWhere
+  // opts: link, helper, clip, fileDrop, fileRecv, dragRecv, settings (shared object), save(), onChange();
+  // main.js sets onLinked/onWhere and fileClip
   constructor(opts) {
     Object.assign(this, opts);
     this.mode = 'home'; // 'home' | 'driving' | 'driven'
@@ -20,6 +21,7 @@ class Kvm {
     this.acceptTimer = null;
     this.keepalive = null;
     this.silence = null;
+    this.dragPending = false; // we crossed with a file drag; cleared when our left button comes up
 
     const link = this.link;
     // kvm.layout is "either": pcSide = the sender's crossing side, which is where this
@@ -49,8 +51,9 @@ class Kvm {
     for (const t of K_TYPES) link.on(t, (m) => this._inject(m));
     link.on(T.K_GESTURE, (m) => this._onGesture(m)); // Trackpad gestures
     link.on('welcome', () => {
-      this.applyConfig();
-      link.send({ t: T.DRAG_POLICY, accept: false }); // no file drags across the edge on Linux yet: the other side keeps them
+      this.peerDrags = true;
+      this.sentDragPolicy = undefined;
+      this.applyConfig(); // re-sends our drag.policy
       // As the host this computer sends the layout (a Mac host sends its own). Default: the other one on the right.
       if (link.hosting) link.send({ t: T.KVM_LAYOUT, pcSide: this.crossingSide || 'right' });
       if (link.hosting && !this.pcSide) this._setPcSide('left');
@@ -61,6 +64,8 @@ class Kvm {
       if (id && id in by && by[id] !== this.linked) this.setLinked(by[id], false, false);
       if (link.hosting) link.send({ t: T.KVM_LINK, on: this.linked });
     });
+    this.peerDrags = true; // the other side's drag.policy (assume yes until told)
+    link.on(T.DRAG_POLICY, (m) => { this.peerDrags = m.accept !== false; this.applyConfig(); });
     link.on('closed', () => {
       this._linkLost('{Name} disconnected');
       this.applyConfig();
@@ -105,9 +110,16 @@ class Kvm {
     return this.link.status.state === 'connected';
   }
 
+  // Drags across the edge go out when our switch and our "send" are on and the other side takes them.
+  _dragsOut() {
+    const f = this.settings.files;
+    return !!(f.edgeDrag && f.dropToMac && this.peerDrags);
+  }
+
   // Tell the helper where the edge is and whether to watch it.
   applyConfig() {
     const k = this.cfg;
+    const f = this.settings.files;
     this.helper.send('kvmConfig', {
       side: this.crossingSide,
       resistancePx: k.resistancePx,
@@ -116,7 +128,17 @@ class Kvm {
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
+      dragFiles: this._dragsOut(), // the edge strip that picks up file drags (X11)
+      shortcuts: !!f.shortcuts, // the copy/paste-files shortcuts at home (fclip.js)
+      copyKeys: f.copyKeys,
+      pasteKeys: f.pasteKeys,
     });
+    // Our switch, for the other side (it doesn't send drags towards us while it's off).
+    const accept = !!(f.edgeDrag && f.acceptFromMac);
+    if (this.connected && accept !== this.sentDragPolicy) {
+      this.sentDragPolicy = accept;
+      this.link.send({ t: T.DRAG_POLICY, accept });
+    }
   }
 
   // Cursor sharing as a whole: off = everything
@@ -166,7 +188,16 @@ class Kvm {
           this.helper.send('capture', { on: false });
           return;
         }
-        this._take({ side: P.opposite(this.crossingSide), offset: msg.offset });
+        {
+          // A file/folder drag crossed (X11 strip): the other side shows it as its own drag; the data follows.
+          const paths = msg.drag && Array.isArray(msg.drag.paths) && this._dragsOut() ? msg.drag.paths.filter((p) => typeof p === 'string') : [];
+          const drag = paths.length ? this.fileDrop.prepareDrag(paths) : null;
+          this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(drag ? { drag: { count: drag.count } } : {}) });
+          if (drag) { // order: kvm.take, drag.start, then the files
+            this.fileDrop.beginDrag(drag);
+            this.dragPending = true;
+          }
+        }
         break;
       // Double-tap: cursor sharing off (everything
       // home) and on again. In keyboard-only mode (Cursor off, "Switch the keyboard with the hotkey"
@@ -199,7 +230,11 @@ class Kvm {
         if (this.mode === 'driven') this._sendHome(msg.offset);
         break;
       case 'ev':
-        if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) this.link.send(msg.ev);
+        if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) {
+          if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there
+          this.link.send(msg.ev);
+          if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released over there
+        }
         break;
       case 'captureEnded': // dead-man, or a grab another app holds: input is back here
         if (this.mode === 'driving') this._release(msg.reason === 'grab' ? 'Another app is holding the mouse or keyboard' : '');
@@ -285,7 +320,10 @@ class Kvm {
       ev.dx = -(Number(ev.dx) || 0);
       ev.dy = -(Number(ev.dy) || 0);
     }
+    if (ev.t === T.K_KEY_DOWN && ev.code === 'Escape' && this.dragRecv && this.dragRecv.dragging) this.dragRecv.cancel('cancelled');
     this.helper.send('inject', { ev });
+    // The other computer released its left button here: its drag drops where the pointer is.
+    if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) { this.fileRecv.onRelease(); if (this.dragRecv) this.dragRecv.onRelease(); }
   }
 
   // A trackpad gesture from the other computer, done with
@@ -336,6 +374,7 @@ class Kvm {
 
   // Rows 8b, 8c, 9b.
   _drivenHome(message, sendClip) {
+    if (this.dragRecv) this.dragRecv.onHome(); // a drag from the other computer not dropped yet is cancelled
     this.helper.send('releaseAll');
     this.helper.send('armReturn', { on: false });
     this._setMode('home', message);
@@ -345,6 +384,7 @@ class Kvm {
   _linkLost(message) {
     if (this.mode === 'driving') this._goHome(message);
     else if (this.mode === 'driven') {
+      if (this.dragRecv) this.dragRecv.onHome();
       this.helper.send('releaseAll');
       this.helper.send('armReturn', { on: false });
       this._setMode('home', message);
@@ -364,6 +404,11 @@ class Kvm {
     this.mode = mode;
     if (was !== mode && this.onWhere) this.onWhere(mode, was); // the switching popup (main.js)
     this.message = message || '';
+    if (mode === 'home' && this.dragPending) { // went home before releasing: the files don't go
+      this.dragPending = false;
+      this.fileDrop.cancelRelease();
+    }
+    if (mode !== 'driving' && this.fileClip) this.fileClip.resetKeys();
     if (mode === 'driving' && was !== 'driving') {
       clearInterval(this.keepalive);
       this.keepalive = setInterval(() => this.helper.send('keepalive'), P.HELPER_KEEPALIVE_MS);

@@ -32,7 +32,7 @@ UI.tab({
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab.
-    // later: not on Linux yet, always off.
+    // later: not on Linux yet, always off (nothing uses it now: Linux has every row).
     const row = (label, tab, get, set, later) => {
       const sw = UI.switch(set || (() => {}), { label, disabled: !set });
       const r = UI.row(label, '', [sw, el('span', { class: 'chev', text: '›' })], { onClick: () => UI.go(tab) });
@@ -50,7 +50,7 @@ UI.tab({
       row('Mouse and keyboard', 'cursor', (s) => s.kvm.beDriven, (v) => api.setKvm({ beDriven: v })),
       row('Clipboard', 'clipboard', (s) => s.clipboard.receive, (v) => api.setClipboard({ receive: v })),
       row('Notifications', 'notifications', (s) => s.notifs.receive, (v) => api.setNotifs({ receive: v })),
-      row('Files', 'files', (s) => s.files.acceptFromMac, (v) => api.setFiles({ acceptFromMac: v })),
+      row('Shared folder', 'files', (s) => s.files.mountMac, (v) => api.setFiles({ mountMac: v })),
       row('Terminal', 'terminal', (s) => s.terminal.allowMac, (v) => api.setTerminal({ allowMac: v })),
       row('Apps', 'apps', (s) => s.apps.open > 0, null),
     ];
@@ -60,7 +60,7 @@ UI.tab({
       row('Mouse and keyboard', 'cursor', (s) => s.kvm.driveOther, (v) => api.setKvm({ driveOther: v })),
       row('Clipboard', 'clipboard', (s) => s.clipboard.send, (v) => api.setClipboard({ send: v })),
       row('Notifications', 'notifications', (s) => s.notifs.send, (v) => api.setNotifs({ send: v })),
-      row('Files', 'files', (s) => s.files.dropToMac, (v) => api.setFiles({ dropToMac: v })),
+      row('Shared folder', 'files', (s) => s.files.shareOn, (v) => api.setShareOn(v)),
       row('Terminal', 'terminal', (s) => s.terminal.enabled, (v) => api.setTerminal({ enabled: v })),
       row('Apps', 'apps', (s) => s.pcApps.allow, (v) => api.setPcApps({ allow: v })),
     ];

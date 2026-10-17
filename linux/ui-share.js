@@ -1,7 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Share screen (copy of windows/ui-share.js): this computer's screen in a window on the
-// other computer, controlled from there. Mirror only on Linux (no virtual monitor yet); on Wayland
-// the desktop asks which screen to share each time sharing starts.
+// other computer, controlled from there. Mirror shows an existing monitor; Extend adds an extra
+// (virtual) screen (vdd.js: Mutter's on GNOME Wayland, a spare output on X11). On Wayland the
+// desktop asks which screen to share each time sharing starts.
 'use strict';
 
 UI.tab({
@@ -20,6 +21,7 @@ UI.tab({
     const set = (partial) => api.setPcScreen(partial);
     const mode = UI.segmented([
       { value: 'off', label: 'Off' },
+      { value: 'extend', label: 'Extend' },
       { value: 'mirror', label: 'Mirror' },
     ], (v) => api.setPcScreenMode(v));
     const monitor = UI.select([], (v) => set({ monitor: v }));
@@ -66,7 +68,8 @@ UI.tab({
       const p = s.pcScreen;
       const connected = s.link.state === 'connected';
       mode.set(p.mode);
-      mode.el.querySelectorAll('button').forEach((b) => { b.disabled = p.busy; });
+      const v = p.vdd;
+      mode.el.querySelectorAll('button').forEach((b, i) => { b.disabled = p.busy || (i === 1 && !v.installed); });
       monitor.options(p.monitors.map((m) => ({ value: m.id, label: m.label })));
       monitor.set(p.monitor || (p.monitors.find((m) => /\(main\)$/.test(m.label)) || p.monitors[0] || { id: '' }).id);
       monitorRow.hidden = p.mode === 'extend';
@@ -87,7 +90,7 @@ UI.tab({
       details.set({
         Status: (!on ? 'Off' : p.busy ? 'Starting the extra screen…' : p.status === 'live' ? 'On ' + who
           : !connected ? 'Waiting for ' + who : !p.mac.accept ? 'Ready, starts when ' + who + ' opens it' : 'Connecting…') + (p.error ? ': ' + p.error : ''),
-        Display: !on ? '' : p.mode === 'extend' ? `TwinDesk virtual display, ${p.extendPx[0]} × ${p.extendPx[1]}` : mon ? mon.label : '',
+        Display: !on ? '' : p.mode === 'extend' ? `Virtual monitor, ${p.extendPx[0]} × ${p.extendPx[1]}` : mon ? mon.label : '',
         Picture: st ? `${st.width} × ${st.height}, ${st.fps} fps` : '',
         Speed: st ? `${st.mbps} Mbps sent` + (st.targetMbps ? `, network allows ${st.targetMbps}` : '') : '',
         'Round trip': st && st.rttMs != null ? st.rttMs + ' ms' : '',
@@ -100,9 +103,14 @@ UI.tab({
       remoteRow.label.textContent = 'Let ' + UI.peer(s).the + ' start and switch this screen';
       remoteRow.setHint(p.remote ? 'Opening the screen window there starts sharing; Extend and Mirror can be switched from there.' : '');
       const wayland = s.session && s.session.type === 'wayland';
-      monitorRow.hidden = wayland;
-      note.set(wayland ? 'Wayland: your desktop asks which screen to share each time sharing starts.'
-        + (s.session.input === 'uinput' ? '' : ' Input from ' + UI.peer(s).the + ' needs input access (General).') : '');
+      monitorRow.hidden = wayland || p.mode === 'extend';
+      const extend = !v.checked ? '' : !v.installed ? (v.message || 'Extend isn’t available on this desktop') + '.'
+        : v.message ? v.message + '.' : '';
+      note.set([
+        wayland ? 'Wayland: your desktop asks which screen to share each time sharing starts' + (p.mode === 'extend' ? ', choose “Virtual remote monitor”.' : '.')
+          + (s.session.input === 'uinput' ? '' : ' Input from ' + UI.peer(s).the + ' needs input access (General).') : '',
+        extend,
+      ].filter(Boolean).join(' '));
     };
   },
 });

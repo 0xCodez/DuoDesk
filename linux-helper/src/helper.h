@@ -55,6 +55,7 @@ void screens_center(int *x, int *y);
 void screens_clamp(int x, int y, int fromX, int fromY, int *ox, int *oy);
 void screens_box(int *x, int *y, int *w, int *h);
 void screens_set(const char *list);
+int screens_monitor(int x, int y, int *mx, int *my, int *mw, int *mh);
 
 // ---- capture.c: XInput2 raw events, edge, hotkey, grabs, dead-man ----
 int capture_init(void);
@@ -69,6 +70,23 @@ void capture_xevent(XEvent *e);
 int capture_active(void);
 void capture_shutdown(void);
 
+// ---- shortcut.c: the copy/paste-files shortcuts at home (both backends) ----
+void shortcut_config(const JObj *c);
+void shortcut_key(int ev, int down, int detect);
+void shortcut_tick(void);
+
+// ---- drop.c: file drags across the edge, out (X11): the edge strip, an XDND drop target ----
+void drop_config(const JObj *c);
+void drop_tick(int capturing, int side, int driveOther, int leftDown);
+void drop_xevent(XEvent *e);
+void drop_shutdown(void);
+// capture.c, called by drop.c: the drag crossed (paths: a built JSON array) / the source let go
+void capture_drag_cross(const char *paths, int x, int y, int sx, int sy, int sw, int sh);
+void capture_drag_dropped(void);
+
+// ---- xclip.c: the files on the clipboard, as an X client (XWayland on Wayland) ----
+void xclip_files(double id);
+
 // ---- inject.c: XTest ----
 void inject_apply(const JObj *ev);
 void inject_move_to(int x, int y);
@@ -80,6 +98,7 @@ void wins_raise(unsigned long wid);
 void wins_close(unsigned long wid);
 void wins_size(unsigned long wid, int w, int h);
 void wins_move(unsigned long wid, double x, double y);
+void wins_info(double id, int atPointer);
 
 // ---- wl.c: Wayland backend (evdev + uinput) ----
 struct pollfd;

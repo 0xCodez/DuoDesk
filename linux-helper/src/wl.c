@@ -358,6 +358,7 @@ void wl_config(const JObj *c) {
   edgeKeyboard = jbool(c, "keyboard", 1);
   deadmanMs = jnum(c, "deadmanMs", 1500);
   doubleTapMs = jnum(c, "doubleTapMs", 400);
+  shortcut_config(c);
 }
 
 void wl_touch(void) { lastCmd = now_ms(); }
@@ -414,7 +415,7 @@ static void flush_hotkey(void) {
 // value: 1 down, 0 up, 2 autorepeat (sent as another k.kd, like the PC)
 static void on_key(int ev, int value) {
   if (ev < 0 || ev > 255) return;
-  if (value != 2) localKeys[ev] = (unsigned char)value;
+  if (value != 2) { localKeys[ev] = (unsigned char)value; shortcut_key(ev, value, !capturing); }
   int hot = value == 2 ? 0 : detect_hotkey(ev, value);
   if (capturing && capKeys) {
     if (is_hotkey(ev)) {
@@ -580,6 +581,7 @@ void wl_read(struct pollfd *p, int n) {
 
 void wl_tick(void) {
   double now = now_ms();
+  shortcut_tick();
   if (now - lastScan > 3000) scan(); // hot-plugged devices
   if (wantCapture && ((!any(localKeys, 256) && !any(localButtons, 8)) || now - wantSince > 1000)) really_begin(wantMouse, wantKeys);
   if (capturing && now - lastCmd > deadmanMs) {

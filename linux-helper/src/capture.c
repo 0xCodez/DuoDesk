@@ -43,6 +43,14 @@ static double retResistance, retPush, retLast;
 static int repeatEv = -1;
 static double repeatAt, repeatDelay = 500, repeatInterval = 33;
 
+// a file drag crossing (drop.c): capturing while the file manager's drag still holds the pointer
+// and keyboard grabs; a barrier keeps the pointer on the strip until the real button-up, then
+// capture takes its grabs (softUp)
+static int soft, softUp, leftDown;
+static double softSince;
+static PointerBarrier bars[3];
+static int nbars;
+
 // hotkey double-tap
 static int hkDown;
 static double lastTapUp = -1;
@@ -145,6 +153,8 @@ void capture_config(const JObj *c) {
   edgeKeyboard = jbool(c, "keyboard", 1);
   deadmanMs = jnum(c, "deadmanMs", 1500);
   doubleTapMs = jnum(c, "doubleTapMs", 400);
+  shortcut_config(c);
+  drop_config(c);
 }
 
 void capture_touch(void) { lastCmd = now_ms(); }
@@ -220,10 +230,17 @@ int capture_begin(int mouse, int keys) {
   return 1;
 }
 
+static void drop_barriers(void) {
+  for (int i = 0; i < nbars; i++) XFixesDestroyPointerBarrier(dpy_in, bars[i]);
+  nbars = 0;
+  XFlush(dpy_in);
+}
+
 // hasSide == 0: put the pointer back where capture began.
 void capture_stop(int toSide, double offset, int hasSide) {
   if (!capturing) return;
   capturing = 0;
+  if (soft) { soft = softUp = 0; drop_barriers(); }
   // Rule 5: whatever is still held was pressed remotely; its release stays swallowed here.
   for (int i = 0; i < 256; i++) if (heldKeys[i]) swallowKeys[i] = 1;
   for (int i = 0; i < 32; i++) if (heldButtons[i]) swallowButtons[i] = 1;
@@ -251,9 +268,71 @@ void capture_arm_return(int on, int s, double resistance) {
 
 static void repeat_tick(double now);
 
+// The drag crossed: capture now without grabs (the file manager holds them), the pointer held on
+// the strip (sx… : its rectangle), and tell main `edge {offset, drag:{paths}}`.
+void capture_drag_cross(const char *paths, int x, int y, int sx, int sy, int sw, int sh) {
+  if (capturing || !driveOther || side == SIDE_NONE) return;
+  capturing = 1; capMouse = 1; capKeys = edgeKeyboard;
+  soft = 1; softUp = 0; softSince = now_ms();
+  memset(heldKeys, 0, sizeof heldKeys);
+  memset(heldButtons, 0, sizeof heldButtons); // the left button's release goes over: it drops there
+  capture_touch();
+  push = 0;
+  savedX = x < sx ? sx : x > sx + sw - 1 ? sx + sw - 1 : x;
+  savedY = y < sy ? sy : y > sy + sh - 1 ? sy + sh - 1 : y;
+  XWarpPointer(dpy_in, None, root_in, 0, 0, 0, 0, savedX, savedY);
+  // Barriers let the pointer move along the strip but not off it (directions = where it may pass).
+  int r = sx + sw, b = sy + sh;
+  nbars = 0;
+  if (side == SIDE_LEFT || side == SIDE_RIGHT) {
+    int bx = side == SIDE_RIGHT ? sx : r;
+    bars[nbars++] = XFixesCreatePointerBarrier(dpy_in, root_in, bx, sy, bx, b, side == SIDE_RIGHT ? BarrierPositiveX : BarrierNegativeX, 0, NULL);
+    bars[nbars++] = XFixesCreatePointerBarrier(dpy_in, root_in, sx, sy, r, sy, 0, 0, NULL);
+    bars[nbars++] = XFixesCreatePointerBarrier(dpy_in, root_in, sx, b, r, b, 0, 0, NULL);
+  } else {
+    int by = side == SIDE_BOTTOM ? sy : b;
+    bars[nbars++] = XFixesCreatePointerBarrier(dpy_in, root_in, sx, by, r, by, side == SIDE_BOTTOM ? BarrierPositiveY : BarrierNegativeY, 0, NULL);
+    bars[nbars++] = XFixesCreatePointerBarrier(dpy_in, root_in, sx, sy, sx, b, 0, 0, NULL);
+    bars[nbars++] = XFixesCreatePointerBarrier(dpy_in, root_in, r, sy, r, b, 0, 0, NULL);
+  }
+  if (!cursorHidden) { XFixesHideCursor(dpy_ev, root_ev); cursorHidden = 1; }
+  XFlush(dpy_in);
+  XFlush(dpy_ev);
+  size_t cap = strlen(paths) + 128;
+  char *line = malloc(cap);
+  snprintf(line, cap, "{\"event\":\"edge\",\"offset\":%.4f,\"drag\":{\"paths\":%s}}", screens_offset(x, y, side), paths);
+  emit(line);
+  free(line);
+}
+
+// The file manager's drag ended on the strip (drop.c): take the grabs as soon as it lets go.
+void capture_drag_dropped(void) {
+  if (soft) softUp = 1;
+}
+
+// One try each tick: the file manager gives its grabs back right after the drop.
+static void soft_tick(double now) {
+  if (!soft || (!softUp && now - softSince < 60000)) return;
+  if (!ptrGrabbed && XGrabPointer(dpy_in, root_in, False, 0, GrabModeAsync, GrabModeAsync, None, None, CurrentTime) == GrabSuccess) ptrGrabbed = 1;
+  if (capKeys && !kbGrabbed && XGrabKeyboard(dpy_in, root_in, False, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess) kbGrabbed = 1;
+  if (!ptrGrabbed || (capKeys && !kbGrabbed)) {
+    if (now - softSince > 65000) capture_stop(SIDE_NONE, 0, 0); // never let go: give everything back
+    return;
+  }
+  soft = softUp = 0;
+  drop_barriers();
+  int cx, cy;
+  screens_center(&cx, &cy); // parked in the middle, like any capture
+  XWarpPointer(dpy_ev, None, root_ev, 0, 0, 0, 0, cx, cy);
+  XFlush(dpy_ev);
+}
+
 void capture_tick(void) {
   double now = now_ms();
   repeat_tick(now);
+  shortcut_tick();
+  soft_tick(now);
+  drop_tick(capturing, side, driveOther, leftDown);
   if (capturing && now - lastCmd > deadmanMs) {
     capture_stop(SIDE_NONE, 0, 0); // rule 1: a hung main or a dead link never keeps the user's input
     JOut o;
@@ -272,6 +351,7 @@ void capture_tick(void) {
 
 void capture_shutdown(void) {
   if (capturing) capture_stop(SIDE_NONE, 0, 0);
+  drop_shutdown();
   memset(swallowKeys, 0, sizeof swallowKeys);
   memset(swallowButtons, 0, sizeof swallowButtons);
   release_grabs();
@@ -345,6 +425,7 @@ static void flush_hotkey(void) {
 
 static void on_key(int ev, int down) {
   if (ev < 0 || ev > 255) return;
+  shortcut_key(ev, down, !capturing);
   int hot = detect_hotkey(ev, down);
   if (!down && swallowKeys[ev]) { swallowKeys[ev] = 0; release_grabs(); if (hot) fire_hotkey(); return; }
   if (capturing && capKeys) {
@@ -369,6 +450,7 @@ static void on_key(int ev, int down) {
 // X buttons: 1 left, 2 middle, 3 right, 4/5 wheel up/down, 6/7 wheel left/right, 8/9 back/forward.
 static void on_button(int xb, int down) {
   if (xb < 0 || xb >= 32) return;
+  if (xb == 1) { leftDown = down; if (!down && soft) softUp = 1; }
   if (!down && swallowButtons[xb]) { swallowButtons[xb] = 0; release_grabs(); return; }
   if (!capturing || !capMouse) return;
   if (xb >= 4 && xb <= 7) {

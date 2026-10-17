@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Share screen (copy of windows/pcscreen.js): this computer's
-// screen in a window on the other one. Mirror only (no virtual monitor on Linux yet). On X11 each
-// monitor is a desktopCapturer source; on Wayland the desktop's portal asks which screen to share
-// (PipeWire), once per start. The screen's sound comes from loopback.js. Sharing starts off every
+// screen in a window on the other one. Mirror = one existing monitor; Extend = the virtual monitor
+// (vdd.js). On X11 each monitor is a desktopCapturer source; on Wayland the desktop's portal asks
+// which screen to share (PipeWire), once per start. The screen's sound comes from loopback.js. Sharing starts off every
 // time the app starts. We offer an `rtc2` session (kind `screen` / `screen+audio`) while sharing is
 // on and the Mac's `screen.policy` accepts (sender.js); `in.*` without `wid` from the Mac are
 // injected by the helper (remote-input.js).
@@ -26,16 +26,12 @@ function screenRect(d) {
   return { x: Math.round(b.x * k), y: Math.round(b.y * k), width: Math.round(b.width * k), height: Math.round(b.height * k) };
 }
 
-// No virtual display driver on Linux: Extend is never offered.
-const NO_VDD = { state: { installed: false, on: false }, mon: null, view: () => ({ checked: true, installed: false, on: false }),
-  find: async () => null, setOn: async () => null, addMode: () => false, setMode: async () => {} };
-
 const T = P.T;
 
 class PcScreen {
-  // opts: link, helper, sender, vdd, settings (shared), inputAllowed() (KVM at home), onChange()
+  // opts: link, helper, sender, vdd, settings (shared), popup(kind, text), inputAllowed() (KVM at home), onChange()
   constructor(opts) {
-    Object.assign(this, { vdd: NO_VDD }, opts);
+    Object.assign(this, opts);
     this.mode = 'off'; // 'off' | 'mirror' | 'extend' — never saved
     this.mac = { accept: false, width: 0, height: 0, told: false }; // the viewer's screen.policy (told: it sent one)
     this.sending = null; // {session, displayId, rect (physical px), key}
@@ -90,7 +86,7 @@ class PcScreen {
 
   async setMode(mode) {
     if (!['off', 'mirror', 'extend'].includes(mode) || this.busy) return;
-    if (mode === 'extend' && !this.vdd.state.installed) mode = 'mirror'; // no virtual display driver
+    if (mode === 'extend' && !this.vdd.state.installed) mode = 'mirror'; // this desktop can't add a virtual monitor
     const was = this.mode;
     if (mode !== 'off') this.lastMode = mode;
     this.mode = mode;
@@ -155,7 +151,9 @@ class PcScreen {
     if (this.mode === 'extend') {
       const mon = await this.vdd.find().catch(() => null);
       if (!mon) return null;
-      return all.find((d) => { const r = screenRect(d); return r.x === mon.x && r.y === mon.y; }) || null;
+      // Wayland: Mutter's geometry when Electron doesn't list the new monitor (yet).
+      return all.find((d) => { const r = screenRect(d); return r.x === mon.x && r.y === mon.y; })
+        || (WAYLAND ? { id: mon.name, label: 'Virtual remote monitor', bounds: { x: mon.x, y: mon.y, width: mon.width, height: mon.height }, scaleFactor: 1 } : null);
     }
     return all.find((d) => String(d.id) === this.cfg.monitor) || displays.getPrimaryDisplay();
   }
@@ -186,6 +184,8 @@ class PcScreen {
     const fps = PcScreen.fps(d);
     const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound, fps].join(',');
     if (this.sending && this.sending.key === key) return;
+    // Wayland: the portal's picker lists the virtual monitor with the others.
+    if (WAYLAND && this.mode === 'extend' && this.popup) this.popup('away', 'Choose “Virtual remote monitor” to extend onto {name}');
     let sources;
     try {
       sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
@@ -208,7 +208,7 @@ class PcScreen {
     Object.assign(this.status, { status: 'starting', error: '', name: d.label || src.name, width: rect.width, height: rect.height });
   }
 
-  // What we offer the viewer: Extend only with the virtual display driver.
+  // What we offer the viewer: Extend only where this desktop can add a virtual monitor.
   _modes() {
     return this.vdd.state.installed ? ['extend', 'mirror'] : ['mirror'];
   }

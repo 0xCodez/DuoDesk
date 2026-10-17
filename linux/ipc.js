@@ -1,16 +1,16 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Main-window actions (preload-app.js → here; copy of windows/ipc.js without the shared folder and
-// the virtual display). Every value is validated by settings.apply().
+// Main-window actions (preload-app.js → here; copy of windows/ipc.js). Every value is validated by
+// settings.apply().
 const { app, ipcMain, dialog, shell, BrowserWindow, clipboard } = require('electron');
 const path = require('path');
 const P = require('../shared/protocol.js');
 const { LINKS } = require('../shared/about.js');
 const { apply } = require('./settings');
 
-// ctx: link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps,
-//      pcApps, peerApps, settings, save(), push(), buildState(), checkFirewall(), fixFirewall(), setStartup(on)
+// ctx: link, discovery, screen, clip, kvm, fileDrop, smb, fileClip, vdd, sound, pcScreen, notifs, wake, terminal,
+//      sshd, apps, pcApps, peerApps, settings, save(), push(), buildState(), checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
-  const { link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, settings } = ctx;
+  const { link, discovery, screen, clip, kvm, fileDrop, smb, fileClip, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, settings } = ctx;
 
   const handle = (name, fn) => ipcMain.handle(name, (_e, ...args) => fn(...args));
   const change = (section, partial, after) => {
@@ -92,10 +92,20 @@ function setupIpc(ctx) {
   handle('setMacApps', (partial) => change('macApps', partial, () => peerApps.apply()));
   handle('setPcApps', (partial) => change('pcApps', partial, () => { pcApps.apply(); pcApps.input.release(); }));
   handle('setFiles', (partial) => {
-    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, acceptFromMac: partial.acceptFromMac } : {};
+    // shareOn/shareFolder only change through share()/unshare()
+    const p = partial && typeof partial === 'object' ? { dropToMac: partial.dropToMac, mountMac: partial.mountMac, acceptFromMac: partial.acceptFromMac, edgeDrag: partial.edgeDrag,
+      shortcuts: partial.shortcuts, copyKeys: partial.copyKeys, pasteKeys: partial.pasteKeys } : {};
     Object.keys(p).forEach((k) => p[k] === undefined && delete p[k]);
-    change('files', p);
+    change('files', p, () => { smb.applyMount(); kvm.applyConfig(); fileClip.apply(); });
   });
+  handle('setShareOn', (on) => smb.setShareOn(on === true));
+  handle('chooseShareFolder', async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    const r = await dialog.showOpenDialog(win, { title: 'Folder to share with the other computer', properties: ['openDirectory', 'createDirectory'] });
+    if (!r.canceled && r.filePaths[0]) await smb.chooseFolder(r.filePaths[0]);
+  });
+  handle('removeShare', () => smb.unshare());
+  handle('openMacDrive', () => smb.open());
   // Send files (paths from the drop zone or Choose…), notifications.
   const sendFiles = (paths) => {
     const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && path.isAbsolute(p)).slice(0, 1000);
@@ -115,7 +125,8 @@ function setupIpc(ctx) {
   handle('muteNotifApp', (arg) => arg && typeof arg.app === 'string' && notifs.setMuted(arg.app.slice(0, 300), arg.muted === true));
   handle('cancelDrop', () => fileDrop.cancel());
   handle('setPcScreen', (partial) => {
-    change('pcScreen', partial, () => { pcScreen.applyInput(); if (!settings.pcScreen.input) pcApps.input.release(); pcScreen.apply(); });
+    const size = settings.pcScreen.extendSize;
+    change('pcScreen', partial, () => { pcScreen.applyInput(); if (!settings.pcScreen.input) pcApps.input.release(); if (settings.pcScreen.extendSize !== size) pcScreen.sizeExtend(); else pcScreen.apply(); });
   });
   handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
   handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing }));

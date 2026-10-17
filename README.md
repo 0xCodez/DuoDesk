@@ -66,13 +66,26 @@ TwinDesk also includes:
 | Mac ↔ Windows PC | Every feature above |
 | Mac ↔ Mac | Every feature above |
 | PC ↔ PC | Every feature above |
-| Linux ↔ Mac, PC or Linux | Screen (Mirror), mouse and keyboard, clipboard, sound, Send files, notifications, terminal, apps and wake-on-LAN |
+| Linux ↔ Mac, PC or Linux | Every feature above (see the notes below) |
 
 On Linux, TwinDesk runs on both X11 and Wayland. On Wayland, the mouse and keyboard go through
 evdev and uinput (the Setup screen grants access once), and screens are captured through the
-desktop portal. Opening this computer's apps on the other side needs an Xorg session. These aren't
-on Linux yet: the shared folder, copy and paste of files with shortcuts, dragging files across the
-screen edge, and Extend.
+desktop portal. A few things work a little differently:
+
+- **Shared folder.** Sharing uses Samba. The first time, one password prompt installs it if it's
+  missing and adds a network-only account. The other computer's folder is connected with GVFS
+  and shows in the file manager's sidebar.
+- **Copy and paste files.** <kbd>Ctrl+Alt+C</kbd> copies what's selected in the file manager in
+  front (or files you already copied), and <kbd>Ctrl+Alt+V</kbd> pastes into the file manager
+  window in front (else Downloads). Right-click › *Send to* works in Nautilus, Nemo, Caja,
+  Dolphin and Thunar.
+- **Dragging files across the edge.** Files dragged in from the other computer are dropped into
+  the folder under the pointer, or the desktop. On Wayland, they go to the file manager window in
+  front. Dragging files out of Linux needs an Xorg session.
+- **Extend.** On GNOME (Wayland) it uses Mutter's own virtual monitor; pick "Virtual remote
+  monitor" when the desktop asks which screen to share. On X11 it uses a spare output of the
+  graphics driver (not available on NVIDIA's driver).
+- **Apps.** Opening this computer's apps on the other side needs an Xorg session.
 
 ## How it works
 
@@ -91,7 +104,7 @@ capturing and injecting input, virtual displays, gestures, window capture and na
 | `windows/` | Windows app (Electron) and installer |
 | `windows-helper/` | Windows helper (C#): hooks, SendInput, Raw Input touchpad, window capture, native drag |
 | `linux/` | Linux app (Electron) |
-| `linux-helper/` | Linux helper (C): XInput2 / XTest on X11, evdev / uinput on Wayland, XRandR, window list |
+| `linux-helper/` | Linux helper (C): XInput2 / XTest on X11, evdev / uinput on Wayland, XRandR, window list, XDND edge strip |
 | `shared/` | Wire protocol, frame generation and icons used by every app |
 
 Ports: TCP **47800** (control link) and UDP **47801** (discovery) on the local network.
@@ -143,7 +156,9 @@ npm run dist                    # AppImage and .deb in linux/dist/
 ```
 
 The Setup screen walks you through the rest. On Wayland that means input access (one admin
-prompt, then log out and back in once). It can also install OpenSSH for the terminal.
+prompt, then log out and back in once). It can also install OpenSSH for the terminal. Extend on
+GNOME Wayland uses Python 3 with GObject and GStreamer's PipeWire plugin (`python3-gi`,
+`gstreamer1.0-pipewire`), which GNOME desktops already have.
 
 
 ## Privacy

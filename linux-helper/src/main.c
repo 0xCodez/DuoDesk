@@ -48,6 +48,11 @@ static void dispatch(const char *line) {
   const char *cmd = jstr(c, "cmd", "");
   const char *error = NULL;
   char extra[200] = "";
+  if (!strcmp(cmd, "clipFiles")) { // both backends: an X client of its own (xclip.c)
+    xclip_files(jnum(c, "id", 0));
+    json_free(c);
+    return;
+  }
   if (wl) {
     wl_touch();
     if (!strcmp(cmd, "ping") || !strcmp(cmd, "keepalive")) {
@@ -91,6 +96,10 @@ static void dispatch(const char *line) {
     // X11: XRandR knows better
   } else if (!strcmp(cmd, "windows")) {
     wins_list(jnum(c, "id", 0)); // its own (long) reply
+    json_free(c);
+    return;
+  } else if (!strcmp(cmd, "activeWindow") || !strcmp(cmd, "windowAt")) {
+    wins_info(jnum(c, "id", 0), !strcmp(cmd, "windowAt")); // its own reply
     json_free(c);
     return;
   } else if (!strcmp(cmd, "winRaise")) {
@@ -247,9 +256,10 @@ int main(void) {
       XNextEvent(dpy_ev, &e);
       capture_xevent(&e);
     }
-    while (XPending(dpy_in)) { // core events delivered to the grab (capture.c): not used
+    while (XPending(dpy_in)) { // core events delivered to the grab (capture.c): not used; drop.c's XDND
       XEvent e;
       XNextEvent(dpy_in, &e);
+      drop_xevent(&e);
     }
     struct pollfd p[3] = { { 0, POLLIN, 0 }, { xfd, POLLIN, 0 }, { ConnectionNumber(dpy_in), POLLIN, 0 } };
     poll(p, 3, 20);

@@ -10,9 +10,6 @@
 
 const P = require('../shared/protocol.js');
 
-// Not on Linux yet: copying files with shortcuts (fclip.*): never sent, never taken.
-const NOT_HERE = /^fclip\./;
-
 class Peer {
   constructor(link) {
     this.link = link;
@@ -85,7 +82,7 @@ class Peer {
   }
 
   send(obj) {
-    if (!obj || !this._allowed(obj.t)) return false;
+    if (!obj) return false;
     if (!this.hosting) return this.link.send(obj);
     for (const m of P.swapRole(obj, this.swapOut)) this.server.send(this.server.current, m);
     return true;
@@ -138,17 +135,12 @@ class Peer {
   forgetGuest(id) { if (this.pairing) this.pairing.forget(id); }
 
   _deliver(msg) {
-    if (!this._allowed(msg.t)) return;
     const fns = this.handlers.get(msg.t);
     if (fns) for (const fn of fns) fn(msg);
     else if (!this.unknown.has(msg.t)) {
       this.unknown.add(msg.t);
       console.log('[peer] ignoring message type', msg.t);
     }
-  }
-
-  _allowed(t) {
-    return !NOT_HERE.test(t);
   }
 
   _emit(type, msg) {

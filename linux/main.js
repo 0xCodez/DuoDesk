@@ -4,7 +4,9 @@
 // window; L3 mouse and keyboard (kvm.js + linux-helper); L4 the host role (server, pairing
 // responder, peer.js with P.swapRole: Linux ↔ Linux, Linux ↔ PC); L5 this screen and sound on the
 // other computer, files, notifications, wake; L6 Wayland (portal screen capture; input through the
-// helper's uinput backend); L7 packages (package.json "build").
+// helper's uinput backend); L7 packages (package.json "build"); L8 the shared folder (Samba + GVFS),
+// copy/paste of files with shortcuts, file drags across the edge, the file managers' Send to, and
+// Extend (a virtual monitor from Mutter on Wayland, a spare output on X11).
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification } = require('electron');
 const { Updates } = require('../shared/updates.js');
 const { aboutInfo } = require('../shared/about.js');
@@ -27,6 +29,11 @@ const Hud = require('./hud');
 const Sound = require('./sound');
 const FileDrop = require('./filedrop');
 const FileRecv = require('./filerecv');
+const DragRecv = require('./dragrecv');
+const FileClip = require('./fclip');
+const Smb = require('./smb');
+const SendTo = require('./sendto');
+const Vdd = require('./vdd');
 const PcScreen = require('./pcscreen');
 const Sender = require('./sender');
 const Notifs = require('./notifs');
@@ -58,8 +65,11 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the other computer
   // Starting TwinDesk again shows the window (no tray on some desktops); a Mac app's launcher starts
-  // "twindesk --mac-app=<id>": open that app instead.
-  app.on('second-instance', (_e, argv) => { if (!openMacAppArg(argv)) showMain(); });
+  // "twindesk --mac-app=<id>": open that app instead; the file managers' Send to, --send-files.
+  app.on('second-instance', (_e, argv) => {
+    if (sendTo && sendTo.handle(argv)) return;
+    if (!openMacAppArg(argv)) showMain();
+  });
   app.whenReady().then(start);
 }
 
@@ -79,6 +89,10 @@ let kvm = null;
 let sound = null;
 let fileDrop = null;
 let fileRecv = null;
+let fileClip = null;
+let smb = null;
+let sendTo = null;
+let vdd = null;
 let pcScreen = null;
 let notifs = null;
 let wake = null;
@@ -149,13 +163,15 @@ function start() {
   fileDrop = new FileDrop({ link, settings, onProgress: (v) => { screen.sendDropProgress(fillAll(v)); pushState(); } });
   screen.fileDrop = fileDrop;
   sound = new Sound({ link, settings, onChange: pushState });
+  smb = new Smb({ link, settings, save: saveSettings, onChange: pushState });
   terminal = new Terminal({ link, settings, onChange: pushState });
   sshd = new Sshd({ link, settings, save: saveSettings, onChange: pushState });
   // The helper: X11 (XInput2 + XTest), or on Wayland its uinput backend when /dev/uinput is ours.
   helper = new Helper(() => system.inputBlocker(session));
   fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
-  kvm = new Kvm({ link, helper, clip, settings, save: saveSettings, onChange: onKvmChange });
   hud = new Hud(() => settings);
+  const dragRecv = new DragRecv({ link, helper, settings, isDriven: () => kvm && kvm.mode === 'driven', popup: (kind, text) => hud.show(kind, text), onChange: pushState });
+  kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, dragRecv, settings, save: saveSettings, onChange: onKvmChange });
   const hudShow = hud.show.bind(hud);
   hud.show = (kind, text, sub) => hudShow(kind, fillNames(text), fillNames(sub || '')); // device names in popups
   // Cursor sharing switched on/off (hotkey double-tap, tray, the Cursor tab or the other side): the big card.
@@ -183,9 +199,9 @@ function start() {
     hud.show(kind, text);
   };
   fileRecv.onBatchProgress = (b) => {
-    if (Date.now() - b.at < 400) return;
+    if (Date.now() - b.at < 400) return; // small batches: only the "Pasted" / "Received" popup
     const part = b.total ? pct(b.got, b.total) : pct(b.done, b.count);
-    progressPopup('driven', 'Receiving ' + plural(b.count, 'file') + ' from ' + peerName() + ' · ' + part + ' %');
+    progressPopup('driven', (b.kind === 'paste' ? 'Pasting ' : 'Receiving ') + plural(b.count, 'file') + ' from ' + peerName() + ' · ' + part + ' %');
   };
   fileDrop.onBatchProgress = (b) => {
     if (!(b.bytes > 5 * 1024 * 1024)) return;
@@ -193,12 +209,19 @@ function start() {
     progressPopup('away', 'Sending ' + b.name + ' to ' + peerName() + ' · ' + pct(b.sent, b.bytes) + ' %');
   };
   fileRecv.onBatch = (b) => {
-    if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
+    if (b.kind === 'paste') fileClip.pasted(b);
+    else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
   };
+  // Copy/paste files with shortcuts (the helper watches the keys), the file managers' Send to.
+  fileClip = new FileClip({ link, helper, fileDrop, fileRecv, settings, peerName, popup: (kind, text) => hud.show(kind, text), onChange: pushState });
+  kvm.fileClip = fileClip; // our copy/paste shortcut while driving → fclip.key
+  sendTo = new SendTo({ link, fileDrop, peerName: () => (peerView() || {}).name || '', popup: (kind, text, sub) => hud.show(kind, text, sub) });
   notifs = new Notifs({ link, helper, settings, save: saveSettings, peerName, onChange: pushState });
   wake = new Wake({ link, settings, save: saveSettings, onChange: pushState, address: () => ownAddresses()[0] });
   const sender = new Sender(link);
-  pcScreen = new PcScreen({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
+  vdd = new Vdd({ onChange: pushState });
+  pcScreen = new PcScreen({ link, helper, sender, vdd, settings, popup: (kind, text) => hud.show(kind, text), inputAllowed: () => kvm.mode === 'home', onChange: pushState });
+  vdd.check(); // Extend: can this desktop add a virtual monitor? (and one left on by a crash goes)
   apps = new Apps({ link, allowed: () => settings.macApps.on, getMonitor: () => screen.win, popup: (kind, text) => hud.show(kind, text), peerName, onChange: pushState, onWatch: () => screen.policy() });
   screen.apps = apps;
   pcApps = new PcApps({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
@@ -219,7 +242,7 @@ function start() {
     },
   });
   updates.start();
-  const ipc = setupIpc({ link, discovery, screen, clip, kvm, fileDrop, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, updates, settings, save: saveSettings, push: pushState, buildState,
+  const ipc = setupIpc({ link, discovery, screen, clip, kvm, fileDrop, smb, fileClip, vdd, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, updates, settings, save: saveSettings, push: pushState, buildState,
     checkFirewall, fixFirewall, fixInput, setStartup, onApp: () => updateTray(buildState()) });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', pushState);
@@ -231,7 +254,7 @@ function start() {
 
   createTray();
   createMainWindow();
-  openMacAppArg(process.argv);
+  if (!sendTo.handle(process.argv)) openMacAppArg(process.argv);
   checkFirewall();
   if (process.argv.includes('--test-monitor')) screen.open(true); // dev: ?test=1 pattern
 }
@@ -292,6 +315,7 @@ function pushState() {
     pushQueued = false;
     const s = buildState();
     if (pcScreen) pcScreen.sendState(); // the viewer learns what we share
+    if (sendTo) sendTo.sync(s.peer && s.peer.name); // the Send to entries follow the peer's name
     if (pairSync) pairSync.check(); // tell the other computer what changed here
     const phase = s.pairing ? s.pairing.phase : null;
     if (phase === 'code' && lastPairPhase !== 'code') showMain(); // a code to compare: to the front
@@ -363,7 +387,7 @@ function buildState() {
     session: { ...session, input: helper.backend || '', access: session.type === 'wayland' ? system.inputAccess() : null, inputNote, helperError: helper.error || '' },
     audio: { ...settings.audio, ...sound.view() },
     pcScreen: pcScreen.view(),
-    files: { ...settings.files, ...fileDrop.view(), incoming: fileRecv.view() },
+    files: { ...settings.files, ...fileDrop.view(), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags, clip: fileClip.view(), session: session.type },
     terminal: { ...settings.terminal, ...terminal.view(), installedKey: undefined, server: sshd.view() },
     apps: link.peerOs === P.OS.MAC ? apps.view() : peerApps.view(), // a PC's or Linux computer's apps come through peerapps.js
     pcApps: pcApps.view(),

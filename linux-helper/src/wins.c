@@ -185,3 +185,73 @@ void wins_move(unsigned long wid, double x, double y) {
   if (!geometry((Window)wid, &wx, &wy, &ww, &hh, &v, &o)) return;
   inject_move_to(wx + (int)(x * (ww - 1) + 0.5), wy + (int)(y * (hh - 1) + 0.5));
 }
+
+// The app window holding w (w itself, or the child with WM_STATE under a window manager's frame).
+static Window client_of(Window w, int depth) {
+  Atom at;
+  int fmt;
+  unsigned long n = 0, after;
+  unsigned char *data = NULL;
+  if (XGetWindowProperty(dpy_in, w, atom("WM_STATE"), 0, 0, False, AnyPropertyType, &at, &fmt, &n, &after, &data) == Success && at != None) {
+    if (data) XFree(data);
+    return w;
+  }
+  if (data) XFree(data);
+  if (depth > 4) return 0;
+  Window rr, pr, *kids = NULL;
+  unsigned nk = 0;
+  Window found = 0;
+  if (XQueryTree(dpy_in, w, &rr, &pr, &kids, &nk)) {
+    for (unsigned i = nk; i-- > 0 && !found;) found = client_of(kids[i], depth + 1); // topmost first
+    if (kids) XFree(kids);
+  }
+  return found;
+}
+
+// `activeWindow` / `windowAt` (under the pointer): which app window it is, for linux/fm.js (the
+// file manager's folder for pastes and drops). GTK apps name their D-Bus window object.
+void wins_info(double id, int atPointer) {
+  Window w = 0;
+  if (atPointer) {
+    Window rr, child = 0;
+    int rx, ry, wx, wy;
+    unsigned m;
+    XQueryPointer(dpy_in, root_in, &rr, &child, &rx, &ry, &wx, &wy, &m);
+    if (child) w = client_of(child, 0);
+    if (!w) w = child; // no window manager (or an override-redirect window): the top-level itself
+  } else {
+    unsigned long a = 0;
+    if (prop_longs(root_in, atom("_NET_ACTIVE_WINDOW"), XA_WINDOW, &a, 1)) w = (Window)a;
+  }
+  size_t cap = 2048, len = 0;
+  char *buf = malloc(cap);
+  char head[96];
+  snprintf(head, sizeof head, "{\"id\":%.0f,\"ok\":true,\"wid\":%lu", id, (unsigned long)w);
+  put_raw(&buf, &len, &cap, head);
+  if (w) {
+    static const char *DESK[] = { "_NET_WM_WINDOW_TYPE_DESKTOP", NULL };
+    char *title = prop_text(w, atom("_NET_WM_NAME"));
+    if (!title) title = prop_text(w, XA_WM_NAME);
+    char *object = prop_text(w, atom("_GTK_WINDOW_OBJECT_PATH"));
+    char *bus = prop_text(w, atom("_GTK_UNIQUE_BUS_NAME"));
+    char *app = prop_text(w, atom("_GTK_APPLICATION_ID"));
+    XClassHint ch = { 0 };
+    XGetClassHint(dpy_in, w, &ch);
+    put_raw(&buf, &len, &cap, has_type(w, DESK) ? ",\"desktop\":true" : ",\"desktop\":false");
+    const char *keys[] = { "title", "object", "bus", "app", "cls", "inst" };
+    const char *vals[] = { title, object, bus, app, ch.res_class, ch.res_name };
+    for (int i = 0; i < 6; i++) {
+      put_raw(&buf, &len, &cap, ",\"");
+      put_raw(&buf, &len, &cap, keys[i]);
+      put_raw(&buf, &len, &cap, "\":");
+      put_str(&buf, &len, &cap, vals[i]);
+    }
+    free(title); free(object); free(bus); free(app);
+    if (ch.res_class) XFree(ch.res_class);
+    if (ch.res_name) XFree(ch.res_name);
+  }
+  put_raw(&buf, &len, &cap, "}");
+  buf[len] = 0;
+  emit(buf);
+  free(buf);
+}

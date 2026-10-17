@@ -175,3 +175,11 @@ void screens_clamp(int x, int y, int fromX, int fromY, int *ox, int *oy) {
   *ox = x < m->x ? m->x : x > m->x + m->w - 1 ? m->x + m->w - 1 : x;
   *oy = y < m->y ? m->y : y > m->y + m->h - 1 ? m->y + m->h - 1 : y;
 }
+
+// The monitor under a point (drop.c's edge strip); 0 when none.
+int screens_monitor(int x, int y, int *mx, int *my, int *mw, int *mh) {
+  const Rect *m = monitor_at(x, y);
+  if (!m) return 0;
+  *mx = m->x; *my = m->y; *mw = m->w; *mh = m->h;
+  return 1;
+}

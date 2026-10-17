@@ -1,9 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Files from the other computer (copy of windows/filerecv.js): `file.offer` batches
-// (`drop:'send'`, Send files; `'release'`, a drop) land in Downloads — never overwriting — and are
-// shown in the file manager (the folder under the pointer is a Windows helper feature: the Linux
-// helper answers "unknown command", so Downloads it is). Then `files.done`.
+// Files from the other computer (copy of windows/filerecv.js): `file.offer {drop:'release'}`
+// waits in a temp folder until the other computer's left button comes up here, then goes to the
+// file manager folder under the pointer (fm.js), else Downloads — never overwriting — and is shown
+// in the file manager. `drop:'send'` / `'paste'` batches (Send files, the paste shortcut): every file
+// with its `rel` path straight into Downloads or the folder chosen at paste time, then `files.done`.
 const { app, shell } = require('electron');
+const fm = require('./fm');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -88,13 +90,10 @@ class FileRecv {
   // The Mac's left button came up on this PC: decide the folder once, place what's complete.
   async onRelease() {
     if (!this.files.size || this.target) return;
-    let folder = '';
-    try {
-      const r = await this.helper.request('folderAt');
-      folder = r.path || '';
-    } catch (_) { /* helper busy: Downloads */ }
+    const r = await fm.at(this.helper);
+    const folder = (r && r.folder) || '';
     this.target = folder && fs.existsSync(folder) ? folder : app.getPath('downloads');
-    this.revealed = false;
+    this.revealed = this.target === folder; // dropped on a folder that's on screen: nothing to show
     for (const f of this.files.values()) if (f.complete) this._place(f);
   }
 
@@ -130,10 +129,11 @@ class FileRecv {
 
   // ---- Send files / paste batches ----
 
-  // This PC pressed paste: the files of that batch go to `dir`. bytes: the batch's size from
-  // fclip.offer, for the progress popup.
-  expectBatch(batch, dir, bytes = 0) {
-    this.expected.set(batch, { dir, bytes });
+  // This computer pressed paste: the files of that batch go to `dir`. bytes: the batch's size from
+  // fclip.offer, for the progress popup. reveal: show them afterwards (not when `dir` is the file
+  // manager window in front, where they appear anyway).
+  expectBatch(batch, dir, bytes = 0, reveal = false) {
+    this.expected.set(batch, { dir, bytes, reveal });
     setTimeout(() => this.expected.delete(batch), 10 * 60 * 1000);
   }
 
@@ -151,7 +151,7 @@ class FileRecv {
       if (m.drop === 'send' && !this.settings.files.acceptFromMac) return refuse('not_allowed');
       // total: the whole batch's bytes (file.offer `bytes`, or what fclip.offer said); 0 = unknown.
       const total = Number(m.bytes) > 0 ? Number(m.bytes) : pasted ? pasted.bytes : 0;
-      b = { kind: m.drop, dir: pasted ? pasted.dir : app.getPath('downloads'), count, done: 0, ok: 0, tops: new Map(), placed: [], total, got: 0, at: Date.now() };
+      b = { kind: m.drop, dir: pasted ? pasted.dir : app.getPath('downloads'), reveal: pasted ? pasted.reveal : true, count, done: 0, ok: 0, tops: new Map(), placed: [], total, got: 0, at: Date.now() };
       this.batches.set(m.batch, b);
       this.expected.delete(m.batch);
     }
@@ -212,10 +212,7 @@ class FileRecv {
     this.link.send({ t: T.FILES_DONE, batch, ok: b.ok === b.count, where: b.dir, files: b.ok });
     const name = b.placed.length === 1 ? path.basename(b.placed[0]) : b.placed.length + ' items';
     this.last = { name, ok: b.ok > 0, text: b.ok === b.count ? 'Saved to ' + b.dir : (b.count - b.ok) + ' of ' + b.count + ' failed', at: Date.now() };
-    if (b.ok) {
-      if (b.kind === 'paste') this.helper.request('selectItems', { dir: b.dir, names: b.placed.map((p) => path.basename(p)) }).catch(() => {});
-      else shell.showItemInFolder(b.placed[0]);
-    }
+    if (b.ok && b.reveal) fm.showItems(b.placed);
     if (this.onBatch) this.onBatch({ kind: b.kind, files: b.ok, count: b.count, ok: b.ok === b.count });
     this.onChange();
   }
