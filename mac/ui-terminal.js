@@ -4,6 +4,7 @@
 
 UI.tab({
   id: 'terminal',
+  hidden: (s) => UI.isPhone(s), // the Phone page has the phone's screen, sound and apps
   group: 'More',
   order: 60,
   title: 'Terminal',

@@ -23,6 +23,7 @@ const ICONS = {
   pin: 'M10 4v8 M6 8h8 M4 16h12',
   up: 'M10 16V4 M5 9l5-5 5 5',
   down: 'M10 4v12 M5 11l5 5 5-5',
+  phone: 'M6.5 2.5h7a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z M9 15h2',
 };
 
 const UI = {
@@ -178,14 +179,14 @@ const UI = {
     }
     os = os || 'win';
     const same = os === 'mac';
-    const kind = os === 'linux' ? 'Linux' : same ? 'Mac' : 'PC';
+    const kind = os === 'linux' ? 'Linux' : same ? 'Mac' : os === 'android' ? 'Phone' : 'PC';
     // Computers are called by their names everywhere — this one by its own name, the
     // other by its name (or "the other computer" before anything was paired).
     const me = (s && s.macName) || 'This Mac';
     name = name || 'the other computer';
     const Name = name.charAt(0).toUpperCase() + name.slice(1);
     return {
-      os, same, kind, me, name, Name,
+      os, same, kind, me, name, Name, phone: os === 'android',
       there: name, here: me, meName: me, // older templates
       out: `${me} → ${name}`,
       in: `${name} → ${me}`,
@@ -243,7 +244,7 @@ const UI = {
   names(s) {
     const p = UI.peer(s);
     for (const e of document.querySelectorAll('[data-side]')) e.textContent = p[e.dataset.side];
-    for (const e of document.querySelectorAll('[data-os]')) e.className = `os-ico ${p.os === 'mac' ? 'mac' : 'pc'}`;
+    for (const e of document.querySelectorAll('[data-os]')) e.className = `os-ico ${UI.osClass(p.os)}`;
     for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', `From ${e.firstChild.textContent} to ${e.lastChild.textContent}`);
     for (const e of document.querySelectorAll('[data-peer]')) {
       e.textContent = e.dataset.peer.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
@@ -251,9 +252,12 @@ const UI = {
     return p;
   },
 
-  // A small computer glyph for lists: 'mac' | 'win' | 'linux'.
+  isPhone: (s) => !!(s && s.client && s.client.os === 'android'),
+
+  // A small device glyph for lists: 'mac' | 'win' | 'linux' | 'android'.
+  osClass: (os) => (os === 'mac' ? 'mac' : os === 'android' ? 'phone' : 'pc'),
   osIcon(os) {
-    return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
+    return UI.el('span', { class: `os-ico ${UI.osClass(os)}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? 'Phone' : 'PC' } });
   },
 
   // Two equal direction cards side by side (stacked when narrow), always Mac → PC first.

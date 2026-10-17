@@ -13,6 +13,8 @@ mac/dev/.probe.json
 mac/dist/
 # Windows installer output
 windows/dist/
+# adb for a dev run (windows/scripts/fetch-adb.js)
+windows/vendor/adb/
 # Linux helper build output
 linux-helper/bin/
 linux/dist/

@@ -40,6 +40,10 @@ const FileClip = require('./fclip');
 const Wake = require('./wake');
 const SendTo = require('./sendto');
 const { PairSync } = require('./pairsync');
+const { PhoneLink } = require('./phone-link');
+const { Phone } = require('./phone');
+const { PhoneBridge } = require('./phone-bridge');
+const { PhoneViews } = require('./phoneview');
 const { normalize, apply: applySettings } = require('./settings');
 
 // Packaged: electron-builder's appId is the shortcut's AppUserModelID. In development Windows
@@ -101,6 +105,9 @@ let notifs = null;
 let fileClip = null;
 let sshd = null;
 let kvm = null;
+let hostServer = null; // server.js, once the certificate exists
+let phone = null; // A phone as the peer: phone.js (its .bridge: phone-bridge.js)
+let phoneViews = null; // its screen and apps in windows here (phoneview.js)
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check
 // Started at sign-in (tray only), or by a pinned Mac app's shortcut (that app only).
@@ -130,7 +137,7 @@ function start() {
   // Every feature below talks to it as it talked to link.js.
   const guest = new Link({
     device,
-    blocked: () => link.hosting,
+    blocked: () => link.hosting || !!(hostServer && hostServer.phoneHolds()), // a phone keeps it while it may come back
     store: {
       load: () => {
         const p = store.read('pairing.json', null);
@@ -241,6 +248,7 @@ function start() {
   });
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, updates, settings, save: saveSettings, push: pushState, buildState,
+    get phone() { return phone; }, get phoneViews() { return phoneViews; }, connectPhoneDev,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
@@ -264,14 +272,45 @@ async function startHost(guest) {
     discovery.self.fp = id.fp; // beacons carry it now
     const server = new Server(id);
     discovery.self.port = server.port;
-    const pairing = new HostPairing(server, { id: device.id, name: device.name, fp: id.fp }, { busy: () => guest.authed });
+    // A phone's hello takes the session: the computer we're a guest of is dropped (yieldTo).
+    const pairing = new HostPairing(server, { id: device.id, name: device.name, fp: id.fp }, { busy: () => guest.authed, yieldTo: () => guest.yieldSession() });
     pairing.on('request', showMain); // a code to compare: bring the window up
     link.attachHost(server, pairing);
+    hostServer = server;
+    server.on('phoneFree', () => { guest.poke(); pushState(); });
+    startPhone(server, pairing);
   } catch (e) {
     console.error('[host]', e.message);
     link.host = { on: false, error: 'No certificate: ' + e.message };
     pushState();
   }
+}
+
+// A phone as the peer (port of the Mac's): the sidebar tile and Phone page (phone.js), its screen,
+// touch, mouse, keyboard and clipboard through wireless debugging (phone-bridge.js), and its
+// screen and apps in windows here (phoneview.js).
+function startPhone(server, pairing) {
+  const pl = new PhoneLink(link, server);
+  phone = new Phone({ server: pl, raw: server, discovery, pairing });
+  phone.on('change', pushState);
+  // The phone's Keyboard page names this PC's hotkey (double-tap = everything back here).
+  pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && pl.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_WIN, 'win') }));
+  phone.bridge = new PhoneBridge({ server: pl, phone, getSettings: () => settings, clipboard: clip });
+  phone.bridge.on('change', pushState);
+  phone.bridge.on('popup', (kind, text) => hud.show(kind, text));
+  phoneViews = new PhoneViews({ bridge: phone.bridge, phone, getSettings: () => settings, server: pl, fileSend: fileDrop });
+  phoneViews.on('change', pushState);
+  phoneViews.on('focus', () => kvm.applyConfig());
+  kvm.local = phone.bridge; // driving a phone goes through adb
+  kvm.blockEdge = () => phoneViews.focused; // moving inside the phone window never crosses
+  pushState();
+}
+
+// A phone found nearby: a paired one is asked to connect, any other to pair with this PC.
+function connectPhoneDev(d) {
+  discovery.clearInvite(d.id);
+  if (phone && link.pairing && link.pairing.list().some((p) => p.id === d.id)) phone.connect(d.id);
+  else discovery.invite(d.address);
 }
 
 // ---- pinned Mac apps ----
@@ -387,6 +426,7 @@ function buildState() {
     apps: link.peerOs !== P.OS.MAC ? peerApps.view() : apps.view(), // A PC's (or Linux computer's) apps come through peerapps.js
     startup: getStartup(),
     setup: { missing: miss, show: !fw.checking && miss.some((x) => !settings.setup.skipped.includes(x)) },
+    phone: phone ? { ...phone.view, settings: settings.phone } : null,
   };
 }
 
@@ -560,7 +600,7 @@ function updateTray(s = buildState()) {
     if (after) after();
     pushState();
   };
-  const kind = (os) => (os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC');
+  const kind = (os) => (os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? 'Phone' : 'PC');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: connected ? 'Connected to ' + name + rtt : 'Not connected', enabled: false },
     ...(away ? [{ label: 'Bring Mouse and Keyboard Back', click: () => kvm.home() }] : []),
@@ -576,6 +616,7 @@ function updateTray(s = buildState()) {
     { type: 'separator' },
     { label: 'Connect To', submenu: [
       ...(found.length ? found.map((d) => ({ label: d.name + ' (' + kind(d.os) + ')', click: () => {
+        if (d.os === P.OS.ANDROID) return connectPhoneDev(d);
         discovery.clearInvite(d.id);
         link.startPairing({ address: d.address, port: d.port, macName: d.name });
         showMain();
@@ -600,6 +641,8 @@ app.on('before-quit', () => {
   if (pcApps) pcApps.shutdown();
   if (peerApps) peerApps.shutdown();
   if (fileClip) fileClip.shutdown();
+  if (phoneViews) phoneViews.shutdown();
+  if (phone) phone.bridge.adb.killServer();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });
 

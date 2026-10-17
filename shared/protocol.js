@@ -14,7 +14,12 @@
     PROBE_MS: 10000, // broadcast probe while not connected
     PROBE_REPLY_MS: 1500, // a unicast probe without a reply by then = nobody there
     DEVICE_STALE_MS: 10000, // found device dropped after this much silence
-    OS: { MAC: 'mac', WIN: 'win', LINUX: 'linux' },
+    OS: { MAC: 'mac', WIN: 'win', LINUX: 'linux', ANDROID: 'android' },
+    // A phone is a full peer in the one session: it connects only when asked (the Mac's phone
+    // tile, its own Connect button, an invite) or to resume a session that just dropped, and it
+    // replaces the computer. Computers are refused (busy) while it holds the session and for
+    // PHONE_GRACE_MS after it drops, so a Wi-Fi blip doesn't hand the session back.
+    PHONE_GRACE_MS: 30000,
     PING_MS: 1000,
     TIMEOUT_MS: 4000, // close the session after this much silence
     PAIR_TIMEOUT_MS: 60000,
@@ -159,6 +164,15 @@
       PAPP_FOCUS: 'papp.focus', // M->W {wid}
       PAPP_CLOSE: 'papp.close', // M->W {wid}
       PAPP_SIZE: 'papp.size', // M->W {wid, w, h} physical px
+      // A phone (os 'android') as the peer
+      PHONE_INFO: 'phone.info', // phone->Mac {model, maker, sdk, release, battery?, charging?, colors: ['#rrggbb'], wallpaper?: data URL (small JPEG)}
+      PHONE_APPS_LIST: 'phone.apps.list', // Mac->phone
+      PHONE_APPS: 'phone.apps', // phone->Mac {apps: [{id (package), name, icon (data URL PNG)}]}
+      PHONE_POINTER: 'phone.pointer', // Mac->phone {on, x?, y?}: where the Mac's pointer is while it drives the phone (the app draws it)
+      // Wireless debugging (adb), which the Mac uses for the screen, touch, mouse and keyboard,
+      // the clipboard in the background and apps in their own windows (scrcpy):
+      ADB_STATE: 'adb.state', // phone->Mac {devOptions, wifi (wireless debugging on), canEnable (WRITE_SECURE_SETTINGS granted), address}
+      ADB_ENABLE: 'adb.enable', // Mac->phone {on}: switch wireless debugging (needs canEnable)
     },
 
     // Error codes (field `code` of an `error` message)
@@ -169,6 +183,7 @@
       PAIR_TIMEOUT: 'pair_timeout',
       BUSY: 'busy',
       REPLACED: 'replaced',
+      RELEASED: 'released', // the Mac let the phone go (Disconnect): don't resume on your own
       BAD_MESSAGE: 'bad_message',
     },
 

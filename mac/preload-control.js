@@ -10,11 +10,13 @@ const ACTIONS = [
   'pairRespond', 'forget', 'openSettings', 'relaunch',
   'keepPcAppInDock', 'sendFiles', 'chooseSendFiles', 'setNotifs', 'muteNotifApp', 'allowFullDisk',
   'connectAddress', 'pairWith', 'confirmGuestCode', 'cancelGuestPair', 'forgetHost', 'refreshDiscovery', 'copyText', 'allowPermission', 'skipSetup',
+  'connectPhone', 'disconnectPhone', 'setPhone', 'phonePair', 'phoneScreen', 'phoneOpenApp', 'phoneCloseView', 'phoneRetry',
   'setUpdates', 'checkUpdates', 'openUpdate', 'openLink',
 ];
 
 const api = {
   getState: () => ipcRenderer.invoke('getState'),
+  phoneAssets: () => ipcRenderer.invoke('phoneAssets'),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files -> paths
 };

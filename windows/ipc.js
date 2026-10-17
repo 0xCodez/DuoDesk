@@ -6,7 +6,7 @@ const P = require('../shared/protocol.js');
 const { LINKS } = require('../shared/about.js');
 const { apply } = require('./settings');
 
-// ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, settings, save(), push(), buildState(),
+// ctx: link, discovery, screen, clip, kvm, terminal, fileDrop, smb, apps, phone, phoneViews, connectPhoneDev(d), settings, save(), push(), buildState(),
 //      checkFirewall(), fixFirewall(), setStartup(on)
 function setupIpc(ctx) {
   const { link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, settings } = ctx;
@@ -23,6 +23,7 @@ function setupIpc(ctx) {
 
   const pairWith = (d) => {
     discovery.clearInvite(d.id);
+    if (d.os === P.OS.ANDROID) return ctx.connectPhoneDev(d); // a phone has no server to pair with
     link.startPairing({ address: d.address, port: d.port, macName: d.name });
   };
   handle('pair', (target) => {
@@ -128,6 +129,21 @@ function setupIpc(ctx) {
   handle('setMacApps', (partial) => change('macApps', partial, () => peerApps.apply()));
   handle('setPcApps', (partial) => change('pcApps', partial, () => { pcApps.apply(); pcApps.input.release(); }));
   handle('setPcScreenMode', (mode) => pcScreen.setMode(mode));
+  // A phone as the peer (phone.js, phone-bridge.js, phoneview.js; there once our server runs)
+  const phone = (name, fn) => handle(name, (...args) => (ctx.phone ? fn(...args) : undefined));
+  phone('connectPhone', (id) => ctx.phone.connect(String(id)));
+  phone('disconnectPhone', () => ctx.phone.disconnect());
+  handle('setPhone', (partial) => change('phone', partial));
+  phone('phonePair', (arg) => arg && typeof arg === 'object' && ctx.phone.bridge.pair(arg.code, arg.where));
+  phone('phoneScreen', (open) => {
+    if (open === false) {
+      for (const v of ctx.phoneViews.list()) if (v.kind === 'screen') ctx.phoneViews.close(v.id);
+    } else ctx.phoneViews.openScreen();
+  });
+  phone('phoneOpenApp', (arg) => arg && typeof arg.id === 'string' && ctx.phoneViews.openApp(arg.id.slice(0, 200), String(arg.name || '').slice(0, 100)));
+  phone('phoneCloseView', (id) => ctx.phoneViews.close(Number(id)));
+  phone('phoneRetry', () => ctx.phone.bridge._kick());
+  handle('phoneAssets', () => (ctx.phone ? ctx.phone.assetsView() : { wallpaper: '', apps: [] }));
   handle('installVdd', () => vdd.install());
   handle('removeVdd', () => vdd.remove());
   handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing }));

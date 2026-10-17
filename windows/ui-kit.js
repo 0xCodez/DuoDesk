@@ -22,6 +22,7 @@ const ICONS = {
   pin: 'M10 4v9 M5.5 8.5 10 13l4.5-4.5 M5 16h10',
   up: 'M10 16V4 M5 9l5-5 5 5',
   down: 'M10 4v12 M5 11l5 5 5-5',
+  phone: 'M6.5 2.5h7a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z M9 15h2',
 };
 
 const UI = {
@@ -252,7 +253,7 @@ const UI = {
   peer(s) {
     const p = s && s.peer;
     const os = p ? p.os : 'win';
-    const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux' };
+    const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux', android: 'Phone' };
     const same = os === 'win';
     // Device names everywhere: this PC by its own name,
     // the other computer by its name (or "the other computer" before anything was paired).
@@ -260,7 +261,7 @@ const UI = {
     const name = (p && p.name) || 'the other computer';
     const Name = name.charAt(0).toUpperCase() + name.slice(1);
     return {
-      os, same, me, name, Name,
+      os, same, me, name, Name, phone: os === 'android',
       kind: KIND[os],
       them: name, us: me, the: name, there: name, There: Name, // older templates
       toMe: name + ' → ' + me,
@@ -311,9 +312,12 @@ const UI = {
     return String(t).replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
   },
 
-  // Small computer glyph by OS.
+  isPhone: (s) => !!(s && s.session && s.session.os === 'android'),
+
+  // Small device glyph by OS: 'mac' | 'win' | 'linux' | 'android'.
+  osClass: (os) => (os === 'mac' ? 'mac' : os === 'android' ? 'phone' : 'pc'),
   osIcon(os) {
-    return UI.el('span', { class: `os-ico ${os === 'mac' ? 'mac' : 'pc'}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : 'PC' } });
+    return UI.el('span', { class: `os-ico ${UI.osClass(os)}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? 'Phone' : 'PC' } });
   },
 
   // Two equal direction cards, always Mac → PC then PC → Mac.

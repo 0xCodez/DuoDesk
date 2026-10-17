@@ -65,6 +65,9 @@ const { setupIpc } = require('./ipc');
 const login = require('./login');
 const { Hud } = require('./hud');
 const { PairSync } = require('./pairsync');
+const { Phone } = require('./phone');
+const { PhoneBridge } = require('./phone-bridge');
+const { PhoneViews } = require('./phoneview');
 const { Updates } = require('../shared/updates.js');
 const { aboutInfo } = require('../shared/about.js');
 
@@ -184,6 +187,7 @@ function pushState() {
       state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
     if (svc) state.wake = svc.wake.view;
+    if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone };
     if (updates) state.updates = updates.view;
     if (pairSync) pairSync.check();
     sendScreenState();
@@ -379,12 +383,13 @@ app.whenReady().then(() => {
   discovery.on('change', pushState);
   discovery.start();
   link = new Link(id, {
-    canConnect: () => !server.current && !(pairing && pairing.pending),
+    canConnect: () => !server.current && !(pairing && pairing.pending) && !server.phoneHolds(),
     resolve: (hostId) => discovery.get(hostId),
   });
   link.on('change', pushState);
   link.on('request', showWindow);
-  pairing = new Pairing(server, id, { busy: () => !!link.ctx });
+  pairing = new Pairing(server, id, { busy: () => !!link.ctx, yieldTo: () => link.stop() });
+  server.on('phoneFree', () => { link.poke(); pushState(); });
   pairing.on('change', pushState);
   pairing.on('request', showWindow);
   peer = new Peer(server, link);
@@ -400,6 +405,18 @@ app.whenReady().then(() => {
   svc = startServices({ server: peer, getSettings: () => settings, pushState, onHelperReady: refreshPermissions });
   if (settings.app.openAtLogin !== login.isOn()) login.apply(settings.app.openAtLogin);
 
+  svc.phone = new Phone({ server: peer, raw: server, discovery, pairing });
+  svc.phone.on('change', pushState);
+  // The phone's Keyboard page names this Mac's hotkey (double-tap = everything back here).
+  peer.on('client', (ctx) => ctx.os === P.OS.ANDROID && peer.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_MAC) }));
+  // The phone's screen, input, clipboard and app windows, through wireless debugging.
+  svc.phone.bridge = new PhoneBridge({ server: peer, phone: svc.phone, getSettings: () => settings, clipboard: svc.clipboard });
+  svc.phone.bridge.on('change', pushState);
+  svc.phoneViews = new PhoneViews({ bridge: svc.phone.bridge, phone: svc.phone, getSettings: () => settings, server: peer, fileSend: svc.fileSend });
+  svc.phoneViews.on('change', pushState);
+  svc.kvm.local = svc.phone.bridge;
+  const blockEdge = svc.kvm.blockEdge;
+  svc.kvm.blockEdge = () => blockEdge() || svc.phoneViews.focused; // moving inside the phone window never crosses
   svc.apps.setSharing = (on, by) => actions.setSharing(on, by);
   peer.on(`t:${P.T.SCREEN_CTL}`, (m) => onScreenCtl(m));
   // Two-way switches shared with the other computer, per pair (pairsync.js).
@@ -412,7 +429,7 @@ app.whenReady().then(() => {
   };
   pairSync = new PairSync({ server: peer, getSettings: () => settings, saveSettings: () => store.saveSettings(settings),
     apply: (f, dir, on) => (f !== 'value' ? SYNC_ACTIONS[f](dir, on)
-      : dir === 'gestures' ? actions.setKvm({ gestures: on }) : actions.setSharingOpts({ [dir]: on })) });
+      : ['gestures', 'keyboard', 'speed', 'reverseScroll'].includes(dir) ? actions.setKvm({ [dir]: on }) : actions.setSharingOpts({ [dir]: on })) });
   // New releases on GitHub: a notification once per version, the menu bar item and About › Updates.
   updates = new Updates({
     current: app.getVersion(), platform: 'mac', getSettings: () => settings,
@@ -436,6 +453,7 @@ app.whenReady().then(() => {
   });
   svc.fileClip.on('popup', (kind, text) => hud.show(kind, text));
   svc.pcApps.on('popup', (kind, text) => hud.show(kind, text));
+  svc.phone.bridge.on('popup', (kind, text) => hud.show(kind, text));
   if (app.isPackaged) app.setAsDefaultProtocolClient('macshare');
   for (const url of linkQueue.splice(0)) handleLink(url);
   // The hotkey's double-tap: the big card "Cursor sharing on/off" (also when the other side switched it).
@@ -474,6 +492,7 @@ app.on('will-quit', () => {
 });
 app.on('before-quit', () => {
   quitting = true;
+  if (svc && svc.phoneViews) svc.phoneViews.shutdown();
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input
   if (discovery) discovery.stop();
   if (link) link.stop();

@@ -3,7 +3,7 @@
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
-const TABS = ['overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
@@ -31,6 +31,7 @@ function normalize(s) {
   const up = s.updates || {};
   const nf = s.notifs || {};
   const wk = s.wake || {};
+  const ph = s.phone || {};
   return {
     rev: 8, // settings revision (upgrades in normalize, like the Mac's store.js)
     kvm: {
@@ -113,6 +114,13 @@ function normalize(s) {
     pairSync: pairSync(s.pairSync), // {deviceId: {feature: {out, in}}} (pairsync.js)
     wake: { peers: wakePeers(wk.peers) }, // {deviceId: {name, os, macs, address, at}} from wol.info
     pcApps: { allow: bool(pca.allow, true) },
+    // A phone as the peer: its screen window, apps and setup
+    phone: {
+      sound: bool(ph.sound, true),
+      bitrateMbps: Math.round(num(ph.bitrateMbps, 8, 2, 40)),
+      maxSize: [0, 1920, 1600, 1280, 1024].includes(ph.maxSize) ? ph.maxSize : 0,
+      wallpaper: bool(ph.wallpaper, true),
+    },
     macApps: { on: bool(mca.on, true) }, // The other computer's apps open here (pair.sync 'apps' in) // The Mac may open this PC's apps (it shows them only if it accepts)
     // Setup screen 'Skip for now': the missing items it was skipped for (shown again when
     // something else goes missing).
@@ -134,6 +142,9 @@ function pairSync(v) {
         out[id].values = {};
         if (d && ['fast', 'smooth'].includes(d.pace)) out[id].values.pace = d.pace;
         if (d && typeof d.gestures === 'boolean') out[id].values.gestures = d.gestures;
+        if (d && typeof d.keyboard === 'boolean') out[id].values.keyboard = d.keyboard; // with a phone
+        if (d && typeof d.reverseScroll === 'boolean') out[id].values.reverseScroll = d.reverseScroll;
+        if (d && Number.isFinite(d.speed)) out[id].values.speed = Math.min(3, Math.max(0.25, d.speed));
       }
       else if (d && typeof d === 'object') out[id][f] = { out: d.out === true, in: d.in === true };
     }

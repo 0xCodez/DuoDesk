@@ -7,6 +7,7 @@
 
 UI.tab({
   id: 'apps',
+  hidden: (s) => UI.isPhone(s), // the Phone page has the phone's screen, sound and apps
   order: 80,
   title: 'Apps',
   color: 'linear-gradient(#bf5af2, #5e5ce6)',

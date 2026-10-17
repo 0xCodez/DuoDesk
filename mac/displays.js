@@ -41,6 +41,17 @@ class Displays extends EventEmitter {
     this.changeTimer = setTimeout(() => this.emit('change'), 300);
   }
 
+  // A phone viewing Extend: the virtual display takes the phone's shape (its pixels at 2x, HiDPI),
+  // in place of settings.virtual's size. null = settings.virtual again.
+  setOverride(o) {
+    const next = o && o.width > 0 && o.height > 0
+      ? { width: Math.max(480, Math.round(o.width / 2)), height: Math.max(360, Math.round(o.height / 2)), hiDPI: true } : null;
+    if (JSON.stringify(next) === JSON.stringify(this.override || null)) return;
+    this.override = next;
+    const v = this.getSettings().virtual;
+    if (v.enabled && this.getSettings().sharing.on) this.applyVirtual();
+  }
+
   // Create, re-create or remove the virtual display to match settings.virtual. Serialized.
   applyVirtual() {
     const run = async () => {
@@ -53,11 +64,12 @@ class Displays extends EventEmitter {
           this.virtualId = null;
           return;
         }
+        const size = this.override || v;
         const r = await this.helper.request('createDisplay', {
-          width: v.width, height: v.height, hiDPI: !!v.hiDPI, hz: v.hz || 60, name: 'TwinDesk',
+          width: size.width, height: size.height, hiDPI: !!size.hiDPI, hz: v.hz || 60, name: 'TwinDesk',
         });
         this.virtualId = r.displayId;
-        console.log(`[displays] virtual display ${r.displayId}: ${v.width}x${v.height} pt, ${r.pixelWidth}x${r.pixelHeight} px`);
+        console.log(`[displays] virtual display ${r.displayId}: ${size.width}x${size.height} pt, ${r.pixelWidth}x${r.pixelHeight} px`);
         await this._waitForDisplay(r.displayId);
       } catch (e) {
         this.virtualId = null;

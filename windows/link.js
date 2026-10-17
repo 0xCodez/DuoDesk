@@ -18,7 +18,7 @@ const PAIR_ERRORS = {
 
 class Link {
   // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null,
-  //   blocked() -> true while this PC hosts a session (one session at a time)
+  //   blocked() -> true while this PC hosts a session (one session at a time), or a phone holds it
   constructor(opts) {
     this.device = opts.device;
     this.blocked = opts.blocked || (() => false);
@@ -103,6 +103,21 @@ class Link {
     this.store.clear();
     this.pairing = null;
     this._setStatus('not_paired', '');
+  }
+
+  // A phone took the session (hostpair.js): drop the computer we're a guest of. Reconnecting
+  // waits while blocked(); poke() tries again at once when the phone lets go.
+  yieldSession() {
+    if (!this.authed) return;
+    this._closeSocket();
+    this._scheduleReconnect();
+  }
+
+  poke() {
+    if (!this.pairing || this.pairState || this.ws || this.status.state === 'identity_changed') return;
+    this.attempt = 0;
+    clearTimeout(this.timers.reconnect);
+    this.timers.reconnect = setTimeout(() => !this.ws && !this.pairState && this._connect('session'), 300);
   }
 
   // ---- connection ----

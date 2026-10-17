@@ -15,7 +15,7 @@ const SETTINGS_URLS = {
   fullDisk: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
-const TABS = ['overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -46,6 +46,7 @@ const SCHEMA = {
   receive: { on: bool, fullScreen: bool, input: bool, framegen: bool },
   sharing: { remote: bool, pace: oneOf(['fast', 'smooth'], 'fast') },
   papps: { on: bool },
+  phone: { sound: bool, bitrateMbps: (v) => Math.round(clamp(2, 40, 8)(v)), maxSize: oneOf([0, 1920, 1600, 1280, 1024], 0), wallpaper: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'instant'),
     skipConcealed: bool, maxKB: oneOf([16, 64, 256], 256), historySize: (v) => Math.round(clamp(0, 100, 20)(v)),
@@ -75,6 +76,10 @@ function setupIpc(ctx) {
   };
   async function connectTo(dev, address) {
     const { link, discovery, pairing } = ctx;
+    if (dev && dev.os === P.OS.ANDROID && pairing.list().some((p) => p.id === dev.id)) {
+      report('');
+      return ctx.phone.connect(dev.id);
+    }
     if (dev && dev.os !== 'mac') {
       if (pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired. Open TwinDesk on it to connect.`);
       discovery.invite(dev.address);
@@ -98,6 +103,32 @@ function setupIpc(ctx) {
       pushState();
       const dev = await ctx.discovery.ask(address);
       connectTo(dev, address); // no answer: try the WSS port directly (a Mac host answers there)
+    },
+    connectPhone(deviceId) {
+      ctx.phone.connect(String(deviceId));
+    },
+    disconnectPhone() {
+      ctx.phone.disconnect();
+    },
+    setPhone(partial) {
+      setGroup('phone', partial);
+    },
+    phonePair(arg) {
+      if (arg && typeof arg === 'object') ctx.phone.bridge.pair(arg.code, arg.where);
+    },
+    phoneScreen(open) {
+      if (open === false) {
+        for (const v of ctx.phoneViews.list()) if (v.kind === 'screen') ctx.phoneViews.close(v.id);
+      } else ctx.phoneViews.openScreen();
+    },
+    phoneOpenApp(arg) {
+      if (arg && typeof arg.id === 'string') ctx.phoneViews.openApp(arg.id.slice(0, 200), String(arg.name || '').slice(0, 100));
+    },
+    phoneCloseView(id) {
+      ctx.phoneViews.close(Number(id));
+    },
+    phoneRetry() {
+      ctx.phone.bridge._kick();
     },
     pairWith(deviceId) {
       const dev = ctx.discovery.get(String(deviceId));
@@ -375,6 +406,7 @@ function setupIpc(ctx) {
   };
 
   ipcMain.handle('getState', () => ctx.state);
+  ipcMain.handle('phoneAssets', () => ctx.phone.assetsView());
   for (const [name, fn] of Object.entries(actions)) ipcMain.on(name, (_e, arg) => fn(arg));
   return actions;
 }

@@ -52,6 +52,9 @@ class Stream extends EventEmitter {
     });
     server.on(`t:${P.T.SCREEN_POLICY}`, (msg) => {
       const on = !!msg.accept;
+      // A phone's viewer says how big it is: Extend becomes a screen of that shape.
+      const c = this.server.current;
+      if (c && c.os === P.OS.ANDROID && on && msg.width > 0 && msg.height > 0) this.displays.setOverride({ width: msg.width | 0, height: msg.height | 0 });
       this.waitingPolicy = false;
       clearTimeout(this.policyTimer);
       if (on === this.viewer) return;
@@ -61,6 +64,7 @@ class Stream extends EventEmitter {
       else this._setStatus(this.getSettings().sharing.on ? 'no viewer' : 'off');
     });
     server.on('closed', () => {
+      if (!server.current || server.current.os !== P.OS.ANDROID) this.displays.setOverride(null);
       if (!server.current) this._stopWindow('nothing connected');
     });
     server.on(`t:${P.T.RTC_ANSWER}`, (msg) => this._toWindow('remote', msg));
@@ -69,6 +73,7 @@ class Stream extends EventEmitter {
 
     ipcMain.on('capture:out', (e, msg) => {
       if (!this._fromCapture(e) || !this.active || msg.session !== this.active.session) return;
+      if (msg.t === P.T.RTC_OFFER && process.env.TWINDESK_DEBUG_STREAM) console.log(`[stream] offer #${msg.session} -> ${server.current ? server.current.name : 'nobody'}`);
       if (msg.t === P.T.RTC_OFFER || msg.t === P.T.RTC_ICE) server.sendToClient(msg);
     });
     ipcMain.on('capture:stats', (e, s) => {

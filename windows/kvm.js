@@ -19,6 +19,8 @@ class Kvm {
     this.keepalive = null;
     this.silence = null;
     this.dragPending = false; // we crossed with a file drag; cleared when our left button comes up
+    this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
+    this.blockEdge = () => false; // main.js: true while the edge must not cross (a phone window has focus)
 
     const link = this.link;
     // kvm.layout is "either": pcSide = the sender's crossing side, which is where this
@@ -119,7 +121,7 @@ class Kvm {
       side: this.crossingSide,
       resistancePx: k.resistancePx,
       hotkey: this.settings.keys.hotkey || P.HOTKEY_WIN,
-      driveOther: !!(this.linked && k.driveOther && k.mouse && this.connected && this.crossingSide),
+      driveOther: !!(this.linked && k.driveOther && k.mouse && this.connected && this.crossingSide && !this.blockEdge()),
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
@@ -225,7 +227,7 @@ class Kvm {
       case 'ev':
         if (this.mode === 'driving' && msg.ev && (K_TYPES.has(msg.ev.t) || (msg.ev.t === T.K_GESTURE && this.cfg.gestures !== false))) {
           if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there
-          this.link.send(msg.ev);
+          this._drive(msg.ev);
           if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released on the Mac
         }
         break;
@@ -239,7 +241,7 @@ class Kvm {
     this.route++;
     const k = this.cfg;
     this.keyboardOnly = !where.side; // the hotkey in keyboard-only mode (edge crossings carry a side)
-    this.link.send({ t: T.KVM_TAKE, route: this.route, ...where, mouse: !!k.mouse && !this.keyboardOnly, keyboard: !!k.keyboard });
+    this._drive({ t: T.KVM_TAKE, route: this.route, ...where, mouse: !!k.mouse && !this.keyboardOnly, keyboard: !!k.keyboard });
     this._setMode('driving', '');
     this.clip.sendIfChanged('switch');
     this._clearAccept();
@@ -252,9 +254,15 @@ class Kvm {
   // Row 5: our input goes home by our own choice.
   _release(message) {
     this.route++;
-    this.link.send({ t: T.KVM_RELEASE, route: this.route });
+    this._drive({ t: T.KVM_RELEASE, route: this.route });
     this.helper.send('capture', { on: false });
     this._setMode('home', message);
+  }
+
+  // Input while driving goes to the other computer, or to the phone bridge when a phone is the peer.
+  _drive(msg) {
+    if (this.local && this.local.drives()) this.local.handle(msg);
+    else this.link.send(msg);
   }
 
   // Row 9.

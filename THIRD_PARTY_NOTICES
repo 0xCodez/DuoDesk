@@ -45,6 +45,30 @@ License: MIT
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+scrcpy (scrcpy-server 5.0.1)
+----------------------------
+Source:  https://github.com/Genymobile/scrcpy
+License: Apache-2.0 (see licenses/Apache-2.0.txt)
+         Copyright (C) 2018 Genymobile
+         Copyright (C) 2018-2026 Romain Vimont
+
+Included unmodified as mac/vendor/scrcpy-server (and windows/vendor/scrcpy-server in the Windows
+installer). It runs on the phone, started over wireless debugging, for the phone's screen, sound,
+touch, mouse, keyboard and clipboard (mac/scrcpy.js, windows/scrcpy.js speak its protocol).
+
+
+Android SDK Platform-Tools (adb)
+--------------------------------
+Source:  https://developer.android.com/tools/releases/platform-tools
+         https://android.googlesource.com/platform/packages/modules/adb
+License: Apache-2.0 (see licenses/Apache-2.0.txt) — Copyright (C) The Android Open Source Project.
+         The prebuilt binaries are distributed by Google under the Android SDK terms; their full
+         notices ship next to them (windows/vendor/adb/NOTICE.txt in the Windows installer).
+
+adb.exe, AdbWinApi.dll and AdbWinUsbApi.dll are downloaded from Google when the Windows installer
+is built (windows/scripts/fetch-adb.js) and included in it, for wireless debugging with the phone.
+
+
 Downloaded at run time (not included in this repository)
 --------------------------------------------------------
 Virtual Display Driver — https://github.com/VirtualDrivers/Virtual-Display-Driver — MIT.

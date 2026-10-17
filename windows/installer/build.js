@@ -1,6 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Builds the Windows installer (npm run dist): the helper, a staging folder with the same layout
 // as the repo (windows/, shared/protocol.js, windows-helper/bin/), then electron-builder → NSIS.
+// For a phone as the peer it also carries adb (downloaded, scripts/fetch-adb.js) and the
+// scrcpy server (mac/vendor/scrcpy-server) in windows/vendor/.
 // The layout is kept so '../shared/protocol.js' and the helper path work unchanged; no asar, so
 // the helper .exe and the .ps1 scripts are real files Windows can run.
 // `node installer/build.js [x64] [arm64]`: one installer per architecture, x64 when none is named.
@@ -10,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const builder = require('electron-builder');
+const { fetchAdb } = require('../scripts/fetch-adb');
 
 const WIN = path.join(__dirname, '..');
 const ROOT = path.join(WIN, '..');
@@ -65,7 +68,12 @@ async function main() {
   copy(path.join(ROOT, 'shared', 'framegen.js'), path.join(STAGE, 'shared', 'framegen.js')); // Monitor 2
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
-  for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md']) {
+  // A phone: its screen, apps and input go through adb and scrcpy-server (phone-bridge.js).
+  if (!fs.existsSync(path.join(WIN, 'vendor', 'scrcpy-server'))) {
+    copy(path.join(ROOT, 'mac', 'vendor', 'scrcpy-server'), path.join(STAGE, 'windows', 'vendor', 'scrcpy-server'));
+  }
+  await fetchAdb(path.join(STAGE, 'windows', 'vendor', 'adb'));
+  for (const f of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md', 'licenses']) {
     if (fs.existsSync(path.join(ROOT, f))) copy(path.join(ROOT, f), path.join(STAGE, f));
   }
   copyDeps(Object.keys(pkg.dependencies || {}));

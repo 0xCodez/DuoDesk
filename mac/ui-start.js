@@ -12,6 +12,10 @@
 
   let lastGroup = null;
   for (const def of UI.tabs.slice().sort((a, b) => (a.order ?? 50) - (b.order ?? 50))) {
+    if (def.navHidden) { // reached another way (the phone tile)
+      views.set(def.id, { def, ...buildPage(def), navBtn: el('button'), stateEl: el('span') });
+      continue;
+    }
     if (def.bottom && !nav.querySelector('.sep')) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } })); // one line above General and About
     // Groups (System Settings style): a small gap before each, no heading, icons in one column.
     if (def.group !== lastGroup && !def.bottom && nav.children.length) nav.append(el('li', { class: 'gap', attrs: { role: 'presentation' } }));
@@ -28,7 +32,10 @@
     ]);
     navBtn.onclick = () => show(def.id, true);
     nav.append(el('li', {}, [navBtn]));
+    views.set(def.id, { def, ...buildPage(def), navBtn, stateEl });
+  }
 
+  function buildPage(def) {
     const page = el('section', { class: 'page', id: `page-${def.id}`, hidden: true, attrs: { role: 'tabpanel' } });
     const h1Text = el('span', { text: def.heading || def.title });
     const descEl = el('p', { text: def.desc || '' });
@@ -47,7 +54,7 @@
     page.append(body);
     pages.append(page);
     const render = def.build(body, page) || (() => {});
-    views.set(def.id, { def, page, navBtn, stateEl, master, render });
+    return { page, master, render };
   }
 
   function show(id, user) {
@@ -63,6 +70,7 @@
     v.navBtn.classList.add('active');
     v.navBtn.setAttribute('aria-selected', 'true');
     $('content').scrollTop = 0;
+    for (const t of $('phones').children) t.classList.toggle('active', v.def.id === 'phone' && t.dataset.connected === '1');
     if (user) api.setTab(v.def.id);
     if (UI.state) renderPage(v, UI.state);
   }
@@ -87,11 +95,58 @@
     const gs = s.guest && s.guest.status && s.guest.status.state;
     $('peer-text').textContent = c ? `${c.name}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}`
       : s.pairing || (s.guest && s.guest.pairing) ? 'Pairing…' : gs === 'connecting' || gs === 'reconnecting' ? 'Connecting…' : 'Not connected';
+    renderPhones(s);
+    // Tabs that don't apply to the peer (a phone has no terminal or screen to share to it…).
+    for (const v of views.values()) {
+      const hide = !!(v.def.hidden && v.def.hidden(s));
+      if (v.navBtn.parentElement) v.navBtn.parentElement.hidden = hide;
+      if (hide && current === v) show(s.phone && s.phone.connected ? 'phone' : 'overview', false);
+    }
     for (const v of views.values()) {
       const b = v.def.badge ? v.def.badge(s) : v.def.phase ? `P${v.def.phase}` : '';
       v.stateEl.className = `state${b === 'on' ? ' on' : ''}`;
       v.stateEl.textContent = b === 'on' ? '' : b || '';
     }
+  }
+
+  // Paired phones nearby, above Overview: the phone's wallpaper, its name and the link. Clicking
+  // one connects it (the computer steps aside); the connected one opens its page.
+  let phonesKey = '';
+  let assetsSeen = -1;
+  function renderPhones(s) {
+    const ph = s.phone || { nearby: [] };
+    if (ph.assets !== assetsSeen) {
+      assetsSeen = ph.assets;
+      api.phoneAssets().then((a) => {
+        UI.phoneAssets = a;
+        UI.phoneWall = a.wallpaper ? `url("${a.wallpaper}")` : '';
+        phonesKey = '';
+        if (UI.state) render(UI.state);
+      }, () => {});
+    }
+    const info = ph.info || {};
+    const colors = info.colors && info.colors.length ? info.colors : null;
+    const key = JSON.stringify([ph.nearby, ph.connecting, ph.connected && ph.connected.rttMs, ph.held, info.battery, info.charging, colors, UI.phoneWall ? UI.phoneWall.length : 0, current && current.def.id]);
+    if (key === phonesKey) return;
+    phonesKey = key;
+    $('phones').replaceChildren(...ph.nearby.map((d) => {
+      const wall = el('span', { class: 'phone-wall' }, [UI.icon('phone')]);
+      if (d.connected && UI.phoneWall) wall.style.backgroundImage = UI.phoneWall;
+      else if (d.connected && colors) wall.style.backgroundImage = `linear-gradient(160deg, ${colors.join(', ')}${colors.length === 1 ? `, ${colors[0]}` : ''})`;
+      const connecting = ph.connecting && ph.connecting.id === d.id;
+      const sub = d.connected
+        ? `${ph.connected.rttMs != null ? `${ph.connected.rttMs} ms` : 'Connected'}${info.battery != null ? ` · ${info.battery}%${info.charging ? ' ⚡' : ''}` : ''}`
+        : connecting ? 'Connecting…' : 'Nearby · Click to connect';
+      const b = el('button', { class: `phone-tile${d.connected ? ' connected' : ''}`, title: d.connected ? `${d.name}` : `Connect to ${d.name}` }, [
+        wall,
+        el('span', { class: 'phone-text' }, [el('span', { class: 'phone-name', text: d.name }), el('span', { class: 'phone-sub', text: sub })]),
+        d.connected ? el('span', { class: 'dot good' }) : null,
+      ]);
+      b.dataset.connected = d.connected ? '1' : '';
+      b.classList.toggle('active', d.connected && current && current.def.id === 'phone');
+      b.onclick = () => (d.connected ? show('phone', true) : api.connectPhone(d.id));
+      return b;
+    }));
   }
 
   // Two kinds of pairing request: someone pairs with this Mac (Allow / Deny), or this Mac pairs

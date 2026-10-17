@@ -22,6 +22,7 @@ class Server extends EventEmitter {
   constructor({ keyPem, certPem }) {
     super();
     this.current = null; // ctx of the authenticated client
+    this.phoneGrace = null; // {id, until}: a phone's session just dropped, it may come back (P.PHONE_GRACE_MS)
     this.sockets = new Set();
     this.https = https.createServer({ key: keyPem, cert: certPem });
     this.wss = new WebSocketServer({ server: this.https, maxPayload: P.MAX_PAYLOAD });
@@ -48,7 +49,10 @@ class Server extends EventEmitter {
     ws.on('message', (data, isBinary) => this._onMessage(ctx, data, isBinary));
     ws.on('close', () => {
       this.sockets.delete(ctx);
-      if (this.current === ctx) this.current = null;
+      if (this.current === ctx) {
+        this.current = null;
+        if (ctx.os === P.OS.ANDROID && !ctx.released) this._phoneGrace(ctx.deviceId);
+      }
       this.emit('closed', ctx);
     });
     ws.on('error', (err) => console.error(`[server] socket ${ctx.address}: ${err.message}`));
@@ -128,6 +132,36 @@ class Server extends EventEmitter {
     this.emit('client', ctx);
   }
 
+  // A phone holds the session (or just dropped it and may resume): computers are refused.
+  phoneHolds() {
+    if (this.current && this.current.os === P.OS.ANDROID) return true;
+    return !!this.phoneGrace && Date.now() < this.phoneGrace.until;
+  }
+
+  _phoneGrace(id) {
+    clearTimeout(this.graceTimer);
+    this.phoneGrace = { id, until: Date.now() + P.PHONE_GRACE_MS };
+    this.graceTimer = setTimeout(() => this.endPhoneGrace(), P.PHONE_GRACE_MS);
+  }
+
+  // The computers may connect again (the phone's grace ran out, or it was let go).
+  endPhoneGrace() {
+    clearTimeout(this.graceTimer);
+    if (!this.phoneGrace) return;
+    this.phoneGrace = null;
+    this.emit('phoneFree');
+  }
+
+  // Disconnect the phone on purpose: it won't resume, and the computers may connect at once.
+  releasePhone() {
+    const c = this.current;
+    if (c && c.os === P.OS.ANDROID) {
+      c.released = true;
+      this.fail(c, P.E.RELEASED, 'The Mac disconnected the phone');
+    }
+    this.endPhoneGrace();
+  }
+
   // Close every socket that belongs to a device id (used by Forget).
   closeDevice(deviceId, code, message) {
     for (const ctx of this.sockets) if (ctx.deviceId === deviceId) this.fail(ctx, code, message);
@@ -135,6 +169,7 @@ class Server extends EventEmitter {
 
   close() {
     clearInterval(this.tick);
+    clearTimeout(this.graceTimer);
     for (const ctx of this.sockets) ctx.ws.terminate();
     this.wss.close();
     this.https.close();

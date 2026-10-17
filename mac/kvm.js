@@ -31,6 +31,7 @@ class Kvm extends EventEmitter {
     this.tapError = null;
     this.acceptTimer = null;
     this.pendingMove = null; // coalesced k.mm while driving
+    this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
 
     setInterval(() => this._tick(), 250);
     // The host tells the layout on connect; after that either side sends it when its user changes it.
@@ -166,6 +167,7 @@ class Kvm extends EventEmitter {
 
   _setMode(mode, message) {
     const prev = this.mode;
+    if (process.env.TWINDESK_DEBUG_KVM && prev !== mode) console.log(`[kvm] ${prev} -> ${mode}${message ? ` (${message})` : ''}`);
     this.mode = mode;
     if (prev !== mode) this.emit('where', mode, prev); // hud.js shows it
     this.message = message || '';
@@ -200,7 +202,7 @@ class Kvm extends EventEmitter {
     const take = { t: P.T.KVM_TAKE, route: this.route, mouse: !!fields.mouse, keyboard: !!k.keyboard, ...fields.where };
     const plan = fields.paths && fields.paths.length ? this.fileSend.planDrag(fields.paths) : null;
     if (plan) take.drag = { count: plan.items.length };
-    this.server.sendToClient(take);
+    this._drive(take);
     if (plan) {
       this.dragOut = this.fileSend.startDrag(plan); // drag.start right after kvm.take
       console.log(`[drag] out ${this.dragOut}: ${plan.items.length} item(s), ${plan.files} file(s), ${plan.bytes} bytes`);
@@ -221,14 +223,20 @@ class Kvm extends EventEmitter {
       this.dragOut = null;
     }
     this.helper.send('capture', { on: false });
-    if (tellPeer && this.server.current) this.server.sendToClient({ t: P.T.KVM_RELEASE, route: ++this.route });
+    if (tellPeer && this.server.current) this._drive({ t: P.T.KVM_RELEASE, route: ++this.route });
     this._setMode('home', message);
   }
 
   _flushMove() {
     const m = this.pendingMove;
     this.pendingMove = null;
-    if (m && this.mode === 'driving') this.server.sendToClient({ t: P.T.K_MOVE, dx: m.dx, dy: m.dy });
+    if (m && this.mode === 'driving') this._drive({ t: P.T.K_MOVE, dx: m.dx, dy: m.dy });
+  }
+
+  // Input while driving goes to the other computer, or to the phone bridge when a phone is the peer.
+  _drive(msg) {
+    if (this.local && this.local.drives()) this.local.handle(msg);
+    else this.server.sendToClient(msg);
   }
 
   _onHelper(name, ev) {
@@ -285,7 +293,7 @@ class Kvm extends EventEmitter {
         }
         this._flushMove();
         if (this.dragOut && e.t === P.T.K_UP && e.b === 0) this.dragOut = null; // dropped on the PC (drag.end follows)
-        this.server.sendToClient(e);
+        this._drive(e);
         break;
       }
       case 'captureEnded':

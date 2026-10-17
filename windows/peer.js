@@ -91,6 +91,11 @@ class Peer {
     return true;
   }
 
+  // A message as if the peer had sent it (the phone bridge answers for the phone's input).
+  inject(msg) {
+    if (this.hosting) this._deliver(msg);
+  }
+
   // link.js's status shape: {state, rtt, message}.
   get status() {
     if (!this.hosting) return this.link.status;

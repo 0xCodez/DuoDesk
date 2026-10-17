@@ -81,6 +81,7 @@ const DEFAULT_SETTINGS = {
   notifs: { send: false, receive: true, hideText: false, muted: [] },
   apps: { offer: true }, // The PC can list and open this Mac's apps
   papps: { on: true }, // PC apps on this Mac, each window here with its own Dock icon
+  phone: { sound: true, bitrateMbps: 8, maxSize: 0, wallpaper: true }, // A phone as the peer: its screen window, apps and setup
   // The other computer's screen in a window here; framegen: shared/framegen.js.
   receive: { on: true, fullScreen: false, input: true, framegen: false },
   wake: { peers: {} }, // {deviceId: {name, macs, address, at}} from wol.info, for Wake
@@ -92,7 +93,7 @@ function loadSettings() {
   const s = read('settings.json', {});
   if (s.sharing) s.sharing.on = false; // screen sharing never starts by itself
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['wake', 'sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs', 'updates']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['wake', 'sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs', 'updates', 'phone']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   if ((s.rev || 0) < 7) { // Clipboard instant by default
     out.clipboard.mode = 'instant';
     out.rev = 7;

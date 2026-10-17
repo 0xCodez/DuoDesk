@@ -75,6 +75,12 @@ class Peer extends EventEmitter {
     this.send(this.current, msg);
   }
 
+  // A message as if the peer had sent it (the phone bridge answers for the phone's input).
+  inject(msg) {
+    const c = this.current;
+    if (c) this._deliver(msg, c);
+  }
+
   _deliver(msg, ctx) {
     if (this.listenerCount(`t:${msg.t}`) === 0 && !this.unknown.has(msg.t)) {
       this.unknown.add(msg.t);
