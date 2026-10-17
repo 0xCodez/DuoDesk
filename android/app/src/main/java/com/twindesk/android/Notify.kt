@@ -21,6 +21,7 @@ object Notify {
     const val ID_LINK = 1
     const val ID_INVITE = 2
     const val ID_FCLIP = 3
+    const val ID_ADB = 4
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -92,6 +93,28 @@ object Notify {
     }
 
     fun cancelInvite(ctx: Context) = nm(ctx).cancel(ID_INVITE)
+
+    // Wireless debugging went off while connected (MIUI / HyperOS do that): tap to turn it on.
+    fun adbOff(ctx: Context, computer: String) {
+        val open = PendingIntent.getActivity(
+            ctx, 30, Intent(ctx, AdbActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        nm(ctx).notify(
+            ID_ADB,
+            Notification.Builder(ctx, CH_INVITE)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("Wireless debugging is off")
+                .setContentText("$computer needs it for this screen, its mouse and keyboard here, and sound. Tap to turn it on.")
+                .setStyle(Notification.BigTextStyle().bigText("$computer needs it for this screen, its mouse and keyboard here, and sound. Tap to turn it on."))
+                .setContentIntent(open)
+                .setOnlyAlertOnce(true)
+                .setAutoCancel(true)
+                .build(),
+        )
+    }
+
+    fun cancelAdbOff(ctx: Context) = nm(ctx).cancel(ID_ADB)
 
     // Files on their way (progress) and when they are here (open / show).
     fun files(ctx: Context, key: Int, title: String, text: String, progress: Int?, open: Intent?) {

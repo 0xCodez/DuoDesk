@@ -159,10 +159,19 @@ class Apps(core: Core) : Feature(core) {
 // the Mac asks (adb.enable) — after a reboot or on a new network — without anyone opening Settings.
 class Adb(core: Core) : Feature(core) {
     private val cr get() = core.ctx.contentResolver
+    private val main = Handler(Looper.getMainLooper())
+
+    // Connected, and wireless debugging is off even after we tried to switch it on: the app asks
+    // the person to turn it on (MIUI and HyperOS switch it off on every Wi-Fi change, screen lock or
+    // reboot, and may refuse to let us switch it back).
+    @Volatile var off = false; private set
 
     init {
-        val obs = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) = sendState()
+        val obs = object : ContentObserver(main) {
+            override fun onChange(selfChange: Boolean) {
+                sendState()
+                check()
+            }
         }
         cr.registerContentObserver(Settings.Global.getUriFor("adb_wifi_enabled"), false, obs)
         cr.registerContentObserver(Settings.Global.getUriFor(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED), false, obs)
@@ -204,10 +213,32 @@ class Adb(core: Core) : Feature(core) {
         }.isSuccess
     }
 
+    // Is wireless debugging on while we're connected? If not: switch it on if we may, and if it is
+    // still off a moment later, ask (the app's dialog and a notification, both open the setting).
+    fun check() {
+        main.removeCallbacksAndMessages(null)
+        if (!core.link.connected || wifiDebugging) return settle(false)
+        if (canEnable) enable(true)
+        main.postDelayed({
+            if (core.link.connected && !wifiDebugging) settle(true) else settle(false)
+        }, 2000)
+    }
+
+    private fun settle(isOff: Boolean) {
+        if (isOff == off) return
+        off = isOff
+        if (isOff) Notify.adbOff(core.ctx, core.host?.name ?: "your computer") else Notify.cancelAdbOff(core.ctx)
+        core.changed()
+    }
+
     override fun onWelcome(host: Host) {
-        // Wireless debugging only works on Wi-Fi; switch it on for the Mac if we may.
-        if (canEnable && !wifiDebugging) enable(true)
+        // Wireless debugging only works on Wi-Fi; switch it on for the Mac if we may, else ask.
         sendState()
+        main.post { check() }
+    }
+
+    override fun onClosed() {
+        main.post { check() }
     }
 
     override fun onMessage(t: String, m: JSONObject): Boolean {

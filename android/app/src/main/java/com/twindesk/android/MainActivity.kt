@@ -42,6 +42,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -91,13 +92,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         TwinService.start(this)
-        if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         setContent { Theme { App(Core.get(this), resumed.value) } }
     }
 
     override fun onResume() {
         super.onResume()
         resumed.value++ // permissions may have changed in Settings
+        Core.get(this).adb.check() // back from Settings: is wireless debugging on now?
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -145,6 +146,32 @@ fun App(core: Core, resumed: Int) {
     var tab by rememberSaveable { mutableStateOf(Tab.Overview) }
     var more by rememberSaveable { mutableStateOf(false) }
     val wide = LocalConfiguration.current.screenWidthDp >= 600
+    // Wireless debugging went off (MIUI / HyperOS): ask once per time it happens.
+    var adbAsked by rememberSaveable { mutableStateOf(false) }
+    if (!core.adb.off) adbAsked = false
+    if (core.adb.off && !adbAsked) {
+        val name = them(core)
+        AlertDialog(
+            onDismissRequest = { adbAsked = true },
+            containerColor = pal.card,
+            title = { Text("Turn on wireless debugging", color = pal.text) },
+            text = {
+                Text(
+                    "$name uses it for this device’s screen, its mouse and keyboard here, and sound. " +
+                        "Some phones (MIUI, HyperOS) switch it off after a Wi-Fi change, a screen lock or a restart.\n\n" +
+                        "Settings opens at Developer options: switch Wireless debugging on, then come back.",
+                    color = pal.muted,
+                )
+            },
+            confirmButton = { TextButton(onClick = { adbAsked = true; core.adb.openSettings() }) { Text("Open Settings", color = pal.accent) } },
+            dismissButton = { TextButton(onClick = { adbAsked = true }) { Text("Not now", color = pal.muted) } },
+        )
+    }
+
+    // Setup first while something needed isn't allowed (Skip for now remembers what was skipped).
+    val ctx = LocalContext.current
+    var setupDone by rememberSaveable { mutableStateOf(false) }
+    if (!setupDone && SetupCheck.shouldShow(ctx, core)) return SetupScreen(core, ctx, v + resumed) { setupDone = true }
 
     Box(Modifier.fillMaxSize().background(pal.content)) {
         if (wide) {
