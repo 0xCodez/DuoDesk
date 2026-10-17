@@ -39,8 +39,16 @@ function copyDeps(names, seen = new Set()) {
 }
 
 async function main() {
-  console.log('Building the helper…');
-  execFileSync('cmd.exe', ['/c', path.join(ROOT, 'windows-helper', 'build.cmd')], { stdio: 'inherit' });
+  // The helper needs Windows' C# compiler; elsewhere (a Mac) the installer reuses the .exe already
+  // in windows-helper/bin/, e.g. one taken from the last release.
+  if (process.platform === 'win32') {
+    console.log('Building the helper…');
+    execFileSync('cmd.exe', ['/c', path.join(ROOT, 'windows-helper', 'build.cmd')], { stdio: 'inherit' });
+  } else if (!fs.existsSync(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'))) {
+    throw new Error('Not on Windows: put a built macshare-winhelper.exe in windows-helper/bin/ first');
+  } else {
+    console.log('Not on Windows: using the helper already in windows-helper/bin/');
+  }
 
   console.log('Staging…');
   fs.rmSync(STAGE, { recursive: true, force: true });
