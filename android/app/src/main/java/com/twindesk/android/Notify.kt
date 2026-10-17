@@ -65,8 +65,8 @@ object Notify {
             h != null -> {
                 b.setContentTitle("Connected to ${h.name}")
                 b.setContentText(core.files.activeLine() ?: "Files, clipboard and notifications are shared")
+                // Three buttons at most: wireless debugging being off has its own notification (adbOff).
                 b.addAction(Notification.Action.Builder(null, "Send clipboard", action(ctx, ActionReceiver.SEND_CLIP, 11)).build())
-                if (!core.adb.wifiDebugging) b.addAction(Notification.Action.Builder(null, "Wireless debugging", action(ctx, ActionReceiver.ADB_ON, 14)).build())
                 b.addAction(Notification.Action.Builder(null, "Disconnect", action(ctx, ActionReceiver.DISCONNECT, 12)).build())
             }
             core.link.state == "connecting" -> b.setContentTitle("Connecting to ${core.link.host?.name ?: "your computer"}…")
@@ -77,6 +77,7 @@ object Notify {
                 if (near != null) b.addAction(Notification.Action.Builder(null, "Connect to ${near.name}", action(ctx, ActionReceiver.CONNECT, 13, near.id)).build())
             }
         }
+        b.addAction(Notification.Action.Builder(null, "Exit", action(ctx, ActionReceiver.EXIT, 15)).build())
         return b.build()
     }
 

@@ -60,6 +60,7 @@ class ActionReceiver : BroadcastReceiver() {
         val arg = intent.getStringExtra("arg") ?: ""
         when (intent.action) {
             DISCONNECT -> core.disconnect()
+            EXIT -> exit(ctx, core)
             CONNECT -> core.hosts().find { it.id == arg }?.let { core.connect(it) }
             SEND_CLIP -> ctx.startActivity(Intent(ctx, ClipActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             FCLIP_COPY -> core.fclip.fetch(arg, save = false)
@@ -72,6 +73,16 @@ class ActionReceiver : BroadcastReceiver() {
         }
     }
 
+    // Exit: disconnect (so the computer hears it), stop the service and its notification, and end
+    // the process, so nothing reconnects or comes back until TwinDesk is opened again (or the phone
+    // restarts: BootReceiver).
+    private fun exit(ctx: Context, core: Core) {
+        core.disconnect()
+        ctx.stopService(Intent(ctx, TwinService::class.java))
+        ctx.getSystemService(NotificationManager::class.java).cancelAll()
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ android.os.Process.killProcess(android.os.Process.myPid()) }, 600)
+    }
+
     companion object {
         const val DISCONNECT = "com.twindesk.android.DISCONNECT"
         const val CONNECT = "com.twindesk.android.CONNECT"
@@ -80,6 +91,7 @@ class ActionReceiver : BroadcastReceiver() {
         const val FCLIP_SAVE = "com.twindesk.android.FCLIP_SAVE"
         const val ADB_ON = "com.twindesk.android.ADB_ON"
         const val PAIR_CODE = "com.twindesk.android.PAIR_CODE"
+        const val EXIT = "com.twindesk.android.EXIT"
     }
 }
 
