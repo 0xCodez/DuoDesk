@@ -107,7 +107,7 @@ try {
   if (Get-LocalUser -Name ${q(USER)} -ErrorAction SilentlyContinue) { Set-LocalUser -Name ${q(USER)} -Password $pw -PasswordNeverExpires $true }
   else { New-LocalUser -Name ${q(USER)} -Password $pw -PasswordNeverExpires -UserMayNotChangePassword -Description 'TwinDesk file sharing (network only)' | Out-Null }
   $k = 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\SpecialAccounts\\UserList'
-  New-Item -Path $k -Force | Out-Null
+  if (-not (Test-Path $k)) { New-Item -Path $k -Force | Out-Null } # -Force on an existing key deletes and recreates it, unhiding every other account
   New-ItemProperty -Path $k -Name ${q(USER)} -Value 0 -PropertyType DWord -Force | Out-Null
   icacls ${q(folder)} /grant (${q(USER)} + ':(OI)(CI)M') | Out-Null
   if (Get-SmbShare -Name ${q(SHARE)} -ErrorAction SilentlyContinue) { Remove-SmbShare -Name ${q(SHARE)} -Force }
