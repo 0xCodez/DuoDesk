@@ -18,7 +18,11 @@ function make(keyFile, certFile) {
   return new Promise((resolve, reject) => {
     execFile('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-sha256', '-days', '3650',
       '-subj', '/CN=MacShare', '-keyout', keyFile, '-out', certFile], { timeout: 60000 }, (err, _out, stderr) => {
-      if (err) return reject(new Error(err.code === 'ENOENT' ? 'openssl is not installed' : String(stderr || err.message).trim().split('\n').pop()));
+      if (err) {
+        try { fs.rmSync(keyFile, { force: true }); fs.rmSync(certFile, { force: true }); } catch (_) { /* a half-written pair */ }
+        return reject(new Error(err.code === 'ENOENT' ? 'openssl is not installed' : err.killed ? 'openssl took too long'
+          : String(stderr || err.message).trim().split('\n').filter((l) => !/^[.+*]*$/.test(l)).pop() || err.message)); // not its progress dots
+      }
       try { fs.chmodSync(keyFile, 0o600); } catch (_) { /* best effort */ }
       resolve();
     });

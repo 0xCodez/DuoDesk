@@ -206,11 +206,19 @@ class PeerApps {
       w.keys.release();
       this._toWin(w, { t: 'blur' });
     });
-    // Resized here: resize the window over there to match (its capture follows).
-    win.on('resized', () => {
-      const [cw, ch] = win.getContentSize();
-      w.sizedAt = Date.now();
-      if (this.active) this.link.send({ t: T.PAPP_SIZE, wid: w.info.wid, w: Math.round(cw * w.info.scale), h: Math.round(ch * w.info.scale) });
+    // Resized here: resize the window over there to match (its capture follows). Electron has no
+    // 'resized' on Linux: 'resize', once it has been still for a moment; a size the window already
+    // has over there (our own setContentSize below) isn't sent back.
+    win.on('resize', () => {
+      clearTimeout(w.sizeTimer);
+      w.sizeTimer = setTimeout(() => {
+        if (win.isDestroyed()) return;
+        const [cw, ch] = win.getContentSize();
+        const pw = Math.round(cw * w.info.scale), ph = Math.round(ch * w.info.scale);
+        if (Math.abs(pw - w.info.w) <= 2 && Math.abs(ph - w.info.h) <= 2) return;
+        w.sizedAt = Date.now();
+        if (this.active) this.link.send({ t: T.PAPP_SIZE, wid: w.info.wid, w: pw, h: ph });
+      }, 300);
     });
     // The close button closes the window over there; this one goes when its list drops it.
     win.on('close', (e) => {
@@ -219,6 +227,7 @@ class PeerApps {
       this.link.send({ t: T.PAPP_CLOSE, wid: w.info.wid });
     });
     win.on('closed', () => {
+      clearTimeout(w.sizeTimer);
       w.keys.release();
       if (this.wins.get(w.info.wid) === w) this.wins.delete(w.info.wid);
       this.onChange();

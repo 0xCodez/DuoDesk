@@ -4,8 +4,9 @@
 // window of an app opened that way is streamed on its own (`rtc2` kind 'window', sender.js) while
 // its `papp.policy` accepts and "Open {me}'s apps on {name}" is on — menus and pop-ups too, as
 // `popup` entries with their `owner` and offset. Its input in such a window (`in.*` + `wid`) is
-// injected at that window. Windows come from the helper (`windows`, EWMH): X11 only; on Wayland no
-// app may list or capture other apps' windows.
+// injected at that window. A GTK window's shadow is cut off its picture (`inset`). Windows come
+// from the helper (`windows`, EWMH): X11 only; on Wayland no app may list or capture other
+// apps' windows.
 const { desktopCapturer, screen: displays } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -223,7 +224,7 @@ class PcApps {
       for (const w of main) {
         taken.add(w.wid);
         a.pids.add(w.pid);
-        out.push({ wid: w.wid, id: a.id, title: w.title, w: w.w, h: w.h, scale: w.scale, ...workArea(w) });
+        out.push({ wid: w.wid, id: a.id, title: w.title, w: w.w, h: w.h, scale: w.scale, ...workArea(w), ...inset(w) });
       }
       // Pop-ups: over their owner if it's one of these windows; menus have no owner, so the window
       // of the same process that was raised last, else the one under the pop-up, else the first.
@@ -235,7 +236,7 @@ class PcApps {
           || same.find((m) => w.x >= m.x && w.y >= m.y && w.x < m.x + m.w && w.y < m.y + m.h) || same[0] || main[0];
         if (!owner) continue;
         taken.add(w.wid);
-        pops.push({ wid: w.wid, id: a.id, title: w.title, w: w.w, h: w.h, scale: w.scale, popup: true, owner: owner.wid, x: w.x - owner.x, y: w.y - owner.y });
+        pops.push({ wid: w.wid, id: a.id, title: w.title, w: w.w, h: w.h, scale: w.scale, popup: true, owner: owner.wid, x: w.x - owner.x, y: w.y - owner.y, ...inset(w) });
       }
       if (main.length) { a.had = true; a.lastSeen = now; }
       // Closed (no windows for 3 s), or never showed one in 30 s: stop following it.
@@ -247,7 +248,7 @@ class PcApps {
   // Send the window list on change; start/stop one stream per window.
   async _sync(list) {
     const key = JSON.stringify(list);
-    if (key !== this.sentKey && this.link.status.state === 'connected') this.link.send({ t: T.PAPP_WINDOWS, windows: list });
+    if (key !== this.sentKey && this.link.status.state === 'connected') this.link.send({ t: T.PAPP_WINDOWS, windows: list.map(({ inset: _, ...w }) => w) });
     const changed = key !== this.sentKey;
     this.sentKey = key;
     this.windows = list;
@@ -257,6 +258,8 @@ class PcApps {
       if (!want.has(wid)) {
         this.streams.delete(wid);
         this.sender.stop(session);
+      } else if (changed) {
+        this.sender.inset(session, (list.find((w) => w.wid === wid) || {}).inset); // maximized: no shadow any more
       }
     }
     const start = [...want].filter((wid) => !this.streams.has(wid) && !this.failed.has(wid));
@@ -268,7 +271,7 @@ class PcApps {
         const session = this.sender.start({
           sourceId: src ? src.id : 'window:' + wid + ':0', width: MAX_W, height: MAX_H, follow: true,
           mbps: this.settings.pcScreen.mbps, fps: PcScreen.fps(displays.getPrimaryDisplay()),
-          offer: { kind: 'window', wid },
+          inset: (this.windows.find((w) => w.wid === wid) || {}).inset, offer: { kind: 'window', wid },
         });
         this.streams.set(wid, session);
       }
@@ -294,6 +297,13 @@ class PcApps {
   view() {
     return { wayland: WAYLAND, allow: this.allowed, macAccepts: this.macAccepts, open: this.windows.length, streaming: this.streams.size, message: this.message };
   }
+}
+
+// A window's invisible border (GTK's shadow), cut off its picture: [left, right, top, bottom].
+// Its place and size (x, y, w, h) are already of what's inside (the helper).
+function inset(w) {
+  const i = Array.isArray(w.inset) && w.inset.length === 4 ? w.inset.map((v) => Math.max(0, Number(v) || 0)) : null;
+  return i && i.some(Boolean) ? { inset: i } : {};
 }
 
 // The work area of the monitor a window is on, in physical px (the other computer never

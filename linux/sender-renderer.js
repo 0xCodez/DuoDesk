@@ -44,8 +44,9 @@ function withOpus(sdp) {
     : sdp.replace(m[0], m[0] + '\r\na=fmtp:' + m[1] + ' ' + extra);
 }
 
-// m: {session, sourceId, width, height, follow?, mbps, fps?, audio, offer: {kind, wid?}}
+// m: {session, sourceId, width, height, follow?, inset?, mbps, fps?, audio, offer: {kind, wid?}}
 // follow: the picture follows the source's size (an app window), up to width × height.
+// inset: an app window's invisible border, cut off (cropped()).
 // Every frame matters more than the last bit of sharpness: under pressure the encoder
 // lowers quality, never the frame rate (dropped frames are what feels jagged and adds lag).
 async function start(m) {
@@ -70,9 +71,11 @@ async function start(m) {
     }
     if (!alive(me)) return stream.getTracks().forEach((t) => t.stop());
     me.stream = stream;
-    const track = stream.getVideoTracks()[0];
+    const captured = stream.getVideoTracks()[0];
+    captured.onended = () => alive(me) && report(me, 'ended', 'The captured ' + (m.offer.kind === 'window' ? 'window' : 'monitor') + ' went away');
+    me.inset = m.inset || null;
+    const track = m.offer.kind === 'window' ? cropped(captured, me) : captured;
     track.contentHint = 'motion';
-    track.onended = () => alive(me) && report(me, 'ended', 'The captured ' + (m.offer.kind === 'window' ? 'window' : 'monitor') + ' went away');
     const pc = (me.pc = new RTCPeerConnection({ iceServers: [] }));
     const tr = pc.addTransceiver(track, { direction: 'sendonly', streams: [stream] });
     const audio = stream.getAudioTracks()[0];
@@ -105,6 +108,30 @@ async function start(m) {
   } catch (e) {
     if (alive(me)) report(me, 'failed', 'Capturing: ' + e.message);
   }
+}
+
+// An app window's picture without its invisible border (GTK's shadow): every frame cut to
+// me.inset [left, right, top, bottom], which may change (a maximized window has none). The
+// cut is only a visible rectangle over the same frame, nothing is copied.
+function cropped(track, me) {
+  const proc = new MediaStreamTrackProcessor({ track });
+  const gen = new MediaStreamTrackGenerator({ kind: 'video' });
+  me.cropTrack = gen;
+  proc.readable.pipeThrough(new TransformStream({
+    transform(frame, out) {
+      const [l, r, t, b] = me.inset || [0, 0, 0, 0];
+      const v = frame.visibleRect;
+      const x = l & ~1, y = t & ~1; // even: 4:2:0 pictures
+      const width = (v.width - x - r) & ~1, height = (v.height - y - b) & ~1;
+      if (!(l || r || t || b) || width < 16 || height < 16) return out.enqueue(frame);
+      let cut = null;
+      try { cut = new VideoFrame(frame, { visibleRect: { x: v.x + x, y: v.y + y, width, height } }); } catch (_) { /* whole frame */ }
+      if (!cut) return out.enqueue(frame);
+      frame.close();
+      out.enqueue(cut);
+    },
+  })).pipeTo(gen.writable).catch(() => {});
+  return gen;
 }
 
 // Once a second, as on the Mac: picture, fps, bitrate (and what the network allows), encoder.
@@ -176,12 +203,14 @@ function stop(session) {
   clearInterval(me.statsTimer);
   if (me.pc) me.pc.close();
   if (me.stream) me.stream.getTracks().forEach((t) => t.stop());
+  if (me.cropTrack) me.cropTrack.stop();
 }
 
 api.on((m) => {
   switch (m.t) {
     case 'start': start(m); break;
     case 'stop': stop(m.session); break;
+    case 'inset': if (sessions.has(m.session)) sessions.get(m.session).inset = m.inset; break;
     case T.RTC2_ANSWER: onAnswer(m); break;
     case T.RTC2_ICE: onIce(m); break;
   }

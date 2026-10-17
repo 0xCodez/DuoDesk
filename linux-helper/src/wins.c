@@ -74,6 +74,15 @@ static int geometry(Window w, int *x, int *y, int *ww, int *hh, int *viewable, i
   return 1;
 }
 
+// The invisible border a window draws around itself (a GTK window's shadow, client-side
+// decorations): left, right, top, bottom. Places and sizes here are of what's inside it, as the
+// window manager shows it; the capture is cut to it (linux/pcapps.js `inset`).
+static void extents(Window w, int *l, int *r, int *t, int *b) {
+  unsigned long e[4] = { 0 };
+  if (prop_longs(w, atom("_GTK_FRAME_EXTENTS"), XA_CARDINAL, e, 4) != 4) e[0] = e[1] = e[2] = e[3] = 0;
+  *l = (int)e[0]; *r = (int)e[1]; *t = (int)e[2]; *b = (int)e[3];
+}
+
 static int has_type(Window w, const char **names) {
   unsigned long t[8];
   int n = prop_longs(w, atom("_NET_WM_WINDOW_TYPE"), XA_ATOM, t, 8);
@@ -91,15 +100,18 @@ static int hidden(Window w) {
 static void entry(char **buf, size_t *len, size_t *cap, int *first, Window w, int popup, Window owner) {
   int x, y, ww, hh, viewable, ovr;
   if (!geometry(w, &x, &y, &ww, &hh, &viewable, &ovr) || !viewable || ww < 2 || hh < 2) return;
+  int l, r, t, b;
+  extents(w, &l, &r, &t, &b);
+  if (l + r >= ww - 1 || t + b >= hh - 1) l = r = t = b = 0;
   unsigned long pid = 0;
   prop_longs(w, atom("_NET_WM_PID"), XA_CARDINAL, &pid, 1);
   char *title = prop_text(w, atom("_NET_WM_NAME"));
   if (!title) title = prop_text(w, XA_WM_NAME);
   XClassHint ch = { 0 };
   XGetClassHint(dpy_in, w, &ch);
-  char head[256];
-  snprintf(head, sizeof head, "%s{\"wid\":%lu,\"pid\":%lu,\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"popup\":%s,\"owner\":%lu,\"scale\":1,\"title\":",
-    *first ? "" : ",", (unsigned long)w, pid, x, y, ww, hh, popup ? "true" : "false", (unsigned long)owner);
+  char head[320];
+  snprintf(head, sizeof head, "%s{\"wid\":%lu,\"pid\":%lu,\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"inset\":[%d,%d,%d,%d],\"popup\":%s,\"owner\":%lu,\"scale\":1,\"title\":",
+    *first ? "" : ",", (unsigned long)w, pid, x + l, y + t, ww - l - r, hh - t - b, l, r, t, b, popup ? "true" : "false", (unsigned long)owner);
   put_raw(buf, len, cap, head);
   put_str(buf, len, cap, title);
   put_raw(buf, len, cap, ",\"cls\":");
@@ -175,7 +187,9 @@ void wins_raise(unsigned long wid) {
 void wins_close(unsigned long wid) { client_message((Window)wid, "_NET_CLOSE_WINDOW", CurrentTime, 2); }
 
 void wins_size(unsigned long wid, int w, int h) {
-  XResizeWindow(dpy_in, (Window)wid, (unsigned)w, (unsigned)h);
+  int l, r, t, b;
+  extents((Window)wid, &l, &r, &t, &b);
+  XResizeWindow(dpy_in, (Window)wid, (unsigned)(w + l + r), (unsigned)(h + t + b));
   XFlush(dpy_in);
 }
 
@@ -183,6 +197,9 @@ void wins_size(unsigned long wid, int w, int h) {
 void wins_move(unsigned long wid, double x, double y) {
   int wx, wy, ww, hh, v, o;
   if (!geometry((Window)wid, &wx, &wy, &ww, &hh, &v, &o)) return;
+  int l, r, t, b;
+  extents((Window)wid, &l, &r, &t, &b);
+  if (l + r < ww - 1 && t + b < hh - 1) { wx += l; wy += t; ww -= l + r; hh -= t + b; }
   inject_move_to(wx + (int)(x * (ww - 1) + 0.5), wy + (int)(y * (hh - 1) + 0.5));
 }
 

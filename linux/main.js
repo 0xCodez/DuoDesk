@@ -269,7 +269,7 @@ function sendScreens() {
 }
 
 // Host role (L4): our own server, once the certificate exists (made on first start).
-async function startHost(guest) {
+async function startHost(guest, tries = 0) {
   try {
     const id = await identity.load();
     discovery.self.fp = id.fp; // beacons carry it now
@@ -282,6 +282,7 @@ async function startHost(guest) {
     console.error('[host]', e.message);
     link.host = { on: false, error: 'No certificate: ' + e.message };
     pushState();
+    if (tries < 5) setTimeout(() => startHost(guest, tries + 1), 15000); // a busy computer at login: try again
   }
 }
 

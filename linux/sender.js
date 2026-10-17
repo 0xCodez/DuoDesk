@@ -44,13 +44,18 @@ class Sender extends EventEmitter {
     });
   }
 
-  // opts: {sourceId, width, height, follow?, mbps, fps?, audio?, offer: {kind, wid?}} → session number
+  // opts: {sourceId, width, height, follow?, inset?, mbps, fps?, audio?, offer: {kind, wid?}} → session number
   start(opts) {
     const session = ++this.counter;
     this.live.add(session);
     if (opts.offer && opts.offer.kind === 'window') this.windows.add(session);
     this._toWin({ ...opts, t: 'start', session });
     return session;
+  }
+
+  // A window's picture cut by [left, right, top, bottom] px from now on (none: whole).
+  inset(session, inset) {
+    if (this.live.has(session)) this._toWin({ t: 'inset', session, inset: inset || null });
   }
 
   stop(session, tellMac = true) {
