@@ -99,7 +99,9 @@ class PhoneViews extends EventEmitter {
       width, height, minWidth: 220, minHeight: 300, title, show: false,
       titleBarStyle: 'hidden', titleBarOverlay: { color: '#1c1c1e', symbolColor: '#f5f5f7', height: 32 }, backgroundColor: '#000000',
       icon: path.join(__dirname, 'assets', 'icon.png'), autoHideMenuBar: true,
-      webPreferences: { preload: path.join(__dirname, 'preload-phoneview.js'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
+      // autoplayPolicy: the phone's sound plays without a click (its sound window is hidden, so a
+      // click never comes: without this its AudioContext stays suspended and silent).
+      webPreferences: { preload: path.join(__dirname, 'preload-phoneview.js'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
     });
     const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [] };
     this.views.set(id, v);

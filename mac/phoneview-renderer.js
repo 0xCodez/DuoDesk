@@ -143,6 +143,7 @@
     await actx.audioWorklet.addModule('pcm-worklet.js');
     player = new AudioWorkletNode(actx, 'pcm-player', { outputChannelCount: [2] });
     player.connect(actx.destination);
+    if (actx.state === 'suspended') await actx.resume(); // never left waiting for a click
   }
   api.on('audio', (d) => {
     if (!player) {

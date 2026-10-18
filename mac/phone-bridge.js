@@ -25,6 +25,10 @@ const { KeyState, ANDROID } = require('./android-keys');
 const T = P.T;
 const APP_ID = 'com.twindesk.android';
 const POLL_MS = 3000;
+// macOS's Local Network privacy: adb (started by TwinDesk) may not open connections on the LAN.
+// The phone answers ping, but every connect and pairing attempt fails with EHOSTUNREACH.
+const NO_ROUTE = /no route to host/i;
+const LAN_BLOCKED = 'macOS is blocking TwinDesk from the local network: System Settings › Privacy & Security › Local Network › TwinDesk on, then Try Again.';
 const INPUT_BLOCKED = 'Xiaomi blocks touch and keys: on the phone, Developer options › USB debugging (Security settings)';
 const BUTTON = { 0: 1, 1: 2, 2: 4, 3: 8, 4: 16 }; // our button numbers -> MotionEvent.BUTTON_*
 const isPhone = (ctx) => !!ctx && ctx.os === P.OS.ANDROID;
@@ -232,6 +236,7 @@ class PhoneBridge extends EventEmitter {
         return this._kick();
       }
       if (/authenticat|unauthorized/i.test(r.text)) unpaired = true;
+      if (NO_ROUTE.test(r.text)) return this._set('error', LAN_BLOCKED);
     }
     // Just paired: the pairing screen can linger in mDNS caches for a while; it's connecting now.
     const justPaired = Date.now() - (this.pairedAt || 0) < 60000;
@@ -302,6 +307,7 @@ class PhoneBridge extends EventEmitter {
     }
     this._set('connecting', 'Pairing…');
     const r = await this.adb.pair(address, port, code);
+    if (!r.ok && NO_ROUTE.test(r.text)) return this._set('needsPair', LAN_BLOCKED);
     if (!r.ok) return this._set('needsPair', `Pairing didn’t work (${r.text.split('\n').pop() || 'no answer'}). Try a new code.`);
     this.pairedAt = Date.now();
     this.misses = 0;

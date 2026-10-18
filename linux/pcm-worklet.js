@@ -1,6 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // AudioWorklet: plays raw PCM pushed from main (48 kHz stereo float32 interleaved) with a small
-// jitter buffer. Keeps ~20–40 ms queued; drops the oldest audio if it falls >120 ms behind.
+// jitter buffer. Keeps ~40–60 ms queued; drops the oldest audio if it falls >160 ms behind. (More
+// than the Mac's: the phone's sound comes over Wi-Fi and adb, and PC timers are coarser, so
+// a 20 ms cushion ran dry and crackled.)
 'use strict';
 
 class PcmPlayer extends AudioWorkletProcessor {
@@ -23,9 +25,9 @@ class PcmPlayer extends AudioWorkletProcessor {
       this.w = (this.w + 1) % cap;
     }
     this.n = Math.min(cap, this.n + frames);
-    const max = 5760; // 120 ms
+    const max = 7680; // 160 ms
     if (this.n > max) {
-      const drop = this.n - 1920; // back to 40 ms
+      const drop = this.n - 2880; // back to 60 ms
       this.r = (this.r + drop) % cap;
       this.n -= drop;
     }
@@ -34,7 +36,7 @@ class PcmPlayer extends AudioWorkletProcessor {
   process(_inputs, outputs) {
     const [l, r] = outputs[0];
     const cap = this.buf.length >> 1;
-    if (!this.primed && this.n >= 960) this.primed = true; // start once 20 ms is queued
+    if (!this.primed && this.n >= 1920) this.primed = true; // start once 40 ms is queued
     for (let i = 0; i < l.length; i++) {
       if (this.primed && this.n > 0) {
         l[i] = this.buf[this.r * 2];
