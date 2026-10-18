@@ -160,6 +160,7 @@ class Server extends EventEmitter {
     if (c && c.os === P.OS.ANDROID) {
       c.released = true;
       this.fail(c, P.E.RELEASED, 'The PC disconnected the phone');
+      setTimeout(() => c.ws.terminate(), 1000); // an older phone app never answers the close
     }
     this.endPhoneGrace();
   }

@@ -127,8 +127,13 @@ private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Compos
             "Turn on Developer options",
             if (xiaomi) "About phone › tap “OS version” 7 times." else "About phone › tap “Build number” 7 times.", a.devOptions,
         ) { Secondary("Open") { ctx.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
-        if (xiaomi) S("Xiaomi: “USB debugging (Security settings)”", "", false, optional = true) { Secondary("Open") { a.openSettings() } } else null,
-        S("Turn on Wireless debugging", "Developer options › Wireless debugging.", a.wifiDebugging) { Secondary("Open") { a.turnOn() } },
+        // Without it MIUI and HyperOS refuse the computer's touches and keys (the computer tells us).
+        if (xiaomi) S(
+            "Xiaomi: “USB debugging (Security settings)”",
+            "Developer options › USB debugging (Security settings): on, for touch, mouse and keyboard from $name. It asks for a Mi account.",
+            a.paired && !a.inputBlocked, optional = !a.inputBlocked,
+        ) { Secondary("Open") { a.openSettings() } } else null,
+        S("Turn on USB and Wireless debugging", "Developer options › USB debugging and Wireless debugging: both on.", a.wifiDebugging) { Secondary("Open") { a.turnOn() } },
         S(
             "Pair with $name",
             if (a.pairing) "Pairing…" else "“Pair device with pairing code”, then type the code in TwinDesk’s notification.", a.paired,

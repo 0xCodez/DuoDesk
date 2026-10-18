@@ -6,6 +6,7 @@
 package com.twindesk.android
 
 import android.Manifest
+import android.app.KeyguardManager
 import android.app.WallpaperManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -22,6 +23,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Base64
 import android.view.Display
@@ -169,6 +171,8 @@ class Adb(core: Core) : Feature(core) {
     @Volatile var bridge = ""; private set
     @Volatile var bridgeMessage = ""; private set
     @Volatile var canPair = false; private set // the computer has been looking a while: its pairing may really be gone
+    // Xiaomi: “USB debugging (Security settings)” is off, so the computer's touches and keys are refused.
+    @Volatile var inputBlocked = false; private set
     val paired get() = bridge == "ready"
     // The computer reached wireless debugging here before: its pairing stays (Settings lists it),
     // so while it reconnects (after MIUI switches wireless debugging off on a screen lock, at a new
@@ -176,7 +180,7 @@ class Adb(core: Core) : Feature(core) {
     // a while (canPair), asks again.
     private fun knownKey() = core.host?.let { "adb.known.${it.id}" }
     val known get() = knownKey()?.let { core.store.flag(it, false) } ?: false
-    val setupNeeded get() = !paired && (!known || bridge == "needsPair" || canPair)
+    val setupNeeded get() = (!paired && (!known || bridge == "needsPair" || canPair)) || inputBlocked
     @Volatile var pairing = false; private set // a code went to the computer, waiting for the answer
     private var nsd: android.net.nsd.NsdManager.DiscoveryListener? = null
     @Volatile private var pairPort = 0 // our own "Pair device with pairing code" port, from mDNS
@@ -195,10 +199,20 @@ class Adb(core: Core) : Feature(core) {
         }
         cr.registerContentObserver(Settings.Global.getUriFor("adb_wifi_enabled"), false, obs)
         cr.registerContentObserver(Settings.Global.getUriFor(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED), false, obs)
+        cr.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, obs)
+        // MIUI and HyperOS switch it off on a screen lock and switch it straight back off if we
+        // turn it on while locked: turn it on again once the phone is unlocked.
+        core.ctx.registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) = check()
+        }, IntentFilter().apply { addAction(Intent.ACTION_USER_PRESENT); addAction(Intent.ACTION_SCREEN_ON) })
     }
 
+    private val unlocked get() = core.ctx.getSystemService(PowerManager::class.java)?.isInteractive != false &&
+        core.ctx.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked != true
+
     val devOptions get() = Settings.Global.getInt(cr, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1
-    val wifiDebugging get() = Settings.Global.getInt(cr, "adb_wifi_enabled", 0) == 1
+    // Wireless debugging only runs while USB debugging is on, and MIUI switches that off too.
+    val wifiDebugging get() = Settings.Global.getInt(cr, Settings.Global.ADB_ENABLED, 0) == 1 && Settings.Global.getInt(cr, "adb_wifi_enabled", 0) == 1
     val canEnable get() = core.ctx.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED
 
     fun address(): String = runCatching {
@@ -234,18 +248,24 @@ class Adb(core: Core) : Feature(core) {
             // Android forgets a computer's pairing after 7 days without a connection (the default
             // "adb authorization timeout"); 0 keeps it.
             if (on) runCatching { Settings.Global.putLong(cr, "adb_allowed_connection_time", 0L) }
+            // Its pairings stay while it's off: switching it back on is all a reconnect needs.
+            if (on) Settings.Global.putInt(cr, Settings.Global.ADB_ENABLED, 1)
             Settings.Global.putInt(cr, "adb_wifi_enabled", if (on) 1 else 0)
         }.isSuccess
     }
 
-    // Is wireless debugging on while we're connected? If not: switch it on if we may, and if it is
-    // still off a moment later, ask (the app's dialog and a notification, both open the setting).
-    fun check() {
+    // Is wireless debugging on while we're connected? If not: switch it on if we may (a few times:
+    // MIUI may switch it off again just after an unlock), and if it is still off, ask (the app's
+    // dialog and a notification, both open the setting). Locked: wait for the unlock.
+    fun check(tries: Int = 3) {
         main.removeCallbacksAndMessages(null)
         if (!core.link.connected || wifiDebugging) return settle(false)
+        if (!unlocked) return
         if (canEnable) enable(true)
         main.postDelayed({
-            if (core.link.connected && !wifiDebugging) settle(true) else settle(false)
+            if (!core.link.connected || wifiDebugging) settle(false)
+            else if (canEnable && tries > 1) check(tries - 1)
+            else settle(true)
         }, 2000)
     }
 
@@ -275,6 +295,7 @@ class Adb(core: Core) : Feature(core) {
                 bridge = m.optString("state")
                 bridgeMessage = m.optString("message")
                 canPair = m.optBoolean("canPair", false)
+                inputBlocked = m.optBoolean("inputBlocked", false)
                 if (pairing && bridge != "connecting") {
                     pairing = false
                     if (bridge == "ready") Notify.pairResult(core.ctx, "Paired with ${core.host?.name ?: "your computer"}", "Its screen, mouse, keyboard and sound work with this device now.", false)

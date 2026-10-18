@@ -25,6 +25,10 @@ jobs:
             libxrandr-dev \
             libxfixes-dev
 
+      - uses: ./.github/actions/android-full
+        with:
+          keystore: ${{ secrets.ANDROID_KEYSTORE }}
+
       - name: Install dependencies
         working-directory: linux
         run: npm install

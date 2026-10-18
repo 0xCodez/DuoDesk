@@ -1,0 +1,42 @@
+# The full Android build (notification access) that the computers install over the downloaded app
+# through wireless debugging. It has to be signed with the same key as that app, so it's built only
+# when the ANDROID_KEYSTORE secret holds that key (base64 of ~/.android/debug.keystore); without it
+# the installer is built without the Android app and says so.
+name: Android full build
+inputs:
+  keystore:
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Signing key
+      id: key
+      shell: bash
+      env:
+        KEYSTORE: ${{ inputs.keystore }}
+      run: |
+        if [ -z "$KEYSTORE" ]; then
+          echo "::warning::No ANDROID_KEYSTORE secret: building without the full Android app"
+          echo "have=false" >> "$GITHUB_OUTPUT"
+        else
+          mkdir -p ~/.android
+          echo "$KEYSTORE" | base64 -d > ~/.android/debug.keystore
+          echo "have=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - if: steps.key.outputs.have == 'true'
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 21
+
+    - if: steps.key.outputs.have == 'true'
+      name: Build the full APK into android/dist
+      shell: bash
+      working-directory: android
+      run: |
+        ./gradlew --no-daemon assembleFullRelease
+        mkdir -p dist
+        cp app/build/outputs/apk/full/release/app-full-release.apk "dist/TwinDesk-$(grep -m1 versionName app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')-full.apk"
+        ls -la dist

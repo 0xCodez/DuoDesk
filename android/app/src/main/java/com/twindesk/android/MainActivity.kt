@@ -159,7 +159,7 @@ fun App(core: Core, resumed: Int) {
                 Text(
                     "$name uses it for this device’s screen, its mouse and keyboard here, and sound. " +
                         "Some phones (MIUI, HyperOS) switch it off after a Wi-Fi change, a screen lock or a restart.\n\n" +
-                        "Settings opens at Developer options: switch Wireless debugging on, then come back.",
+                        "Settings opens at Developer options: switch USB debugging and Wireless debugging on, then come back.",
                     color = pal.muted,
                 )
             },

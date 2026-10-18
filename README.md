@@ -226,6 +226,13 @@ blocks in downloaded apps; the computers install it over wireless debugging (Pho
 Notifications from the phone), so `npm run dist` on each platform bundles the newest
 `android/dist/*-full.apk`.
 
+### GitHub Actions
+
+**Build Linux** and **Build Windows** (Actions tab › Run workflow) make the AppImage and .deb, and
+the x64 and arm64 installers. The full Android app goes in only when the `ANDROID_KEYSTORE`
+secret holds the key the downloaded app is signed with (`base64 -i ~/.android/debug.keystore`):
+installing over that app needs the same signature.
+
 ## Privacy
 
 TwinDesk only talks to computers you have paired with, directly over your local network. It has no

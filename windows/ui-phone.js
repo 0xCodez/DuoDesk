@@ -98,12 +98,13 @@ UI.tab({
       const ready = br.state === 'ready';
       showBtn.disabled = !ready;
       const [cls, label] = STATES[br.state] || STATES.off;
-      adbPill.className = `pill ${cls}`;
-      adbPill.textContent = label;
-      adbRow.setHint(ready ? 'The phone’s screen, touch, mouse and keyboard, and its clipboard in the background' : br.message);
+      adbPill.className = `pill ${ready && br.inputBlocked ? 'bad' : cls}`;
+      adbPill.textContent = ready && br.inputBlocked ? 'Touch blocked' : label;
+      adbRow.setHint(ready && br.inputBlocked ? 'The screen works, but Xiaomi refuses touch, mouse and keyboard from here. On the phone: Settings › Developer options › USB debugging (Security settings): on (it asks for a Mi account).'
+        : ready ? 'The phone’s screen, touch, mouse and keyboard, and its clipboard in the background' : br.message);
       pairRow.hidden = br.state !== 'needsPair' && !br.canPair;
       steps.set(br.state === 'waitingWifi'
-        ? 'On the phone: Settings › About phone › tap Build number 7 times (Developer options). Then Settings › System › Developer options › Wireless debugging: on. After pairing once, TwinDesk turns it on by itself.'
+        ? 'On the phone: Settings › About phone › tap Build number 7 times (Developer options). Then Settings › System › Developer options › USB debugging and Wireless debugging: both on (wireless debugging only works with USB debugging on). After pairing once, TwinDesk turns them on by itself.'
         : br.state === 'needsPair' ? 'TwinDesk pairs with the phone’s wireless debugging once. After that the phone’s screen, apps, mouse and keyboard work without this step.' : '');
 
       // The standard build can't read notifications (Play Protect blocks downloaded apps that do).

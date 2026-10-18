@@ -24,6 +24,7 @@ const { KeyState, ANDROID } = require('./android-keys');
 const T = P.T;
 const APP_ID = 'com.twindesk.android';
 const POLL_MS = 3000;
+const INPUT_BLOCKED = 'Xiaomi blocks touch and keys: on the phone, Developer options › USB debugging (Security settings)';
 const BUTTON = { 0: 1, 1: 2, 2: 4, 3: 8, 4: 16 }; // our button numbers -> MotionEvent.BUTTON_*
 const isPhone = (ctx) => !!ctx && ctx.os === P.OS.ANDROID;
 const knownFile = () => path.join(require('electron').app.getPath('userData'), 'phone-adb-known.json');
@@ -57,6 +58,7 @@ class PhoneBridge extends EventEmitter {
     // across restarts.
     this.known = new Set(readJson(knownFile(), []));
     this.canPair = false; // still looking, but the code field shows (its pairing may be gone)
+    this.inputBlocked = false; // Xiaomi with “USB debugging (Security settings)” off: touches and keys are refused
 
     phone.on('adb', () => this._kick());
     // The pairing code typed on the phone (its guide's notification), with its pairing port.
@@ -69,7 +71,7 @@ class PhoneBridge extends EventEmitter {
     phone.on('info', () => this._kick());
     server.on('client', (ctx) => {
       if (isPhone(ctx)) {
-        this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message, canPair: this.canPair });
+        this._tellPhone();
         return this._kick();
       }
       this._stopAll('');
@@ -82,7 +84,7 @@ class PhoneBridge extends EventEmitter {
 
   get view() {
     return {
-      state: this.state, message: this.message, serial: this.serial, available: this.adb.available, canPair: this.canPair,
+      state: this.state, message: this.message, serial: this.serial, available: this.adb.available, canPair: this.canPair, inputBlocked: this.inputBlocked,
       control: !!(this.control && !this.control.closed), driving: !!this.kvm,
       windows: this.views ? this.views.list() : [],
     };
@@ -95,7 +97,24 @@ class PhoneBridge extends EventEmitter {
     this.message = message;
     if (state !== 'connecting') this.canPair = false;
     // The phone's guide shows how it's going.
-    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.ADB_BRIDGE, state, message, canPair: this.canPair });
+    this._tellPhone();
+    this.emit('change');
+  }
+
+  _tellPhone() {
+    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message, canPair: this.canPair, inputBlocked: this.inputBlocked });
+  }
+
+  // MIUI and HyperOS refuse adb's touches and keys (INJECT_EVENTS) until Developer options ›
+  // “USB debugging (Security settings)” is on. It needs a Mi account, and adb can't switch it.
+  async _checkInput(serial) {
+    const r = await this.adb.shell(serial, 'getprop ro.product.manufacturer; getprop persist.security.adbinput', { timeout: 4000 });
+    const [maker, on] = (r.out || '').trim().split(/\s+/);
+    const blocked = /xiaomi|redmi|poco/i.test(maker || '') && on === '0';
+    if (blocked === this.inputBlocked) return;
+    this.inputBlocked = blocked;
+    if (blocked) this.emit('popup', 'home', INPUT_BLOCKED);
+    this._tellPhone();
     this.emit('change');
   }
 
@@ -125,7 +144,11 @@ class PhoneBridge extends EventEmitter {
   async _poll() {
     this._sound();
     if (this.polling || !isPhone(this.server.current)) return;
-    if (this.state === 'ready' && this.control && !this.control.closed) return;
+    if (this.state === 'ready' && this.control && !this.control.closed) {
+      // Watch for the switch going on (no restart needed).
+      if (this.inputBlocked && this.serial) await this._checkInput(this.serial).catch(() => {});
+      return;
+    }
     this.polling = true;
     try {
       await this._step();
@@ -150,6 +173,7 @@ class PhoneBridge extends EventEmitter {
       this._known(true);
       this.serial = ready;
       await this._setup(ready);
+      await this._checkInput(ready);
       return this._startControl();
     }
     if (!a.wifi) {
@@ -157,7 +181,7 @@ class PhoneBridge extends EventEmitter {
         this.server.sendToClient({ t: T.ADB_ENABLE, on: true });
         return this._set('connecting', 'Turning on wireless debugging…');
       }
-      return this._set('waitingWifi', a.devOptions ? 'Turn on Wireless debugging on the phone.' : 'Turn on Developer options and Wireless debugging on the phone.');
+      return this._set('waitingWifi', a.devOptions ? 'Turn on USB debugging and Wireless debugging on the phone (both).' : 'Turn on Developer options, then USB debugging and Wireless debugging on the phone (both).');
     }
     // Wireless debugging is on: connect where it listens. The phone tells us its port (it finds
     // itself over mDNS), our own mDNS may see it, and the port that worked last time is worth a try.
@@ -334,6 +358,7 @@ class PhoneBridge extends EventEmitter {
     const y = side === 'top' ? 0 : side === 'bottom' ? d.h - 1 : off * (d.h - 1);
     this.kvm = { route: m.route, x, y, side, push: 0, buttons: 0, mouse: m.mouse !== false };
     this.keys.clear();
+    if (this.inputBlocked) this.emit('popup', 'home', INPUT_BLOCKED);
     // Answer after Kvm's _take returns: it starts its "no answer" timer right after sending kvm.take.
     setImmediate(() => this.server.inject({ t: T.KVM_ACCEPT, route: m.route }));
     this._hover();

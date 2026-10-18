@@ -137,6 +137,12 @@ class Link(
     private inner class Listener : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) = run { if (webSocket === ws) onOpen() }
         override fun onMessage(webSocket: WebSocket, text: String) = run { if (webSocket === ws) onText(text) }
+        // The computer closed it (Disconnect, Forget…): answer at once. OkHttp waits for us to,
+        // and until then neither side saw the session end.
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) = run {
+            webSocket.close(1000, null)
+            if (webSocket === ws) onClose(null)
+        }
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = run { if (webSocket === ws) onClose(null) }
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = run {
             if (webSocket !== ws) return@run
