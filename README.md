@@ -5,7 +5,7 @@
 <h1 align="center"><a href="https://twin-desk.vercel.app">TwinDesk</h1></a>
 
 <p align="center">
-  Use two computers as one desk: Mac, Windows and Linux on the same network.<br>
+  Use two computers as one desk: Mac, Windows and Linux on the same network. <b>And your Android phone, as a full peer.</b><br>
   Share screens, mouse and keyboard, clipboard, files, sound, notifications, terminals and apps.
 </p>
 
@@ -14,6 +14,7 @@
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black">
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4">
   <img alt="Linux X11 and Wayland" src="https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-f0a30a">
+  <img alt="Android 10+" src="https://img.shields.io/badge/Android-10%2B-3ddc84">
 </p>
 
 
@@ -25,6 +26,28 @@ TwinDesk pairs two computers on your local network. One app on each side does th
 software KVM, a second-monitor app, a clipboard and file-sharing tool and a remote-app viewer.
 Everything travels directly between the two machines over an encrypted link. There's no cloud
 account and no relay server.
+
+## 📱 Your Android phone is the other computer
+
+Most phone links stop at notifications and a file drop. In TwinDesk the phone is a **full peer**:
+it pairs like a computer, takes the session like a computer, and gets the same features. Your
+mouse leaves the Mac's screen edge and keeps going on the phone. The phone's apps open in windows of
+their own on your desktop. A file copied on the Mac pastes in any Android app. And it works with a
+**Mac, a Windows PC or a Linux computer**, with no cable, no root and no account.
+
+| On the computer | On the phone |
+|---|---|
+| **The phone's screen in a window**, with touch from your mouse and trackpad, and the phone's sound | **The computer's screen on the phone**: Mirror it, or Extend the desktop onto it, with touch as the mouse |
+| **Phone apps in windows of their own**, side by side with your desktop apps. Pin them to the Dock or the Start menu | **The computer's mouse and keyboard on the phone**: push the pointer past the screen edge, type with the real keyboard |
+| **Your mouse and keyboard across the edge**, onto the phone and back, with a double-tap of the hotkey to bring everything home | **Files from any app** through the share sheet: *Send to computer* or *Copy to computer* |
+| **Copy files on the computer** (<kbd>⌃⌥C</kbd>, <kbd>Ctrl+Alt+C</kbd>) and paste them in any Android app from the phone's notification | **The clipboard both ways**, in the background too (Quick Settings has a *Send clipboard* tile) |
+| **The phone's notifications** as native notifications, with the text hidden or apps muted if you like | **The computer's notifications** on the phone |
+| **The phone in Finder** on a Mac, like a network drive | **The computer's sound** on the phone, and the phone's sound on the computer |
+
+A paired phone nearby shows above Overview with its own wallpaper; one click connects it. It holds
+the session while it's connected, and gets it back by itself after a Wi-Fi blip. Everything that
+needs system access (the screen, input, apps and sound) goes through Android's own wireless
+debugging, which TwinDesk pairs with once and then keeps on by itself. See [Android](#android).
 
 <p align="center">
   <img src=".github/assets/tour.gif" alt="A tour of the TwinDesk window" width="820">
@@ -88,12 +111,50 @@ desktop portal. A few things work a little differently:
   monitor" when the desktop asks which screen to share. On X11 it uses a spare output of the
   graphics driver (not available on NVIDIA's driver).
 - **Apps.** Opening this computer's apps on the other side needs an Xorg session.
+- **Android phone.** Everything in [Android](#android) works on Linux too: the phone's screen and
+  apps in windows, the mouse and keyboard across the edge, files, clipboard, notifications and
+  sound. The package carries adb; the Setup screen's firewall fix opens mDNS (5353/udp) so the
+  phone's wireless debugging is found.
 
 ## Android
 
 Install TwinDesk on the phone (from the [releases](https://github.com/InukaAsith/TwinDesk/releases)),
 open it next to TwinDesk on the computer and pair from Overview › Nearby. A paired phone nearby
-shows above Overview on the computer; click it to connect.
+shows above Overview on the computer; click it to connect. It works the same with a Mac, a Windows
+PC (x64 or ARM) and Linux (X11 or Wayland). The phone needs Android 10, and Android 11 for
+everything that goes through wireless debugging.
+
+### The phone app
+
+The app is laid out like the computers' (a sidebar on tablets, tabs at the bottom on phones), and
+every page names the computer it's connected to:
+
+| Page | What it does |
+|---|---|
+| **Overview** | The computer you're connected to, Connect and Disconnect, nearby computers to pair with, and the wireless debugging card until that's set up |
+| **Screen** | Use the phone as a screen for the computer: Mirror, or Extend the desktop onto it. Touch works as the mouse (tap to click, hold to right click, drag to select or move windows, two fingers to scroll), with the computer's sound and Smooth playback |
+| **Cursor** | The computer's mouse on the phone across the screen edge, its pointer speed here, reverse scrolling, right and middle click |
+| **Keyboard** | The computer's keyboard types on the phone, every key as a key, so any layout works and the soft keyboard stays out of the way. A keyboard on the phone types on the computer |
+| **Clipboard** | Copy on one, paste on the other, each way on its own switch, at once or when sent |
+| **Notifications** | The phone's notifications on the computer, with the text hidden if you like, and the computer's on the phone |
+| **Files** | Send files, copy them to paste on the computer, and see where the computer's files land |
+| **Sound** | The phone's sound on the computer, and the computer's sound on the phone |
+| **General** | The phone's name, background running, and the permissions TwinDesk uses, each with its switch |
+| **About** | Source code, releases, the license, and what goes over wireless debugging and the network |
+
+And outside the app:
+
+- **Share sheet:** *Send to computer* and *Copy to computer* in every app's Share menu.
+- **Quick Settings tiles:** *Send clipboard* and *Wireless debugging*.
+- **Home screen shortcuts:** the computer's screen, and wireless debugging on in one tap.
+- **The ongoing notification** shows what's connected, with Exit.
+- **Copied on the computer:** files copied with <kbd>⌃⌥C</kbd> / <kbd>Ctrl+Alt+C</kbd> arrive as a
+  notification with Copy (paste them in any app) and Save.
+- **The computer can install the full app** over wireless debugging (Phone page › Notifications
+  from the phone): Play Protect blocks downloaded apps that read notifications, so the download
+  leaves that out and the computer adds it. Settings and pairing stay.
+
+### Wireless debugging
 
 Files, the clipboard and notifications work right away. The phone's screen, its apps in windows,
 touch, your mouse and keyboard on the phone and its sound go through **wireless debugging**, which
@@ -111,7 +172,11 @@ TwinDesk pairs with once:
 - After that TwinDesk switches wireless debugging on by itself when it needs it, follows it to its
   new port every time it restarts, and keeps the pairing from expiring (Android otherwise forgets
   a computer after 7 days unused). Phones that switch it off on every Wi-Fi change or screen lock
-  (MIUI, HyperOS) get it switched back on, or a prompt if they refuse.
+  (MIUI, HyperOS) get it switched back on as soon as they're unlocked, or a prompt if they refuse.
+  Wireless debugging only runs while **USB debugging** is on too, so TwinDesk turns both on.
+- **Xiaomi, Redmi and POCO** also need *Developer options › USB debugging (Security settings)* for
+  touch, mouse and keyboard (it asks for a Mi account). Without it the screen shows but input is
+  refused; the computer's Phone page says "Touch blocked" until it's on.
 - **On a Mac, the phone in Finder.** Turn it on in the Mount tab and click Mount: the phone shows
   under Locations like any server. Until then TwinDesk never looks at the phone's files. It goes
   through the cable when USB debugging is allowed, else over wireless debugging. Finder's `.DS_Store` and `._` files never land on the phone.
@@ -228,10 +293,12 @@ Notifications from the phone), so `npm run dist` on each platform bundles the ne
 
 ### GitHub Actions
 
-**Build Linux** and **Build Windows** (Actions tab › Run workflow) make the AppImage and .deb, and
-the x64 and arm64 installers. The full Android app goes in only when the `ANDROID_KEYSTORE`
-secret holds the key the downloaded app is signed with (`base64 -i ~/.android/debug.keystore`):
-installing over that app needs the same signature.
+**Build Android**, **Build Linux** and **Build Windows** (Actions tab › Run workflow) make the
+standard and full APKs, the AppImage and .deb, and the x64 and arm64 installers, helpers included.
+Set the `ANDROID_KEYSTORE` secret to the key the Android app is signed with
+(`base64 -i ~/.android/debug.keystore`): the APKs then install over existing ones, and the Linux and
+Windows builds carry the full Android app. Without it the APKs get the runner's own key and the
+computers' builds leave the Android app out.
 
 ## Privacy
 
