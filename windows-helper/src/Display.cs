@@ -45,7 +45,8 @@ namespace MacShare
         static extern int ChangeDisplaySettingsEx(string device, ref DEVMODE dm, IntPtr hwnd, int flags, IntPtr param);
 
         const int ATTACHED_TO_DESKTOP = 1, ENUM_CURRENT_SETTINGS = -1, CDS_UPDATEREGISTRY = 1;
-        const int DM_PELSWIDTH = 0x80000, DM_PELSHEIGHT = 0x100000, DM_DISPLAYFREQUENCY = 0x400000;
+        const int DM_PELSWIDTH = 0x80000, DM_PELSHEIGHT = 0x100000, DM_DISPLAYFREQUENCY = 0x400000, DM_DISPLAYORIENTATION = 0x80;
+        const int DMDO_DEFAULT = 0, DMDO_90 = 1;
 
         static DEVMODE NewMode()
         {
@@ -84,23 +85,30 @@ namespace MacShare
         }
 
         // Set a monitor (GDI name) to width × height at its highest refresh rate. False if it has no such mode.
+        // A portrait size (height > width) is the landscape mode turned 90°: monitors (the virtual one
+        // too) only offer landscape modes, and Windows turns the picture.
         public static bool SetMode(string name, int width, int height)
         {
             DEVMODE cur = NewMode();
             if (!EnumDisplaySettings(name, ENUM_CURRENT_SETTINGS, ref cur)) throw new Exception("no such monitor");
-            if (cur.dmPelsWidth == width && cur.dmPelsHeight == height) return true;
+            int orient = height > width ? DMDO_90 : DMDO_DEFAULT;
+            if (cur.dmPelsWidth == width && cur.dmPelsHeight == height && cur.dmDisplayOrientation == orient) return true;
+            int lw = Math.Max(width, height), lh = Math.Min(width, height); // the landscape mode
             int best = 0;
             DEVMODE m = NewMode();
             for (int i = 0; EnumDisplaySettings(name, i, ref m); i++)
             {
-                if (m.dmPelsWidth == width && m.dmPelsHeight == height && m.dmDisplayFrequency > best) best = m.dmDisplayFrequency;
+                // Modes are listed as the monitor is turned now: either way round.
+                bool fits = (m.dmPelsWidth == lw && m.dmPelsHeight == lh) || (m.dmPelsWidth == lh && m.dmPelsHeight == lw);
+                if (fits && m.dmDisplayFrequency > best) best = m.dmDisplayFrequency;
                 m = NewMode();
             }
             if (best == 0) return false;
             cur.dmPelsWidth = width;
             cur.dmPelsHeight = height;
             cur.dmDisplayFrequency = best;
-            cur.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+            cur.dmDisplayOrientation = orient;
+            cur.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY | DM_DISPLAYORIENTATION;
             int r = ChangeDisplaySettingsEx(name, ref cur, IntPtr.Zero, CDS_UPDATEREGISTRY, IntPtr.Zero);
             if (r != 0) throw new Exception("ChangeDisplaySettingsEx " + r);
             return true;

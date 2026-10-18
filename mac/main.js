@@ -236,6 +236,8 @@ function sendScreenState() {
 
 // The viewer on the other computer starts/stops our sharing or switches Extend/Mirror.
 function onScreenCtl(m) {
+  // The phone viewer's Close stops sharing even when the viewer may not start and switch it.
+  if (m.share === false && m.close === true) return void (settings.sharing.on && actions.setSharing(false, 'remote'));
   if (settings.sharing.remote === false) return void (screenStateKey = '', pushState()); // re-send: remote false
   if (m.mode === 'extend' || m.mode === 'mirror') {
     if (displayMode() !== m.mode) actions.setDisplayMode(m.mode);

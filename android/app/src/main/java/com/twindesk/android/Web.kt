@@ -175,10 +175,11 @@ class Screen(core: Core) : Feature(core) {
     }
 
     // Start/stop the Mac's sharing, or switch Mirror/Extend (when the Mac allows it).
-    fun control(share: Boolean? = null, mode: String? = null) {
+    fun control(share: Boolean? = null, mode: String? = null, close: Boolean = false) {
         val m = msg("screen.ctl")
         if (share != null) m.put("share", share)
         if (mode != null) m.put("mode", mode)
+        if (close) m.put("close", true)
         if (share == false) startedByUs = false
         core.send(m)
     }
@@ -186,6 +187,12 @@ class Screen(core: Core) : Feature(core) {
     fun keyboard(on: Boolean) {
         host?.post(msg("keyboard", "on" to on))
         host?.keyboard(on)
+    }
+
+    // The viewer's Close: the computer stops sharing too (whoever started it; close: even when it
+    // doesn't let us start and switch it).
+    fun end() {
+        if (core.link.connected && sharing) control(share = false, close = true)
     }
 
     // Mirror / Extend tapped in the viewer: remembered for next time.

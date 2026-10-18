@@ -140,7 +140,7 @@
       AUDIO_ICE: 'audio.ice', // either {dir, session, candidate}
       AUDIO_STOP: 'audio.stop', // sender->receiver {dir}
       SCREEN_POLICY: 'screen.policy', // either, viewer->sharer {accept, width?, height?}: a viewer is open and wants the picture (senders capture only while it is true)
-      SCREEN_CTL: 'screen.ctl', // either, viewer->sharer {share?, mode?: 'mirror'|'extend'}: start/stop or switch the other's sharing
+      SCREEN_CTL: 'screen.ctl', // either, viewer->sharer {share?, mode?: 'mirror'|'extend', close?}: start/stop or switch the other's sharing; close (with share false: the phone viewer's Close) stops it even without remote
       SCREEN_STATE: 'screen.state', // either, sharer->viewer {on, mode, remote, modes}: what this side shares; remote = it takes screen.ctl
       PAIR_SYNC: 'pair.sync', // either {feature, dir: 'out'|'in', on} | {key, value} (shared value, e.g. pace) | {all: {feature: {out, in}, values: {key: value}}} (host, after welcome): two-way switches shared per pair, dirs from the sender's side
       WOL_INFO: 'wol.info', // either {macs: ['aa:bb:cc:dd:ee:ff'], address}: how to wake this computer over the network

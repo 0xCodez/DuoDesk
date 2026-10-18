@@ -65,9 +65,12 @@ class ViewerActivity : ComponentActivity() {
         super.onStart()
         val h = host ?: return
         val m = resources.displayMetrics
-        // Physical pixels of this screen as it is turned now: the Mac makes Extend this shape.
+        // Physical pixels of this screen, landscape (the viewer is held landscape: a computer's
+        // screen is, and Windows' virtual monitor takes no portrait size): the computer makes Extend this shape.
         val b = windowManager.currentWindowMetrics.bounds
-        Core.get(this).screen.attach(h, b.width().coerceAtLeast(m.widthPixels), b.height().coerceAtLeast(m.heightPixels))
+        val w = b.width().coerceAtLeast(m.widthPixels)
+        val hpx = b.height().coerceAtLeast(m.heightPixels)
+        Core.get(this).screen.attach(h, maxOf(w, hpx), minOf(w, hpx))
     }
 
     override fun onStop() {
@@ -128,7 +131,7 @@ private fun Viewer(core: Core, host: WebHost, close: () -> Unit) {
                     if (s.sharing) TextButton(onClick = { s.control(share = false) }) { Text("Stop", color = Color.White) }
                 }
                 TextButton(onClick = { keyboard = !keyboard; s.keyboard(keyboard); bar = true }) { Text(if (keyboard) "Hide keyboard" else "Keyboard", color = Color.White) }
-                TextButton(onClick = close) { Text("Close", color = Color.White) }
+                TextButton(onClick = { s.end(); close() }) { Text("Close", color = Color.White) }
             }
         }
     }

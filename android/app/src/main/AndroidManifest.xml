@@ -54,6 +54,7 @@
             android:label="Mac screen"
             android:theme="@style/Theme.TwinDesk"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
+            android:screenOrientation="sensorLandscape"
             android:windowSoftInputMode="adjustNothing"
             android:launchMode="singleTask" />
 

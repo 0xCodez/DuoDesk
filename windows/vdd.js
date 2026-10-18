@@ -132,13 +132,16 @@ class Vdd {
   }
 
   // Before switching on: make sure the Mac's preferred size is one of the driver's modes (it reads
-  // its settings when the device starts). Then, once on, set that size.
+  // its settings when the device starts). Then, once on, set that size. A portrait size (a phone)
+  // is its landscape mode, turned by setMode.
   addMode(width, height) {
+    [width, height] = [Math.max(width, height), Math.min(width, height)];
     try {
       let xml = fs.readFileSync(SETTINGS_XML, 'utf8');
-      // A size under 640 × 480 (an older phone Extend added it) keeps the whole monitor from coming on.
-      const small = /\s*<resolution>\s*<width>\s*(\d+)\s*<\/width>\s*<height>\s*(\d+)\s*<\/height>[\s\S]*?<\/resolution>/g;
-      const cleaned = xml.replace(small, (r, w, h) => (Number(w) < 640 || Number(h) < 480 ? '' : r));
+      // A size under 640 × 480 or a portrait one (older phone Extends added them) keeps the whole
+      // monitor from coming on.
+      const bad = /\s*<resolution>\s*<width>\s*(\d+)\s*<\/width>\s*<height>\s*(\d+)\s*<\/height>[\s\S]*?<\/resolution>/g;
+      const cleaned = xml.replace(bad, (r, w, h) => (Number(w) < 640 || Number(h) < 480 || Number(w) < Number(h) ? '' : r));
       const dropped = cleaned !== xml;
       xml = cleaned;
       if (dropped) fs.writeFileSync(SETTINGS_XML, xml);

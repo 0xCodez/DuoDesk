@@ -235,6 +235,8 @@ class PcScreen {
 
   // The viewer starts/stops our sharing or switches Extend/Mirror, if we let it.
   _onCtl(m) {
+    // The phone viewer's Close stops sharing even when the viewer may not start and switch it.
+    if (m.share === false && m.close === true) return this.setMode('off');
     if (!this.cfg.remote) {
       this.stateKey = ''; // re-send: remote false
       return this.onChange();
