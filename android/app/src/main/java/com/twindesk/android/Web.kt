@@ -129,7 +129,7 @@ class Screen(core: Core) : Feature(core) {
         core.changed()
     }
 
-    fun opts(): JSONObject = msg("opts", "sound" to core.store.flag("screen.sound", true), "pacing" to (core.store.flag("screen.smooth", false).let { if (it) "smooth" else "fast" }))
+    fun opts(): JSONObject = msg("opts", "sound" to core.store.flag("screen.sound", false), "pacing" to (core.store.flag("screen.smooth", false).let { if (it) "smooth" else "fast" }))
 
     fun setOpt(key: String, on: Boolean) {
         core.store.setFlag(key, on)

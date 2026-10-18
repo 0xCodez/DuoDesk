@@ -17,12 +17,14 @@ object Notify {
     const val CH_FILES = "files"
     const val CH_CLIP = "clip"
     const val CH_COMPUTER = "computer"
+    const val CH_UPDATES = "updates"
 
     const val ID_LINK = 1
     const val ID_INVITE = 2
     const val ID_FCLIP = 3
     const val ID_ADB = 4
     const val ID_PAIR = 5
+    const val ID_UPDATE = 6
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -42,6 +44,9 @@ object Notify {
             description = "Files copied with the shortcut, ready to copy or save here"
         })
         n.createNotificationChannel(NotificationChannel(CH_COMPUTER, "Your computer’s notifications", NotificationManager.IMPORTANCE_HIGH))
+        n.createNotificationChannel(NotificationChannel(CH_UPDATES, "Updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "A new version of TwinDesk on GitHub"
+        })
     }
 
     fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
@@ -95,6 +100,24 @@ object Notify {
     }
 
     fun cancelInvite(ctx: Context) = nm(ctx).cancel(ID_INVITE)
+
+    // A new release on GitHub (Updates): tap to download it in the browser.
+    fun update(ctx: Context, latest: String, current: String) {
+        val open = PendingIntent.getActivity(
+            ctx, 50, Intent(Intent.ACTION_VIEW, Uri.parse(Core.get(ctx).updates.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        nm(ctx).notify(
+            ID_UPDATE,
+            Notification.Builder(ctx, CH_UPDATES)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("TwinDesk $latest is available")
+                .setContentText("You have $current. Tap to download the new version.")
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build(),
+        )
+    }
 
     // Wireless debugging went off while connected (MIUI / HyperOS do that): tap to turn it on.
     fun adbOff(ctx: Context, computer: String) {

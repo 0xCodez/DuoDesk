@@ -116,7 +116,7 @@ function normalize(s) {
     pcApps: { allow: bool(pca.allow, true) },
     // A phone as the peer: its screen window, apps and setup
     phone: {
-      sound: bool(ph.sound, true),
+      sound: bool(ph.sound, false),
       bitrateMbps: Math.round(num(ph.bitrateMbps, 8, 2, 40)),
       maxSize: [0, 1920, 1600, 1280, 1024].includes(ph.maxSize) ? ph.maxSize : 0,
       wallpaper: bool(ph.wallpaper, true),

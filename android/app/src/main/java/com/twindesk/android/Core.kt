@@ -53,6 +53,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val macSound = MacSound(this)
     val shortcuts = Shortcuts(this)
     val kvm = Kvm(this)
+    val updates = Updates(this)
     private val features: List<Feature> = listOf(sync, clip, notifs, files, fclip, info, apps, adb, pointer, drive, screen, macSound, shortcuts, kvm)
 
     val host: Host? get() = if (link.connected) link.host else null
@@ -60,6 +61,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     fun start() {
         discovery.start()
         Notify.channels(ctx)
+        updates.start()
     }
 
     fun changed() {

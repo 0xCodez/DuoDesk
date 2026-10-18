@@ -119,7 +119,7 @@ UI.tab({
           : `${inst && inst.state === 'failed' ? `${inst.message} ` : ''}The TwinDesk you downloaded can’t read the phone’s notifications (Play Protect blocks downloaded apps that can). Install the full app over it: its settings and pairing stay.${ready ? '' : ' Needs wireless debugging.'}`);
 
       const settings = ph.settings || {};
-      sound.set(settings.sound !== false);
+      sound.set(!!settings.sound);
       quality.set(String(settings.bitrateMbps || 8));
       wall.set(settings.wallpaper !== false);
 

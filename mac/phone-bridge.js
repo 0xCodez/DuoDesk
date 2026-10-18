@@ -548,7 +548,7 @@ class PhoneBridge extends EventEmitter {
   sessionOpts(kind, extra = {}) {
     const ph = this.getSettings().phone || {};
     const base = { video: true, control: true, maxFps: 60, videoBitRate: (ph.bitrateMbps || 8) * 1000000 };
-    if (kind === 'screen') return { ...base, audio: ph.sound !== false, maxSize: ph.maxSize || 0, stayAwake: true, ...extra };
+    if (kind === 'screen') return { ...base, audio: !!ph.sound, maxSize: ph.maxSize || 0, stayAwake: true, ...extra };
     return { ...base, audio: false, flex: true, ...extra };
   }
 

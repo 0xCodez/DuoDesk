@@ -84,7 +84,7 @@ const DEFAULT_SETTINGS = {
   apps: { offer: true }, // The PC can list and open this Mac's apps
   papps: { on: true }, // PC apps on this Mac, each window here with its own Dock icon
   // A phone as the peer: its screen window, apps and setup.
-  phone: { sound: true, bitrateMbps: 8, maxSize: 0, wallpaper: true },
+  phone: { sound: false, bitrateMbps: 8, maxSize: 0, wallpaper: true },
   mount: { on: false }, // the phone in Finder (phonedrive.js), only when Mount is clicked
 
   // The other computer's screen in a window here; framegen: shared/framegen.js.

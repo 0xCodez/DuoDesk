@@ -105,7 +105,7 @@ UI.tab({
         : br.state === 'needsPair' ? 'TwinDesk pairs with the phone’s wireless debugging once. After that the phone’s screen, apps, mouse and keyboard work without this step.' : '');
 
       const settings = ph.settings || {};
-      sound.set(settings.sound !== false);
+      sound.set(!!settings.sound);
       quality.set(String(settings.bitrateMbps || 8));
       wall.set(settings.wallpaper !== false);
 

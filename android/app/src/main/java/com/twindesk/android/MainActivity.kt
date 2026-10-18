@@ -285,7 +285,7 @@ private fun Page(core: Core, v: Int, tab: Tab, modifier: Modifier) {
                 Tab.Files -> FilesPage(core, v)
                 Tab.Sound -> SoundPage(core, v)
                 Tab.General -> GeneralPage(core, v)
-                Tab.About -> AboutPage()
+                Tab.About -> AboutPage(core, v)
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -498,7 +498,7 @@ private fun ScreenPage(core: Core, v: Int) {
         if (!s.inputOn) MacRow("Input is off", "$name doesn’t take input from here (its Share screen › Receive input)")
     }
     MacCard("Playback") {
-        SwitchRow("$name’s sound with the screen", "When $name shares sound with its screen", core.store.flag("screen.sound", true), first = true) { s.setOpt("screen.sound", it) }
+        SwitchRow("$name’s sound with the screen", "When $name shares sound with its screen", core.store.flag("screen.sound", false), first = true) { s.setOpt("screen.sound", it) }
         SwitchRow("Smooth", "Even motion, about one frame later. Off: each frame the moment it arrives", core.store.flag("screen.smooth", false)) { s.setOpt("screen.smooth", it) }
     }
 }
@@ -795,7 +795,8 @@ private fun GeneralPage(core: Core, v: Int) {
 // ---- About ----
 
 @Composable
-private fun AboutPage() {
+private fun AboutPage(core: Core, v: Int) {
+    @Suppress("UNUSED_EXPRESSION") v // redraw on every Core change (Compose skips unread parameters)
     Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Logo(110)
         Text("TwinDesk", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = pal.text, modifier = Modifier.padding(top = 10.dp))
@@ -804,6 +805,25 @@ private fun AboutPage() {
     }
     val ctx = LocalContext.current
     val open = { url: String -> ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    val u = core.updates
+    MacCard("Updates") {
+        MacRow(
+            "TwinDesk",
+            when {
+                u.checking -> "Checking…"
+                u.error.isNotEmpty() -> "Couldn’t check: ${u.error}"
+                u.available -> "${u.latest} is available. You have ${u.current}. " + (u.download?.let { "Download ${it.name}" } ?: "Opens the release page")
+                u.noReleases -> "Version ${u.current}. No releases published yet"
+                u.checkedAt > 0 -> "Up to date · checked " + java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(u.checkedAt))
+                else -> "Version ${u.current}"
+            },
+            first = true,
+        ) {
+            if (u.available) Primary("Download") { u.open() }
+            if (!u.checking) Secondary("Check now") { u.checkNow() }
+        }
+        SwitchRow("Check automatically", "Looks for new releases on GitHub every few hours", u.auto) { u.auto = it }
+    }
     MacCard("Made by") {
         MacRow("Inuka Asith", "inukaasith.vercel.app", first = true) { Secondary("Portfolio") { open("https://inukaasith.vercel.app") } }
         MacRow("Source code", "github.com/InukaAsith/TwinDesk") { Secondary("GitHub") { open("https://github.com/InukaAsith/TwinDesk") } }
