@@ -6,6 +6,9 @@
 // A phone app with windows here has a Dock icon of its own (dockstub.js, like a PC app), and pin()
 // keeps it in the Dock: opened from there, it asks TwinDesk for macshare://pc-app/phone:<package>.
 //
+// A phone notification clicked on the Mac opens its app here (openNotified): the phone wakes and
+// asks for its unlock first if it's locked (Wake.kt), as the app's window would show the lock screen.
+//
 // Events: 'change' — the window list changed.
 'use strict';
 
@@ -17,6 +20,8 @@ const { Session, ACTION, TYPE } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
 const { DockStub, addToDock } = require('./dockstub');
 
+const T = P.T;
+const NOTIFIED_MS = 60000; // how long a clicked notification waits for the unlock and wireless debugging
 let nextId = 1;
 
 class PhoneViews extends EventEmitter {
@@ -27,6 +32,10 @@ class PhoneViews extends EventEmitter {
     this.stubs = new Map(); // package -> DockStub, while that app has a window here
     bridge.views = this;
     this.on('change', () => bridge._tellPhone());
+    this.notified = null; // {pkg, name, at, unlocked}: a clicked notification's app, waiting to open
+    server.on(`t:${T.PHONE_AWAKE}`, (m) => this._awake(m));
+    bridge.on('change', () => this._openNotified());
+    server.on('closed', () => { this.notified = null; });
     ipcMain.on('phoneview:in', (e, m) => {
       const v = [...this.views.values()].find((x) => x.win && !x.win.isDestroyed() && x.win.webContents === e.sender);
       if (v && m && typeof m === 'object') this._input(v, m);
@@ -77,6 +86,42 @@ class PhoneViews extends EventEmitter {
     const scale = Math.max(2, screen.getPrimaryDisplay().scaleFactor || 1);
     const newDisplay = `${Math.round(w * scale)}x${Math.round((h - 32) * scale)}/${Math.round(160 * scale)}`;
     this._open({ kind: 'app', app: pkg, title: name || pkg, width: w, height: h, opts: this.bridge.sessionOpts('app', { newDisplay }) });
+  }
+
+  // A notification from the phone was clicked: wake it (unlocked: it answers at once), then open
+  // the app once the phone is unlocked and wireless debugging is back (MIUI drops it while locked).
+  openNotified(pkg, name) {
+    if (!pkg || !this.server.current) return;
+    const n = { pkg, name, at: Date.now(), unlocked: false, answered: false };
+    this.notified = n;
+    this.server.sendToClient({ t: T.PHONE_WAKE });
+    // An older app doesn't answer: open it anyway.
+    setTimeout(() => {
+      if (this.notified !== n || n.answered) return;
+      n.unlocked = true;
+      this._openNotified();
+    }, 2000);
+  }
+
+  _awake(m) {
+    const n = this.notified;
+    if (!n) return;
+    n.answered = true;
+    if (!m.unlocked) {
+      const phone = (this.server.current && this.server.current.name) || 'the phone';
+      return void (m.waiting && this.bridge.emit('popup', 'away', `Unlock ${phone} to open ${n.name || 'the app'}`));
+    }
+    n.unlocked = true;
+    this._openNotified();
+  }
+
+  _openNotified() {
+    const n = this.notified;
+    if (!n || !n.unlocked) return;
+    if (Date.now() - n.at > NOTIFIED_MS) return void (this.notified = null);
+    if (this.bridge.state !== 'ready' || !this.bridge.serial) return;
+    this.notified = null;
+    this.openApp(n.pkg, this._info(n.pkg, n.name).name);
   }
 
   close(id) {

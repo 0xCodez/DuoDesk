@@ -10,7 +10,7 @@ const T = P.T;
 const str = (v, n = 500) => (typeof v === 'string' ? v.slice(0, n) : '');
 
 class Notifs {
-  // opts: link, helper, settings (shared), save(), selfIds: [AUMID], peerName(), onChange()
+  // opts: link, helper, settings (shared), save(), selfIds: [AUMID], peerName(), onChange(), onClick({app, appName})? (main.js: a phone's notification clicked)
   constructor(opts) {
     Object.assign(this, opts);
     this.peerAccepts = false; // the other side's notif.policy (assume no until told)
@@ -106,6 +106,7 @@ class Notifs {
     this.live.add(n);
     const drop = () => this.live.delete(n);
     n.on('close', drop);
+    n.on('click', () => this.onClick && this.onClick({ app: str(m.app, 200), appName }));
     setTimeout(drop, 60000);
     n.show();
     this.shown++;

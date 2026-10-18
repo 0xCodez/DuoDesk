@@ -24,3 +24,4 @@ linux/dist/
 
 # The full Android build, copied in at build time (mac/build-app.sh)
 mac/vendor/twindesk-android-full.apk
+.env

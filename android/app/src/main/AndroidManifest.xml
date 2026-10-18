@@ -140,6 +140,16 @@
             android:noHistory="true"
             android:taskAffinity="" />
 
+        <!-- The computer asked the phone to wake: screen on, then the phone's own unlock prompt. -->
+        <activity
+            android:name=".WakeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TwinDesk.Invisible"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity="" />
+
         <receiver android:name=".ActionReceiver" android:exported="false" />
         <receiver
             android:name=".WiredReceiver"

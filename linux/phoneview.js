@@ -16,6 +16,8 @@ const P = require('../shared/protocol.js');
 const { Session, ACTION, TYPE } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
 
+const T = P.T;
+const NOTIFIED_MS = 60000; // how long a clicked notification waits for the unlock and wireless debugging
 let nextId = 1;
 
 class PhoneViews extends EventEmitter {
@@ -24,6 +26,10 @@ class PhoneViews extends EventEmitter {
     Object.assign(this, { bridge, phone, getSettings, server, fileSend });
     this.views = new Map(); // id -> {id, kind, app, title, win, session, keys, size}
     bridge.views = this;
+    this.notified = null; // {pkg, name, at, unlocked}: a clicked notification's app, waiting to open (openNotified)
+    server.on(`t:${T.PHONE_AWAKE}`, (m) => this._awake(m));
+    bridge.on('change', () => this._openNotified());
+    server.on('closed', () => { this.notified = null; });
     this.on('change', () => bridge._tellPhone());
     ipcMain.on('phoneview:in', (e, m) => {
       const v = [...this.views.values()].find((x) => x.win && !x.win.isDestroyed() && x.win.webContents === e.sender);
@@ -75,6 +81,43 @@ class PhoneViews extends EventEmitter {
     const scale = Math.max(2, screen.getPrimaryDisplay().scaleFactor || 1);
     const newDisplay = `${Math.round(w * scale)}x${Math.round((h - 32) * scale)}/${Math.round(160 * scale)}`;
     this._open({ kind: 'app', app: pkg, title: name || pkg, width: w, height: h, opts: this.bridge.sessionOpts('app', { newDisplay }) });
+  }
+
+  // A notification from the phone was clicked: wake it (unlocked: it answers at once), then open
+  // the app once the phone is unlocked and wireless debugging is back (MIUI drops it while locked).
+  openNotified(pkg, name) {
+    if (!pkg || !this.server.current) return;
+    const n = { pkg, name, at: Date.now(), unlocked: false, answered: false };
+    this.notified = n;
+    this.server.sendToClient({ t: T.PHONE_WAKE });
+    // An older app doesn't answer: open it anyway.
+    setTimeout(() => {
+      if (this.notified !== n || n.answered) return;
+      n.unlocked = true;
+      this._openNotified();
+    }, 2000);
+  }
+
+  _awake(m) {
+    const n = this.notified;
+    if (!n) return;
+    n.answered = true;
+    if (!m.unlocked) {
+      const phone = (this.server.current && this.server.current.name) || 'the phone';
+      return void (m.waiting && this.bridge.emit('popup', 'away', `Unlock ${phone} to open ${n.name || 'the app'}`));
+    }
+    n.unlocked = true;
+    this._openNotified();
+  }
+
+  _openNotified() {
+    const n = this.notified;
+    if (!n || !n.unlocked) return;
+    if (Date.now() - n.at > NOTIFIED_MS) return void (this.notified = null);
+    if (this.bridge.state !== 'ready' || !this.bridge.serial) return;
+    this.notified = null;
+    const a = (this.phone.apps || []).find((x) => x.id === n.pkg);
+    this.openApp(n.pkg, (a && a.name) || n.name);
   }
 
   close(id) {

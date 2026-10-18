@@ -487,6 +487,8 @@ app.whenReady().then(() => {
   svc.phone.wired = svc.wired;
   svc.phoneViews = new PhoneViews({ bridge: svc.phone.bridge, phone: svc.phone, getSettings: () => settings, server: peer, fileSend: svc.fileSend });
   svc.phoneViews.on('change', pushState);
+  // A phone notification clicked here: its app in a window.
+  svc.notifs.on('click', (m) => peer.current && peer.current.os === P.OS.ANDROID && svc.phoneViews.openNotified(m.app, m.appName));
   // The phone in Finder, through adb (the cable, else wireless debugging): only when Mount is clicked.
   svc.phoneDrive = new PhoneDrive({ adb: svc.phone.bridge.adb, bridge: svc.phone.bridge, phone: svc.phone });
   svc.phoneDrive.on('change', pushState);

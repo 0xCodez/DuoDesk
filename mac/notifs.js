@@ -3,7 +3,7 @@
 // while it accepts them (`notif.policy`); the peer's show here as native notifications from
 // TwinDesk. Reading needs Full Disk Access (the helper reads the Notification Center database).
 //
-// Events: 'change' — this.view changed.
+// Events: 'change' — this.view changed; 'click' ({app, appName}) — one of the peer's was clicked.
 'use strict';
 
 const { Notification } = require('electron');
@@ -107,6 +107,7 @@ class Notifs extends EventEmitter {
     this.live.push(n);
     const drop = () => { this.live = this.live.filter((x) => x !== n); };
     n.on('close', drop);
+    n.on('click', () => this.emit('click', { app: str(m.app, 200), appName }));
     setTimeout(drop, 60000);
     n.show();
     this.shown++;

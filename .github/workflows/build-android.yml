@@ -8,7 +8,10 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      # Always the main branch, whichever branch the run was started from.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-java@v4
         with:

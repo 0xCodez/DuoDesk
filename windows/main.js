@@ -315,6 +315,8 @@ function startPhone(server, pairing) {
   phone.bridge.on('popup', (kind, text) => hud.show(kind, text));
   phoneViews = new PhoneViews({ bridge: phone.bridge, phone, getSettings: () => settings, server: pl, fileSend: fileDrop });
   phoneViews.on('change', pushState);
+  // A phone notification clicked here: its app in a window.
+  notifs.onClick = (m) => pl.current && pl.current.os === P.OS.ANDROID && phoneViews.openNotified(m.app, m.appName);
   phoneViews.on('focus', () => kvm.applyConfig());
   kvm.local = phone.bridge; // driving a phone goes through adb
   kvm.blockEdge = () => phoneViews.focused; // moving inside the phone window never crosses

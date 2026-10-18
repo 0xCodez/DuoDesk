@@ -5,9 +5,9 @@
 <h1 align="center"><a href="https://twin-desk.vercel.app">TwinDesk</a></h1>
 
 <p align="center">
-  <b>Your computer, your phone and your tablet: one desk.</b><br>
-  Screens, apps, files, clipboard, notifications, mouse and keyboard, shared between every device you own.<br>
-  Mac, Windows, Linux and Android. Free and open source.
+  <b>All your computers and your phone, working as one desk.</b><br>
+  Screens, apps, files, clipboard, notifications, mouse and keyboard, shared between Mac, Windows, Linux and Android.<br>
+  Free and open source.
 </p>
 
 <p align="center">
@@ -25,23 +25,119 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/hero-android.jpg" alt="A tablet working as the Mac's second screen, next to a phone running TwinDesk" width="100%">
+  <img src=".github/assets/hero.jpg" alt="One Mac's extended screen in a window on another Mac, the Mac's desktop extended onto a tablet, and TwinDesk on a phone" width="100%">
 </p>
 
-<p align="center"><i>The Mac's desktop extended onto an Android tablet, with TwinDesk on a phone next to it. Every screenshot here is from the real app.</i></p>
+<p align="center"><i>A second Mac's screen in a window, the Mac's desktop extended onto a tablet, and the phone app. Every screenshot here is from the real app.</i></p>
 
 ---
 
 Your devices are good at their own jobs and bad at working together. TwinDesk fixes that.
-Your **Android phone or tablet** becomes a second screen, its apps open as windows on your
-computer, a file goes across in two taps, and what you copy on one device pastes on the other.
-It works the same between **two computers**: Mac, Windows or Linux, in any combination.
+Put a **Mac and a Windows PC** side by side and use them with one mouse and keyboard. Open the
+PC's apps on the Mac. Turn an old laptop or your **Android tablet** into a second screen. Send a
+file from your phone in two taps, and paste on one device what you copied on another.
 
-- **No account, no cloud.** Devices talk directly over your Wi-Fi or a USB cable, on an encrypted link.
-- **No root, no extra hardware.** Install the app on each device and pair once.
-- **Every platform.** Mac ↔ Android, Windows ↔ Android, Linux ↔ Android, and any two computers.
+- **Any combination.** Mac ↔ Windows, Mac ↔ Mac, PC ↔ PC, Linux ↔ anything, and Android ↔ any computer.
+- **No account, no cloud.** Devices talk directly over your network or a USB cable, on an encrypted link.
+- **No extra hardware, no root.** Install the app on each device and pair once.
 
-## 📱 Your phone, right on your desktop
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 💻 [Two computers, one desk](#-two-computers-one-desk)
+One mouse and keyboard · second screen · the other computer's apps in windows · files and folders · clipboard · terminal · sound · notifications
+
+</td>
+<td width="50%" valign="top">
+
+### 📱 [Your phone and tablet join in](#-your-phone-and-tablet-join-in)
+The phone's screen and apps in windows · tablet as a second screen · share menu on both sides · clipboard · notifications · Wi-Fi or USB
+
+</td>
+</tr>
+</table>
+
+# 💻 Two computers, one desk
+
+## 🖱 One mouse and keyboard for both
+
+Push the pointer off the edge of your screen and **keep working on the other computer**, as if
+they were one. Your keyboard follows the pointer. Trackpad gestures (Spaces swipes, pinch to zoom,
+show desktop) carry over, and a double-tap of the hotkey brings everything home. Set which side the
+other computer is on, edge resistance and pointer speed.
+
+## 🖥 A second screen, or the other screen in a window
+
+Extend your Mac onto a PC or another Mac with a **real virtual display**, or mirror it. Or bring
+the other computer's screen into a window and control it from there. Low-latency H.264 with
+*Fastest* and *Smooth* playback, and optional frame generation.
+
+<p align="center">
+  <img src=".github/assets/mac-screen-window.jpg" alt="The MacBook Pro's extended screen in a window on the Studio Mac, with the Receive screen settings" width="100%">
+</p>
+
+## 🪟 The other computer's apps, right here
+
+Open a **Windows app on your Mac** (or a Mac app on your PC) and it gets **a window of its own**,
+with its own Dock icon or Start-menu pin. No full remote desktop, just the app you need, next to
+your own.
+
+<p align="center">
+  <img src=".github/assets/mac-apps.jpg" alt="Chess, Clock and Calculator from one Mac running in their own windows on the other Mac" width="100%">
+</p>
+
+Pick any app from the other computer's list and it opens in a moment:
+
+<p align="center">
+  <img src=".github/assets/computers-apps-cursor.jpg" alt="The other Mac's apps listed on the Apps page, and the Cursor page with the screen layout" width="100%">
+</p>
+
+## 📁 Files, folders and a terminal
+
+**Drag files across the screen edge** and drop them anywhere, or copy with <kbd>⌃⌥C</kbd> and
+paste with <kbd>⌃⌥V</kbd> (<kbd>Ctrl+Alt+C/V</kbd> on Windows and Linux). Send from the macOS Share
+menu or Explorer's *Send to*, or **share a folder** that shows up as a network drive on the other
+side. Need a shell? `ssh twindesk` opens one on the other computer, no passwords needed.
+
+<p align="center">
+  <img src=".github/assets/computers-files.jpg" alt="The Files page and the Terminal page" width="100%">
+</p>
+
+## 📋 One clipboard
+
+Copy on one computer and paste on the other, instantly or when you switch over. Entries from
+password managers are skipped, and a Recent list keeps the last few things you copied.
+
+<p align="center">
+  <img src=".github/assets/computers-clipboard.jpg" alt="The same copied text in the clipboard history on both Macs" width="100%">
+</p>
+
+## 🔔 Notifications, sound and more
+
+See one computer's notifications on the other as native notifications, and hear one computer's
+sound on the other. Wake a sleeping computer with Wake-on-LAN, and every switch you flip is
+shared by both sides and remembered for the pair.
+
+## 🤝 Mac and Windows, side by side
+
+The same app on every platform, so a Mac and a PC pair just like two Macs. Here's a Mac connected to
+a Windows PC, with the PC's apps ready to open on the Mac:
+
+<p align="center">
+  <img src=".github/assets/mac-windows.jpg" alt="A Mac connected to a Windows PC, and the PC's apps listed on the Mac" width="100%">
+</p>
+
+<p align="center">
+  <img src=".github/assets/computers-overview.jpg" alt="Overview on two paired Macs: the link, latency and what is shared in each direction" width="100%">
+</p>
+
+# 📱 Your phone and tablet join in
+
+Most phone links stop at notifications and a file drop. In TwinDesk your Android phone or tablet is
+a **full peer**: it pairs like a computer and gets the same features.
+
+## Your phone, right on your desktop
 
 See your phone's screen in a window and control it with your mouse, trackpad and keyboard. Better
 still, open **single Android apps in windows of their own**, side by side with your desktop apps.
@@ -58,7 +154,7 @@ the connection and a button to bring up the whole screen.
   <img src=".github/assets/mac-phone-page.jpg" alt="The Phone page on the Mac: the connected tablet and a grid of its apps" width="720">
 </p>
 
-## 🖥 A second screen you already own
+## A second screen you already own
 
 Turn a tablet or phone into an **extra monitor**. Choose **Extend** to get more desktop space, or
 **Mirror** to show what's on your screen. Drag windows onto it, and use touch as the mouse: tap to
@@ -69,7 +165,7 @@ itself.
   <img src=".github/assets/second-screen.jpg" alt="Share screen settings on the Mac, and the tablet showing the extended Mac desktop" width="100%">
 </p>
 
-## 📤 Sharing as easy as AirDrop, between every device
+## Sharing as easy as AirDrop
 
 Share a photo or a document from **any Android app**: pick *Send to computer* or *Copy to computer*
 in the system share menu. On the computer, use the **macOS Share menu**, **Explorer's Send to**, drag
@@ -80,29 +176,25 @@ them anywhere on the phone. Files arrive with a notification you can tap to open
   <img src=".github/assets/share-files.jpg" alt="The Mac's Files page, the Android share menu with Send to computer and Copy to computer, and a received-file notification on the tablet" width="100%">
 </p>
 
-## 📋 Copy here, paste there
+## Copy here, paste there
 
 Copy text on your computer and paste it on your phone, or the other way around. It's instant, it
-works in the background, and passwords from password managers are left out. A **Recent** list on
-both sides keeps the last few things you copied, and a Quick Settings tile sends the phone's
-clipboard with one tap.
+works in the background, and a Quick Settings tile sends the phone's clipboard with one tap.
 
 <p align="center">
   <img src=".github/assets/clipboard.jpg" alt="The same copied text in the clipboard history on the Mac and on the tablet" width="100%">
 </p>
 
-## 🖱 One mouse and keyboard for everything
+## Your mouse and keyboard on the phone
 
-Push the pointer past the edge of your screen and it **carries on onto the phone or the other
-computer**. Type with your real keyboard on the phone, scroll with your trackpad, then double-tap a
-hotkey to bring everything home. Set which side each device sits on, edge resistance and pointer
-speed.
+Push the pointer past the edge of your screen and it **carries on onto the phone**. Type with your
+real keyboard in any Android app, scroll with your trackpad, then double-tap the hotkey to come back.
 
 <p align="center">
   <img src=".github/assets/mouse-keyboard.jpg" alt="Cursor settings on the Mac and on the phone, with the device layout" width="100%">
 </p>
 
-## 🔔 Never miss a notification
+## Notifications both ways
 
 Your phone's notifications show up on your computer as **native notifications**, and the
 computer's can show up on your phone. Hide the message text for privacy or mute single apps.
@@ -111,13 +203,13 @@ computer's can show up on your phone. Hide the message text for privacy or mute 
   <img src=".github/assets/notifications.jpg" alt="Notification settings on the Mac and on the phone" width="100%">
 </p>
 
-## 🔌 Wi-Fi or USB cable, your choice
+## Wi-Fi or USB cable, your choice
 
-TwinDesk finds your devices on the network by itself and reconnects after a Wi-Fi drop. Plug in a
+TwinDesk finds your phone on the network by itself and reconnects after a Wi-Fi drop. Plug in a
 **USB cable** and it switches over for even lower latency (single-digit milliseconds), then back to
 Wi-Fi when you unplug. The current link and its latency are always shown at the top of the app.
 
-## 📲 Made for phones and tablets
+## Made for phones and tablets
 
 The Android app adapts to the device: tabs at the bottom on a phone, a full sidebar on a tablet.
 Every page names the computer you're connected to and shows what's shared in each direction.
@@ -134,42 +226,27 @@ You also get **Quick Settings tiles** (*Send clipboard*, *Wireless debugging*), 
 shortcuts** to the computer's screen, an ongoing notification with what's connected, and **sound**
 in both directions.
 
-## 💻 And between two computers
-
-Everything above works between computers too: a Mac and a PC, two Macs, two PCs, or Linux with
-any of them.
-
-| | |
-|---|---|
-| **🖥 Second screen**<br>Extend your Mac onto the PC with a real virtual display, or mirror it. Or bring the PC's screen into a window. Low-latency H.264 with Fastest / Smooth playback and optional frame generation. | <img src=".github/assets/ui-share-screen.jpg" alt="Share screen settings" width="420"> |
-| **🖱 One mouse and keyboard**<br>Push the pointer off the edge and keep working. Trackpad gestures like Spaces swipes, pinch to zoom and show desktop carry over too. | <img src=".github/assets/ui-cursor.jpg" alt="Cursor settings" width="420"> |
-| **📁 Files and folders**<br>Drag files across the edge, copy and paste them with a shortcut, or share a folder that appears as a network drive on the other side. | <img src=".github/assets/ui-files.jpg" alt="Files settings" width="420"> |
-| **🪟 Apps from the other computer**<br>Open the PC's apps on the Mac (or the Mac's on the PC), each in its own window with its own Dock icon or Start-menu pin. | <img src=".github/assets/ui-apps-on.jpg" alt="Apps from the other computer" width="420"> |
-| **⌨️ Terminal**<br>Open a shell on the other computer without passwords. `ssh twindesk` just works in any terminal. | <img src=".github/assets/ui-terminal.jpg" alt="Terminal settings" width="420"> |
-| **🔊 Sound**<br>Hear one computer on the other, in either direction. | <img src=".github/assets/ui-audio.jpg" alt="Audio settings" width="420"> |
-
-Plus Wake-on-LAN, settings that stay in sync on both sides, and update checks that offer the right
-download for your platform.
-
-<p align="center">
-  <img src=".github/assets/tour.gif" alt="A tour of the TwinDesk window" width="820">
-</p>
+# Get it
 
 ## Works with
 
 | Pair | What you get |
 |---|---|
-| Android ↔ Mac, Windows or Linux | Screen and apps in windows, second screen, mouse and keyboard, files, share menu, clipboard, notifications, sound |
-| Mac ↔ Windows PC | Everything |
+| Mac ↔ Windows PC | Everything in *Two computers, one desk* |
 | Mac ↔ Mac | Everything |
 | PC ↔ PC | Everything |
 | Linux ↔ Mac, PC or Linux | Everything ([a few differences](#linux)) |
+| Android ↔ Mac, Windows or Linux | Everything in *Your phone and tablet join in* |
+
+<p align="center">
+  <img src=".github/assets/tour.gif" alt="A tour of the TwinDesk window" width="820">
+</p>
 
 ## Get started
 
-1. **Download** TwinDesk for your computer and phone from the [releases](https://github.com/InukaAsith/TwinDesk/releases).
-2. **Open it on both.** They find each other on the same Wi-Fi (or over a USB cable).
-3. **Pair once** by comparing a code. That's it: from then on they connect by themselves.
+1. **Download** TwinDesk for each computer and your phone from the [releases](https://github.com/InukaAsith/TwinDesk/releases).
+2. **Open it on both.** They find each other on the same network (or over a USB cable for a phone).
+3. **Pair once** by comparing a code. From then on they connect by themselves.
 
 For the phone's screen, apps, touch and mouse, TwinDesk walks you through turning on Android's
 wireless debugging once ([details](#wireless-debugging)). Files, clipboard and notifications work

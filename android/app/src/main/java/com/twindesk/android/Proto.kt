@@ -65,6 +65,8 @@ object Proto {
         const val PHONE_APPS_LIST = "phone.apps.list"
         const val PHONE_APPS = "phone.apps"
         const val PHONE_POINTER = "phone.pointer"
+        const val PHONE_WAKE = "phone.wake"
+        const val PHONE_AWAKE = "phone.awake"
         const val ADB_STATE = "adb.state"
         const val ADB_ENABLE = "adb.enable"
         const val ADB_PAIR = "adb.pair"

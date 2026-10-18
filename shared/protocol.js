@@ -169,6 +169,8 @@
       PHONE_APPS_LIST: 'phone.apps.list', // Mac->phone
       PHONE_APPS: 'phone.apps', // phone->Mac {apps: [{id (package), name, icon (data URL PNG)}]}
       PHONE_POINTER: 'phone.pointer', // Mac->phone {on, x?, y?}: where the Mac's pointer is while it drives the phone (the app draws it)
+      PHONE_WAKE: 'phone.wake', // computer->phone: screen on and ask for the unlock (on the phone), e.g. to open an app from a notification clicked here
+      PHONE_AWAKE: 'phone.awake', // phone->computer {unlocked, waiting?}: unlocked (now, or once the person unlocked it); waiting = it's asking for the unlock
       // Wireless debugging (adb), which the Mac uses for the screen, touch, mouse and keyboard,
       // the clipboard in the background and apps in their own windows (scrcpy):
       ADB_STATE: 'adb.state', // phone->Mac {devOptions, wifi (wireless debugging on), canEnable (WRITE_SECURE_SETTINGS granted), address, full, port (its wireless debugging port from its own mDNS, 0 if not known yet)}
