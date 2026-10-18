@@ -64,7 +64,6 @@ final class Capture {
   private var ret = (push: 0.0, at: 0.0)
   private var returnSide: String?
   private var returnResistance = 120.0
-  private var buttonsHeld = 0
   private var dragPbCount = -1             // drag pasteboard changeCount when the left button went down
   // hotkey: a right-hand modifier, double-tapped (kvmConfig `hotkey`; default Right Option, kVK 0x3D, device flag 0x40)
   private var hkStage = 0, hkAt = 0.0
@@ -377,8 +376,6 @@ final class Capture {
       return true
     }
 
-    if isDown { buttonsHeld += 1 }
-    if isUp { buttonsHeld = max(0, buttonsHeld - 1) }
     if type == .leftMouseDown { dragPbCount = NSPasteboard(name: .drag).changeCount }
     // A file drag pushed through the crossing edge carries the files over.
     if type == .leftMouseDragged, !capturing, edgeEnabled, dragFiles,
@@ -386,7 +383,6 @@ final class Capture {
       let paths = draggedFiles()
       log("edge: drag through the edge, \(paths.count) file(s) on the drag pasteboard")
       if !paths.isEmpty {
-        buttonsHeld = 0
         startCapture(mouse: true, keyboard: cfgKeyboard)
         DragIn.shared.swallowLocalDrag(at: e.location) // Finder's drag ends here, quietly
         Flash.shared.leave(at: e.location, side: side)
@@ -395,7 +391,9 @@ final class Capture {
       }
     }
     if type == .mouseMoved {
-      if !capturing, edgeEnabled, buttonsHeld == 0,
+      // The system's own button state: counting downs and ups here stuck at 1 when the tap missed
+      // an up (disabled by a timeout meanwhile), and nothing crossed again until a restart.
+      if !capturing, edgeEnabled, NSEvent.pressedMouseButtons == 0,
          let off = Capture.push(&edge, e.location, dx, dy, side, resistance) {
         startCapture(mouse: true, keyboard: cfgKeyboard) // capture first, so no motion leaks
         Flash.shared.leave(at: e.location, side: side)

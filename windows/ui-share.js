@@ -55,8 +55,14 @@ UI.tab({
     const removeBtn = UI.button('Remove', () => api.removeVdd(), 'small');
     const driver = UI.row('TwinDesk virtual display', '', [installBtn, removeBtn]); // Extend's screen, from the Virtual Display Driver (vdd.js)
     const note = UI.note('bad', '');
+    // No driver: Extend is greyed out; say why, with Install right there.
+    const missingBtn = UI.button('Install', () => api.installVdd(), 'small primary');
+    const missing = el('div', { class: 'note warn' }, [el('span', { text: 'Virtual display driver not installed. Install it to use Extend.' }), missingBtn]);
+    missing.style.alignItems = 'center';
+    missing.style.justifyContent = 'space-between';
 
     body.append(
+      missing,
       UI.card('Screen', [UI.row('Mode', '', [mode]), monitorRow, extendRow]),
       UI.card('Picture', [UI.row('Resolution', '', [streamSize]), UI.row('Quality', '', [quality]), paceRow], { cls: 'keep-on' }),
       UI.card('Sound and control', [UI.row('Include sound', '', [sound]), inputRow], { cls: 'keep-on' }),
@@ -100,6 +106,9 @@ UI.tab({
         'Frames dropped': st ? st.dropped || 0 : '',
       });
 
+      missing.hidden = !v.checked || v.installed;
+      missingBtn.disabled = !!v.busy;
+      missingBtn.textContent = v.busy === 'install' ? 'Installing…' : 'Install';
       installBtn.hidden = v.installed;
       installBtn.disabled = !!v.busy || !v.checked;
       installBtn.textContent = v.busy === 'install' ? 'Installing…' : 'Install';

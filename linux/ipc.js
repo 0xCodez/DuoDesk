@@ -149,6 +149,8 @@ function setupIpc(ctx) {
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('fixInput', () => ctx.fixInput()); // Wayland: uinput rule + input group (L6)
+  handle('installVdd', () => ctx.vdd.install()); // X11 Extend: the connector helper (vdd.js)
+  handle('removeVdd', () => ctx.vdd.remove());
   handle('setStartup', (on) => ctx.setStartup(on === true));
   handle('quit', () => app.quit()); // General › Quit (some desktops have no tray)
 

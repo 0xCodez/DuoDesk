@@ -95,8 +95,9 @@ class PcScreen {
     if (mode === 'extend' && was !== 'extend') {
       this.busy = true;
       this.onChange();
+      const size = this._extendSize();
       try {
-        const [w, h] = this._extendSize();
+        const [w, h] = size;
         this.vdd.addMode(w, h);
         const mon = await this.vdd.setOn(true);
         if (mon && mon.name) await this.vdd.setMode(mon, w, h);
@@ -104,6 +105,8 @@ class PcScreen {
       } finally {
         this.busy = false;
       }
+      // The viewer told its size meanwhile (sizeExtend doesn't wait while busy): that size now.
+      if (this.mode === 'extend' && String(this._extendSize()) !== String(size)) return this.sizeExtend();
     } else if (was === 'extend' && mode !== 'extend') {
       this._stopSend(true);
       this.vdd.setOn(false);

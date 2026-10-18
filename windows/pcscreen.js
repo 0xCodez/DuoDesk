@@ -81,8 +81,9 @@ class PcScreen {
     if (mode === 'extend' && was !== 'extend') {
       this.busy = true;
       this.onChange();
+      const size = this._extendSize();
       try {
-        const [w, h] = this._extendSize();
+        const [w, h] = size;
         this.vdd.addMode(w, h);
         const mon = await this.vdd.setOn(true);
         if (mon && mon.name) await this.vdd.setMode(mon, w, h);
@@ -90,6 +91,8 @@ class PcScreen {
       } finally {
         this.busy = false;
       }
+      // The viewer told its size meanwhile (sizeExtend doesn't wait while busy): that size now.
+      if (this.mode === 'extend' && String(this._extendSize()) !== String(size)) return this.sizeExtend();
     } else if (was === 'extend' && mode !== 'extend') {
       this._stopSend(true);
       this.vdd.setOn(false);
@@ -104,8 +107,13 @@ class PcScreen {
     if (!this.mac.width) return [1920, 1080];
     // A phone tells its pixels: a monitor half that size, so text is readable there (the Mac's
     // Extend for a phone has the same size in points).
-    const even = (v, min) => Math.max(min, Math.round(v / 4) * 2);
-    if (this.link.peerOs === P.OS.ANDROID) return [even(this.mac.width, 480), even(this.mac.height, 360)];
+    // Windows takes no monitor with a side under 640 × 480 (a portrait phone's half is ~540 wide):
+    // grown to a short side of at least 720, keeping the phone's shape.
+    if (this.link.peerOs === P.OS.ANDROID) {
+      const [w, h] = [this.mac.width / 2, this.mac.height / 2];
+      const k = Math.max(1, 720 / Math.min(w, h));
+      return [Math.round((w * k) / 2) * 2, Math.round((h * k) / 2) * 2];
+    }
     return [this.mac.width, this.mac.height];
   }
 
@@ -114,8 +122,9 @@ class PcScreen {
     if (this.mode !== 'extend' || this.busy) return this.apply();
     this.busy = true;
     this.onChange();
+    const size = this._extendSize();
     try {
-      const [w, h] = this._extendSize();
+      const [w, h] = size;
       if (this.vdd.addMode(w, h)) {
         this._stopSend(true);
         await this.vdd.setOn(false);
@@ -126,6 +135,7 @@ class PcScreen {
     } finally {
       this.busy = false;
     }
+    if (this.mode === 'extend' && String(this._extendSize()) !== String(size)) return this.sizeExtend(); // changed again meanwhile
     this.apply();
   }
 

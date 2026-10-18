@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Share screen (copy of windows/ui-share.js): this computer's screen in a window on the
 // other computer, controlled from there. Mirror shows an existing monitor; Extend adds an extra
-// (virtual) screen (vdd.js: Mutter's on GNOME Wayland, a spare output on X11). On Wayland the
-// desktop asks which screen to share each time sharing starts.
+// (virtual) screen (vdd.js: Mutter's on GNOME Wayland, a spare output on X11, which needs the
+// helper Install puts in once). On Wayland the desktop asks which screen to share each time sharing starts.
 'use strict';
 
 UI.tab({
@@ -54,6 +54,11 @@ UI.tab({
     const details = UI.details(['Status', 'Display', 'Picture', 'Speed', 'Round trip', 'Codec', 'Encoder', 'Frames dropped']);
 
     const note = UI.note('info', '');
+    // X11: Extend's screen is a spare output switched on through a small root helper (vdd.js).
+    const installBtn = UI.button('Install', () => api.installVdd(), 'small primary');
+    const removeBtn = UI.button('Remove', () => api.removeVdd(), 'small');
+    const driver = UI.row('TwinDesk virtual display', '', [installBtn, removeBtn]);
+    const driverCard = UI.card('', [driver], { cls: 'keep-on' });
 
     body.append(
       UI.card('Screen', [UI.row('Mode', '', [mode]), monitorRow, extendRow]),
@@ -61,6 +66,7 @@ UI.tab({
       UI.card('Sound and control', [UI.row('Include sound', '', [sound]), inputRow], { cls: 'keep-on' }),
       UI.card('Remote', [remoteRow], { cls: 'keep-on' }),
       details,
+      driverCard,
       note,
     );
 
@@ -104,7 +110,15 @@ UI.tab({
       remoteRow.setHint(p.remote ? 'Opening the screen window there starts sharing; Extend and Mirror can be switched from there.' : '');
       const wayland = s.session && s.session.type === 'wayland';
       monitorRow.hidden = wayland || p.mode === 'extend';
-      const extend = !v.checked ? '' : !v.installed ? (v.message || 'Extend isn’t available on this desktop') + '.'
+      driverCard.hidden = !(v.setup || v.removable || v.busy);
+      installBtn.hidden = !v.setup;
+      installBtn.disabled = !!v.busy;
+      installBtn.textContent = v.busy === 'install' ? 'Installing…' : 'Install';
+      removeBtn.hidden = !v.removable;
+      removeBtn.disabled = !!v.busy || p.mode === 'extend';
+      driver.setHint(v.busy === 'remove' ? 'Removing…' : v.busy === 'install' ? 'Installing…' : v.removable ? 'Installed. Adds the extra screen for Extend.'
+        : 'Adds an extra screen for Extend by switching on a spare display output. Installs a small helper and asks for your password once.');
+      const extend = !v.checked || (v.setup && !v.message) ? '' : !v.installed ? (v.message || 'Extend isn’t available on this desktop') + '.'
         : v.message ? v.message + '.' : '';
       note.set([
         wayland ? 'Wayland: your desktop asks which screen to share each time sharing starts' + (p.mode === 'extend' ? ', choose “Virtual remote monitor”.' : '.')

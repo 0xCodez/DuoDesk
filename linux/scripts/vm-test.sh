@@ -45,12 +45,16 @@ case "$1" in
   start)
     as "[ -d ~/twindesk/linux/node_modules/electron/dist ]" || "$0" sync
     "$0" stop
-    as "$ENV; cd ~/twindesk/linux && nohup ./node_modules/.bin/electron . --remote-debugging-port=$PORT > /tmp/twindesk-linux.log 2>&1 &"
+    # A unit of the user's systemd, like an app started from the desktop: polkit counts it as the
+    # person at the computer (pkexec with no password where an action allows that, vdd.js).
+    as "$ENV; systemd-run --user --quiet --collect --unit=twindesk-vm-test -p StandardOutput=truncate:/tmp/twindesk-linux.log \
+      -E DISPLAY -E WAYLAND_DISPLAY -E XAUTHORITY -E XDG_SESSION_TYPE -E XDG_CURRENT_DESKTOP \
+      \$HOME/twindesk/linux/node_modules/.bin/electron \$HOME/twindesk/linux --remote-debugging-port=$PORT"
     sleep 6
     as "tail -5 /tmp/twindesk-linux.log"
     ;;
   stop)
-    as "pkill -u \$(id -u) -f '[t]windesk/linux/node_modules/electron/dist/electron' || true; pkill -u \$(id -u) -f '[m]acshare-linuxhelper' || true"
+    as "$ENV; systemctl --user stop twindesk-vm-test 2>/dev/null; pkill -u \$(id -u) -f '[t]windesk/linux/node_modules/electron/dist/electron' || true; pkill -u \$(id -u) -f '[m]acshare-linuxhelper' || true"
     ;;
   log) as "cat /tmp/twindesk-linux.log" ;;
   shot)

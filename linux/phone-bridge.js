@@ -15,6 +15,8 @@
 // Events: 'change' — this.view changed; 'popup' (kind, text) — for the HUD.
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { Adb } = require('./adb');

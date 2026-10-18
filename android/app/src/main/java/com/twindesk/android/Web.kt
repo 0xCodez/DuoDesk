@@ -104,9 +104,9 @@ class Screen(core: Core) : Feature(core) {
     fun attach(h: WebHost, w: Int, hpx: Int) {
         host = h
         viewing = true
+        h.post(opts()) // first: the computer's name for the messages below
         lastInfo?.let { h.post(it) }
         state?.let { h.post(it) }
-        h.post(opts())
         core.send(msg("screen.policy", "accept" to true, "width" to w, "height" to hpx))
         Notify.cancelScreen(core.ctx)
         // Show the Mac's screen = the Mac starts sharing, in the mode used last.
@@ -158,7 +158,10 @@ class Screen(core: Core) : Feature(core) {
         core.changed()
     }
 
-    fun opts(): JSONObject = msg("opts", "sound" to core.store.flag("screen.sound", false), "pacing" to (core.store.flag("screen.smooth", false).let { if (it) "smooth" else "fast" }))
+    // name: the computer we're connected to, for the viewer's messages (stream.info's is the
+    // display it shares, e.g. the Mac's "TwinDesk (virtual)"; a PC or Linux sends none).
+    fun opts(): JSONObject = msg("opts", "sound" to core.store.flag("screen.sound", false), "pacing" to (core.store.flag("screen.smooth", false).let { if (it) "smooth" else "fast" }),
+        "name" to (core.host?.name ?: "the computer"))
 
     fun setOpt(key: String, on: Boolean) {
         core.store.setFlag(key, on)

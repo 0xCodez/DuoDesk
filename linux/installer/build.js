@@ -67,6 +67,17 @@ async function main() {
     if (fs.existsSync(path.join(ROOT, f))) copy(path.join(ROOT, f), path.join(STAGE, f));
   }
   copyDeps(Object.keys(pkg.dependencies || {}));
+  // Extend on X11 (vdd.js): the connector helper and its polkit action, at their system paths in
+  // the .deb (fpm's source=destination); the AppImage's Install writes the same files.
+  const system = path.join(LIN, 'dist', 'system');
+  fs.rmSync(system, { recursive: true, force: true });
+  fs.mkdirSync(system, { recursive: true });
+  const systemFiles = require('../vdd').FILES.map((f) => {
+    const file = path.join(system, path.basename(f.path));
+    fs.writeFileSync(file, f.text);
+    fs.chmodSync(file, f.mode);
+    return file + '=' + f.path;
+  });
   fs.writeFileSync(path.join(STAGE, 'package.json'), JSON.stringify({
     name: 'twindesk', productName: pkg.productName, version: pkg.version, description: pkg.description,
     license: pkg.license, author: { name: 'inukaasith', email: 'inukaasith@users.noreply.github.com' },
@@ -101,6 +112,7 @@ async function main() {
           'libatspi2.0-0 | libatspi2.0-0t64', 'libuuid1', 'libsecret-1-0', 'libxi6', 'libxrandr2', 'libxfixes3',
           'openssl', 'dbus', 'pulseaudio-utils | pipewire-pulse', 'policykit-1 | pkexec'],
         priority: 'optional',
+        fpm: systemFiles,
       },
     },
   });

@@ -20,7 +20,7 @@
   let pc = null;
   let session = null;
   let pending = null;
-  let name = 'the Mac';
+  let name = 'the computer'; // the one we're connected to (opts)
   let streamAudio = false;
   let sound = true;
   let pacing = 'fast';
@@ -99,8 +99,7 @@
   window.tdRecv = (msg) => {
     if (msg.t !== 'rtc.ice') console.log(`viewer <- ${msg.t}${msg.session != null ? ` #${msg.session}` : ''}`);
     switch (msg.t) {
-      case 'stream.info':
-        name = msg.name || name;
+      case 'stream.info': // its name is the display shared, not the computer
         streamAudio = msg.audio === true;
         applyAudio();
         if (!pc) setOverlay(`Waiting for ${name}…`);
@@ -119,6 +118,7 @@
         if (!pc) setOverlay(msg.on ? `Waiting for ${name}…` : `${name} isn’t sharing its screen. Start it with the button below.`);
         break;
       case 'opts':
+        if (msg.name) name = msg.name;
         sound = msg.sound !== false;
         pacing = msg.pacing === 'smooth' ? 'smooth' : 'fast';
         applyAudio();
@@ -297,6 +297,6 @@
     }
   });
 
-  setOverlay('Waiting for the Mac…');
+  setOverlay('Waiting for the computer…');
   TD.ready();
 })();

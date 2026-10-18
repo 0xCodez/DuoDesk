@@ -283,8 +283,10 @@ desktop portal. A few things work a little differently:
   the folder under the pointer, or the desktop. On Wayland, they go to the file manager window in
   front. Dragging files out of Linux needs an Xorg session.
 - **Extend.** On GNOME (Wayland) it uses Mutter's own virtual monitor; pick "Virtual remote
-  monitor" when the desktop asks which screen to share. On X11 it uses a spare output of the
-  graphics driver (not available on NVIDIA's driver).
+  monitor" when the desktop asks which screen to share. On X11 it switches on a spare output of
+  the graphics driver (not available on NVIDIA's driver). That needs a small helper, which the
+  .deb installs; with the AppImage, Share screen › *TwinDesk virtual display* › Install puts it in
+  once, with your password.
 - **Apps.** Opening this computer's apps on the other side needs an Xorg session.
 - **Android phone.** Everything in [Android](#android-in-detail) works on Linux too: the phone's screen and
   apps in windows, the mouse and keyboard across the edge, files, clipboard, notifications and

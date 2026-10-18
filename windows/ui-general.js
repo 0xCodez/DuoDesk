@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // General tab: start with Windows, the switching popup, firewall self-check (+ Fix), wake from the
-// network, helper, this PC.
+// network, helper, the virtual display driver (Extend), this PC.
 'use strict';
 
 UI.tab({
@@ -25,6 +25,9 @@ UI.tab({
     const sendToRow = UI.row('TwinDesk in Send to', '');
     const helperPill = el('span', { class: 'pill' });
     const helperRow = UI.row('Mouse and keyboard helper', '', [helperPill]);
+    const vddPill = el('span', { class: 'pill' });
+    const vddInstall = UI.button('Install', () => api.installVdd(), 'small primary');
+    const vddRow = UI.row('Virtual display driver', '', [vddPill, vddInstall]); // Share screen › Extend (vdd.js)
     const deviceName = el('span', { class: 'value' });
     const deviceRow = UI.row('Computer name', 'How other computers see this one', [deviceName]);
 
@@ -34,7 +37,7 @@ UI.tab({
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
       UI.card('Network and sharing', [fwRow, wakeRow, sendToRow]),
-      UI.card('This computer', [deviceRow, helperRow]),
+      UI.card('This computer', [deviceRow, helperRow, vddRow]),
     );
 
     return (s) => {
@@ -57,6 +60,13 @@ UI.tab({
       helperPill.textContent = h ? (h === 'starting' ? 'Starting…' : 'Not running') : 'Running';
       helperPill.className = 'pill ' + (h ? (h === 'starting' ? 'muted' : 'bad') : 'good');
       helperRow.setHint(h && h !== 'starting' ? h : '');
+      const v = s.pcScreen.vdd;
+      vddPill.textContent = !v.checked ? 'Checking…' : v.busy === 'install' ? 'Installing…' : v.busy === 'remove' ? 'Removing…' : v.installed ? 'Installed' : 'Not installed';
+      vddPill.className = 'pill ' + (!v.checked || v.busy ? 'muted' : v.installed ? 'good' : 'bad');
+      vddInstall.hidden = !v.checked || v.installed;
+      vddInstall.disabled = !!v.busy;
+      vddRow.setHint(v.message ? v.message : v.installed ? 'Adds the extra screen for Share screen › Extend'
+        : 'Needed for Share screen › Extend. Asks for administrator rights once');
       deviceName.textContent = s.device.name;
     };
   },
