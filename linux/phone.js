@@ -27,6 +27,7 @@ class Phone extends EventEmitter {
     this.connecting = null; // {id, name, timer}
     this.message = '';
     this.bridge = null; // set by main.js
+    this.wired = null; // wired.js: phones on a USB cable
 
     server.on('client', (ctx) => {
       if (!isPhone(ctx)) return this._reset();
@@ -79,7 +80,11 @@ class Phone extends EventEmitter {
     const paired = new Map(this.pairing.list().filter((p) => p.os === P.OS.ANDROID).map((p) => [p.id, p]));
     const out = [];
     const c = this.server.current;
-    if (isPhone(c)) out.push({ id: c.deviceId, name: c.name, connected: true });
+    if (isPhone(c)) out.push({ id: c.deviceId, name: c.name, connected: true, usb: !!c.ice });
+    // On the cable (it connected through it before): no Wi-Fi needed to show it.
+    for (const id of this.wired ? this.wired.byDevice.keys() : []) {
+      if (paired.has(id) && !out.some((x) => x.id === id)) out.push({ id, name: paired.get(id).name, connected: false, usb: true });
+    }
     for (const d of this.discovery.list()) {
       if (d.os !== P.OS.ANDROID || !paired.has(d.id) || out.some((x) => x.id === d.id)) continue;
       out.push({ id: d.id, name: d.name || paired.get(d.id).name, address: d.address, connected: false });
@@ -89,6 +94,13 @@ class Phone extends EventEmitter {
 
   // The tile was clicked: ask the phone to connect. Its hello takes the session from the computer.
   connect(id) {
+    if (this.wired && !this.connected && this.wired.connect(String(id))) {
+      const p = this.pairing.list().find((x) => x.id === String(id));
+      clearTimeout(this.connecting && this.connecting.timer);
+      this.connecting = { id: String(id), name: p ? p.name : 'The phone', timer: setTimeout(() => this._doneConnecting(`${p ? p.name : 'The phone'} didn’t answer. Open TwinDesk on it.`), CONNECT_WAIT_MS) };
+      this.message = '';
+      return this.emit('change');
+    }
     const d = this.discovery.get(String(id));
     if (!d || d.os !== P.OS.ANDROID) return this._fail('That phone isn’t nearby any more.');
     if (this.connected && this.server.current.deviceId === d.id) return;
@@ -136,7 +148,7 @@ class Phone extends EventEmitter {
     const c = this.server.current;
     return {
       nearby: this.nearby(),
-      connected: isPhone(c) ? { id: c.deviceId, name: c.name, rttMs: c.rttMs } : null,
+      connected: isPhone(c) ? { id: c.deviceId, name: c.name, rttMs: c.rttMs, usb: !!c.ice } : null,
       connecting: this.connecting ? { id: this.connecting.id, name: this.connecting.name } : null,
       message: this.message,
       held: !isPhone(c) && this.raw.phoneHolds(), // the phone dropped and may come back

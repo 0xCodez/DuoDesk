@@ -171,6 +171,7 @@ class Stream extends EventEmitter {
       const set = this.getSettings();
       this._toWindow('start', {
         session: s, bitrateMbps: set.bitrateMbps, sourceId: src.id, width, height, audio,
+        ice: (this.server.current && this.server.current.ice) || null, // a phone on the USB cable: through the relay
         fps: Math.min(120, Math.max(30, Math.round(target.hz || 60))),
       });
     } catch (e) {

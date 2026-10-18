@@ -216,7 +216,7 @@ private fun Identity(core: Core, v: Int, logo: Int) {
                 Dot(when { h != null -> pal.good; core.link.pair != null || core.link.state == "connecting" -> pal.warn; else -> pal.faint }, 7)
                 Text(
                     when {
-                        h != null -> h.name + (core.link.rttMs?.let { " · $it ms" } ?: "")
+                        h != null -> h.name + (if (core.link.wired) " · USB" else "") + (core.link.rttMs?.let { " · $it ms" } ?: "")
                         core.link.pair != null -> "Pairing…"
                         core.link.state == "connecting" -> "Connecting…"
                         else -> "Not connected"
@@ -351,7 +351,7 @@ private fun OverviewPage(core: Core, v: Int) {
                     if (host != null) Brush.horizontalGradient(listOf(pal.good, pal.accent)) else Brush.horizontalGradient(listOf(pal.trackOff, pal.trackOff)),
                 ))
                 Text(
-                    when { host != null -> link.rttMs?.let { "$it ms" } ?: "Connected"; link.state == "connecting" -> "Connecting…"; link.pair != null -> "Pairing…"; else -> "Not connected" },
+                    when { host != null -> listOfNotNull(if (link.wired) "USB" else null, link.rttMs?.let { "$it ms" }).joinToString(" · ").ifEmpty { "Connected" }; link.state == "connecting" -> "Connecting…"; link.pair != null -> "Pairing…"; else -> "Not connected" },
                     color = pal.muted, fontSize = 11.sp, maxLines = 2, lineHeight = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -784,7 +784,7 @@ private fun GeneralPage(core: Core, v: Int) {
     }
     if (core.hosts().isNotEmpty()) MacCard("Paired") {
         core.hosts().forEachIndexed { i, h ->
-            MacRow(h.name, if (core.host?.id == h.id) "Connected" else "Last address ${h.address}", first = i == 0) {
+            MacRow(h.name, if (core.host?.id == h.id) (if (core.link.wired) "Connected over USB" else "Connected") else "Last address ${h.address}", first = i == 0) {
                 if (core.host?.id == h.id) Pill("Online", "good")
                 TextButton(onClick = { core.forget(h.id) }) { Text("Forget", color = pal.bad) }
             }

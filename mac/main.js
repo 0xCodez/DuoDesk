@@ -67,6 +67,7 @@ const { Hud } = require('./hud');
 const { PairSync } = require('./pairsync');
 const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
+const { Wired } = require('./wired');
 const { PhoneViews } = require('./phoneview');
 const { PhoneDrive } = require('./phonedrive');
 const { Updates } = require('../shared/updates.js');
@@ -478,6 +479,11 @@ app.whenReady().then(() => {
   // The phone's screen, input, clipboard and app windows, through wireless debugging.
   svc.phone.bridge = new PhoneBridge({ server: peer, phone: svc.phone, getSettings: () => settings, clipboard: svc.clipboard });
   svc.phone.bridge.on('change', pushState);
+  // A paired phone on a USB cable: the session, screen and sound through it (no Wi-Fi needed).
+  svc.wired = new Wired({ adb: svc.phone.bridge.adb, raw: server, peer, getId: () => id.macId });
+  svc.wired.on('change', pushState);
+  svc.phone.bridge.wired = svc.wired;
+  svc.phone.wired = svc.wired;
   svc.phoneViews = new PhoneViews({ bridge: svc.phone.bridge, phone: svc.phone, getSettings: () => settings, server: peer, fileSend: svc.fileSend });
   svc.phoneViews.on('change', pushState);
   // The phone in Finder, through adb (the cable, else wireless debugging): only when Mount is clicked.
@@ -563,6 +569,7 @@ app.on('before-quit', () => {
   quitting = true;
   if (svc && svc.phoneViews) svc.phoneViews.shutdown();
   if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();
+  if (svc && svc.wired) svc.wired.stop();
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input
   if (discovery) discovery.stop();
   if (link) link.stop();

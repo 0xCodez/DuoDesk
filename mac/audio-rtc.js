@@ -27,7 +27,7 @@ function close(s) {
   if (s.actx) s.actx.close();
 }
 
-async function startSend({ session }) {
+async function startSend({ session, ice }) {
   close(send);
   const me = { session, pendingIce: [], remoteSet: false };
   send = me;
@@ -39,7 +39,7 @@ async function startSend({ session }) {
     dest.channelCount = 2;
     me.player.connect(dest);
     await me.actx.resume();
-    const pc = new RTCPeerConnection({ iceServers: [] });
+    const pc = new RTCPeerConnection(ice || { iceServers: [] });
     me.pc = pc;
     pc.addTransceiver(dest.stream.getAudioTracks()[0], { direction: 'sendonly' });
     pc.onicecandidate = (e) => e.candidate && send === me && api.send({ t: P.T.AUDIO_ICE, dir: 'm2w', session, candidate: e.candidate.toJSON() });
@@ -52,11 +52,11 @@ async function startSend({ session }) {
   }
 }
 
-async function onRecvOffer({ session, sdp }) {
+async function onRecvOffer({ session, sdp, ice }) {
   close(recv);
   const me = { session, pendingIce: [] };
   recv = me;
-  const pc = new RTCPeerConnection({ iceServers: [] });
+  const pc = new RTCPeerConnection(ice || { iceServers: [] });
   me.pc = pc;
   pc.ontrack = (e) => {
     if (e.receiver.jitterBufferTarget !== undefined) e.receiver.jitterBufferTarget = 0;

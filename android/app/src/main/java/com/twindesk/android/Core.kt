@@ -85,6 +85,18 @@ class Core private constructor(val ctx: Context) : Link.Events {
         link.connect(h)
     }
 
+    // The computer found this device on a USB cable (adb reverse to its port, then a broadcast:
+    // WiredReceiver): take the session through the cable, also from a Wi-Fi session with it.
+    fun connectWired(id: String, port: Int, nonce: String) {
+        val h = store.hosts().find { it.id == id }
+        if (h == null) { Log.i("TwinDesk", "USB: $id isn't paired here"); return }
+        Log.i("TwinDesk", "USB: connecting to ${h.name} through the cable")
+        resumeUntil = 0
+        wiredNonce = nonce
+        link.connect(h, port)
+    }
+    @Volatile private var wiredNonce = ""
+
     fun disconnect() {
         resumeUntil = 0
         link.disconnect()
@@ -134,6 +146,8 @@ class Core private constructor(val ctx: Context) : Link.Events {
         Log.i("TwinDesk", "session with ${host.name}")
         resumeUntil = 0
         Notify.cancelInvite(ctx)
+        // Tells the computer which of its USB devices this is (its screen and input use that one).
+        if (link.wired) link.send(JSONObject().put("t", "phone.wired").put("nonce", wiredNonce))
         for (f in features) runCatching { f.onWelcome(host) }.onFailure { Log.e("TwinDesk", "welcome", it) }
         changed()
     }

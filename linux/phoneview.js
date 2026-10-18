@@ -69,8 +69,9 @@ class PhoneViews extends EventEmitter {
     if (open) return open.win.show(), open.win.focus();
     const w = 412;
     const h = 860;
-    const scale = screen.getPrimaryDisplay().scaleFactor || 1;
-    // 1 dp = 1 pixel at the desktop's scale: the app's text is as big as the desktop's.
+    // At least 2 pixels per point (sharp at 100% scaling); the dpi keeps 1 dp = 1 point, so the
+    // app's text is as big as this computer's. The window's resizes use the same rule.
+    const scale = Math.max(2, screen.getPrimaryDisplay().scaleFactor || 1);
     const newDisplay = `${Math.round(w * scale)}x${Math.round((h - 32) * scale)}/${Math.round(160 * scale)}`;
     this._open({ kind: 'app', app: pkg, title: name || pkg, width: w, height: h, opts: this.bridge.sessionOpts('app', { newDisplay }) });
   }
@@ -126,6 +127,7 @@ class PhoneViews extends EventEmitter {
 
   async _start(v, opts) {
     const s = new Session(this.bridge.adb, this.bridge.serial, opts);
+    const via = this.bridge.via;
     v.session = s;
     s.on('size', (size) => {
       v.size = size;
@@ -137,7 +139,7 @@ class PhoneViews extends EventEmitter {
     s.on('closed', (why) => this._send(v, 'phoneview:status', { closed: why }));
     await s.start();
     if (v.app) setTimeout(() => s.startApp(v.app), 300);
-    this._send(v, 'phoneview:status', { ready: true });
+    this._send(v, 'phoneview:status', { ready: true, via });
   }
 
   _input(v, m) {
@@ -169,6 +171,9 @@ class PhoneViews extends EventEmitter {
         if (m.key === 'rotate') s.simple(TYPE.ROTATE);
         break;
       }
+      case 'resetVideo': // the window skipped frames: a keyframe now
+        s.simple(TYPE.RESET_VIDEO);
+        break;
       case 'resize': // an app window changed size: its virtual display follows (flex)
         if (v.kind === 'app' && m.w > 50 && m.h > 50) s.resizeDisplay(Math.round(m.w), Math.round(m.h));
         break;

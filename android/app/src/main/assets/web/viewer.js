@@ -52,7 +52,8 @@
 
   async function onOffer(msg) {
     closePc();
-    const my = (pc = new RTCPeerConnection({ iceServers: [] }));
+    // On a USB cable the computer sends its relay (msg.ice): the picture goes through adb.
+    const my = (pc = new RTCPeerConnection(msg.ice || { iceServers: [] }));
     session = msg.session;
     const queue = (pending = []);
     setOverlay(`Connecting to ${name}…`);

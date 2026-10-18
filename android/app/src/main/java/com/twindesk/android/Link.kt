@@ -45,6 +45,8 @@ class Link(
     @Volatile var pair: PairState? = null; private set
     @Volatile var host: Host? = null; private set
     @Volatile var rttMs: Long? = null; private set
+    // On a USB cable: the computer's port reached through adb reverse on this device's 127.0.0.1.
+    @Volatile var wired = false; private set
     val connected get() = state == "connected"
 
     private val exec = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "td-link").apply { isDaemon = true } }
@@ -59,12 +61,16 @@ class Link(
 
     private fun run(block: () -> Unit) = exec.execute { try { block() } catch (e: Exception) { Log.e("TwinDesk", "link", e) } }
 
-    fun connect(h: Host) = run {
-        if (ws != null && host?.id == h.id && (state == "connecting" || state == "connected")) return@run
+    // usbPort: connect through the cable (adb reverse) instead of the network; the host's own
+    // address stays as it is, for when the cable comes out.
+    fun connect(h: Host, usbPort: Int = 0) = run {
+        val viaUsb = usbPort > 0
+        if (ws != null && host?.id == h.id && wired == viaUsb && (state == "connecting" || state == "connected")) return@run
         closeSocket()
         pair = null
         host = h
-        open("session", h.address, h.port, h.fp)
+        wired = viaUsb
+        if (viaUsb) open("session", "127.0.0.1", usbPort, h.fp) else open("session", h.address, h.port, h.fp)
         setState("connecting", "")
     }
 

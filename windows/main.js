@@ -41,6 +41,7 @@ const Wake = require('./wake');
 const SendTo = require('./sendto');
 const { PairSync } = require('./pairsync');
 const { PhoneLink } = require('./phone-link');
+const { Wired } = require('./wired');
 const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
@@ -105,6 +106,7 @@ let notifs = null;
 let fileClip = null;
 let sshd = null;
 let kvm = null;
+let wired = null; // wired.js, with the phone
 let hostServer = null; // server.js, once the certificate exists
 let phone = null; // A phone as the peer: phone.js (its .bridge: phone-bridge.js)
 let phoneViews = null; // its screen and apps in windows here (phoneview.js)
@@ -296,6 +298,11 @@ function startPhone(server, pairing) {
   // The phone's Keyboard page names this PC's hotkey (double-tap = everything back here).
   pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && pl.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_WIN, 'win') }));
   phone.bridge = new PhoneBridge({ server: pl, phone, getSettings: () => settings, clipboard: clip });
+  // A paired phone on a USB cable: the session, screen and sound through it (no Wi-Fi needed).
+  wired = new Wired({ adb: phone.bridge.adb, raw: server, peer: pl, getId: () => device.id });
+  wired.on('change', pushState);
+  phone.bridge.wired = wired;
+  phone.wired = wired;
   phone.bridge.on('change', () => {
     pushState();
     if (pendingPhoneApp && phone.bridge.state === 'ready') {
@@ -684,6 +691,7 @@ app.on('before-quit', () => {
   if (peerApps) peerApps.shutdown();
   if (fileClip) fileClip.shutdown();
   if (phoneViews) phoneViews.shutdown();
+  if (wired) wired.stop();
   if (phone) phone.bridge.adb.killServer();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });

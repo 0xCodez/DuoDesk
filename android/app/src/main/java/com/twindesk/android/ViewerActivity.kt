@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -104,7 +105,13 @@ private fun Viewer(core: Core, host: WebHost, close: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(name, color = Color.White, modifier = Modifier.padding(horizontal = 8.dp))
+                Text(name, color = Color.White, modifier = Modifier.padding(start = 8.dp))
+                // Which way the picture comes: the USB cable, or Wi-Fi.
+                Text(
+                    if (core.link.wired) "USB" else "Wi-Fi", color = Color.White, fontSize = 11.sp,
+                    modifier = Modifier.padding(end = 4.dp).clip(RoundedCornerShape(6.dp))
+                        .background(if (core.link.wired) Color(0xFF30D158).copy(alpha = 0.35f) else Color(0x33FFFFFF)).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
                 if (s.remote) {
                     for (mode in listOf("mirror", "extend")) {
                         val on = s.sharing && s.mode == mode

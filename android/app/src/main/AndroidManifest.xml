@@ -140,6 +140,10 @@
             android:taskAffinity="" />
 
         <receiver android:name=".ActionReceiver" android:exported="false" />
+        <receiver
+            android:name=".WiredReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

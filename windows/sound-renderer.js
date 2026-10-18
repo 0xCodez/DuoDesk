@@ -35,7 +35,7 @@ function lowLatency(receiver) {
 
 async function onOffer(m) {
   closeRecv();
-  const pc = new RTCPeerConnection({ iceServers: [] });
+  const pc = new RTCPeerConnection(m.ice || { iceServers: [] });
   const me = (recv = { pc, session: m.session, pending: [], playing: false });
   pc.ontrack = (e) => {
     lowLatency(e.receiver);
@@ -67,7 +67,7 @@ function closeRecv() {
 
 // ---- PC → Mac ----
 
-async function startSend(session) {
+async function startSend(session, ice) {
   stopSend();
   const me = (send = { session, pending: [], connected: false });
   try {
@@ -81,7 +81,7 @@ async function startSend(session) {
     if (send !== me) return stream.getTracks().forEach((t) => t.stop());
     if (!track) throw new Error('Windows gave no system sound');
     me.stream = stream;
-    const pc = (me.pc = new RTCPeerConnection({ iceServers: [] }));
+    const pc = (me.pc = new RTCPeerConnection(ice || { iceServers: [] }));
     pc.addTransceiver(track, { direction: 'sendonly' });
     pc.onicecandidate = (e) => e.candidate && send === me && api.send({ t: T.AUDIO_ICE, dir: 'w2m', session, candidate: e.candidate.toJSON() });
     pc.onconnectionstatechange = () => { if (send === me) { me.connected = pc.connectionState === 'connected'; report(); } };
@@ -129,7 +129,7 @@ api.on((m) => {
     case T.AUDIO_ANSWER: onAnswer(m); break;
     case T.AUDIO_ICE: onIce(m); break;
     case T.AUDIO_STOP: closeRecv(); break;
-    case 'start-send': startSend(m.session); break;
+    case 'start-send': startSend(m.session, m.ice); break;
     case 'stop-send': stopSend(); break;
     case 'stop-all': closeRecv(); stopSend(); break;
     case 'volume': player.volume = Math.min(1, Math.max(0, Number(m.volume) || 0)); break;

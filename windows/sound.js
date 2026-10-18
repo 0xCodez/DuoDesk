@@ -26,7 +26,7 @@ class Sound {
     link.on('closed', () => { this.macAccepts = false; this._stopSend(false); this._toWin({ t: 'stop-all' }); });
     link.on(T.AUDIO_POLICY, (m) => { this.macAccepts = m.accept === true; this.apply(); });
     link.on(T.AUDIO_OFFER, (m) => {
-      if (m.dir === 'm2w' && this.cfg.receive && typeof m.sdp === 'string') this._toWin(m);
+      if (m.dir === 'm2w' && this.cfg.receive && typeof m.sdp === 'string') this._toWin({ ...m, ice: this._ice() });
     });
     link.on(T.AUDIO_ANSWER, (m) => { if (m.dir === 'w2m' && this.sending && m.session === this.sending.session) this._toWin(m); });
     link.on(T.AUDIO_ICE, (m) => this._toWin(m));
@@ -71,7 +71,7 @@ class Sound {
     if (want && this.sending && this.sending.muteLocal !== this.cfg.muteLocal) this._stopSend(true); // restart with the new mute
     if (want && !this.sending) {
       this.sending = { session: ++this.session, muteLocal: this.cfg.muteLocal };
-      this._toWin({ t: 'start-send', session: this.sending.session });
+      this._toWin({ t: 'start-send', session: this.sending.session, ice: this._ice() });
     } else if (!want && this.sending) this._stopSend(true);
     this.onChange();
   }
@@ -81,6 +81,12 @@ class Sound {
     this.sending = null;
     this._toWin({ t: 'stop-send' });
     if (tellMac) this.link.send({ t: T.AUDIO_STOP, dir: 'w2m' });
+  }
+
+  // A phone on the USB cable: WebRTC through the relay (wired.js), else null.
+  _ice() {
+    const c = this.link.hosting && this.link.server && this.link.server.current;
+    return (c && c.ice) || null;
   }
 
   _toWin(m) {

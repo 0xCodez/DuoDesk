@@ -59,6 +59,7 @@ class PhoneBridge extends EventEmitter {
     this.known = new Set(readJson(knownFile(), []));
     this.canPair = false; // still looking, but the code field shows (its pairing may be gone)
     this.inputBlocked = false; // Xiaomi with “USB debugging (Security settings)” off: touches and keys are refused
+    this.wired = null; // wired.js: the phone on the USB cable
 
     phone.on('adb', () => this._kick());
     // The pairing code typed on the phone (its guide's notification), with its pairing port.
@@ -85,6 +86,7 @@ class PhoneBridge extends EventEmitter {
   get view() {
     return {
       state: this.state, message: this.message, serial: this.serial, available: this.adb.available, canPair: this.canPair, inputBlocked: this.inputBlocked,
+      via: this.via, // 'usb' | 'wifi' | null: how adb reaches the phone
       control: !!(this.control && !this.control.closed), driving: !!this.kvm,
       windows: this.views ? this.views.list() : [],
     };
@@ -99,6 +101,11 @@ class PhoneBridge extends EventEmitter {
     // The phone's guide shows how it's going.
     this._tellPhone();
     this.emit('change');
+  }
+
+  get via() {
+    if (!this.serial) return null;
+    return /[:]/.test(this.serial) || this.serial.includes('._adb-tls') ? 'wifi' : 'usb';
   }
 
   _tellPhone() {
@@ -145,9 +152,17 @@ class PhoneBridge extends EventEmitter {
     this._sound();
     if (this.polling || !isPhone(this.server.current)) return;
     if (this.state === 'ready' && this.control && !this.control.closed) {
-      // Watch for the switch going on (no restart needed).
-      if (this.inputBlocked && this.serial) await this._checkInput(this.serial).catch(() => {});
-      return;
+      const usb = this.wired && this.wired.serialOf(this.server.current.deviceId);
+      if (usb && usb !== this.serial) {
+        // The cable was plugged in: move onto it (windows opened from now on use it too).
+        console.log(`[phone] moving onto the USB cable (${usb})`);
+        this.control.stop();
+        this.control = null;
+      } else {
+        // Watch for the switch going on (no restart needed).
+        if (this.inputBlocked && this.serial) await this._checkInput(this.serial).catch(() => {});
+        return;
+      }
     }
     this.polling = true;
     try {
@@ -240,8 +255,11 @@ class PhoneBridge extends EventEmitter {
 
   async _findDevice(address) {
     const list = await this.adb.devices();
-    const d = list.find((x) => x.state === 'device' && x.serial.startsWith(`${address}:`))
-      || list.find((x) => x.state === 'device' && x.serial.includes(address))
+    // On the USB cable (wired.js knows which device it is): that one, Wi-Fi or not.
+    const usb = this.wired && this.server.current && this.wired.serialOf(this.server.current.deviceId);
+    if (usb && list.some((x) => x.serial === usb && x.state === 'device')) return usb;
+    const d = (address && list.find((x) => x.state === 'device' && x.serial.startsWith(`${address}:`)))
+      || (address && list.find((x) => x.state === 'device' && x.serial.includes(address)))
       || (process.env.TWINDESK_ADB_SERIAL && list.find((x) => x.serial === process.env.TWINDESK_ADB_SERIAL && x.state === 'device'));
     if (d) return d.serial;
     // Plugged in with a USB cable: the same phone if its Wi-Fi address is the one on the link.

@@ -29,7 +29,7 @@ async function onOffer(m) {
   stop();
   const me = { session: m.session, pending: [], remoteSet: false };
   recv = me;
-  const pc = new RTCPeerConnection({ iceServers: [] });
+  const pc = new RTCPeerConnection(m.ice || { iceServers: [] }); // m.ice: through the USB cable
   me.pc = pc;
   pc.ontrack = (e) => {
     if (e.receiver.jitterBufferTarget !== undefined) e.receiver.jitterBufferTarget = 0;

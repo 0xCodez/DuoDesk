@@ -90,7 +90,7 @@ UI.tab({
       h1.textContent = c.name;
       desc.textContent = [info.maker && info.model ? `${info.maker} ${info.model}` : info.model, info.release && `Android ${info.release}`].filter(Boolean).join(' · ');
       name.textContent = c.name;
-      sub.textContent = [c.rttMs != null ? `${c.rttMs} ms` : 'Connected', info.battery != null ? `Battery ${info.battery}%${info.charging ? ', charging' : ''}` : ''].filter(Boolean).join(' · ');
+      sub.textContent = [c.usb ? 'USB cable' : '', c.rttMs != null ? `${c.rttMs} ms` : 'Connected', info.battery != null ? `Battery ${info.battery}%${info.charging ? ', charging' : ''}` : ''].filter(Boolean).join(' · ');
       if (UI.phoneWall) dev.style.setProperty('--phone-wall', UI.phoneWall);
       else if (info.colors && info.colors.length) dev.style.setProperty('--phone-wall', `linear-gradient(160deg, ${info.colors.join(', ')}${info.colors.length === 1 ? `, ${info.colors[0]}` : ''})`);
       else dev.style.removeProperty('--phone-wall');

@@ -17,6 +17,8 @@ const { EventEmitter } = require('events');
 const { WebSocketServer } = require('ws');
 const P = require('../shared/protocol.js');
 
+const ICE_OFFERS = new Set([P.T.RTC_OFFER, P.T.AUDIO_OFFER]);
+
 // Dev only: listen elsewhere (a second copy on the same PC).
 const LISTEN_PORT = Number(process.env.MACSHARE_DEV_PORT) || P.PORT;
 
@@ -104,7 +106,10 @@ class Server extends EventEmitter {
   }
 
   send(ctx, msg) {
-    if (ctx && ctx.ws.readyState === ctx.ws.OPEN) ctx.ws.send(JSON.stringify(msg));
+    if (!ctx || ctx.ws.readyState !== ctx.ws.OPEN) return;
+    // A phone on the USB cable: its WebRTC goes through the relay too (wired.js).
+    if (ctx.ice && ICE_OFFERS.has(msg.t)) msg = { ...msg, ice: ctx.ice };
+    ctx.ws.send(JSON.stringify(msg));
   }
 
   // Send to the authenticated client, if any.
@@ -129,6 +134,7 @@ class Server extends EventEmitter {
     ctx.deviceId = deviceId;
     ctx.name = name;
     ctx.os = os;
+    ctx.ice = this.iceFor ? this.iceFor(ctx) : null; // a phone through adb reverse: the relay's RTCConfiguration
     this.current = ctx;
     this.send(ctx, welcome);
     this.emit('client', ctx);

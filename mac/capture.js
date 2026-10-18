@@ -80,7 +80,7 @@ async function getStream(sourceId, width, height, fps) {
 
 // Every frame matters more than the last bit of sharpness: under pressure the encoder lowers
 // quality, never the frame rate (dropped frames are what feels jagged and what adds lag).
-async function start({ session, bitrateMbps, sourceId, width, height, audio, fps = 60 }) {
+async function start({ session, bitrateMbps, sourceId, width, height, audio, fps = 60, ice }) {
   close();
   const me = { session, pendingIce: [], remoteSet: false, last: null };
   cur = me;
@@ -91,7 +91,7 @@ async function start({ session, bitrateMbps, sourceId, width, height, audio, fps
     track.contentHint = 'motion';
     track.onended = () => cur === me && api.state({ session, status: 'error: capture ended' });
 
-    const pc = new RTCPeerConnection({ iceServers: [] });
+    const pc = new RTCPeerConnection(ice || { iceServers: [] });
     me.pc = pc;
     const tr = pc.addTransceiver(track, { direction: 'sendonly', streams: [me.stream] });
     if (audio) pc.addTransceiver(await audioTrack(me), { direction: 'sendonly', streams: [me.stream] });

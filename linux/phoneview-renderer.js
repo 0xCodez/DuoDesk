@@ -22,6 +22,16 @@
   let decoder = null;
   let config = null; // SPS/PPS, sent in front of the next key frame
   let waitingKey = true;
+  // Skip to the next keyframe, and ask the phone for one now (it sends one only every ~10 s):
+  // the frames in between build on each other, so drawing them on a gap smears the picture.
+  let askedKey = 0;
+  function needKey() {
+    waitingKey = true;
+    const now = performance.now();
+    if (now - askedKey < 1000) return;
+    askedKey = now;
+    api.send({ t: 'resetVideo' });
+  }
 
   const setStatus = (t) => {
     status.textContent = t || '';
@@ -56,7 +66,7 @@
       },
       error: (e) => {
         console.warn('decoder', e.message);
-        waitingKey = true;
+        needKey();
       },
     });
     // No preference: many Linux setups have no hardware H.264 decoding (VA-API) for Chromium.
@@ -72,7 +82,9 @@
       return;
     }
     if (!decoder || decoder.state !== 'configured') return;
-    if (waitingKey && !p.key) return;
+    if (waitingKey && !p.key) return needKey();
+    // Behind (a slow decoder): drop up to a fresh keyframe rather than one frame, which smears.
+    if (decoder.decodeQueueSize > 4 && !p.key) return needKey();
     let chunk = data;
     if (p.key && config) {
       chunk = new Uint8Array(config.length + data.length);
@@ -80,7 +92,6 @@
       chunk.set(data, config.length);
     }
     waitingKey = false;
-    if (decoder.decodeQueueSize > 4 && !p.key) return; // behind: skip to keep up
     decoder.decode(new EncodedVideoChunk({ type: p.key ? 'key' : 'delta', timestamp: p.pts, data: chunk }));
   });
 
@@ -90,10 +101,21 @@
   });
 
   api.on('status', (s) => {
+    if (s.via) {
+      const el = document.getElementById('via');
+      el.textContent = s.via === 'usb' ? 'USB' : 'Wi-Fi';
+      el.className = s.via;
+      el.title = s.via === 'usb' ? 'Through the USB cable' : 'Through wireless debugging';
+      el.hidden = false;
+    }
     if (s.error) setStatus(s.error);
     else if (s.closed) setStatus(`The phone stopped sharing (${s.closed}).`);
     else if (s.ready && !size) setStatus('Waiting for the picture…');
   });
+
+  // An app's virtual display has at least 2 pixels per point, like the Mac's: at 100% scaling a
+  // 1-pixel display looks blurry. Same rule as phoneview.js's openApp.
+  const appScale = () => Math.max(2, devicePixelRatio);
 
   // Letterbox: the canvas keeps the phone's aspect inside the window.
   function fit() {
@@ -110,7 +132,7 @@
     if (kind === 'app') {
       clearTimeout(fit.timer);
       const stage = document.getElementById('stage');
-      fit.timer = setTimeout(() => api.send({ t: 'resize', w: stage.clientWidth * devicePixelRatio, h: stage.clientHeight * devicePixelRatio }), 250);
+      fit.timer = setTimeout(() => api.send({ t: 'resize', w: stage.clientWidth * appScale(), h: stage.clientHeight * appScale() }), 250);
     }
   }).observe(document.getElementById('stage'));
 

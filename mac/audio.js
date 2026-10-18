@@ -96,7 +96,7 @@ class Audio extends EventEmitter {
         this.sending = { session, status: `error: ${this.hub.error}` };
         return this.emit('change');
       }
-      this._toWin('send-start', { session });
+      this._toWin('send-start', { session, ice: (this.server.current && this.server.current.ice) || null });
     } else if (!want && this.sending) {
       this._stopSend(true);
     }
@@ -117,7 +117,7 @@ class Audio extends EventEmitter {
     if (!this.cfg.receive) return;
     this.receiving = { session: m.session, status: 'connecting' };
     await this._ensureWin();
-    this._toWin('recv', { session: m.session, sdp: m.sdp });
+    this._toWin('recv', { session: m.session, sdp: m.sdp, ice: (this.server.current && this.server.current.ice) || null });
     this.emit('change');
   }
 

@@ -95,6 +95,18 @@ class ActionReceiver : BroadcastReceiver() {
     }
 }
 
+// A computer found this device on a USB cable and set up adb reverse to its port: connect through
+// it. Only adb's shell can send this (the receiver requires DUMP, which apps don't get).
+class WiredReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        val id = intent.getStringExtra("host") ?: return
+        val port = intent.getIntExtra("port", 0)
+        if (port <= 0 || port > 65535) return
+        runCatching { TwinService.start(ctx) }
+        Core.get(ctx).connectWired(id, port, intent.getStringExtra("nonce") ?: "")
+    }
+}
+
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) TwinService.start(ctx)

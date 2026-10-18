@@ -76,7 +76,7 @@ async function start(m) {
     me.inset = m.inset || null;
     const track = m.offer.kind === 'window' ? cropped(captured, me) : captured;
     track.contentHint = 'motion';
-    const pc = (me.pc = new RTCPeerConnection({ iceServers: [] }));
+    const pc = (me.pc = new RTCPeerConnection(m.ice || { iceServers: [] }));
     const tr = pc.addTransceiver(track, { direction: 'sendonly', streams: [stream] });
     const audio = stream.getAudioTracks()[0];
     if (audio) pc.addTransceiver(audio, { direction: 'sendonly', streams: [stream] });

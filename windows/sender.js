@@ -49,8 +49,14 @@ class Sender extends EventEmitter {
     const session = ++this.counter;
     this.live.add(session);
     if (opts.offer && opts.offer.kind === 'window') this.windows.add(session);
-    this._toWin({ ...opts, t: 'start', session });
+    this._toWin({ ...opts, ice: this._ice(), t: 'start', session });
     return session;
+  }
+
+  // A phone on the USB cable: WebRTC through the relay (wired.js), else null.
+  _ice() {
+    const c = this.link.hosting && this.link.server && this.link.server.current;
+    return (c && c.ice) || null;
   }
 
   stop(session, tellMac = true) {
