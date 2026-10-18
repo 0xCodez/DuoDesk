@@ -3,6 +3,10 @@ name: Build Linux
 on:
   workflow_dispatch:
 
+# Write: the full Android APK can come from a draft release, which a read-only token can't see.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04

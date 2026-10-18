@@ -3,6 +3,10 @@ name: Build Windows
 on:
   workflow_dispatch:
 
+# Write: the full Android APK can come from a draft release, which a read-only token can't see.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-2022
@@ -28,8 +32,16 @@ jobs:
         working-directory: windows
         run: npm run dist -- x64 arm64
 
-      - name: Upload installers
+      - name: Upload the x64 installer
         uses: actions/upload-artifact@v4
         with:
-          name: twindesk-windows
-          path: windows/dist/*.exe
+          name: twindesk-windows-x64
+          path: |
+            windows/dist/*.exe
+            !windows/dist/*-arm64.exe
+
+      - name: Upload the arm64 installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: twindesk-windows-arm64
+          path: windows/dist/*-arm64.exe
