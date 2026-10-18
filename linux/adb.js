@@ -10,6 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFile, spawn } = require('child_process');
+const adbmdns = require('../shared/adbmdns.js');
 
 function findAdb() {
   const candidates = [
@@ -35,6 +36,7 @@ function findServer() {
 
 class Adb {
   constructor() {
+    adbmdns.watcher.start(); // the phone's announcements from now on
     this.bin = findAdb();
     this.server = findServer();
   }
@@ -60,15 +62,17 @@ class Adb {
     return r.out.split(/\r?\n/).slice(1).map((l) => l.trim().split(/\s+/)).filter((p) => p.length >= 2).map(([serial, state]) => ({ serial, state }));
   }
 
-  // Wireless debugging services this computer's adb sees on the network:
-  // [{name, type: 'pairing'|'connect', address, port}]
+  // The phone's wireless debugging services: [{name, type: 'pairing'|'connect', address, port}].
+  // adb's own mDNS often sees nothing where the system's does, so ours (shared/adbmdns.js, which
+  // also keeps the phone's announcements) count too.
   async mdns() {
-    const r = await this.run(['mdns', 'services'], { timeout: 5000 });
+    const [r, ours] = await Promise.all([this.run(['mdns', 'services'], { timeout: 5000 }), adbmdns.query()]);
     const out = [];
-    for (const l of r.out.split(/\r?\n/)) {
+    for (const l of r.out.split('\n')) {
       const m = /^(\S+)\s+_adb-tls-(pairing|connect)\._tcp\.?\s+([\d.]+):(\d+)/.exec(l.trim());
       if (m) out.push({ name: m[1], type: m[2], address: m[3], port: Number(m[4]) });
     }
+    for (const s of [...ours]) if (!out.some((o) => o.type === s.type && o.address === s.address && o.port === s.port)) out.push(s);
     return out;
   }
 

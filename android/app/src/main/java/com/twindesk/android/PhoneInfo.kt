@@ -168,13 +168,15 @@ class Adb(core: Core) : Feature(core) {
     // The computer's side of wireless debugging (adb.bridge): needsPair, connecting, ready…
     @Volatile var bridge = ""; private set
     @Volatile var bridgeMessage = ""; private set
+    @Volatile var canPair = false; private set // the computer has been looking a while: its pairing may really be gone
     val paired get() = bridge == "ready"
     // The computer reached wireless debugging here before: its pairing stays (Settings lists it),
     // so while it reconnects (after MIUI switches wireless debugging off on a screen lock, at a new
-    // port) there's nothing to set up. Only its "needsPair" (adb refused its key) asks again.
+    // port) there's nothing to set up. Its "needsPair" (adb refused its key), or not finding it for
+    // a while (canPair), asks again.
     private fun knownKey() = core.host?.let { "adb.known.${it.id}" }
     val known get() = knownKey()?.let { core.store.flag(it, false) } ?: false
-    val setupNeeded get() = !paired && (!known || bridge == "needsPair")
+    val setupNeeded get() = !paired && (!known || bridge == "needsPair" || canPair)
     @Volatile var pairing = false; private set // a code went to the computer, waiting for the answer
     private var nsd: android.net.nsd.NsdManager.DiscoveryListener? = null
     @Volatile private var pairPort = 0 // our own "Pair device with pairing code" port, from mDNS
@@ -272,6 +274,7 @@ class Adb(core: Core) : Feature(core) {
                 val was = bridge
                 bridge = m.optString("state")
                 bridgeMessage = m.optString("message")
+                canPair = m.optBoolean("canPair", false)
                 if (pairing && bridge != "connecting") {
                     pairing = false
                     if (bridge == "ready") Notify.pairResult(core.ctx, "Paired with ${core.host?.name ?: "your computer"}", "Its screen, mouse, keyboard and sound work with this device now.", false)

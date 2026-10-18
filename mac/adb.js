@@ -8,6 +8,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFile, spawn } = require('child_process');
+const adbmdns = require('../shared/adbmdns.js');
 
 function findAdb() {
   const candidates = [
@@ -30,6 +31,7 @@ function findServer() {
 
 class Adb {
   constructor() {
+    adbmdns.watcher.start(); // the phone's announcements from now on
     this.bin = findAdb();
     this.server = findServer();
   }
@@ -54,15 +56,17 @@ class Adb {
     return r.out.split('\n').slice(1).map((l) => l.trim().split(/\s+/)).filter((p) => p.length >= 2).map(([serial, state]) => ({ serial, state }));
   }
 
-  // Wireless debugging services the Mac's adb sees on the network:
-  // [{name, type: 'pairing'|'connect', address, port}]
+  // The phone's wireless debugging services: [{name, type: 'pairing'|'connect', address, port}].
+  // adb's own mDNS often sees nothing where the system's does, so ours (shared/adbmdns.js, which
+  // also keeps the phone's announcements) and Bonjour's cache count too.
   async mdns() {
-    const r = await this.run(['mdns', 'services'], { timeout: 5000 });
+    const [r, ours, cached] = await Promise.all([this.run(['mdns', 'services'], { timeout: 5000 }), adbmdns.query(), bonjour()]);
     const out = [];
     for (const l of r.out.split('\n')) {
       const m = /^(\S+)\s+_adb-tls-(pairing|connect)\._tcp\.?\s+([\d.]+):(\d+)/.exec(l.trim());
       if (m) out.push({ name: m[1], type: m[2], address: m[3], port: Number(m[4]) });
     }
+    for (const s of [...ours, ...cached]) if (!out.some((o) => o.type === s.type && o.address === s.address && o.port === s.port)) out.push(s);
     return out;
   }
 
@@ -106,6 +110,47 @@ class Adb {
   spawnShell(serial, command) {
     return spawn(this.bin, ['-s', serial, 'shell', command], { stdio: ['ignore', 'pipe', 'pipe'] });
   }
+}
+
+// The Mac's Bonjour cache (dns-sd), which keeps the phone's announcements from before we asked:
+// browse each service type, resolve each name to host:port, the host to its IPv4 address.
+function dnssd(args, ms, pattern) {
+  return new Promise((resolve) => {
+    const out = [];
+    let buf = '';
+    let p;
+    try {
+      p = spawn('/usr/bin/dns-sd', args, { stdio: ['ignore', 'pipe', 'ignore'] });
+    } catch {
+      return resolve(out);
+    }
+    p.on('error', () => {});
+    p.stdout.on('data', (d) => {
+      buf += d;
+      for (let k; (k = buf.indexOf('\n')) >= 0; buf = buf.slice(k + 1)) {
+        const m = pattern.exec(buf.slice(0, k));
+        if (m) out.push(m);
+      }
+    });
+    setTimeout(() => {
+      p.kill();
+      resolve(out);
+    }, ms);
+  });
+}
+
+async function bonjour() {
+  const all = await Promise.all(['connect', 'pairing'].map(async (type) => {
+    const svc = `_adb-tls-${type}._tcp`;
+    const names = [...new Set((await dnssd(['-B', svc, 'local.'], 700, /\sAdd\s.*_adb-tls-\w+\._tcp\.\s+(.+)$/)).map((m) => m[1].trim()))];
+    return Promise.all(names.slice(0, 8).map(async (name) => {
+      const at = (await dnssd(['-L', name, svc, 'local.'], 700, /can be reached at (\S+?)\.?:(\d+)/))[0];
+      if (!at) return null;
+      const ip = (await dnssd(['-G', 'v4', at[1]], 700, /\sAdd\s.*\s(\d+\.\d+\.\d+\.\d+)\s/))[0];
+      return ip ? { name, type, address: ip[1], port: Number(at[2]) } : null;
+    }));
+  }));
+  return all.flat().filter(Boolean);
 }
 
 module.exports = { Adb };

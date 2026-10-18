@@ -69,7 +69,7 @@ class PhoneBridge extends EventEmitter {
     phone.on('info', () => this._kick());
     server.on('client', (ctx) => {
       if (isPhone(ctx)) {
-        this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message });
+        this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message, canPair: this.canPair });
         return this._kick();
       }
       this._stopAll('');
@@ -95,7 +95,7 @@ class PhoneBridge extends EventEmitter {
     this.message = message;
     if (state !== 'connecting') this.canPair = false;
     // The phone's guide shows how it's going.
-    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.ADB_BRIDGE, state, message });
+    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.ADB_BRIDGE, state, message, canPair: this.canPair });
     this.emit('change');
   }
 
@@ -178,14 +178,16 @@ class PhoneBridge extends EventEmitter {
       }
       if (/authenticat|unauthorized/i.test(r.text)) unpaired = true;
     }
-    this.pairing = services.find((s) => s.type === 'pairing' && s.address === address) || null;
+    // Just paired: the pairing screen can linger in mDNS caches for a while; it's connecting now.
+    const justPaired = Date.now() - (this.pairedAt || 0) < 60000;
+    this.pairing = justPaired ? null : services.find((s) => s.type === 'pairing' && s.address === address) || null;
     this.misses++;
     // Paired before (this phone reached us since TwinDesk started): keep looking, with the code
     // field there in case its pairing really was removed.
     if (unpaired) this._known(false);
-    const known = !unpaired && this.known.has(this.server.current.id);
+    const known = !unpaired && this.known.has(this.server.current.deviceId);
     if (!unpaired && !this.pairing && (known || this.lastPort.has(address) || this.misses < 5)) {
-      this.canPair = this.misses >= (known ? 20 : 5);
+      this.canPair = this.misses >= 5; // the code field (here and on the phone), in case its pairing really is gone
       return this._set('connecting', this.canPair
         ? 'Can’t reach the phone’s wireless debugging. Check it’s on (same Wi-Fi), or pair again if it was reset.'
         : 'Looking for the phone’s wireless debugging…');
@@ -196,7 +198,7 @@ class PhoneBridge extends EventEmitter {
   }
 
   _known(on) {
-    const id = this.server.current && this.server.current.id;
+    const id = this.server.current && this.server.current.deviceId;
     if (!id || this.known.has(id) === on) return;
     if (on) this.known.add(id);
     else this.known.delete(id);
@@ -243,6 +245,9 @@ class PhoneBridge extends EventEmitter {
     this._set('connecting', 'Pairing…');
     const r = await this.adb.pair(address, port, code);
     if (!r.ok) return this._set('needsPair', `Pairing didn’t work (${r.text.split('\n').pop() || 'no answer'}). Try a new code.`);
+    this.pairedAt = Date.now();
+    this.misses = 0;
+    this._known(true);
     this._set('connecting', 'Paired. Connecting…');
     setTimeout(() => this._kick(), 1000);
   }

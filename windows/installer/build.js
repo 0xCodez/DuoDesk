@@ -62,6 +62,7 @@ async function main() {
   fs.rmSync(STAGE, { recursive: true, force: true });
   copy(WIN, path.join(STAGE, 'windows'), (name) => !SKIP.has(name));
   copy(path.join(ROOT, 'shared', 'protocol.js'), path.join(STAGE, 'shared', 'protocol.js'));
+  copy(path.join(ROOT, 'shared', 'adbmdns.js'), path.join(STAGE, 'shared', 'adbmdns.js'));
   copy(path.join(ROOT, 'shared', 'sshconfig.js'), path.join(STAGE, 'shared', 'sshconfig.js'));
   copy(path.join(ROOT, 'shared', 'updates.js'), path.join(STAGE, 'shared', 'updates.js'));
   copy(path.join(ROOT, 'shared', 'about.js'), path.join(STAGE, 'shared', 'about.js'));
