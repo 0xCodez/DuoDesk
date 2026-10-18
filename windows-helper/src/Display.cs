@@ -43,6 +43,8 @@ namespace MacShare
         static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern int ChangeDisplaySettingsEx(string device, ref DEVMODE dm, IntPtr hwnd, int flags, IntPtr param);
+        [DllImport("user32.dll")]
+        static extern int SetDisplayConfig(uint numPaths, IntPtr paths, uint numModes, IntPtr modes, uint flags);
 
         const int ATTACHED_TO_DESKTOP = 1, ENUM_CURRENT_SETTINGS = -1, CDS_UPDATEREGISTRY = 1;
         const int DM_PELSWIDTH = 0x80000, DM_PELSHEIGHT = 0x100000, DM_DISPLAYFREQUENCY = 0x400000, DM_DISPLAYORIENTATION = 0x80;
@@ -111,6 +113,43 @@ namespace MacShare
             cur.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY | DM_DISPLAYORIENTATION;
             int r = ChangeDisplaySettingsEx(name, ref cur, IntPtr.Zero, CDS_UPDATEREGISTRY, IntPtr.Zero);
             if (r != 0) throw new Exception("ChangeDisplaySettingsEx " + r);
+            return true;
+        }
+
+        // Windows remembers a topology per set of monitors, and one saved as Duplicate puts the
+        // virtual monitor on another's picture (no desktop of its own, so List() doesn't show it).
+        // If the monitor whose id has `monitorId` (its EDID's) shows another one's picture: Win+P ›
+        // Extend. True if it did.
+        const uint SDC_TOPOLOGY_EXTEND = 0x4, SDC_APPLY = 0x80;
+        const int MONITOR_ACTIVE = 1;
+
+        public static bool ExtendIfDuplicated(string monitorId)
+        {
+            if (string.IsNullOrEmpty(monitorId)) return false;
+            DISPLAY_DEVICE dd = new DISPLAY_DEVICE();
+            dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+            bool cloned = false;
+            for (int i = 0; !cloned && EnumDisplayDevices(null, i, ref dd, 0); i++)
+            {
+                int active = 0;
+                bool ours = false;
+                DISPLAY_DEVICE mon = new DISPLAY_DEVICE();
+                mon.cb = dd.cb;
+                for (int j = 0; EnumDisplayDevices(dd.DeviceName, j, ref mon, 0); j++)
+                {
+                    if ((mon.StateFlags & MONITOR_ACTIVE) != 0)
+                    {
+                        active++;
+                        if ((mon.DeviceID ?? "").IndexOf(monitorId, StringComparison.OrdinalIgnoreCase) >= 0) ours = true;
+                    }
+                    mon.cb = dd.cb;
+                }
+                cloned = ours && active > 1;
+                dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+            }
+            if (!cloned) return false;
+            int r = SetDisplayConfig(0, IntPtr.Zero, 0, IntPtr.Zero, SDC_TOPOLOGY_EXTEND | SDC_APPLY);
+            if (r != 0) throw new Exception("SetDisplayConfig " + r);
             return true;
         }
 

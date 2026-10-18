@@ -20,6 +20,7 @@ const DRIVERS = {
 };
 const SETTINGS_XML = 'C:\\VirtualDisplayDriver\\vdd_settings.xml';
 const ADAPTER = /virtual display driver/i; // the device name in MttVDD.inf
+const MONITOR_ID = 'MTT1337'; // its monitor's EDID id (MONITOR\MTT1337\…)
 const SCHTASKS = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'schtasks.exe');
 
 const STATUS_PS = `
@@ -116,6 +117,9 @@ class Vdd {
         this._set({ on });
         return mon || true;
       }
+      // Not on the desktop yet: Windows may show it as a Duplicate of another monitor (it
+      // remembers that per set of monitors). The helper extends only then.
+      if (on) await this.helper.request('displayExtend', { monitor: MONITOR_ID }).catch(() => {});
       if (Date.now() > until) {
         this._set({ message: on ? 'The virtual monitor didn’t appear' : 'The virtual monitor didn’t go away' });
         return false;

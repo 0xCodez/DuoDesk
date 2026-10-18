@@ -181,6 +181,7 @@ namespace MacShare
                     case "releaseAll": injector.ReleaseAll(); break;
                     case "moveTo": Injector.MoveTo((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0)); break; // The Mac's pointer on this PC's screen
                     case "displays": c["displays"] = Display.List(); break;
+                    case "displayExtend": c["changed"] = Display.ExtendIfDuplicated(Json.Str(c, "monitor", "")); break;
                     // PC apps on the Mac
                     case "windows": Async(c, delegate (Dictionary<string, object> r) { r["windows"] = AppWindows.List(); }); return;
                     case "icons":
@@ -300,7 +301,7 @@ namespace MacShare
             if (error != null) reply["error"] = error;
             if (cmd == "info") { reply["cursor"] = c["cursor"]; reply["capturing"] = c["capturing"]; }
             if (cmd == "displays") reply["displays"] = c["displays"];
-            if (cmd == "displayMode" && error == null) reply["changed"] = c["changed"];
+            if ((cmd == "displayMode" || cmd == "displayExtend") && error == null) reply["changed"] = c["changed"];
             if (cmd == "folderAt") { reply["path"] = c["path"]; reply["desktop"] = c["desktop"]; }
             Emit(reply);
         }

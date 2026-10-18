@@ -21,7 +21,8 @@ try {
   }
 } catch { $readable = $false }
 # A member of Administrators (even unelevated) gets a Yes/No prompt; anyone else needs an admin's password.
-$admin = [bool](([Security.Principal.WindowsIdentity]::GetCurrent()).Groups | Where-Object { $_.Value -eq 'S-1-5-32-544' })
+# Unelevated, UAC leaves Administrators in the token as deny-only, which .Groups leaves out: the claims list it.
+$admin = [bool](([Security.Principal.WindowsIdentity]::GetCurrent()).Claims | Where-Object { $_.Value -eq 'S-1-5-32-544' })
 $nets = @(Get-NetConnectionProfile | ForEach-Object {
   [pscustomobject]@{ alias = $_.InterfaceAlias; index = [int]$_.InterfaceIndex; category = [string]$_.NetworkCategory; ipv4 = [string]$_.IPv4Connectivity }
 })
@@ -79,11 +80,13 @@ async function fix(status, exe = process.execPath) {
   }
   lines.push('netsh advfirewall firewall delete rule name="MacShare" | Out-Null'); // the app's old name
   lines.push('netsh advfirewall firewall delete rule name="MacShare (TCP 47800)" | Out-Null');
-  lines.push('netsh advfirewall firewall delete rule name="TwinDesk" program=' + JSON.stringify(exe) + ' | Out-Null');
-  lines.push('netsh advfirewall firewall add rule name="TwinDesk" dir=in action=allow program=' + JSON.stringify(exe) + ' profile=any enable=yes | Out-Null');
+  // Our rules for this exe, also those an older Fix added with its path's backslashes doubled
+  // (they never matched the program). Other installs' rules stay.
+  lines.push('$progs = @(' + q(exe) + ', ' + q(exe.replace(/\\/g, '\\\\')) + ')');
+  lines.push("Get-NetFirewallApplicationFilter | Where-Object { $progs -contains $_.Program } | Get-NetFirewallRule | Where-Object { $_.DisplayName -like 'TwinDesk*' } | Remove-NetFirewallRule");
+  lines.push("New-NetFirewallRule -DisplayName 'TwinDesk' -Direction Inbound -Action Allow -Program " + q(exe) + ' -Profile Any | Out-Null');
   // This PC also listens (PC ↔ PC host), so the port gets its own rule.
-  lines.push('netsh advfirewall firewall delete rule name="TwinDesk (TCP 47800)" | Out-Null');
-  lines.push('netsh advfirewall firewall add rule name="TwinDesk (TCP 47800)" dir=in action=allow protocol=TCP localport=47800 program=' + JSON.stringify(exe) + ' profile=any enable=yes | Out-Null');
+  lines.push("New-NetFirewallRule -DisplayName 'TwinDesk (TCP 47800)' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 47800 -Program " + q(exe) + ' -Profile Any | Out-Null');
   try {
     await runElevated(lines.join('\n')); // throws if the UAC prompt is declined
   } catch (e) {
