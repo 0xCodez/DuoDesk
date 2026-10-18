@@ -173,6 +173,7 @@ class Adb(core: Core) : Feature(core) {
     @Volatile var canPair = false; private set // the computer has been looking a while: its pairing may really be gone
     // Xiaomi: “USB debugging (Security settings)” is off, so the computer's touches and keys are refused.
     @Volatile var inputBlocked = false; private set
+    @Volatile var viewed = false; private set // the computer shows this phone's screen or an app (scrcpy) now
     val paired get() = bridge == "ready"
     // The computer reached wireless debugging here before: its pairing stays (Settings lists it),
     // so while it reconnects (after MIUI switches wireless debugging off on a screen lock, at a new
@@ -283,6 +284,7 @@ class Adb(core: Core) : Feature(core) {
     }
 
     override fun onClosed() {
+        viewed = false
         stopConnectWatch()
         main.post { check() }
     }
@@ -296,6 +298,7 @@ class Adb(core: Core) : Feature(core) {
                 bridgeMessage = m.optString("message")
                 canPair = m.optBoolean("canPair", false)
                 inputBlocked = m.optBoolean("inputBlocked", false)
+                viewed = m.optBoolean("viewed", false)
                 if (pairing && bridge != "connecting") {
                     pairing = false
                     if (bridge == "ready") Notify.pairResult(core.ctx, "Paired with ${core.host?.name ?: "your computer"}", "Its screen, mouse, keyboard and sound work with this device now.", false)

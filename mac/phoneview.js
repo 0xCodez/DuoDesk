@@ -26,6 +26,7 @@ class PhoneViews extends EventEmitter {
     this.views = new Map(); // id -> {id, kind, app, title, win, session, keys, size}
     this.stubs = new Map(); // package -> DockStub, while that app has a window here
     bridge.views = this;
+    this.on('change', () => bridge._tellPhone());
     ipcMain.on('phoneview:in', (e, m) => {
       const v = [...this.views.values()].find((x) => x.win && !x.win.isDestroyed() && x.win.webContents === e.sender);
       if (v && m && typeof m === 'object') this._input(v, m);

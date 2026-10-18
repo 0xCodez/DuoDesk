@@ -18,6 +18,7 @@ const http = require('http');
 const crypto = require('crypto');
 const { execFile, spawn } = require('child_process');
 const { EventEmitter } = require('events');
+const usbadb = require('../shared/usbadb.js');
 
 const ROOT = '/sdcard';
 const POLL_MS = 3000;
@@ -82,7 +83,9 @@ class PhoneDrive extends EventEmitter {
   // adb: is the phone on the cable? (Wireless debugging is the bridge's own.)
   async _detect() {
     // adb: devices on USB have no ':' in their serial (wireless ones are address:port).
-    const list = this.adb.available ? await this.adb.run(['devices', '-l'], { timeout: 5000 }) : { out: '' };
+    // adb only while a phone is linked or one is on the cable (asked of the system, not adb).
+    const here = this.adb.available && (this.phone.connected || await usbadb.present());
+    const list = here ? await this.adb.run(['devices', '-l'], { timeout: 5000 }) : { out: '' };
     const usb = list.out.split('\n').slice(1).map((l) => l.trim().split(/\s+/)).find((p) => p.length >= 2 && !p[0].includes(':') && !p[0].startsWith('emulator-'));
     if (usb) {
       const [serial, state] = usb;

@@ -72,6 +72,7 @@ class PhoneBridge extends EventEmitter {
     phone.on('info', () => this._kick());
     server.on('client', (ctx) => {
       if (isPhone(ctx)) {
+        this.adb.wake();
         this._tellPhone();
         return this._kick();
       }
@@ -108,8 +109,11 @@ class PhoneBridge extends EventEmitter {
     return /[:]/.test(this.serial) || this.serial.includes('._adb-tls') ? 'wifi' : 'usb';
   }
 
+  // viewed: a phone window is open here (meanwhile the phone keeps its Wi-Fi out of power save).
   _tellPhone() {
-    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message, canPair: this.canPair, inputBlocked: this.inputBlocked });
+    if (!isPhone(this.server.current)) return;
+    const viewed = !!(this.views && this.views.list().length);
+    this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message, canPair: this.canPair, inputBlocked: this.inputBlocked, viewed });
   }
 
   // MIUI and HyperOS refuse adb's touches and keys (INJECT_EVENTS) until Developer options ›

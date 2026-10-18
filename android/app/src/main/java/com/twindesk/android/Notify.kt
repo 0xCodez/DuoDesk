@@ -18,6 +18,7 @@ object Notify {
     const val CH_CLIP = "clip"
     const val CH_COMPUTER = "computer"
     const val CH_UPDATES = "updates"
+    const val CH_SCREEN = "screen"
 
     const val ID_LINK = 1
     const val ID_INVITE = 2
@@ -25,6 +26,7 @@ object Notify {
     const val ID_ADB = 4
     const val ID_PAIR = 5
     const val ID_UPDATE = 6
+    const val ID_SCREEN = 7
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -44,6 +46,9 @@ object Notify {
             description = "Files copied with the shortcut, ready to copy or save here"
         })
         n.createNotificationChannel(NotificationChannel(CH_COMPUTER, "Your computer’s notifications", NotificationManager.IMPORTANCE_HIGH))
+        n.createNotificationChannel(NotificationChannel(CH_SCREEN, "Shared screens", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Your computer started sharing its screen with this phone"
+        })
         n.createNotificationChannel(NotificationChannel(CH_UPDATES, "Updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "A new version of TwinDesk on GitHub"
         })
@@ -58,6 +63,26 @@ object Notify {
         ctx, req, Intent(ctx, ActionReceiver::class.java).setAction(action).putExtra("arg", extra),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
+
+    // The computer started sharing and the viewer couldn't open by itself (no "Display over other
+    // apps"): tap to see it.
+    fun screen(ctx: Context, name: String) {
+        val open = PendingIntent.getActivity(
+            ctx, 7, Intent(ctx, ViewerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        runCatching {
+            nm(ctx).notify(ID_SCREEN, Notification.Builder(ctx, CH_SCREEN)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("$name is sharing its screen")
+                .setContentText("Tap to see it here")
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build())
+        }
+    }
+
+    fun cancelScreen(ctx: Context) = runCatching { nm(ctx).cancel(ID_SCREEN) }.let { }
 
     fun link(ctx: Context, core: Core): Notification {
         val h = core.host

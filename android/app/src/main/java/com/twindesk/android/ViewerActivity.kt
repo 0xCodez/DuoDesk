@@ -91,6 +91,12 @@ private fun Viewer(core: Core, host: WebHost, close: () -> Unit) {
     LaunchedEffect(bar) { if (bar) { delay(4000); bar = false } }
     val s = core.screen
     val name = core.host?.name ?: "Mac"
+    // Opened because the computer started sharing: it closes when the computer stops.
+    var seenOn by remember { mutableStateOf(false) }
+    LaunchedEffect(s.sharing, v) {
+        if (s.sharing) seenOn = true
+        else if (seenOn && s.autoOpened && s.state != null) close()
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(factory = { host.view.also { (it.parent as? android.view.ViewGroup)?.removeView(it) } }, modifier = Modifier.fillMaxSize())
@@ -117,7 +123,7 @@ private fun Viewer(core: Core, host: WebHost, close: () -> Unit) {
                         val on = s.sharing && s.mode == mode
                         val label = if (mode == "mirror") "Mirror" else "Extend"
                         if (on) FilledTonalButton(onClick = { bar = true }) { Text(label) }
-                        else TextButton(onClick = { s.control(share = true, mode = mode); bar = true }) { Text(label, color = Color.White) }
+                        else TextButton(onClick = { s.pick(mode); bar = true }) { Text(label, color = Color.White) }
                     }
                     if (s.sharing) TextButton(onClick = { s.control(share = false) }) { Text("Stop", color = Color.White) }
                 }

@@ -64,7 +64,12 @@ class Core private constructor(val ctx: Context) : Link.Events {
         updates.start()
     }
 
+    // Wi-Fi out of power save while a screen streams either way (power save adds 50–200 ms bursts).
+    private val wifiFast by lazy { WifiFast(ctx) }
+
     fun changed() {
+        // (runCatching: discovery may report before every feature exists)
+        runCatching { wifiFast.hold(link.connected && !link.wired && (screen.viewing || adb.viewed)) }
         version.value++
         main.post { TwinService.refresh(ctx) }
     }

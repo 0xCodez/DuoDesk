@@ -6,12 +6,20 @@
 // allocation -> TCP, and neither side needs a network. Only what browsers use: Allocate (long-term
 // credentials), Refresh, CreatePermission, ChannelBind, Send/Data indications and ChannelData.
 //
-//   const turn = new Turn({ port }); await turn.start(); turn.ice() -> RTCConfiguration
+// Latency: media over TCP never drops, so a stall (adb, the cable, a busy decoder) would queue
+// frames and play them late for good. A TCP client more than MAX_QUEUE behind loses datagrams
+// instead, as a network would, and WebRTC slows down and asks for a fresh picture. The relay runs
+// in a thread of its own (TurnThread), so the app's busy main thread never holds a frame.
+//
+//   const turn = new TurnThread({ port }); await turn.start(); turn.ice() -> RTCConfiguration
 'use strict';
 
 const net = require('net');
 const dgram = require('dgram');
 const crypto = require('crypto');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
+
+const MAX_QUEUE = 64 * 1024; // bytes waiting to go to one client: ~30 ms at 16 Mbps
 
 const COOKIE = 0x2112a442;
 const M = {
@@ -92,11 +100,11 @@ function u32(n) {
 }
 
 class Turn {
-  constructor({ port, host = '127.0.0.1' }) {
+  constructor({ port, host = '127.0.0.1', password }) {
     this.port = port;
     this.host = host;
     this.username = 'td';
-    this.password = crypto.randomBytes(12).toString('hex');
+    this.password = password || crypto.randomBytes(12).toString('hex');
     this.key = crypto.createHash('md5').update(`${this.username}:${REALM}:${this.password}`).digest();
     this.nonce = crypto.randomBytes(8).toString('hex');
     this.conns = new Set();
@@ -173,6 +181,16 @@ class Turn {
 
   _send(c, b) {
     if (!c.sock.destroyed) c.sock.write(b);
+  }
+
+  // Media to a client: dropped while it is too far behind (see MAX_QUEUE).
+  _media(c, b) {
+    if (c.sock.destroyed) return;
+    if (c.sock.writableLength > MAX_QUEUE) {
+      c.dropped = (c.dropped || 0) + 1;
+      return;
+    }
+    c.sock.write(b);
   }
 
   _error(c, m, code, reason, extra = []) {
@@ -267,10 +285,45 @@ class Turn {
       const h = Buffer.alloc(4);
       h.writeUInt16BE(num, 0);
       h.writeUInt16BE(data.length, 2);
-      return this._send(c, Buffer.concat([h, data, Buffer.alloc(pad4(data.length) - data.length)]));
+      return this._media(c, Buffer.concat([h, data, Buffer.alloc(pad4(data.length) - data.length)]));
     }
-    this._send(c, message(M.DATA, crypto.randomBytes(12), [attr(A.XOR_PEER_ADDRESS, xorAddr(from.address, from.port)), attr(A.DATA, data)]));
+    this._media(c, message(M.DATA, crypto.randomBytes(12), [attr(A.XOR_PEER_ADDRESS, xorAddr(from.address, from.port)), attr(A.DATA, data)]));
   }
 }
 
-module.exports = { Turn };
+// The relay in a worker thread: the same start / ice / stop as Turn.
+class TurnThread {
+  constructor({ port, host = '127.0.0.1' }) {
+    this.port = port;
+    this.host = host;
+    this.password = crypto.randomBytes(12).toString('hex');
+    this.worker = null;
+  }
+
+  start() {
+    return new Promise((resolve, reject) => {
+      const w = new Worker(__filename, { workerData: { turn: { port: this.port, host: this.host, password: this.password } } });
+      this.worker = w;
+      w.once('message', (m) => (m && m.ok ? resolve() : reject(new Error((m && m.error) || 'relay failed'))));
+      w.once('error', reject);
+      w.on('exit', () => { if (this.worker === w) this.worker = null; });
+      w.unref(); // never keeps the app from quitting
+    });
+  }
+
+  ice() {
+    return new Turn({ port: this.port, host: this.host, password: this.password }).ice();
+  }
+
+  stop() {
+    if (this.worker) this.worker.terminate();
+    this.worker = null;
+  }
+}
+
+if (!isMainThread && workerData && workerData.turn) {
+  const t = new Turn(workerData.turn);
+  t.start().then(() => parentPort.postMessage({ ok: true }), (e) => parentPort.postMessage({ ok: false, error: e.message }));
+}
+
+module.exports = { Turn, TurnThread };

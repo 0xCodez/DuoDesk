@@ -32,6 +32,10 @@ class WebHost(ctx: Context, page: String, private val core: Core, private val on
         isFocusable = true
         isFocusableInTouchMode = true
         webChromeClient = object : WebChromeClient() {
+            // A <video> with nothing playing yet shows WebView's grey play button: black instead.
+            override fun getDefaultVideoPoster(): android.graphics.Bitmap =
+                android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLACK) }
+
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
                 Log.i("TwinDesk", "web: ${m.message()}")
                 return true
@@ -90,6 +94,7 @@ class Screen(core: Core) : Feature(core) {
     private var lastInfo: JSONObject? = null
     private var wantStart = false // the viewer opened before we knew whether the Mac shares
     private var startedByUs = false // we started the Mac's sharing: stop it when the viewer closes
+    @Volatile var autoOpened = false; private set // the computer started sharing and opened the viewer: it closes when that stops
 
     val sharing get() = state?.optBoolean("on") == true
     val mode get() = state?.optString("mode") ?: ""
@@ -103,6 +108,7 @@ class Screen(core: Core) : Feature(core) {
         state?.let { h.post(it) }
         h.post(opts())
         core.send(msg("screen.policy", "accept" to true, "width" to w, "height" to hpx))
+        Notify.cancelScreen(core.ctx)
         // Show the Mac's screen = the Mac starts sharing, in the mode used last.
         if (state == null) wantStart = true else startIfNeeded()
         core.changed()
@@ -112,7 +118,29 @@ class Screen(core: Core) : Feature(core) {
         wantStart = false
         if (!viewing || sharing || !remote) return
         startedByUs = true
-        control(share = true, mode = core.store.prefsString("screen.mode", "mirror"))
+        control(share = true, mode = pickMode())
+    }
+
+    // Extend (a screen of the phone's own shape) unless Mirror was picked here; what the computer
+    // offers wins (a PC without its virtual display driver only mirrors). "screen.mode" was saved
+    // on every start, so it isn't a choice: "screen.picked" is.
+    private fun pickMode(): String {
+        val want = core.store.prefsString("screen.picked", "extend")
+        val modes = state?.optJSONArray("modes")?.let { a -> (0 until a.length()).map { a.optString(it) } } ?: listOf("extend", "mirror")
+        return if (want in modes) want else modes.firstOrNull() ?: "mirror"
+    }
+
+    // The computer started sharing by itself (its Share Screen): open the viewer, or, where
+    // Android doesn't let us start it from the background, a notification to tap.
+    private fun autoOpen() {
+        if (viewing) return
+        autoOpened = true
+        val ctx = core.ctx
+        if (android.provider.Settings.canDrawOverlays(ctx)) {
+            val ok = runCatching { ctx.startActivity(android.content.Intent(ctx, ViewerActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+            if (ok) return
+        }
+        Notify.screen(ctx, core.host?.name ?: "Your computer")
     }
 
     fun detach(h: WebHost) {
@@ -126,6 +154,7 @@ class Screen(core: Core) : Feature(core) {
             if (startedByUs && sharing) control(share = false)
         }
         startedByUs = false
+        autoOpened = false
         core.changed()
     }
 
@@ -146,10 +175,7 @@ class Screen(core: Core) : Feature(core) {
     fun control(share: Boolean? = null, mode: String? = null) {
         val m = msg("screen.ctl")
         if (share != null) m.put("share", share)
-        if (mode != null) {
-            m.put("mode", mode)
-            core.store.setPrefsString("screen.mode", mode)
-        }
+        if (mode != null) m.put("mode", mode)
         if (share == false) startedByUs = false
         core.send(m)
     }
@@ -159,7 +185,14 @@ class Screen(core: Core) : Feature(core) {
         host?.keyboard(on)
     }
 
+    // Mirror / Extend tapped in the viewer: remembered for next time.
+    fun pick(mode: String) {
+        core.store.setPrefsString("screen.picked", mode)
+        control(share = true, mode = mode)
+    }
+
     override fun onClosed() {
+        Notify.cancelScreen(core.ctx)
         state = null
         lastInfo = null
         startedByUs = false
@@ -169,8 +202,13 @@ class Screen(core: Core) : Feature(core) {
     override fun onMessage(t: String, m: JSONObject): Boolean {
         when (t) {
             "screen.state" -> {
+                val was = state
                 state = m
                 host?.post(m)
+                val on = m.optBoolean("on")
+                // Off -> on, not asked for here: the person pressed Share Screen on the computer.
+                if (was != null && !was.optBoolean("on") && on && !viewing && !startedByUs) autoOpen()
+                if (!on) Notify.cancelScreen(core.ctx)
                 if (wantStart) startIfNeeded()
                 core.changed()
             }
@@ -217,5 +255,25 @@ class MacSound(core: Core) : Feature(core) {
             else -> host?.post(m)
         }
         return true
+    }
+}
+
+// A Wi-Fi lock that keeps the radio out of power save (which holds packets back for up to a
+// beacon interval, 100 ms and more): low latency while our viewer is in front, high performance
+// for the computer's phone windows (low latency counts only for the app in front).
+class WifiFast(ctx: Context) {
+    private val wm = ctx.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
+    @Suppress("DEPRECATION")
+    private val locks = listOfNotNull(
+        runCatching { wm.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "TwinDesk:screen") }.getOrNull(),
+        runCatching { wm.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "TwinDesk:screen-bg") }.getOrNull(),
+    ).onEach { it.setReferenceCounted(false) }
+    private var held = false
+
+    @Synchronized fun hold(on: Boolean) {
+        if (on == held) return
+        held = on
+        for (l in locks) runCatching { if (on) l.acquire() else l.release() }
+        Log.i("TwinDesk", "wifi low latency ${if (on) "on" else "off"}")
     }
 }

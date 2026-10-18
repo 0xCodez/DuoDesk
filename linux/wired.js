@@ -17,8 +17,9 @@
 
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
-const { Turn } = require('../shared/turn.js');
+const { TurnThread } = require('../shared/turn.js');
 const P = require('../shared/protocol.js');
+const usbadb = require('../shared/usbadb.js');
 
 const APP_ID = 'com.twindesk.android';
 const TURN_PORT = 47802;
@@ -29,15 +30,15 @@ const isUsb = (serial) => !/[:]/.test(serial) && !serial.startsWith('emulator-')
 const isLoopback = (a) => a === '127.0.0.1' || a === '::1';
 
 class Wired extends EventEmitter {
-  constructor({ adb, raw, peer, getId }) {
+  // hasPhone: whether any phone is paired with this computer (no phone, no adb at all).
+  constructor({ adb, raw, peer, getId, hasPhone = () => true }) {
     super();
-    Object.assign(this, { adb, raw, peer, getId });
+    Object.assign(this, { adb, raw, peer, getId, hasPhone });
     this.plugged = new Map(); // USB serial -> {nonce, at, linked}
     this.byDevice = new Map(); // phone deviceId -> USB serial (from phone.wired)
-    this.turn = new Turn({ port: TURN_PORT });
+    this.turn = new TurnThread({ port: TURN_PORT });
     this.turnOk = false;
     this.phoneTurn = TURN_PORT; // the relay's port on the phone's side of adb reverse
-    this.turn.start().then(() => { this.turnOk = true; }, (e) => console.error(`[wired] relay on ${TURN_PORT}: ${e.message}`));
     // Every session from 127.0.0.1 is a phone through adb reverse: its WebRTC uses the relay.
     raw.iceFor = (ctx) => (ctx.os === P.OS.ANDROID && isLoopback(ctx.address) && this.turnOk ? this._ice() : null);
     peer.on('t:phone.wired', (m, ctx) => {
@@ -75,7 +76,11 @@ class Wired extends EventEmitter {
     if (this.polling || !this.adb.available) return;
     this.polling = true;
     try {
-      const usb = (await this.adb.devices()).filter((d) => d.state === 'device' && isUsb(d.serial)).map((d) => d.serial);
+      // adb only for a phone that's here: linked now, or a paired one on the cable (asked of the
+      // system, not adb). Until then no adb server runs.
+      const linked = !!(this.raw.current && this.raw.current.os === P.OS.ANDROID);
+      const here = linked || (this.hasPhone() && await usbadb.present());
+      const usb = !here ? [] : (await this.adb.devices()).filter((d) => d.state === 'device' && isUsb(d.serial)).map((d) => d.serial);
       for (const s of [...this.plugged.keys()]) {
         if (usb.includes(s)) continue;
         this.plugged.delete(s);
@@ -83,6 +88,7 @@ class Wired extends EventEmitter {
         console.log(`[wired] ${s} unplugged`);
         this.emit('change');
       }
+      if (usb.length) await this._relay(); // started for the first phone on the cable, kept from then on
       for (const s of usb) {
         const p = this.plugged.get(s);
         if (p && (p.linked || Date.now() - p.at < RETRY_MS)) continue;
@@ -92,6 +98,16 @@ class Wired extends EventEmitter {
     } finally {
       this.polling = false;
     }
+  }
+
+  _relay() {
+    if (!this.relayStart) {
+      this.relayStart = this.turn.start().then(() => { this.turnOk = true; }, (e) => {
+        console.error(`[wired] relay on ${TURN_PORT}: ${e.message}`);
+        this.relayStart = null; // tried again with the next poll
+      });
+    }
+    return this.relayStart;
   }
 
   // The relay as both sides reach it: here on TURN_PORT, on the phone on phoneTurn (each side's

@@ -30,10 +30,15 @@ function findServer() {
 }
 
 class Adb {
+  // Nothing runs until a phone is linked (wake) or plugged in: no mDNS watching, no adb server.
   constructor() {
-    adbmdns.watcher.start(); // the phone's announcements from now on
     this.bin = findAdb();
     this.server = findServer();
+  }
+
+  // A phone is linked: from now on keep its announcements (mdns() finds them).
+  wake() {
+    adbmdns.watcher.start();
   }
 
   get available() {
@@ -60,6 +65,7 @@ class Adb {
   // adb's own mDNS often sees nothing where the system's does, so ours (shared/adbmdns.js, which
   // also keeps the phone's announcements) and Bonjour's cache count too.
   async mdns() {
+    this.wake();
     const [r, ours, cached] = await Promise.all([this.run(['mdns', 'services'], { timeout: 5000 }), adbmdns.query(), bonjour()]);
     const out = [];
     for (const l of r.out.split('\n')) {
@@ -70,14 +76,29 @@ class Adb {
     return out;
   }
 
+  // macOS's Local Network privacy judges the adb server by whoever started it. One started
+  // before TwinDesk (a terminal, Android Studio, a dev run) is refused the LAN ("No route to
+  // host") even with TwinDesk allowed, so the first time that happens we start our own and retry.
+  async _lan(args, timeout) {
+    let r = await this.run(args, { timeout });
+    if (/no route to host/i.test(`${r.out}${r.err}`) && !this.restarted) {
+      this.restarted = true;
+      console.log('[adb] no route to host: restarting the adb server from TwinDesk');
+      await this.run(['kill-server'], { timeout: 5000 });
+      await this.run(['start-server'], { timeout: 10000 });
+      r = await this.run(args, { timeout });
+    }
+    return r;
+  }
+
   async pair(address, port, code) {
-    const r = await this.run(['pair', `${address}:${port}`, String(code)], { timeout: 20000 });
+    const r = await this._lan(['pair', `${address}:${port}`, String(code)], 20000);
     const text = `${r.out}${r.err}`;
     return { ok: /Successfully paired/i.test(text), text: text.trim() };
   }
 
   async connect(address, port) {
-    const r = await this.run(['connect', `${address}:${port}`], { timeout: 10000 });
+    const r = await this._lan(['connect', `${address}:${port}`], 10000);
     const text = `${r.out}${r.err}`;
     return { ok: /connected to|already connected/i.test(text) && !/failed|unable|cannot/i.test(text), text: text.trim() };
   }

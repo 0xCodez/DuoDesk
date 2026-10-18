@@ -31,10 +31,15 @@ function findServer() {
 }
 
 class Adb {
+  // Nothing runs until a phone is linked (wake) or plugged in: no mDNS watching, no adb server.
   constructor() {
-    adbmdns.watcher.start(); // the phone's announcements from now on
     this.bin = findAdb();
     this.server = findServer();
+  }
+
+  // A phone is linked: from now on keep its announcements (mdns() finds them).
+  wake() {
+    adbmdns.watcher.start();
   }
 
   get available() {
@@ -61,6 +66,7 @@ class Adb {
   // adb's own mDNS often sees nothing where the system's does, so ours (shared/adbmdns.js, which
   // also keeps the phone's announcements) count too.
   async mdns() {
+    this.wake();
     const [r, ours] = await Promise.all([this.run(['mdns', 'services'], { timeout: 5000 }), adbmdns.query()]);
     const out = [];
     for (const l of r.out.split(/\r?\n/)) {

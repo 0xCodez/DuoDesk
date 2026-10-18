@@ -207,7 +207,9 @@ class PcScreen {
     if (this.cfg.sound) audio = await loopback.acquire().catch((e) => { this.status.error = 'Sound: ' + e.message; return ''; });
     if (!this.mode || this.mode === 'off' || !this.mac.accept) { if (audio) loopback.release(); return; }
     this._stopSend(true);
-    const session = this.sender.start({ sourceId: src.id, width, height, mbps: this.cfg.mbps, fps, audio: false, audioLabel: audio, offer: { kind: 'screen' } });
+    // A phone over Wi-Fi: a high rate only fills the radio's queues (latency), it isn't sharper there.
+    const mbps = this.link.peerOs === P.OS.ANDROID ? Math.min(16, this.cfg.mbps) : this.cfg.mbps;
+    const session = this.sender.start({ sourceId: src.id, width, height, mbps, fps, audio: false, audioLabel: audio, offer: { kind: 'screen' } });
     this.sending = { session, displayId: d.id, rect, key, loop: !!audio };
     this.stats = null;
     Object.assign(this.status, { status: 'starting', error: '', name: d.label || src.name, width: rect.width, height: rect.height });

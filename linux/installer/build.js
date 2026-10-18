@@ -51,6 +51,7 @@ async function main() {
   copy(LIN, path.join(STAGE, 'linux'), (name) => !SKIP.has(name));
   copy(path.join(ROOT, 'shared', 'protocol.js'), path.join(STAGE, 'shared', 'protocol.js'));
   copy(path.join(ROOT, 'shared', 'adbmdns.js'), path.join(STAGE, 'shared', 'adbmdns.js'));
+  copy(path.join(ROOT, 'shared', 'usbadb.js'), path.join(STAGE, 'shared', 'usbadb.js')); // a phone on the cable, asked without adb
   copy(path.join(ROOT, 'shared', 'turn.js'), path.join(STAGE, 'shared', 'turn.js')); // the phone on a USB cable
   copy(path.join(ROOT, 'shared', 'sshconfig.js'), path.join(STAGE, 'shared', 'sshconfig.js'));
   copy(path.join(ROOT, 'shared', 'updates.js'), path.join(STAGE, 'shared', 'updates.js'));

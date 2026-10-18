@@ -299,7 +299,8 @@ function startPhone(server, pairing) {
   pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && pl.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_WIN, 'win') }));
   phone.bridge = new PhoneBridge({ server: pl, phone, getSettings: () => settings, clipboard: clip });
   // A paired phone on a USB cable: the session, screen and sound through it (no Wi-Fi needed).
-  wired = new Wired({ adb: phone.bridge.adb, raw: server, peer: pl, getId: () => device.id });
+  wired = new Wired({ adb: phone.bridge.adb, raw: server, peer: pl, getId: () => device.id,
+    hasPhone: () => pairing.list().some((x) => x.os === P.OS.ANDROID) });
   wired.on('change', pushState);
   phone.bridge.wired = wired;
   phone.wired = wired;

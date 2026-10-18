@@ -180,7 +180,9 @@ class PcScreen {
       return this._stopSend(true);
     }
     this._stopSend(true);
-    const session = this.sender.start({ sourceId: src.id, width, height, mbps: this.cfg.mbps, fps, audio: this.cfg.sound, offer: { kind: 'screen' } });
+    // A phone over Wi-Fi: a high rate only fills the radio's queues (latency), it isn't sharper there.
+    const mbps = this.link.peerOs === P.OS.ANDROID ? Math.min(16, this.cfg.mbps) : this.cfg.mbps;
+    const session = this.sender.start({ sourceId: src.id, width, height, mbps, fps, audio: this.cfg.sound, offer: { kind: 'screen' } });
     this.sending = { session, displayId: d.id, rect, key };
     this.stats = null;
     Object.assign(this.status, { status: 'starting', error: '', name: d.label || src.name, width: rect.width, height: rect.height });
