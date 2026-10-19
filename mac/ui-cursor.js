@@ -43,10 +43,8 @@ UI.tab({
     const gestureRow = UI.row('Trackpad gestures', 'Pinch to zoom, swipe between desktops, Mission Control / Task View, back and forward — done the native way on {name}. The same on both', [gestures]);
 
     // A phone as the peer: how the pointer and keys reach it (settings.phone.input, the phone's own toggle too).
-    const via = UI.select([
-      { value: 'adb', label: 'ADB (wireless debugging)' }, { value: 'phone', label: 'Accessibility' },
-    ], (v) => api.setPhone({ input: v }));
-    const viaRow = UI.row('Through', 'ADB: full control. Accessibility: TwinDesk on the phone taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth, no developer options', [via]);
+    const via = UI.segmented([{ value: 'adb', label: 'ADB' }, { value: 'phone', label: 'Accessibility' }], (v) => api.setPhone({ input: v }));
+    const viaRow = UI.row('Through', 'ADB: full control. Accessibility: TwinDesk on the phone taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth, no developer options', [via.el]);
     // A row whose label follows the other computer's name (UI.names fills it on render).
     const peerRow = (label, hint, controls) => {
       const r = UI.row(label, hint, controls);

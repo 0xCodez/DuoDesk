@@ -383,39 +383,53 @@ function showWindow() {
 }
 
 // Menu bar: the app mark as a template icon; the switches people reach for most, one click away.
+// Set again only when what it shows changes: a menu replaced while it's open closes (or its click
+// goes nowhere), and the state is pushed every second (the ping time isn't in it for that reason).
+let trayKey = '';
 function updateTray() {
   if (!tray) return;
   const c = state.client;
-  const name = c ? c.name : 'the other computer';
+  const phone = !!(c && c.os === P.OS.ANDROID);
+  const name = c ? c.name : 'Other Computer';
   const k = settings.kvm;
   const where = state.input && state.input.where;
+  const found = (state.found || []).filter((d) => !c || d.id !== c.id);
+  const phoneView = !!(phone && svc && svc.phoneViews.list().some((v) => v.kind === 'screen'));
+  const OS = { mac: 'Mac', linux: 'Linux', android: 'Phone' };
+  const key = JSON.stringify([c && c.name, c && c.transport, phone, where, k.linked, k.driveOther, k.beDriven, settings.sharing.on,
+    !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud,
+    found.map((d) => [d.id, d.name, d.os]), updates && updates.status.available && updates.status.latest]);
+  if (key === trayKey) return;
+  trayKey = key;
   tray.setToolTip(c ? `TwinDesk: ${c.name}` : 'TwinDesk');
   const check = (label, checked, click, enabled = true) => ({ label, type: 'checkbox', checked: !!checked, enabled, click });
-  const found = (state.found || []).filter((d) => !c || d.id !== c.id);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: c ? `Connected to ${c.name}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}` : 'Not connected', enabled: false },
+      { label: c ? `Connected to ${c.name}${c.transport === 'ble' ? ' · Bluetooth' : ''}` : 'Not connected', enabled: false },
       ...(where === 'driving' || where === 'driven'
         ? [{ label: 'Bring Mouse and Keyboard Back', click: () => svc.kvm.home() }] : []),
       check('Cursor Sharing', k.linked !== false, (i) => actions.setKvm({ linked: i.checked })),
       { type: 'separator' },
       check('Share Screen', settings.sharing.on, (i) => actions.setSharing(i.checked)),
-      check('Receive Screen', svc && svc.pcView.isOpen, (i) => (i.checked ? actions.showPcView() : actions.closePcView())),
-      check(`Use Mouse and Keyboard on ${c ? name : 'Other Computer'}`, k.driveOther, (i) => actions.setKvm({ driveOther: i.checked })),
-      check(`Let ${c ? name : 'Other Computer'} Control ${id.macName}`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked })),
+      phone
+        ? check('Show Phone Screen', phoneView, (i) => actions.phoneScreen(i.checked))
+        : check('Receive Screen', svc && svc.pcView.isOpen, (i) => (i.checked ? actions.showPcView() : actions.closePcView())),
+      check(`Use Mouse and Keyboard on ${name}`, k.driveOther, (i) => actions.setKvm({ driveOther: i.checked })),
+      ...(phone ? [] : [check(`Let ${name} Control ${id.macName}`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked }))]),
       check('Share Clipboard', settings.clipboard.enabled, (i) => actions.setClipboard({ enabled: i.checked })),
       check('Send Sound', settings.audio.send, (i) => actions.setAudio({ send: i.checked })),
       { type: 'separator' },
       {
         label: 'Connect To',
         submenu: [
-          ...(found.length ? found.map((d) => ({ label: `${d.name} (${d.os === 'mac' ? 'Mac' : d.os === 'linux' ? 'Linux' : 'PC'})`, click: () => actions.pairWith(d.id) }))
+          ...(found.length ? found.map((d) => ({ label: `${d.name} (${OS[d.os] || 'PC'})`, click: () => actions.pairWith(d.id) }))
             : [{ label: 'Nobody nearby', enabled: false }]),
           { type: 'separator' },
           { label: 'Connect by Address…', click: () => { actions.setTab('overview'); showWindow(); } },
           { label: 'Look Again', click: () => actions.refreshDiscovery() },
         ],
       },
+      ...(phone ? [{ label: 'Disconnect Phone', click: () => actions.disconnectPhone() }] : []),
       check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
       { type: 'separator' },
       ...(updates && updates.status.available ? [{ label: `Download TwinDesk ${updates.status.latest}…`, click: () => updates.open() }] : []),
