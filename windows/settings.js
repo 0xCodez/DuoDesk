@@ -122,6 +122,7 @@ function normalize(s) {
       bitrateMbps: Math.round(num(ph.bitrateMbps, 8, 2, 40)),
       maxSize: [0, 1920, 1600, 1280, 1024].includes(ph.maxSize) ? ph.maxSize : 0,
       wallpaper: bool(ph.wallpaper, true),
+      input: ph.input === 'phone' ? 'phone' : 'adb', // the mouse and keyboard through adb, or the phone's Accessibility service
     },
     net: { ble: bool(nt.ble, true) }, // Bluetooth for devices not on this network (blepipe.js, netlink.js)
     mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked

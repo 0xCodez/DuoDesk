@@ -430,16 +430,21 @@ class PhoneBridge extends EventEmitter {
   }
 
   // Where the Mac's input goes: wireless debugging (scrcpy), else the phone itself.
+  // settings.phone.input 'phone': always the phone itself (its Accessibility service), on Wi-Fi too.
   get ctl() {
-    if (this.control && !this.control.closed) return this.control;
+    if (!this.viaPhone && this.control && !this.control.closed) return this.control;
     return this.phoneInput ? this.input : null;
+  }
+
+  get viaPhone() {
+    return (this.getSettings().phone || {}).input === 'phone';
   }
 
   _take(m) {
     const d = this._display();
     if (!this.ctl || !d) {
       setImmediate(() => this.server.inject({ t: T.KVM_REFUSE, route: m.route, why: P.REFUSE.NOT_ALLOWED }));
-      if (d && this.state !== 'ready') { // no wireless debugging (Bluetooth): the phone can do it itself, once allowed
+      if (d && (this.viaPhone || this.state !== 'ready')) { // no wireless debugging (Bluetooth), or chosen: the phone does it itself, once allowed
         this.server.sendToClient({ t: T.PHONE_INPUT_ASK });
         this.emit('popup', 'home', 'On the phone, allow TwinDesk to control it (the notification there)');
       } else {

@@ -60,11 +60,15 @@ UI.tab({
       { value: '16', label: 'Sharp (16 Mb/s)' }, { value: '24', label: 'Sharpest (24 Mb/s)' },
     ], (v) => api.setPhone({ bitrateMbps: Number(v) }));
     const wall = UI.switch((v) => api.setPhone({ wallpaper: v }), { label: 'Wallpaper' });
+    const via = UI.select([
+      { value: 'adb', label: 'Wireless debugging' }, { value: 'phone', label: 'Accessibility' },
+    ], (v) => api.setPhone({ input: v }));
     const optsCard = UI.card('Settings', [
       UI.row('Phone sound in the screen window', 'Android 11 or later', [sound]),
       UI.row('Picture', 'For the screen window and app windows', [quality]),
       UI.row('Show the phone’s wallpaper here', 'Lets TwinDesk on the phone read it (set up over wireless debugging)', [wall]),
       UI.row('Mouse and keyboard', 'Push the pointer off the edge of the screen to use the phone. Double-tap the hotkey to come back.', [UI.button('Cursor Settings', () => UI.go('cursor'), 'small')]),
+      UI.row('Mouse and keyboard through', 'Wireless debugging: full control (Bluetooth falls back to Accessibility). Accessibility: TwinDesk on the phone taps and types itself, over Wi-Fi or Bluetooth, no wireless debugging needed (allow it on the phone once).', [via]),
     ]);
 
 
@@ -122,6 +126,7 @@ UI.tab({
       sound.set(!!settings.sound);
       quality.set(String(settings.bitrateMbps || 8));
       wall.set(settings.wallpaper !== false);
+      via.set(settings.input === 'phone' ? 'phone' : 'adb');
 
       // apps (icons come with UI.phoneAssets)
       const apps = (UI.phoneAssets && UI.phoneAssets.apps) || [];
