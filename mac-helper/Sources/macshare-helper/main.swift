@@ -216,6 +216,12 @@ func handle(_ line: String) {
     }
   case "bleCtrl":
     if let dev = msg["dev"] as? String, let text = msg["msg"] as? String { BlePeripheral.shared.ctrl(dev: dev, text: text) }
+  case "bleLook":
+    BleLook.shared.look((msg["on"] as? Bool) ?? false)
+    reply(id)
+  case "bleInvite":
+    if let dev = msg["dev"] as? String, let text = msg["msg"] as? String { BleLook.shared.invite(dev: dev, text: text) }
+    reply(id)
   case "wifiInfo":
     reply(id, WifiCtl.shared.info())
   case "wifiLocation":

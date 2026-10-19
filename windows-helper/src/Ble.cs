@@ -184,6 +184,7 @@ namespace MacShare
                     Net.Event("ble.open", dev, null, null);
                 }
                 else if (op == "close") Net.Event("ble.close", dev, null, null);
+                else if (op == "invite") Net.Event("ble.invite", dev, "id", Json.Str(o, "id", "")); // a Mac asks us to connect (BleGuest finds it by id)
             });
         }
 

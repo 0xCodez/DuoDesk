@@ -182,7 +182,7 @@ class Kvm extends EventEmitter {
     if (this.mode === 'home') return;
     if (this.mode === 'driving') this.helper.send('keepalive');
     const c = this.server.current;
-    if (!c || Date.now() - c.lastRx > P.KVM_SILENCE_MS) {
+    if (!c || Date.now() - c.lastRx > (c.transport === 'ble' ? P.KVM_SILENCE_BLE_MS : P.KVM_SILENCE_MS)) {
       if (this.mode === 'driving') this.goHome(this._them('{them} stopped answering'));
       else this._drivenHome(this._them('{them} stopped answering'));
     }

@@ -267,8 +267,8 @@ class BleGuest extends EventEmitter {
         if (!old || old.dev !== dev || old.name !== info.name) this.emit('change');
         return;
       }
-      case 'ble.invite': {
-        const h = [...this.found.values()].find((x) => x.dev === dev);
+      case 'ble.invite': { // from a host we're connected to (its dev), or one that found us (its id)
+        const h = typeof m.id === 'string' && m.id ? this.found.get(m.id) : [...this.found.values()].find((x) => x.dev === dev);
         if (!h) return;
         h.invited = true;
         this.emit('invite', h.id);
@@ -335,4 +335,54 @@ class BleGuest extends EventEmitter {
   }
 }
 
-module.exports = { BleHost, BleGuest };
+// The host side looking around (a Mac, whose guests can't be found otherwise until they connect):
+// computers that advertise, shown in its list, and asked to connect (they open a pipe to us).
+// Helper: bleLook {on}, bleInvite {dev, msg}; event ble.seen {dev, info}. Events: 'change'.
+class BleLook extends EventEmitter {
+  // self() -> {id, name, os}: who we are, for the invite.
+  constructor({ helper, self }) {
+    super();
+    Object.assign(this, { helper, self });
+    this.on_ = false;
+    this.seen = new Map(); // id -> {dev, id, name, os, lastSeen}
+    helper.on('event', (name, m) => {
+      if (name !== 'ble.seen') return;
+      let info;
+      try { info = JSON.parse(m.info); } catch { return; }
+      if (!info || typeof info.id !== 'string' || !info.id) return;
+      const old = this.seen.get(info.id);
+      const d = { dev: str(m.dev, 64), id: info.id.slice(0, 64), name: str(info.name, 64) || 'Computer', os: Object.values(P.OS).includes(info.os) ? info.os : P.OS.WIN, lastSeen: Date.now() };
+      this.seen.set(d.id, d);
+      if (!old || old.name !== d.name || old.dev !== d.dev) this.emit('change');
+    });
+    helper.on('ready', () => this.on_ && helper.request('bleLook', { on: true }).catch(() => {}));
+    setInterval(() => {
+      let changed = false;
+      for (const [id, d] of this.seen) if (Date.now() - d.lastSeen > FOUND_STALE_MS) changed = this.seen.delete(id);
+      if (changed) this.emit('change');
+    }, 5000).unref();
+  }
+
+  look(on) {
+    if (this.on_ === !!on) return;
+    this.on_ = !!on;
+    this.helper.request('bleLook', { on: this.on_ }).catch(() => {});
+    if (!on && this.seen.size) {
+      this.seen.clear();
+      this.emit('change');
+    }
+  }
+
+  list() {
+    return [...this.seen.values()].map(({ id, name, os, dev }) => ({ id, name, os, address: `ble:${dev}`, port: 0, fp: '', ble: true }));
+  }
+
+  invite(id) {
+    const d = this.seen.get(id);
+    if (!d) return false;
+    this.helper.request('bleInvite', { dev: d.dev, msg: JSON.stringify({ op: 'invite', ...this.self() }) }).catch(() => {});
+    return true;
+  }
+}
+
+module.exports = { BleHost, BleGuest, BleLook };

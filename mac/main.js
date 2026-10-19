@@ -71,7 +71,7 @@ const { Wired } = require('./wired');
 const { PhoneViews } = require('./phoneview');
 const { PhoneDrive } = require('./phonedrive');
 const { Updates } = require('../shared/updates.js');
-const { BleHost } = require('../shared/blepipe.js');
+const { BleHost, BleLook } = require('../shared/blepipe.js');
 const { NetLink } = require('../shared/netlink.js');
 const { aboutInfo } = require('../shared/about.js');
 
@@ -581,7 +581,19 @@ function setupNet() {
     enabled: () => settings.net.ble !== false,
   });
   svc.ble.on('change', pushState);
-  discovery.extra = svc.ble;
+  // PCs nearby that aren't on this network (not paired yet: they haven't connected to say hello).
+  // Looked for only while there's no session; Invite asks one to connect.
+  svc.bleLook = new BleLook({ helper: svc.helper, self: () => ({ id: id.macId, name: id.macName.slice(0, 40), os: P.OS.MAC }) });
+  svc.bleLook.on('change', pushState);
+  setInterval(() => svc.bleLook.look(settings.net.ble !== false && !peer.current), 3000).unref();
+  discovery.extra = {
+    list: () => {
+      const out = svc.ble.list();
+      for (const d of svc.bleLook.list()) if (d.os !== P.OS.MAC && !out.some((x) => x.id === d.id)) out.push(d); // a Mac can't come through Bluetooth to a Mac
+      return out;
+    },
+    invite: (devId) => svc.ble.invite(devId) || svc.bleLook.invite(devId),
+  };
   const wifi = (cmd, args, ms) => svc.helper.request(cmd, args, ms);
   svc.net = new NetLink({
     os: P.OS.MAC,

@@ -422,7 +422,9 @@ class Kvm {
     this.silence = null;
     if (mode !== 'home') {
       this.silence = setInterval(() => {
-        if (Date.now() - (this.link.lastRx || 0) > P.KVM_SILENCE_MS) this._linkLost('{Name} stopped answering');
+        const c = this.link.current;
+        const limit = c && c.transport === 'ble' ? P.KVM_SILENCE_BLE_MS : P.KVM_SILENCE_MS;
+        if (Date.now() - (this.link.lastRx || 0) > limit) this._linkLost('{Name} stopped answering');
       }, 250);
     }
     this.onChange();
