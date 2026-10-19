@@ -372,9 +372,14 @@ private fun OverviewPage(core: Core, v: Int) {
         )
         if (host != null) {
             val show = { core.ctx.startActivity(Intent(core.ctx, ViewerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            // On Bluetooth: a direct Wi-Fi link on request ("user" until Back to Bluetooth), not only for files and screens.
+            val onWifi = core.net.wanted("user")
+            val wifiLabel = if (onWifi) "Back to Bluetooth" else if (core.link.ble) "Connect with Wi-Fi Direct" else null
+            val wifiClick = { if (onWifi) core.net.release("user") else core.net.need("user"); core.changed() }
             if (LocalConfiguration.current.screenWidthDp >= 600) {
                 Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
                     Primary("Show ${host.name}’s screen", show)
+                    if (wifiLabel != null) Secondary(wifiLabel) { wifiClick() }
                     Secondary("Disconnect") { core.disconnect() }
                 }
             } else {
@@ -384,6 +389,7 @@ private fun OverviewPage(core: Core, v: Int) {
                         colors = ButtonDefaults.buttonColors(containerColor = pal.accent, contentColor = Color.White)) {
                         Text("Show ${host.name}’s screen", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                    if (wifiLabel != null) OutlinedButton(onClick = { wifiClick() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text(wifiLabel, color = pal.text) }
                     OutlinedButton(onClick = { core.disconnect() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) { Text("Disconnect", color = pal.text) }
                 }
             }
@@ -401,16 +407,6 @@ private fun OverviewPage(core: Core, v: Int) {
                 SwitchRow("Screen", "Open it on the Screen page", core.screen.viewing, first = true) { if (it) core.ctx.startActivity(Intent(core.ctx, ViewerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 SwitchRow("Sound", "", core.sync.get("audio", "in")) { core.sync.set("audio", "in", it) }
                 SwitchRow("Mouse and keyboard", "", core.sync.get("cursor", "in")) { core.sync.set("cursor", "in", it) }
-                if (core.sync.get("cursor", "in")) MacRow("Cursor through", if (core.input.via == "phone")
-                    (if (core.input.on) "TwinDesk taps and types itself, over Wi-Fi or Bluetooth. No developer options" else "Needs Accessibility: TwinDesk (Allow under Not on the same network)")
-                    else "Wireless debugging for full control (Accessibility without it, over Bluetooth)") {
-                    SingleChoiceSegmentedButtonRow {
-                        val ways = listOf("adb" to "ADB", "phone" to "Accessibility")
-                        ways.forEachIndexed { i, (w, label) ->
-                            SegmentedButton(selected = core.input.via == w, onClick = { core.input.setVia(w); core.changed() }, shape = SegmentedButtonDefaults.itemShape(i, ways.size)) { Text(label, maxLines = 1) }
-                        }
-                    }
-                }
                 SwitchRow("Clipboard", "", core.sync.get("clipboard", "in")) { core.sync.set("clipboard", "in", it) }
                 SwitchRow("Notifications", "", core.sync.get("notifs", "in")) { core.sync.set("notifs", "in", it) }
             }
@@ -531,22 +527,37 @@ private fun CursorPage(core: Core, v: Int) {
         core.kvm.setLinked(it)
     }
     if (host == null) return NotConnected(core, v)
+    // Accessibility (chosen, or a session on Bluetooth): no wireless debugging needed, only the service.
+    val viaPhone = core.input.via == "phone" || core.link.ble && !core.adb.wifiDebugging
+    val adbMissing = !viaPhone && !core.adb.wifiDebugging
     Note(
         when {
-            !core.adb.wifiDebugging -> "$name moves the pointer here through wireless debugging, which is off."
+            viaPhone && !core.input.on -> "Allow TwinDesk in Accessibility, so $name’s pointer can tap and type here."
+            adbMissing -> "$name moves the pointer here through wireless debugging, which is off. Or choose Accessibility below."
             !core.pointer.allowed -> "Allow “Show the pointer” in General › Setup to see $name’s pointer here."
             !core.kvm.linked -> "Cursor sharing is off. Double-tap ${core.kvm.hotkey} on $name to turn it on."
             else -> "Push $name’s pointer past its edge to come here. Double-tap ${core.kvm.hotkey} to take everything back."
         },
-        if (!core.adb.wifiDebugging || !core.pointer.allowed) "warn" else "info",
+        if (adbMissing || viaPhone && !core.input.on || !core.pointer.allowed) "warn" else "info",
     )
-    if (!core.adb.wifiDebugging || core.adb.setupNeeded) Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (!core.adb.wifiDebugging) Primary("Turn on wireless debugging") { core.adb.turnOn() }
+    if (viaPhone && !core.input.on) Row(Modifier.padding(bottom = 14.dp)) { Primary("Allow") { core.input.openSettings() } }
+    else if (adbMissing || !viaPhone && core.adb.setupNeeded) Row(Modifier.padding(bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (adbMissing) Primary("Turn on wireless debugging") { core.adb.turnOn() }
         if (core.adb.setupNeeded) Secondary("Set up") { Guide.open.value = true }
     }
     MacCard {
         DirHead(name, false, me, true)
         SwitchRow("Use $name’s mouse and keyboard on $me", "Push the pointer past the edge", core.sync.get("cursor", "in"), first = true) { core.sync.set("cursor", "in", it) }
+        MacRow("Through", if (core.input.via == "phone")
+            "Accessibility: TwinDesk taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth. No developer options"
+            else "ADB (wireless debugging): full control. Over Bluetooth without it, Accessibility") {
+            SingleChoiceSegmentedButtonRow {
+                val ways = listOf("adb" to "ADB", "phone" to "Accessibility")
+                ways.forEachIndexed { i, (w, label) ->
+                    SegmentedButton(selected = core.input.via == w, onClick = { core.input.setVia(w); core.changed() }, shape = SegmentedButtonDefaults.itemShape(i, ways.size)) { Text(label, maxLines = 1) }
+                }
+            }
+        }
     }
     MacCard("Where $name is") { LayoutPicker(me, name, core.kvm.macSide) { core.kvm.setMacSide(it) } }
     MacCard("Feel") {

@@ -613,7 +613,11 @@ function setupNet() {
       stop: () => wifi('wifiLeave', {}, 30000),
     },
     // A phone's screen goes through adb: on the phone's hotspot the Mac keeps the internet.
-    hotspot: (why, peerOs) => peerOs === P.OS.ANDROID && why !== 'files',
+    hotspot: (why, peerOs) => peerOs === P.OS.ANDROID && why !== 'files' && why !== 'user', // 'user': Connect with Wi-Fi Direct
+    cable: () => {
+      const c = peer.current;
+      return !!c && c.os === P.OS.ANDROID && !!svc.wired && svc.wired.toCable(c.deviceId);
+    },
   });
   svc.net.on('change', () => {
     if (svc.net.state === 'hotspot') showWindow();

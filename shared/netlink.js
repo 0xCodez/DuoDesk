@@ -30,7 +30,8 @@ class NetLink extends EventEmitter {
   // opts: os; send(msg); current() -> {deviceId, os, role, transport: 'ble'|'ip'} | null;
   //   host: {can(), start(ssid, pass), stop()} | null — this side hosts a network (promises);
   //   join: {can(), start(ssid, pass), stop()} | null — this side joins one;
-  //   hotspot(why, peerOs) -> true: ask the person for the peer's hotspot instead (the Mac with a phone, screen).
+  //   hotspot(why, peerOs) -> true: ask the person for the peer's hotspot instead (the Mac with a phone, screen);
+//   cable() -> true: the peer (a phone) is on a USB cable here and was asked onto it: no Wi-Fi link.
   constructor(opts) {
     super();
     this.o = opts;
@@ -85,6 +86,7 @@ class NetLink extends EventEmitter {
         this.peerCaps = { host: !!m.host, join: !!m.join, hotspot: !!m.hotspot };
         return;
       case T.NET_NEED:
+        if (this.o.cable && this.o.cable()) return; // the session moves onto the cable instead
         this.peerNeeds.add(String(m.why || 'files').slice(0, 20));
         clearTimeout(this.timers.linger);
         if (this.state === 'hosting' || this.state === 'joined') return this._joinMsg();
@@ -106,7 +108,7 @@ class NetLink extends EventEmitter {
 
   // Resolves true once the session is on Wi-Fi (or already was), false when it can't be.
   need(why, idleMs = 0) {
-    if (!this.onBle) return Promise.resolve(true);
+    if (!this.onBle || (this.o.cable && this.o.cable())) return Promise.resolve(!this.onBle);
     const n = this.needs.get(why);
     this.needs.set(why, { idleMs, last: Date.now() });
     clearTimeout(this.timers.linger);

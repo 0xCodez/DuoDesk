@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('macshare', {
   setStartup: call('setStartup'),
   setNet: call('setNet'),
   netCancel: call('netCancel'),
+  netWifi: call('netWifi'),
   sendFiles: call('sendFiles'),
   chooseSendFiles: call('chooseSendFiles'),
   pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files → paths

@@ -212,6 +212,8 @@ class Netlink(core: Core) : Feature(core) {
         if (fresh || state == "idle" || state == "failed") core.bg.execute { ensure(why) }
     }
 
+    fun wanted(why: String) = synchronized(this) { needs.containsKey(why) }
+
     fun release(why: String) {
         synchronized(this) { if (needs.remove(why) == null) return }
         core.link.send(msg(Proto.T.NET_RELEASE, "why" to why))

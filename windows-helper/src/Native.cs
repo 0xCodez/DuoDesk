@@ -34,6 +34,16 @@ namespace MacShare
         [DllImport("user32.dll", SetLastError = true)]
         public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
+        // ---- keyboard layout (Inject.NextLayout) ----
+        public const uint WM_INPUTLANGCHANGEREQUEST = 0x0050;
+        public const int INPUTLANGCHANGE_FORWARD = 0x0002, HKL_NEXT = 1;
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
         // ---- cursor, metrics ----
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT { public int x, y; public POINT(int x, int y) { this.x = x; this.y = y; } }

@@ -42,6 +42,11 @@ UI.tab({
     const gestures = UI.switch((v) => api.setKvm({ gestures: v }), { label: 'Trackpad gestures' });
     const gestureRow = UI.row('Trackpad gestures', 'Pinch to zoom, swipe between desktops, Mission Control / Task View, back and forward — done the native way on {name}. The same on both', [gestures]);
 
+    // A phone as the peer: how the pointer and keys reach it (settings.phone.input, the phone's own toggle too).
+    const via = UI.select([
+      { value: 'adb', label: 'ADB (wireless debugging)' }, { value: 'phone', label: 'Accessibility' },
+    ], (v) => api.setPhone({ input: v }));
+    const viaRow = UI.row('Through', 'ADB: full control. Accessibility: TwinDesk on the phone taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth, no developer options', [via]);
     // A row whose label follows the other computer's name (UI.names fills it on render).
     const peerRow = (label, hint, controls) => {
       const r = UI.row(label, hint, controls);
@@ -52,7 +57,7 @@ UI.tab({
     body.append(
       status,
       UI.pair(
-        UI.dir('m2w', [peerRow('Use {me}’s mouse and keyboard on {name}', 'Push the pointer past the edge', [drive])]),
+        UI.dir('m2w', [peerRow('Use {me}’s mouse and keyboard on {name}', 'Push the pointer past the edge', [drive]), viaRow]),
         UI.dir('w2m', [driven2 = peerRow('Use {name}’s mouse and keyboard on {me}', '', [driven])]),
       ),
       UI.card('Where the other computer is', [el('div', { class: 'layout' }, [grid, layoutHint])]),
@@ -85,6 +90,8 @@ UI.tab({
       speed.set(k.speed);
       reverse.set(k.reverseScroll);
       gestures.set(k.gestures !== false);
+      viaRow.hidden = !p.phone;
+      via.set(((s.phone || {}).settings || {}).input === 'phone' ? 'phone' : 'adb');
     };
   },
 });

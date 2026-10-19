@@ -168,6 +168,8 @@ function setupIpc(ctx) {
   // Not on the same network: Bluetooth on/off, and giving up on moving to Wi-Fi (netlink.js).
   handle('setNet', (partial) => change('net', partial, () => ctx.applyNet()));
   handle('netCancel', () => ctx.net && ctx.net.cancel());
+  // Connect with Wi-Fi Direct (a session on Bluetooth), or back to Bluetooth.
+  handle('netWifi', (on) => ctx.net && (on ? ctx.net.need('user') : ctx.net.release('user')));
 
   // pairsync.js applies a value the other computer changed, with the same side effects.
   const AFTER = {

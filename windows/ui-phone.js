@@ -136,7 +136,7 @@ UI.tab({
       if (ak !== appsKey) {
         appsKey = ak;
         grid.replaceChildren(...shown.slice(0, 400).map((a) => {
-          const img = el('img', { src: a.icon || '', alt: '' });
+          const img = UI.appIcon(a.icon);
           const b = el('button', { class: 'app-tile', title: `Open ${a.name} in a window (right-click to pin it to Start)`, disabled: !ready }, [img, el('span', { text: a.name })]);
           b.onclick = () => api.phoneOpenApp({ id: a.id, name: a.name });
           b.oncontextmenu = (e) => { e.preventDefault(); api.phoneAppMenu({ id: a.id, name: a.name }); }; // Pin to Start

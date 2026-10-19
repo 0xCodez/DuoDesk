@@ -374,6 +374,10 @@ function setupNet(guest) {
     },
     join: { can: () => wifi.can(), start: (ssid, pass) => wifi.join(ssid, pass), stop: () => wifi.leave() },
     hotspot: null,
+    cable: () => {
+      const c = link.current;
+      return !!c && c.os === P.OS.ANDROID && !!wired && wired.toCable(c.deviceId);
+    },
   });
   net.on('change', pushState);
   link.hold = (m) => net.holdOut(m, (x) => link.sendNow(x));

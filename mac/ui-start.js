@@ -218,7 +218,7 @@
     $('net-hint').textContent = n.state === 'hotspot'
       ? `${name} isn’t on this Mac’s network. Its screen needs Wi-Fi: switch its hotspot on, then type its name and password here.`
       : n.state === 'failed' ? `${n.error}. Still connected over Bluetooth.`
-        : n.kind === 'direct' ? `${name} isn’t on this network: a direct Wi-Fi link for ${n.why.includes('files') || n.peerWhy.includes('files') ? 'the files' : 'the screen'}. This Mac is off its own Wi-Fi meanwhile.` : '';
+        : n.kind === 'direct' ? `${name} isn’t on this network: a direct Wi-Fi link${n.why.includes('user') || n.peerWhy.includes('user') ? '' : ` for ${n.why.includes('files') || n.peerWhy.includes('files') ? 'the files' : 'the screen'}`}. This Mac is off its own Wi-Fi meanwhile.` : '';
   }
   $('net-join').onclick = () => api.netJoinHotspot({ ssid: $('net-ssid').value, pass: $('net-pass').value });
   $('net-pass').onkeydown = $('net-ssid').onkeydown = (e) => { if (e.key === 'Enter') $('net-join').click(); };

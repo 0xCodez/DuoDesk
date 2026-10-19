@@ -39,6 +39,10 @@ UI.tab({
     const macName = el('div', { class: 'hero-name' });
     const peerDev = el('div', { class: 'device pc' });
     const status = el('div', { class: 'hero-status' });
+    // A session on Bluetooth: onto a direct Wi-Fi link on request, until Back to Bluetooth.
+    const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn), 'small');
+    let wifiOn = false;
+    wifiBtn.hidden = true;
     const hero = el('div', { class: 'card hero' }, [
       el('div', { class: 'hero-devices' }, [
         el('div', { class: 'hero-device' }, [el('div', { class: 'device mac' }), macName]),
@@ -46,6 +50,7 @@ UI.tab({
         el('div', { class: 'hero-device' }, [peerDev, peerName]),
       ]),
       status,
+      wifiBtn,
     ]);
 
     // ---- feature switches ----
@@ -169,6 +174,10 @@ UI.tab({
           : pairedIds.size ? 'Open TwinDesk on the other computer to connect.'
             : 'Pick a computer above, or connect by address.');
       status.classList.toggle('bad', !!bad);
+      const n = s.net || {};
+      wifiOn = (n.why || []).includes('user');
+      wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
+      wifiBtn.hidden = !c || !(wifiOn || c.transport === 'ble');
 
       // the phone's wireless debugging: only while it needs something
       const ph = s.phone || {};

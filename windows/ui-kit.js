@@ -317,6 +317,13 @@ const UI = {
 
   // Small device glyph by OS: 'mac' | 'win' | 'linux' | 'android'.
   osClass: (os) => (os === 'mac' ? 'mac' : os === 'android' ? 'phone' : 'pc'),
+  // An app's icon in a grid: its own, else (none, or it doesn't load) TwinDesk's.
+  appIcon(src) {
+    const fallback = 'assets/sidebar-icon@2x.png';
+    const img = UI.el('img', { src: src || fallback, alt: '' });
+    img.onerror = () => { img.onerror = null; img.src = fallback; };
+    return img;
+  },
   osIcon(os) {
     return UI.el('span', { class: `os-ico ${UI.osClass(os)}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? 'Phone' : 'PC' } });
   },

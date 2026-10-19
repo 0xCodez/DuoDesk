@@ -392,6 +392,11 @@ function setupIpc(ctx) {
     netCancel() {
       ctx.net.cancel();
     },
+    // Connect with Wi-Fi Direct (a session on Bluetooth), or back to Bluetooth.
+    netWifi(on) {
+      if (on) ctx.net.need('user');
+      else ctx.net.release('user');
+    },
     setAudio(partial) {
       setGroup('audio', partial);
       ctx.audio.applySettings();

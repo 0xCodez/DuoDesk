@@ -336,11 +336,13 @@ object Notify {
 
     fun cancelFclip(ctx: Context) = nm(ctx).cancel(ID_FCLIP)
 
-    fun fromComputer(ctx: Context, key: String, app: String, title: String, body: String, computer: String) {
+    // icon: the app's (from the computer), else TwinDesk's own shows.
+    fun fromComputer(ctx: Context, key: String, app: String, title: String, body: String, computer: String, icon: android.graphics.Bitmap? = null) {
         nm(ctx).notify(
             ID_COMPUTER_BASE + (key.hashCode() and 0xffff),
             Notification.Builder(ctx, CH_COMPUTER)
                 .setSmallIcon(R.drawable.ic_stat)
+                .setLargeIcon(icon)
                 .setSubText("$app · $computer")
                 .setContentTitle(title.ifEmpty { app })
                 .setContentText(body)
