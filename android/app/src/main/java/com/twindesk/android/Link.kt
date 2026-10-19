@@ -71,6 +71,7 @@ class Link(
     private var pendingAddress = ""
     private val lastRxOf = java.util.concurrent.ConcurrentHashMap<WebSocket, Long>()
     private var helloTimer: ScheduledFuture<*>? = null
+    var bleRx: () -> Long = { 0L } // Ble.lastDown: bytes arriving through Bluetooth count as alive
 
     private fun run(block: () -> Unit) = exec.execute { try { block() } catch (e: Exception) { Log.e("TwinDesk", "link", e) } }
 
@@ -269,7 +270,7 @@ class Link(
         val h = host ?: return
         raw(msg(Proto.T.HELLO, "v" to Proto.VERSION, "id" to store.deviceId, "name" to store.deviceName, "os" to Proto.OS, "token" to h.token))
         helloTimer?.cancel(false)
-        helloTimer = exec.schedule({ if (state != "connected") { message = "No answer"; ws?.cancel() } }, Proto.TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        helloTimer = exec.schedule({ if (state != "connected") { message = "No answer"; ws?.cancel() } }, if (ble) Proto.BLE_TIMEOUT_MS else Proto.TIMEOUT_MS, TimeUnit.MILLISECONDS)
     }
 
     private fun onText(text: String) {
@@ -338,8 +339,11 @@ class Link(
         pinger = exec.scheduleWithFixedDelay({
             val now = System.currentTimeMillis()
             for (w in listOfNotNull(ws, alt)) {
-                val limit = if (if (w === ws) ble else altBle) Proto.BLE_TIMEOUT_MS else Proto.TIMEOUT_MS
-                if (now - (lastRxOf[w] ?: lastRx) > limit) {
+                val onBle = if (w === ws) ble else altBle
+                val limit = if (onBle) Proto.BLE_TIMEOUT_MS else Proto.TIMEOUT_MS
+                val rx = maxOf(lastRxOf[w] ?: lastRx, if (onBle) bleRx() else 0L)
+                if (now - rx > limit) {
+                    Log.i("TwinDesk", "${if (onBle) "Bluetooth" else "network"} socket silent for ${now - rx} ms, closing")
                     if (w === ws && alt == null) message = "Stopped answering"
                     w.cancel()
                 } else w.send(msg(Proto.T.PING, "ts" to now).toString())

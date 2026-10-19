@@ -423,6 +423,7 @@ private fun OverviewPage(core: Core, v: Int) {
         for (h in hosts) {
             val near = core.isNear(h.id)
             MacRow(h.name, if (link.state == "connecting" && link.host?.id == h.id) "Connecting…" else if (near && !core.discovery.found.containsKey(h.id)) "Nearby over Bluetooth · paired" else if (near) "Nearby · paired" else "Paired · not nearby", first) {
+                TextButton(onClick = { core.forget(h.id) }) { Text("Forget", color = pal.bad) }
                 Primary("Connect") { core.connect(h) }
             }
             first = false
@@ -811,7 +812,7 @@ private fun GeneralPage(core: Core, v: Int) {
     }
     if (core.hosts().isNotEmpty()) MacCard("Paired") {
         core.hosts().forEachIndexed { i, h ->
-            MacRow(h.name, if (core.host?.id == h.id) (if (core.link.wired) "Connected over USB" else "Connected") else "Last address ${h.address}", first = i == 0) {
+            MacRow(h.name, if (core.host?.id == h.id) (if (core.link.wired) "Connected over USB" else if (core.link.ble) "Connected over Bluetooth" else "Connected") else "Last address ${h.address}", first = i == 0) {
                 if (core.host?.id == h.id) Pill("Online", "good")
                 TextButton(onClick = { core.forget(h.id) }) { Text("Forget", color = pal.bad) }
             }

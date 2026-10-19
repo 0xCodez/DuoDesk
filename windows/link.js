@@ -370,7 +370,8 @@ class Link {
       const now = Date.now();
       for (const ws of [this.ws, this.alt]) {
         if (!ws || !ws.transport) continue;
-        if (now - ws.lastRx > (ws.transport === 'ble' ? P.BLE_TIMEOUT_MS : P.TIMEOUT_MS)) {
+        const rx = Math.max(ws.lastRx, (ws.transport === 'ble' && this.ble && this.ble.lastDown) || 0); // a big message's bytes count too
+        if (now - rx > (ws.transport === 'ble' ? P.BLE_TIMEOUT_MS : P.TIMEOUT_MS)) {
           if (ws === this.ws) this.lastError = '{Name} stopped answering';
           ws.terminate();
         } else if (ws.readyState === WebSocket.OPEN) {

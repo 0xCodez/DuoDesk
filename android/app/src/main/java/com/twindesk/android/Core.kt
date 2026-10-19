@@ -36,6 +36,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val ble = Ble(ctx, { JSONObject().put("id", store.deviceId).put("name", store.deviceName).put("os", Proto.OS) },
         { id -> store.hosts().any { it.id == id } }, ::changed, ::onInvite)
     val bleOn get() = store.flag("ble", true)
+    init { link.bleRx = { ble.lastDown } }
 
     // An unpaired computer asked us to pair (shown until acted on).
     @Volatile var invite: Found? = null; private set

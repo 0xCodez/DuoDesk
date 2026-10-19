@@ -58,6 +58,10 @@ class Ble(
         else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     }
 
+    // When the computer last sent anything down a pipe: a big message takes a while through
+    // Bluetooth, and the session's liveness counts its bytes, not only whole messages (Link.bleRx).
+    @Volatile var lastDown = 0L
+
     // Computers near: host id -> Found (address "ble:<mac>").
     val found = ConcurrentHashMap<String, Found>()
     @Volatile var scanning = false; private set
@@ -251,6 +255,7 @@ class Ble(
 
         private fun onNotify(uuid: UUID, value: ByteArray) {
             if (uuid == DOWN) {
+                lastDown = System.currentTimeMillis()
                 val s = sock ?: return
                 runCatching { s.getOutputStream().write(value) }.onFailure { closePipe(false) }
                 return

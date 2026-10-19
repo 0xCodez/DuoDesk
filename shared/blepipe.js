@@ -63,7 +63,7 @@ class BleHost extends EventEmitter {
     this.state = 'off';
     this.guests = new Map(); // dev -> {id, name, os, at}
     this.pipes = new Map(); // dev -> Pipe
-    server.blePorts = new Set();
+    server.blePorts = new Map(); // local port -> when bytes last came through it
     helper.on('event', (name, m) => this._event(name, m));
     helper.on('ready', () => { this.applied = null; this.apply(); });
     this.apply();
@@ -130,7 +130,10 @@ class BleHost extends EventEmitter {
         const g = this.guests.get(dev);
         if (g) g.at = Date.now();
         const p = this.pipes.get(dev);
-        if (p) p.data(m.data);
+        if (p) {
+          p.data(m.data);
+          if (p.localPort) this.server.blePorts.set(p.localPort, Date.now()); // a big message takes a while: its bytes count as alive
+        }
         return;
       }
       case 'ble.sent': {
@@ -153,7 +156,7 @@ class BleHost extends EventEmitter {
     this.pipes.set(dev, p);
     sock.on('connect', () => {
       p.localPort = sock.localPort;
-      this.server.blePorts.add(sock.localPort);
+      this.server.blePorts.set(sock.localPort, Date.now());
       const g = this.guests.get(dev);
       console.log(`[ble] pipe open for ${g ? g.name : dev}`);
     });
@@ -278,7 +281,10 @@ class BleGuest extends EventEmitter {
       case 'ble.opened': return this._opened(dev);
       case 'ble.data': {
         const p = this.pipes.get(dev);
-        if (p) p.data(m.data);
+        if (p) {
+          p.data(m.data);
+          this.lastDown = Date.now(); // link.js: bytes of a big message count as alive
+        }
         return;
       }
       case 'ble.sent': {

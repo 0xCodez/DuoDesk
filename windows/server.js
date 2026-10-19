@@ -30,7 +30,7 @@ class Server extends EventEmitter {
     this.current = null; // ctx of the authenticated client
     this.phoneGrace = null; // {id, until}: a phone's session just dropped, it may come back (P.PHONE_GRACE_MS)
     this.sockets = new Set();
-    this.blePorts = new Set(); // local ports of our own connections that carry a Bluetooth pipe (blepipe.js)
+    this.blePorts = new Map(); // local ports of our own connections that carry a Bluetooth pipe (blepipe.js) -> last bytes
     this.https = https.createServer({ pfx, passphrase });
     this.wss = new WebSocketServer({ server: this.https, maxPayload: P.MAX_PAYLOAD });
     this.wss.on('connection', (ws, req) => this._onConnection(ws, req));
@@ -57,7 +57,7 @@ class Server extends EventEmitter {
       alt: null, // the session's other socket, if it moved (resume): the fallback
     };
     if (isLoopback(ctx.address) && this.blePorts.has(req.socket.remotePort)) ctx.transport = 'ble';
-    Object.assign(ws, { ctx, lastRx: now, transport: ctx.transport, address: ctx.address });
+    Object.assign(ws, { ctx, lastRx: now, transport: ctx.transport, address: ctx.address, blePort: ctx.transport === 'ble' ? req.socket.remotePort : 0 });
     this.sockets.add(ctx);
     ws.on('message', (data, isBinary) => this._onMessage(ws.ctx, data, isBinary, ws));
     ws.on('close', () => this._onSocketClose(ws));
@@ -146,7 +146,8 @@ class Server extends EventEmitter {
         for (const ws of [ctx.ws, ctx.alt]) {
           if (!ws) continue;
           const limit = ws.transport === 'ble' ? P.BLE_TIMEOUT_MS : P.TIMEOUT_MS;
-          if (now - ws.lastRx > limit) {
+          const rx = Math.max(ws.lastRx, (ws.blePort && this.blePorts.get(ws.blePort)) || 0); // through Bluetooth, bytes of a big message count too
+          if (now - rx > limit) {
             console.log(`[server] ${ctx.name || ctx.address} silent for ${limit} ms on ${ws.transport === 'ble' ? 'Bluetooth' : ws.address}, closing`);
             ws.terminate();
           } else if (ws.readyState === ws.OPEN) {
