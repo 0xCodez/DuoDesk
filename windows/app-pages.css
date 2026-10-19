@@ -132,6 +132,8 @@ body.setup #sidebar { display: none; }
 .phone-hero-text .hero-name { text-align: left; margin-top: 0; }
 .phone-hero-text .hero-status { text-align: left; margin: 0; padding: 0; border: 0; }
 .phone-hero-actions { display: flex; gap: 8px; margin-top: 8px; }
+.how-steps { margin: 4px 16px 12px 36px; padding: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.how-steps li { margin: 4px 0; }
 .phone-hero-via { display: flex; align-items: center; gap: 10px; margin-top: 10px; color: var(--muted); font-size: 13px; }
 .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 4px; padding: 6px 10px 12px; max-height: 340px; overflow-y: auto; }
 .app-tile { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 4px; border: 0; border-radius: 9px; background: none; cursor: default; }

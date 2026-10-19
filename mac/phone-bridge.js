@@ -105,7 +105,7 @@ class PhoneBridge extends EventEmitter {
     server.on(`t:${T.ADB_PAIR}`, (m, ctx) => {
       if (!isPhone(ctx)) return;
       const port = Number(m.port) | 0;
-      const address = (this.phone.adb && this.phone.adb.address) || ctx.address;
+      const address = this.adbAddress();
       this.pair(m.code, port > 0 && port < 65536 ? `${address}:${port}` : '');
     });
     phone.on('info', () => this._kick());
@@ -223,7 +223,7 @@ class PhoneBridge extends EventEmitter {
     if (!this.adb.available) return this._set('missing', 'adb or the scrcpy server is missing from this build.');
     const a = this.phone.adb;
     if (!a) return this._set('connecting', 'Waiting for the phone…');
-    const address = a.address || (this.server.current && this.server.current.address);
+    const address = this.adbAddress();
     const ready = await this._findDevice(address);
     if (ready) {
       this._known(true);
@@ -237,6 +237,8 @@ class PhoneBridge extends EventEmitter {
         this.server.sendToClient({ t: T.ADB_ENABLE, on: true });
         return this._set('connecting', 'Turning on wireless debugging…');
       }
+      // Android keeps wireless debugging off without a Wi-Fi network: a Wi-Fi Direct group isn't one.
+      if (/^192\.168\.49\./.test(address)) return this._set('waitingWifi', 'On a direct Wi-Fi link the phone can’t turn wireless debugging on (it needs a Wi-Fi network). The mouse and keyboard work through Accessibility.');
       return this._set('waitingWifi', a.devOptions ? 'Turn on USB debugging and Wireless debugging on the phone (both).' : 'Turn on Developer options, then USB debugging and Wireless debugging on the phone (both).');
     }
     // Wireless debugging is on: connect where it listens. The phone tells us its port (it finds
@@ -322,9 +324,9 @@ class PhoneBridge extends EventEmitter {
     else {
       const a = this.phone.adb || {};
       const services = await this.adb.mdns();
-      const p = services.find((s) => s.type === 'pairing' && s.address === a.address) || this.pairing;
+      const p = services.find((s) => s.type === 'pairing' && (s.address === a.address || s.address === this.adbAddress())) || this.pairing;
       if (!p) return this._set('needsPair', 'Can’t see the phone’s pairing code screen. Keep it open, or type its address and port.');
-      [address, port] = [p.address, p.port];
+      [address, port] = [this.adbAddress() || p.address, p.port];
     }
     this._set('connecting', 'Pairing…');
     const r = await this.adb.pair(address, port, code);
@@ -436,6 +438,16 @@ class PhoneBridge extends EventEmitter {
   }
 
   // Where the Mac's input goes: wireless debugging (scrcpy), else the phone itself.
+  // Where the phone's wireless debugging is reached: the session's own address while it's on a
+  // network (on a direct Wi-Fi link the Wi-Fi address the phone reports is on another network,
+  // or it has none), else that one (the session on the cable or Bluetooth, 127.0.0.1).
+  adbAddress() {
+    const c = this.server.current;
+    const a = this.phone.adb || {};
+    const onNet = c && c.address && c.address !== '127.0.0.1' && c.address !== '::1' && c.transport !== 'ble';
+    return (onNet ? c.address.replace(/^::ffff:/, '') : '') || a.address || (c && c.address) || '';
+  }
+
   // settings.phone.input 'phone': always the phone itself (its Accessibility service), on Wi-Fi too.
   get ctl() {
     if (!this.viaPhone && this.control && !this.control.closed) return this.control;
