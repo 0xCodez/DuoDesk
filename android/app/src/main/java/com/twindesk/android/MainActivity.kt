@@ -801,6 +801,7 @@ private fun GeneralPage(core: Core, v: Int) {
             !nearbyAllowed -> "Allow Nearby devices above"
             else -> "Connects to $name over Bluetooth when it isn’t on this network. Files and screens move to a direct Wi-Fi link for a while"
         }, core.bleOn, first = true) { core.store.setFlag("ble", it); core.changed() }
+        Setup("Mouse and keyboard", "$name’s cursor on this phone without wireless debugging (Accessibility: TwinDesk)", core.input.on, "Allow") { core.input.openSettings() }
         val n = core.net
         if (n.state != "idle") MacRow("Wi-Fi", when (n.state) {
             "asking", "hosting" -> "Starting a direct Wi-Fi link…"

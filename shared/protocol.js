@@ -171,6 +171,10 @@
       PHONE_APPS_LIST: 'phone.apps.list', // Mac->phone
       PHONE_APPS: 'phone.apps', // phone->Mac {apps: [{id (package), name, icon (data URL PNG)}]}
       PHONE_POINTER: 'phone.pointer', // Mac->phone {on, x?, y?}: where the Mac's pointer is while it drives the phone (the app draws it)
+      // Driving the phone without wireless debugging (shared/phoneinput.js): the phone applies the input itself
+      PHONE_IN: 'phone.in', // computer->phone {a: 'd'|'m'|'u'|'s'|'k', …}: touch, scroll, key
+      PHONE_INPUT: 'phone.input', // phone->computer {on}: it can apply phone.in (its Accessibility service is on)
+      PHONE_INPUT_ASK: 'phone.input.ask', // computer->phone: the person wants to drive it: ask to switch that on
       PHONE_WAKE: 'phone.wake', // computer->phone: screen on and ask for the unlock (on the phone), e.g. to open an app from a notification clicked here
       PHONE_AWAKE: 'phone.awake', // phone->computer {unlocked, waiting?}: unlocked (now, or once the person unlocked it); waiting = it's asking for the unlock
       // Wireless debugging (adb), which the Mac uses for the screen, touch, mouse and keyboard,

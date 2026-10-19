@@ -54,6 +54,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val wake = Wake(this)
     val adb = Adb(this)
     val pointer = Pointer(this)
+    val input = Input(this)
     val drive = Drive(this)
     val screen = Screen(this)
     val macSound = MacSound(this)
@@ -61,7 +62,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val kvm = Kvm(this)
     val updates = Updates(this)
     val net = Netlink(this)
-    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, drive, screen, macSound, shortcuts, kvm)
+    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, input, drive, screen, macSound, shortcuts, kvm)
 
     val host: Host? get() = if (link.connected) link.host else null
 

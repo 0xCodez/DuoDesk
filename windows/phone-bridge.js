@@ -22,6 +22,7 @@ const P = require('../shared/protocol.js');
 const { Adb } = require('./adb');
 const { Session, ACTION } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
+const { PhoneInput } = require('../shared/phoneinput.js');
 
 const T = P.T;
 const APP_ID = 'com.twindesk.android';
@@ -63,6 +64,10 @@ class PhoneBridge extends EventEmitter {
     this.message = '';
     this.serial = null;
     this.control = null; // control-only session
+    // Without wireless debugging: the phone applies the input itself (shared/phoneinput.js), when
+    // it says it can (phone.input {on}).
+    this.input = new PhoneInput((m) => this.server.sendToClient(m));
+    this.phoneInput = false;
     this.kvm = null; // the pointer while this PC drives the phone: {route, x, y, push}
     this.keys = new KeyState();
     this.views = null; // phoneview.js sets this
@@ -74,6 +79,12 @@ class PhoneBridge extends EventEmitter {
     // MIUI) is "not yet", never "pair again": only adb refusing the key asks for a code. Kept
     // across restarts.
     this.known = new Set(readJson(knownFile(), []));
+    server.on(`t:${T.PHONE_INPUT}`, (m, ctx) => {
+      if (!isPhone(ctx)) return;
+      this.phoneInput = m.on === true;
+      this.emit('change');
+    });
+    server.on('closed', () => { this.phoneInput = false; });
     this.canPair = false; // still looking, but the code field shows (its pairing may be gone)
     this.inputBlocked = false; // Xiaomi with “USB debugging (Security settings)” off: touches and keys are refused
     this.wired = null; // wired.js: the phone on the USB cable
@@ -412,11 +423,22 @@ class PhoneBridge extends EventEmitter {
     }
   }
 
+  // Where the Mac's input goes: wireless debugging (scrcpy), else the phone itself.
+  get ctl() {
+    if (this.control && !this.control.closed) return this.control;
+    return this.phoneInput ? this.input : null;
+  }
+
   _take(m) {
     const d = this._display();
-    if (!this.control || this.control.closed || !d) {
+    if (!this.ctl || !d) {
       setImmediate(() => this.server.inject({ t: T.KVM_REFUSE, route: m.route, why: P.REFUSE.NOT_ALLOWED }));
-      this.emit('popup', 'home', this.state === 'ready' ? 'The phone isn’t ready yet' : 'Set up wireless debugging on the Phone page first');
+      if (d && this.state !== 'ready') { // no wireless debugging (Bluetooth): the phone can do it itself, once allowed
+        this.server.sendToClient({ t: T.PHONE_INPUT_ASK });
+        this.emit('popup', 'home', 'On the phone, allow TwinDesk to control it (the notification there)');
+      } else {
+        this.emit('popup', 'home', this.state === 'ready' ? 'The phone isn’t ready yet' : 'Set up wireless debugging on the Phone page first');
+      }
       return;
     }
     const off = Math.max(0, Math.min(1, Number(m.offset) || 0.5));
@@ -436,9 +458,10 @@ class PhoneBridge extends EventEmitter {
   _pointer(on) {
     const k = this.kvm;
     const now = Date.now();
-    if (on && now - (this.lastPointer || 0) < 8) {
+    const gap = this.ctl === this.input ? 40 : 8; // through the session (maybe Bluetooth): fewer
+    if (on && now - (this.lastPointer || 0) < gap) {
       clearTimeout(this.pointerTimer);
-      this.pointerTimer = setTimeout(() => this._pointer(true), 8);
+      this.pointerTimer = setTimeout(() => this._pointer(true), gap);
       return;
     }
     this.lastPointer = now;
@@ -448,9 +471,9 @@ class PhoneBridge extends EventEmitter {
   _hover() {
     const k = this.kvm;
     const d = this._display();
-    if (!k || !d || !this.control) return;
-    if (k.buttons) this.control.mouse(ACTION.MOVE, k.x, k.y, d.w, d.h, 0, k.buttons);
-    else this.control.mouse(ACTION.HOVER_MOVE, k.x, k.y, d.w, d.h, 0, 0);
+    if (!k || !d || !this.ctl) return;
+    if (k.buttons) this.ctl.mouse(ACTION.MOVE, k.x, k.y, d.w, d.h, 0, k.buttons);
+    else this.ctl.mouse(ACTION.HOVER_MOVE, k.x, k.y, d.w, d.h, 0, 0);
     this._pointer(true);
   }
 
@@ -489,7 +512,7 @@ class PhoneBridge extends EventEmitter {
     const k = this.kvm;
     if (!k) return;
     const d = this._display();
-    if (k.buttons && d && this.control) this.control.mouse(ACTION.UP, k.x, k.y, d.w, d.h, k.buttons, 0);
+    if (k.buttons && d && this.ctl) this.ctl.mouse(ACTION.UP, k.x, k.y, d.w, d.h, k.buttons, 0);
     for (const code of [...this.keys.held]) this._key({ t: T.K_KEY_UP, code });
     this.kvm = null;
     clearTimeout(this.pointerTimer);
@@ -501,43 +524,43 @@ class PhoneBridge extends EventEmitter {
   _button(m) {
     const k = this.kvm;
     const d = this._display();
-    if (!k || !d || !this.control) return;
+    if (!k || !d || !this.ctl) return;
     const down = m.t === T.K_DOWN;
     const b = Number(m.b) | 0;
     // Like scrcpy: right = Back, middle = Home; left (and the side buttons) are the mouse's.
-    if (b === 1) return this.control.backOrScreenOn(down ? ACTION.DOWN : ACTION.UP);
-    if (b === 2) return void (down && this.control.tap(ANDROID.HOME));
-    if (b === 3) return void (down && this.control.tap(ANDROID.BACK));
+    if (b === 1) return this.ctl.backOrScreenOn(down ? ACTION.DOWN : ACTION.UP);
+    if (b === 2) return void (down && this.ctl.tap(ANDROID.HOME));
+    if (b === 3) return void (down && this.ctl.tap(ANDROID.BACK));
     const bit = BUTTON[b] || 1;
     if (down) k.buttons |= bit;
     else k.buttons &= ~bit;
-    this.control.mouse(down ? ACTION.DOWN : ACTION.UP, k.x, k.y, d.w, d.h, bit, k.buttons);
+    this.ctl.mouse(down ? ACTION.DOWN : ACTION.UP, k.x, k.y, d.w, d.h, bit, k.buttons);
   }
 
   _wheel(m) {
     const k = this.kvm;
     const d = this._display();
-    if (!k || !d || !this.control) return;
+    if (!k || !d || !this.ctl) return;
     const line = m.mode === 'line';
     const rev = this.getSettings().kvm.reverseScroll ? -1 : 1;
     const hs = (-(Number(m.dx) || 0) / (line ? 1 : 40)) * rev;
     const vs = (-(Number(m.dy) || 0) / (line ? 1 : 40)) * rev;
-    if (hs || vs) this.control.scroll(k.x, k.y, d.w, d.h, hs, vs, k.buttons);
+    if (hs || vs) this.ctl.scroll(k.x, k.y, d.w, d.h, hs, vs, k.buttons);
   }
 
   _key(m) {
-    if (!this.kvm || !this.control || typeof m.code !== 'string') return;
+    if (!this.kvm || !this.ctl || typeof m.code !== 'string') return;
     const swap = this.server.keySwap(this.getSettings());
     const code = swap ? P.mapKeyFromOtherPlatform(m.code) : m.code;
     const down = m.t === T.K_KEY_DOWN;
     const e = this.keys.event(code, down);
-    if (e) this.control.key(down ? ACTION.DOWN : ACTION.UP, e.keycode, e.meta);
+    if (e) this.ctl.key(down ? ACTION.DOWN : ACTION.UP, e.keycode, e.meta);
   }
 
   _gesture(m) {
-    if (!this.control || m.phase === 'begin' || m.phase === 'change') return;
+    if (!this.ctl || m.phase === 'begin' || m.phase === 'change') return;
     const key = { back: ANDROID.BACK, overview: ANDROID.APP_SWITCH, appWindows: ANDROID.APP_SWITCH, desktop: ANDROID.HOME, launcher: ANDROID.ALL_APPS }[m.g];
-    if (key) this.control.tap(key);
+    if (key) this.ctl.tap(key);
   }
 
   // ---- windows (phoneview.js) ----

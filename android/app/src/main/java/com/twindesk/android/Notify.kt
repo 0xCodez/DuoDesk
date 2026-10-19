@@ -30,6 +30,7 @@ object Notify {
     const val ID_SCREEN = 7
     const val ID_HOTSPOT = 8
     const val ID_WIFI = 9
+    const val ID_INPUT = 10
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -171,6 +172,25 @@ object Notify {
     }
 
     fun cancelWifiOff(ctx: Context) = nm(ctx).cancel(ID_WIFI)
+
+    // The computer's mouse wants this phone without wireless debugging: the Accessibility switch.
+    fun input(ctx: Context, name: String) {
+        val open = PendingIntent.getActivity(ctx, 10, Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val text = "To use $name’s mouse and keyboard here without wireless debugging, switch on TwinDesk in Accessibility (Installed apps). Tap to open it."
+        runCatching {
+            nm(ctx).notify(ID_INPUT, Notification.Builder(ctx, CH_INVITE)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("Let $name control this phone")
+                .setContentText(text)
+                .setStyle(Notification.BigTextStyle().bigText(text))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build())
+        }
+    }
+
+    fun cancelInput(ctx: Context) = nm(ctx).cancel(ID_INPUT)
 
     // A new release on GitHub (Updates): tap to download it in the browser.
     fun update(ctx: Context, latest: String, current: String) {
