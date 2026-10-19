@@ -485,7 +485,7 @@ namespace MacShare
                 foreach (byte[] data in q.GetConsumingEnumerable())
                 {
                     int max = 20;
-                    try { max = Math.Max(20, session.MaxPduSize - 3); } catch (Exception) { }
+                    try { max = Math.Min(512, Math.Max(20, session.MaxPduSize - 3)); } catch (Exception) { } // an attribute value is at most 512 bytes
                     for (int i = 0; i < data.Length && alive; i += max)
                     {
                         int n = Math.Min(max, data.Length - i);
@@ -494,7 +494,8 @@ namespace MacShare
                         bool ok = false;
                         for (int tries = 0; tries < 20 && !ok && alive; tries++)
                         {
-                            try { ok = up.WriteValueWithResultAsync(chunk.AsBuffer(), GattWriteOption.WriteWithoutResponse).AsTask().Result.Status == GattCommunicationStatus.Success; }
+                            // With response: a write without response may be dropped, and one lost byte breaks the TLS.
+                            try { ok = up.WriteValueWithResultAsync(chunk.AsBuffer(), GattWriteOption.WriteWithResponse).AsTask().Result.Status == GattCommunicationStatus.Success; }
                             catch (Exception) { }
                             if (!ok) Thread.Sleep(20);
                         }

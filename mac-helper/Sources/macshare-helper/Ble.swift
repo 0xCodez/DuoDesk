@@ -130,10 +130,10 @@ final class BlePeripheral: NSObject, CBPeripheralManagerDelegate {
       let dev = r.central.identifier
       centrals[dev] = r.central
       let value = r.value ?? Data()
+      if answer == nil { answer = r } // one answer covers every request in the batch (UP and CTRL are written with response)
       if r.characteristic.uuid == Self.upId {
         if !value.isEmpty { emit(["event": "ble.data", "dev": dev.uuidString, "data": value.base64EncodedString()]) }
       } else if r.characteristic.uuid == Self.ctrlId {
-        if answer == nil { answer = r }
         guard let o = (try? JSONSerialization.jsonObject(with: value)) as? [String: Any], let op = o["op"] as? String else { continue }
         switch op {
         case "hello": emit(["event": "ble.guest", "dev": dev.uuidString, "hello": o])

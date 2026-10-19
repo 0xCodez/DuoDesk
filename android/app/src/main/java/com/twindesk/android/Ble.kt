@@ -157,13 +157,16 @@ class Ble(
         private var mtu = 23
         private var ctrl: BluetoothGattCharacteristic? = null
         private var up: BluetoothGattCharacteristic? = null
-        // GATT does one operation at a time: each waits for its callback.
-        private val ops = LinkedBlockingDeque<() -> Boolean>()
-        private val opDone = java.util.concurrent.Semaphore(0)
+        // GATT does one operation at a time: each waits for its own callback (a latch per operation,
+        // so a late callback can't let the next one start early, which Android refuses as busy).
+        private val ops = LinkedBlockingDeque<Pair<String, () -> Boolean>>()
+        @Volatile private var opLatch = java.util.concurrent.CountDownLatch(0)
+        @Volatile private var opKind = "" // the callback the running operation waits for
         @Volatile private var alive = true
         private val readyWait = java.util.concurrent.CountDownLatch(1)
         // The pipe: its socket here, and whether the computer opened its end.
         @Volatile private var sock: Socket? = null
+        @Volatile private var pipeGen = 0 // the pipe a queued UP chunk belongs to: a closed pipe's never go out
         @Volatile private var opened: java.util.concurrent.CountDownLatch? = null
         private val upSlots = java.util.concurrent.Semaphore(16) // UP writes in flight
 
@@ -177,34 +180,40 @@ class Ble(
 
         private fun opLoop() {
             while (alive) {
-                val op = ops.poll(1, TimeUnit.SECONDS) ?: continue
+                val (kind, op) = ops.poll(1, TimeUnit.SECONDS) ?: continue
+                val latch = java.util.concurrent.CountDownLatch(1)
+                opKind = kind
+                opLatch = latch
                 val started = runCatching { op() }.getOrDefault(false)
-                if (started && !opDone.tryAcquire(5, TimeUnit.SECONDS)) Log.w("TwinDesk", "ble: GATT op timed out")
+                if (started && !latch.await(5, TimeUnit.SECONDS)) Log.w("TwinDesk", "ble: GATT $kind timed out")
             }
         }
 
-        private fun op(block: () -> Boolean) = ops.add(block)
+        // A callback: it ends the running operation only if it's the one that operation waits for.
+        private fun opDone(kind: String) { if (kind == opKind) opLatch.countDown() }
+
+        private fun op(kind: String, block: () -> Boolean) = ops.add(kind to block)
 
         private val cb = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(g: BluetoothGatt, status: Int, state: Int) {
                 if (state == BluetoothProfile.STATE_CONNECTED) {
-                    op { g.requestMtu(517) }
+                    op("mtu") { g.requestMtu(517) }
                 } else if (state == BluetoothProfile.STATE_DISCONNECTED) close()
             }
 
             override fun onMtuChanged(g: BluetoothGatt, m: Int, status: Int) {
                 mtu = if (status == BluetoothGatt.GATT_SUCCESS) m else 23
-                opDone.release()
-                op { g.discoverServices() }
+                opDone("mtu")
+                op("services") { g.discoverServices() }
             }
 
             override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-                opDone.release()
+                opDone("services")
                 val s = g.getService(SERVICE) ?: return close()
                 ctrl = s.getCharacteristic(CTRL)
                 up = s.getCharacteristic(UP)
                 val info = s.getCharacteristic(INFO) ?: return close()
-                op { g.readCharacteristic(info) }
+                op("read") { g.readCharacteristic(info) }
             }
 
             @Deprecated("API < 33")
@@ -216,10 +225,10 @@ class Ble(
 
             override fun onCharacteristicWrite(g: BluetoothGatt, c: BluetoothGattCharacteristic, status: Int) {
                 if (c.uuid == UP) upSlots.release()
-                opDone.release()
+                opDone("write")
             }
 
-            override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) { opDone.release() }
+            override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) { opDone("descriptor") }
 
             @Deprecated("API < 33")
             override fun onCharacteristicChanged(g: BluetoothGatt, c: BluetoothGattCharacteristic) {
@@ -230,7 +239,7 @@ class Ble(
         }
 
         private fun onRead(g: BluetoothGatt, value: ByteArray, status: Int) {
-            opDone.release()
+            opDone("read")
             val o = runCatching { JSONObject(String(value)) }.getOrNull()
             val id = o?.optString("id").orEmpty()
             if (status != BluetoothGatt.GATT_SUCCESS || id.isEmpty()) return close()
@@ -247,10 +256,10 @@ class Ble(
                 val c = g.getService(SERVICE)?.getCharacteristic(uuid) ?: continue
                 g.setCharacteristicNotification(c, true)
                 val d = c.getDescriptor(CCCD) ?: continue
-                op { writeDescriptor(g, d, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+                op("descriptor") { writeDescriptor(g, d, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
             }
             ctrlWrite(hello().put("op", "hello"))
-            op { ready = true; readyWait.countDown(); false }
+            op("") { ready = true; readyWait.countDown(); false }
         }
 
         private fun onNotify(uuid: UUID, value: ByteArray) {
@@ -280,6 +289,7 @@ class Ble(
                 if (s == null) return@thread
                 s.tcpNoDelay = true
                 sock = s
+                pipeGen++
                 gatt?.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
                 ctrlWrite(JSONObject().put("op", "open"))
                 pump(s)
@@ -290,20 +300,28 @@ class Ble(
         // The session's bytes to UP, in MTU-sized writes, at most upSlots in flight.
         private fun pump(s: Socket) {
             val buf = ByteArray(4096)
-            val max = (mtu - 3).coerceAtLeast(20)
+            val max = (mtu - 3).coerceIn(20, 512) // an attribute value is at most 512 bytes
             val input = s.getInputStream()
+            val gen = pipeGen
             while (alive && sock === s) {
                 val n = runCatching { input.read(buf) }.getOrDefault(-1)
                 if (n < 0) break
                 var i = 0
-                while (i < n) {
+                while (i < n && sock === s) {
                     val len = minOf(max, n - i)
                     val chunk = buf.copyOfRange(i, i + len)
                     i += len
-                    if (!upSlots.tryAcquire(10, TimeUnit.SECONDS)) { closePipe(true); return }
-                    op {
-                        val ok = writeRetry(up, chunk, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
-                        if (!ok) { upSlots.release(); closePipe(true) } // a lost chunk breaks the TLS stream: start over
+                    if (!upSlots.tryAcquire(10, TimeUnit.SECONDS)) { Log.w("TwinDesk", "ble: UP stalled"); closePipe(true); return }
+                    op("write") {
+                        if (pipeGen != gen || sock !== s) { upSlots.release(); return@op false } // that pipe is over
+                        // Acknowledged writes: a write without response may be dropped (macOS does under
+                        // load), and one lost byte breaks the session's TLS.
+                        val ok = writeRetry(up, chunk, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                        if (!ok) { // a lost chunk breaks the TLS stream: end this pipe (nothing after it goes)
+                            Log.w("TwinDesk", "ble: UP write failed, closing the pipe")
+                            upSlots.release()
+                            if (sock === s) closePipe(true)
+                        }
                         ok
                     }
                 }
@@ -314,13 +332,13 @@ class Ble(
         private fun ctrlWrite(o: JSONObject) {
             val c = ctrl ?: return
             val bytes = o.toString().toByteArray()
-            op { writeRetry(c, bytes, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) }
+            op("write") { writeRetry(c, bytes, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) }
         }
 
-        // Android refuses a write while its own buffers are full: try again for a moment.
+        // Android refuses a write while its own buffers are full: try again for a while (3 s).
         private fun writeRetry(c: BluetoothGattCharacteristic?, v: ByteArray, type: Int): Boolean {
             c ?: return false
-            repeat(50) {
+            repeat(300) {
                 val g = gatt ?: return false
                 if (writeChr(g, c, v, type)) return true
                 Thread.sleep(10)
@@ -330,7 +348,9 @@ class Ble(
 
         private fun closePipe(tell: Boolean) {
             val s = sock ?: return
+            Log.i("TwinDesk", "ble: pipe closed${if (tell) "" else " by the computer"}")
             sock = null
+            pipeGen++
             runCatching { s.close() }
             if (tell && alive) ctrlWrite(JSONObject().put("op", "close"))
             gatt?.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_BALANCED)

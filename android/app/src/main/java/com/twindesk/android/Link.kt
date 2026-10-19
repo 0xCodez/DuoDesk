@@ -391,6 +391,7 @@ class Link(
     }
 
     private fun onClose(failure: String?) {
+        Log.i("TwinDesk", "link closed: mode=$mode state=$state ble=$ble failure=$failure code=$lastCode")
         pinger?.cancel(false)
         helloTimer?.cancel(false)
         ws = null
