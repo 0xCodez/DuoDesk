@@ -35,6 +35,9 @@
   ; A phone: adb finds its wireless debugging over mDNS (phone-bridge.js).
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (adb)"'
   nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk (adb)" dir=in action=allow program="$INSTDIR\resources\app\windows\vendor\adb\adb.exe" profile=any enable=yes'
+  ; The phone as a drive goes through Windows' WebDAV client (phonedrive.js), which refuses files
+  ; over 50 MB unless this says otherwise: 4 GB, its maximum (read when WebClient next starts).
+  nsExec::Exec 'reg add HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters /v FileSizeLimitInBytes /t REG_DWORD /d 4294967295 /f'
 !macroend
 
 !macro customUnInstall

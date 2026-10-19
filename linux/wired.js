@@ -1,10 +1,13 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// A paired phone on a USB cable: the whole session goes through it, no Wi-Fi needed.
+// A phone on a USB cable: the whole session goes through it, no Wi-Fi needed, and pairing too.
 // Copy of mac/wired.js.
 //   - adb sees a phone over USB (USB debugging allowed for this computer) with TwinDesk on it:
 //     `adb reverse` makes the phone's 127.0.0.1:<port> this server, and 127.0.0.1:<TURN_PORT> the
 //     relay (shared/turn.js), or other ports where the phone's own connections hold those; a
 //     broadcast only adb's shell may send (WiredReceiver) tells the app to connect there. Its pinned certificate and token work as over Wi-Fi.
+//   - A phone that isn't paired yet pairs through the same port: its pair.start carries the
+//     broadcast's nonce, which only this computer and that phone know (knows()), so the request
+//     says it's from the cable and asks only for Allow here (pairing.js).
 //   - A session from 127.0.0.1 is a wired phone: offers to it carry the relay (server.js), and
 //     this Mac's own WebRTC uses it too (stream.js, audio.js), so the screen and sound go through
 //     adb as TCP. The phone tells which USB device it is (phone.wired with the broadcast's nonce),
@@ -30,10 +33,10 @@ const isUsb = (serial) => !/[:]/.test(serial) && !serial.startsWith('emulator-')
 const isLoopback = (a) => a === '127.0.0.1' || a === '::1';
 
 class Wired extends EventEmitter {
-  // hasPhone: whether any phone is paired with this computer (no phone, no adb at all).
-  constructor({ adb, raw, peer, getId, hasPhone = () => true }) {
+  // getName: this computer's name, for a phone that pairs through the cable.
+  constructor({ adb, raw, peer, getId, getName }) {
     super();
-    Object.assign(this, { adb, raw, peer, getId, hasPhone });
+    Object.assign(this, { adb, raw, peer, getId, getName });
     this.plugged = new Map(); // USB serial -> {nonce, at, linked}
     this.byDevice = new Map(); // phone deviceId -> USB serial (from phone.wired)
     this.turn = new TurnThread({ port: TURN_PORT });
@@ -64,6 +67,11 @@ class Wired extends EventEmitter {
     return !!(c && c.os === P.OS.ANDROID && c.ice);
   }
 
+  // A nonce we sent through the cable, to a phone that's still on it.
+  knows(nonce) {
+    return typeof nonce === 'string' && nonce.length > 0 && [...this.plugged.values()].some((p) => p.nonce === nonce);
+  }
+
   // The tile was clicked with the phone on the cable: ask it through the cable again.
   connect(deviceId) {
     const s = this.byDevice.get(deviceId);
@@ -76,10 +84,10 @@ class Wired extends EventEmitter {
     if (this.polling || !this.adb.available) return;
     this.polling = true;
     try {
-      // adb only for a phone that's here: linked now, or a paired one on the cable (asked of the
-      // system, not adb). Until then no adb server runs.
+      // adb only for a phone that's here: linked now, or one with USB debugging on the cable
+      // (asked of the system, not adb). Until then no adb server runs.
       const linked = !!(this.raw.current && this.raw.current.os === P.OS.ANDROID);
-      const here = linked || (this.hasPhone() && await usbadb.present());
+      const here = linked || await usbadb.present();
       const usb = !here ? [] : (await this.adb.devices()).filter((d) => d.state === 'device' && isUsb(d.serial)).map((d) => d.serial);
       for (const s of [...this.plugged.keys()]) {
         if (usb.includes(s)) continue;
@@ -92,7 +100,7 @@ class Wired extends EventEmitter {
       for (const s of usb) {
         const p = this.plugged.get(s);
         if (p && (p.linked || Date.now() - p.at < RETRY_MS)) continue;
-        this.plugged.set(s, { nonce: '', at: Date.now(), linked: false });
+        this.plugged.set(s, { nonce: p ? p.nonce : '', at: Date.now(), linked: false });
         await this._invite(s);
       }
     } finally {
@@ -138,8 +146,16 @@ class Wired extends EventEmitter {
     if (!/package:/.test(has.out)) return;
     const port = await this._reverse(serial, this.raw.port);
     this.phoneTurn = await this._reverse(serial, TURN_PORT);
-    const nonce = crypto.randomBytes(8).toString('hex');
-    const r = await this.adb.shell(serial, `am broadcast -f 32 -n ${APP_ID}/.WiredReceiver --es host ${this.getId()} --ei port ${port} --es nonce ${nonce}`, { timeout: 8000 });
+    // One per plug-in: a phone still pairing with the last broadcast's nonce keeps it valid.
+    const nonce = (this.plugged.get(serial) || {}).nonce || crypto.randomBytes(8).toString('hex');
+    const name = `'${String(this.getName() || 'Computer').replace(/'/g, `'\\''`)}'`; // a single-quoted shell word
+    // An app that isn't running (never opened, or stopped) may not start its service from a
+    // broadcast (Android's background limits), and is frozen before it connects: on the power
+    // allowlist for a moment, it may. (Setup puts it there for good once it's paired: phone-bridge.js.)
+    await this.adb.shell(serial, `cmd deviceidle tempwhitelist -d 30000 ${APP_ID}`, { timeout: 5000 });
+    // Known before the broadcast: the phone may answer (pair.start) before adb returns.
+    this.plugged.set(serial, { nonce, at: Date.now(), linked: false });
+    const r = await this.adb.shell(serial, `am broadcast -f 32 -n ${APP_ID}/.WiredReceiver --es host ${this.getId()} --ei port ${port} --es nonce ${nonce} --es name ${name}`, { timeout: 8000 });
     if (!/Broadcast completed/.test(r.out)) throw new Error(`broadcast: ${(r.out || r.err || '').trim()}`);
     this.plugged.set(serial, { nonce, at: Date.now(), linked: true });
     console.log(`[wired] asked ${serial} to connect through the cable`);

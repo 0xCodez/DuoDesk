@@ -26,6 +26,7 @@ data class PairState(
     val name: String,
     val code: String = "",
     val error: String = "",
+    val wired: Boolean = false, // through the USB cable: no code to compare, only Allow on the computer
 )
 
 class Link(
@@ -53,6 +54,7 @@ class Link(
     private var ws: WebSocket? = null
     private var mode = "" // session | pair
     private var nw = ""
+    private var pairNonce = "" // pairing through the cable: the nonce the computer sent us over adb
     private var seenFp = ""
     private var lastRx = 0L
     private var lastCode: String? = null
@@ -79,10 +81,15 @@ class Link(
         setState("idle", "")
     }
 
-    fun startPairing(address: String, port: Int, name: String) = run {
+    // nonce: through the USB cable (WiredReceiver): pair.start carries it, which tells the computer
+    // the request is from the phone on its cable, and the code is confirmed here without asking
+    // (only the computer the phone allowed USB debugging for could have sent the nonce).
+    fun startPairing(address: String, port: Int, name: String, nonce: String = "") = run {
         closeSocket()
         host = null
-        pair = PairState("connecting", address, port, name)
+        wired = false
+        pairNonce = nonce
+        pair = PairState("connecting", address, port, name, wired = nonce.isNotEmpty())
         open("pair", address, port, null)
         events.onChange()
     }
@@ -160,7 +167,9 @@ class Link(
         lastRx = System.currentTimeMillis()
         if (mode == "pair") {
             nw = Proto.randomHex(16)
-            raw(msg(Proto.T.PAIR_START, "v" to Proto.VERSION, "id" to store.deviceId, "name" to store.deviceName, "os" to Proto.OS, "commit" to Proto.commitOf(nw)))
+            val start = msg(Proto.T.PAIR_START, "v" to Proto.VERSION, "id" to store.deviceId, "name" to store.deviceName, "os" to Proto.OS, "commit" to Proto.commitOf(nw))
+            if (pairNonce.isNotEmpty()) start.put("wired", pairNonce)
+            raw(start)
             pair = pair?.copy(phase = "starting")
             events.onChange()
             return
@@ -199,6 +208,10 @@ class Link(
         }
         raw(msg(Proto.T.PAIR_REVEAL, "nonce" to nw))
         pair = p.copy(phase = "code", code = Proto.sasCode(seenFp, nw, nonce))
+        if (p.wired) {
+            raw(msg(Proto.T.PAIR_CONFIRM))
+            pair = pair?.copy(phase = "waiting")
+        }
         events.onChange()
     }
 
@@ -208,11 +221,15 @@ class Link(
         val token = m.optString("token")
         val id = m.optString("macId")
         if (token.isEmpty() || id.isEmpty()) return pairFailed("The computer sent a bad pairing message.")
-        val h = Host(id, m.optString("macName").take(64).ifEmpty { p.name }, m.optString("os", "mac"), p.address, p.port, seenFp, token, System.currentTimeMillis())
+        // Through the cable the address is this phone's own end of adb reverse: the computer's
+        // network address comes from discovery when it's seen (Core.connect), else the cable again.
+        val h = if (p.wired) Host(id, m.optString("macName").take(64).ifEmpty { p.name }, m.optString("os", "mac"), "127.0.0.1", Proto.PORT, seenFp, token, System.currentTimeMillis())
+            else Host(id, m.optString("macName").take(64).ifEmpty { p.name }, m.optString("os", "mac"), p.address, p.port, seenFp, token, System.currentTimeMillis())
         store.putHost(h)
         pair = null
         mode = "session"
         host = h
+        wired = p.wired
         setState("connecting", "")
         hello()
     }

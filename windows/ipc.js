@@ -134,6 +134,11 @@ function setupIpc(ctx) {
   phone('connectPhone', (id) => ctx.phone.connect(String(id)));
   phone('disconnectPhone', () => ctx.phone.disconnect());
   handle('setPhone', (partial) => change('phone', partial));
+  // The phone as a drive (phonedrive.js). The Mount page's switch: off unmounts and stops
+  // everything (nothing runs until Mount anyway).
+  phone('phoneMount', () => settings.mount.on && ctx.phoneDrive.mount());
+  phone('phoneUnmount', () => ctx.phoneDrive.unmount());
+  handle('setMount', (partial) => change('mount', partial, () => !settings.mount.on && ctx.phoneDrive && ctx.phoneDrive.stop()));
   phone('phonePair', (arg) => arg && typeof arg === 'object' && ctx.phone.bridge.pair(arg.code, arg.where));
   phone('phoneScreen', (open) => {
     if (open === false) {

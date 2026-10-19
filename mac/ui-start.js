@@ -160,6 +160,7 @@
     if (!bannerMode) return;
     const code = (p || g).code;
     $('pair-code').textContent = code ? `${code.slice(0, 3)} ${code.slice(3)}` : '…';
+    $('pair-code').hidden = !!(p && p.wired); // on the USB cable: nothing to compare
     if (p) {
       $('pair-title').replaceChildren(el('strong', { text: p.name }), ' wants to pair');
       $('pair-allow').textContent = 'Allow';
@@ -168,7 +169,8 @@
       $('pair-allow').disabled = !p.code || p.allowed;
       const other = p.name;
       let hint = `Check that ${other} shows the same code.`;
-      if (!p.code) hint = 'Waiting for the code…';
+      if (p.wired) hint = p.allowed ? 'Pairing…' : `${other} is on the USB cable. Click Allow to pair.`;
+      else if (!p.code) hint = 'Waiting for the code…';
       else if (p.allowed && !p.confirmed) hint = `Allowed. Waiting for “Codes match” on ${other}…`;
       else if (p.confirmed && !p.allowed) hint = `${other[0].toUpperCase()}${other.slice(1)} confirmed the code. Click Allow if it matches.`;
       $('pair-hint').textContent = hint;

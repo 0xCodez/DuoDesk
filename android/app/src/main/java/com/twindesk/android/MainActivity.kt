@@ -324,7 +324,10 @@ private fun OverviewPage(core: Core, v: Int) {
         MacCard("Pairing with ${p.name}") {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (p.phase) {
-                    "code", "waiting" -> {
+                    "code", "waiting" -> if (p.wired) {
+                        Text("On the USB cable. Click Allow on ${p.name}.", color = pal.text)
+                        Secondary("Cancel") { link.cancelPairing() }
+                    } else {
                         Text("Check that ${p.name} shows the same code.", color = pal.text)
                         Text("${p.code.take(3)} ${p.code.drop(3)}", fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp, color = pal.text)
                         if (p.phase == "code") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

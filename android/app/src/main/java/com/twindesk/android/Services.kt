@@ -103,7 +103,7 @@ class WiredReceiver : BroadcastReceiver() {
         val port = intent.getIntExtra("port", 0)
         if (port <= 0 || port > 65535) return
         runCatching { TwinService.start(ctx) }
-        Core.get(ctx).connectWired(id, port, intent.getStringExtra("nonce") ?: "")
+        Core.get(ctx).connectWired(id, port, intent.getStringExtra("nonce") ?: "", intent.getStringExtra("name")?.take(64) ?: "")
     }
 }
 

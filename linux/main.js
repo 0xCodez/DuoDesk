@@ -49,6 +49,7 @@ const autostart = require('./autostart');
 const { PairSync } = require('./pairsync');
 const { PhoneLink } = require('./phone-link');
 const { Wired } = require('./wired');
+const { PhoneDrive } = require('./phonedrive');
 const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
@@ -114,6 +115,7 @@ let wired = null; // wired.js, with the phone
 let hostServer = null; // server.js, once the certificate exists
 let phone = null; // A phone as the peer: phone.js (its .bridge: phone-bridge.js)
 let phoneViews = null; // its screen and apps in windows here (phoneview.js)
+let phoneDrive = null; // its storage as a drive here (phonedrive.js)
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' };
 const session = system.session();
@@ -252,7 +254,7 @@ function start() {
   });
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, fileDrop, smb, fileClip, vdd, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, updates, settings, save: saveSettings, push: pushState, buildState,
-    get phone() { return phone; }, get phoneViews() { return phoneViews; }, connectPhoneDev,
+    get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev,
     checkFirewall, fixFirewall, fixInput, setStartup, onApp: () => updateTray(buildState()) });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', pushState);
@@ -317,12 +319,14 @@ function startPhone(server, pairing) {
   // The phone's Keyboard page names this computer's hotkey (double-tap = everything back here).
   pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && pl.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_WIN, 'win').replace('Windows key', 'Super') }));
   phone.bridge = new PhoneBridge({ server: pl, phone, getSettings: () => settings, clipboard: clip });
-  // A paired phone on a USB cable: the session, screen and sound through it (no Wi-Fi needed).
-  wired = new Wired({ adb: phone.bridge.adb, raw: server, peer: pl, getId: () => device.id,
-    hasPhone: () => pairing.list().some((x) => x.os === P.OS.ANDROID) });
+  // A phone on a USB cable: pairing, the session, screen and sound through it (no Wi-Fi needed).
+  wired = new Wired({ adb: phone.bridge.adb, raw: server, peer: pl, getId: () => device.id, getName: () => device.name });
+  pairing.isWired = (nonce) => wired.knows(nonce);
   wired.on('change', pushState);
   phone.bridge.wired = wired;
   phone.wired = wired;
+  phoneDrive = new PhoneDrive({ adb: phone.bridge.adb, bridge: phone.bridge, phone });
+  phoneDrive.on('change', pushState);
   phone.bridge.on('change', pushState);
   phone.bridge.on('popup', (kind, text) => hud.show(kind, text));
   phoneViews = new PhoneViews({ bridge: phone.bridge, phone, getSettings: () => settings, server: pl, fileSend: fileDrop });
@@ -462,6 +466,7 @@ function buildState() {
     startup: autostart.get(),
     setup: { missing: miss, show: setupShows(miss) },
     phone: phone ? { ...phone.view, settings: settings.phone } : null,
+    mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
   };
 }
 
@@ -668,6 +673,7 @@ app.on('before-quit', () => {
   if (notifs) notifs.shutdown();
   if (phoneViews) phoneViews.shutdown();
   if (wired) wired.stop();
+  if (phoneDrive) phoneDrive.shutdown();
   if (phone) phone.bridge.adb.killServer();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
   loopback.shutdown();

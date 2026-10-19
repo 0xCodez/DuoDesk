@@ -167,7 +167,7 @@
     $('banner').classList.toggle('failed', p.phase === 'failed');
     const host = p.role === 'host'; // another computer asks to pair with this PC
     $('pair-title').textContent = host ? p.macName + ' wants to pair' : 'Pairing with ' + p.macName;
-    $('pair-code-wrap').hidden = !p.code;
+    $('pair-code-wrap').hidden = !p.code || !!p.wired; // on the USB cable: nothing to compare
     $('pair-code').textContent = p.code ? p.code.slice(0, 3) + ' ' + p.code.slice(3) : '';
     $('pair-match').hidden = host ? !p.code || p.allowed : p.phase !== 'code';
     $('pair-match').textContent = host ? 'Allow' : 'Codes match';
@@ -178,7 +178,7 @@
       code: 'Check that ' + p.macName + ' shows the same code, then click Codes match.',
       waiting: 'Waiting for Allow on ' + p.macName + '…',
       failed: p.error,
-      request: !p.code ? 'Waiting for the code…' : p.allowed ? 'Waiting for ' + p.macName + '…' : 'Check that ' + p.macName + ' shows the same code, then click Allow.',
+      request: p.wired ? (p.allowed ? 'Pairing…' : p.macName + ' is on the USB cable. Click Allow to pair.') : !p.code ? 'Waiting for the code…' : p.allowed ? 'Waiting for ' + p.macName + '…' : 'Check that ' + p.macName + ' shows the same code, then click Allow.',
     };
     $('pair-hint').textContent = hints[p.phase] || '';
   }

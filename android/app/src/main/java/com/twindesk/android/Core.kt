@@ -94,10 +94,20 @@ class Core private constructor(val ctx: Context) : Link.Events {
     }
 
     // The computer found this device on a USB cable (adb reverse to its port, then a broadcast:
-    // WiredReceiver): take the session through the cable, also from a Wi-Fi session with it.
-    fun connectWired(id: String, port: Int, nonce: String) {
+    // WiredReceiver): take the session through the cable, also from a Wi-Fi session with it. Not
+    // paired with it yet: pair through the cable (no Wi-Fi needed), then the session follows.
+    fun connectWired(id: String, port: Int, nonce: String, name: String) {
         val h = store.hosts().find { it.id == id }
-        if (h == null) { Log.i("TwinDesk", "USB: $id isn't paired here"); return }
+        if (h == null) {
+            if (link.pair != null && link.pair?.phase != "failed") { Log.i("TwinDesk", "USB: already pairing"); return }
+            Log.i("TwinDesk", "USB: pairing with ${name.ifEmpty { id }} through the cable")
+            resumeUntil = 0
+            wiredNonce = nonce
+            invite?.let { discovery.clearInvite(it.id) }
+            invite = null
+            link.startPairing("127.0.0.1", port, name.ifEmpty { "Computer" }, nonce)
+            return
+        }
         Log.i("TwinDesk", "USB: connecting to ${h.name} through the cable")
         resumeUntil = 0
         wiredNonce = nonce
@@ -156,6 +166,13 @@ class Core private constructor(val ctx: Context) : Link.Events {
         Notify.cancelInvite(ctx)
         // Tells the computer which of its USB devices this is (its screen and input use that one).
         if (link.wired) link.send(JSONObject().put("t", "phone.wired").put("nonce", wiredNonce))
+        // Paired through the cable: its network address once discovery has seen it.
+        val seen = discovery.found[host.id]
+        if (host.address == "127.0.0.1" && seen != null) {
+            host.address = seen.address
+            host.port = seen.port
+            store.putHost(host)
+        }
         for (f in features) runCatching { f.onWelcome(host) }.onFailure { Log.e("TwinDesk", "welcome", it) }
         changed()
     }

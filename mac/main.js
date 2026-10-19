@@ -481,9 +481,9 @@ app.whenReady().then(() => {
   // The phone's screen, input, clipboard and app windows, through wireless debugging.
   svc.phone.bridge = new PhoneBridge({ server: peer, phone: svc.phone, getSettings: () => settings, clipboard: svc.clipboard });
   svc.phone.bridge.on('change', pushState);
-  // A paired phone on a USB cable: the session, screen and sound through it (no Wi-Fi needed).
-  svc.wired = new Wired({ adb: svc.phone.bridge.adb, raw: server, peer, getId: () => id.macId,
-    hasPhone: () => pairing.list().some((x) => x.os === P.OS.ANDROID) });
+  // A phone on a USB cable: pairing, the session, screen and sound through it (no Wi-Fi needed).
+  svc.wired = new Wired({ adb: svc.phone.bridge.adb, raw: server, peer, getId: () => id.macId, getName: () => id.macName });
+  pairing.isWired = (nonce) => svc.wired.knows(nonce);
   svc.wired.on('change', pushState);
   svc.phone.bridge.wired = svc.wired;
   svc.phone.wired = svc.wired;

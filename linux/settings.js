@@ -3,7 +3,7 @@
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
-const TABS = ['phone', 'overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
@@ -32,6 +32,7 @@ function normalize(s) {
   const nf = s.notifs || {};
   const wk = s.wake || {};
   const ph = s.phone || {};
+  const mt = s.mount || {};
   return {
     rev: 8, // settings revision (upgrades in normalize, like the Mac's store.js)
     kvm: {
@@ -121,6 +122,7 @@ function normalize(s) {
       maxSize: [0, 1920, 1600, 1280, 1024].includes(ph.maxSize) ? ph.maxSize : 0,
       wallpaper: bool(ph.wallpaper, true),
     },
+    mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked
     macApps: { on: bool(mca.on, true) }, // The other computer's apps open here (pair.sync 'apps' in) // The Mac may open this PC's apps (it shows them only if it accepts)
     // Setup screen: shown once. done: everything was ready, or 'Skip for now' was pressed; after that
     // General and Display show what's missing (a firewall that changes with the network, a helper
