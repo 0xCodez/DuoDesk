@@ -2,6 +2,11 @@ name: Build Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release to put the files on (e.g. v2.0.1; made as a draft if it isn't there). Empty = run artifacts only.
+        required: false
+        default: ''
 
 # Write: the full Android APK can come from a draft release, which a read-only token can't see.
 permissions:
@@ -48,3 +53,12 @@ jobs:
         with:
           name: twindesk-windows-arm64
           path: windows/dist/*-arm64.exe
+
+      # Straight onto the release, no download and re-upload.
+      - name: Upload to the release
+        if: inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ inputs.tag }}" >/dev/null 2>&1 || gh release create "${{ inputs.tag }}" --draft --target main --title "${{ inputs.tag }}" --notes "" || true
+          gh release upload "${{ inputs.tag }}" windows/dist/*.exe --clobber

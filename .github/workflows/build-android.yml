@@ -2,6 +2,15 @@ name: Build Android
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release to put the files on (e.g. v2.0.1; made as a draft if it isn't there). Empty = run artifacts only.
+        required: false
+        default: ''
+
+# Write: the files can go straight onto a release.
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -47,3 +56,12 @@ jobs:
         with:
           name: twindesk-android
           path: android/dist/TwinDesk-*.apk
+
+      # Straight onto the release, no download and re-upload.
+      - name: Upload to the release
+        if: inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ inputs.tag }}" >/dev/null 2>&1 || gh release create "${{ inputs.tag }}" --draft --target main --title "${{ inputs.tag }}" --notes "" || true
+          gh release upload "${{ inputs.tag }}" android/dist/TwinDesk-*.apk --clobber
