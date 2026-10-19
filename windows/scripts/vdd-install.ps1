@@ -61,7 +61,7 @@ try {
     $def.Settings.MultipleInstances = 1 # queue
     $a = $def.Actions.Create(0)
     $a.Path = $ps
-    $a.Arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand ' + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
+    $a.Arguments = '-NoProfile -NonInteractive -Command "' + $cmd + '"' # as SYSTEM: no window to hide
     $folder.RegisterTaskDefinition($t[0], $def, 6, 'SYSTEM', $null, 5, $sddl) | Out-Null
   }
   Set-Content -Path $Log -Value 'ok'

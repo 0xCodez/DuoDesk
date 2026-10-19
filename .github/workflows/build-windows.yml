@@ -57,6 +57,7 @@ jobs:
       # Straight onto the release, no download and re-upload.
       - name: Upload to the release
         if: inputs.tag != ''
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
