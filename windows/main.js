@@ -316,6 +316,7 @@ function startPhone(server, pairing) {
   // The phone's Keyboard page names this PC's hotkey (double-tap = everything back here).
   pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && pl.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_WIN, 'win') }));
   phone.bridge = new PhoneBridge({ server: pl, phone, getSettings: () => settings, clipboard: clip });
+  phone.bridge.on('save', saveSettings);
   // A phone on a USB cable: pairing, the session, screen and sound through it (no Wi-Fi needed).
   wired = new Wired({ adb: phone.bridge.adb, raw: server, peer: pl, getId: () => device.id, getName: () => device.name });
   pairing.isWired = (nonce) => wired.knows(nonce);

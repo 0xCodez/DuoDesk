@@ -69,6 +69,7 @@ object Proto {
         const val PHONE_IN = "phone.in"
         const val PHONE_INPUT = "phone.input"
         const val PHONE_INPUT_ASK = "phone.input.ask"
+        const val PHONE_INPUT_VIA = "phone.input.via"
         const val PHONE_WAKE = "phone.wake"
         const val PHONE_AWAKE = "phone.awake"
         const val ADB_STATE = "adb.state"

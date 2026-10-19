@@ -62,7 +62,7 @@ UI.tab({
     ], (v) => api.setPhone({ bitrateMbps: Number(v) }));
     const wall = UI.switch((v) => api.setPhone({ wallpaper: v }), { label: 'Wallpaper' });
     const via = UI.select([
-      { value: 'adb', label: 'Wireless debugging' }, { value: 'phone', label: 'Accessibility' },
+      { value: 'adb', label: 'ADB (wireless debugging)' }, { value: 'phone', label: 'Accessibility' },
     ], (v) => api.setPhone({ input: v }));
     const optsCard = UI.card('Settings', [
       UI.row('Phone sound in the screen window', 'Android 11 or later', [sound]),

@@ -169,15 +169,25 @@ class InputService : AccessibilityService() {
     }
 }
 
-// The session's side: phone.in to the service, phone.input {on} to the computer, the ask.
+// The session's side: phone.in to the service, phone.input {on, via} to the computer, the ask.
+// via: how the computer's mouse and keyboard reach this phone, "adb" (wireless debugging, else this
+// service) or "phone" (always this service: Wi-Fi, direct Wi-Fi or Bluetooth, no developer options).
+// The same choice as on the computer: whichever side changes it last (phone.input.via from there).
 class Input(core: Core) : Feature(core) {
     val on get() = InputService.running != null
-    private var told: Boolean? = null
+    val via get() = core.store.prefsString("inputVia", "adb")
+    private var told: String? = null
+
+    fun setVia(v: String) {
+        if (v != "adb" && v != "phone" || v == via) return
+        core.store.setPrefsString("inputVia", v)
+        changed()
+    }
 
     fun changed() {
-        if (core.link.connected && told != on) {
-            told = on
-            core.link.send(msg(Proto.T.PHONE_INPUT, "on" to on))
+        if (core.link.connected && told != "$on/$via") {
+            told = "$on/$via"
+            core.link.send(msg(Proto.T.PHONE_INPUT, "on" to on, "via" to via))
         }
         if (on) Notify.cancelInput(core.ctx)
         core.changed()
@@ -203,6 +213,10 @@ class Input(core: Core) : Feature(core) {
                 }
             }
             Proto.T.PHONE_INPUT_ASK -> if (!on) Notify.input(core.ctx, core.host?.name ?: "Your computer") else changed()
+            Proto.T.PHONE_INPUT_VIA -> {
+                val v = m.optString("via")
+                if (v == "adb" || v == "phone") { core.store.setPrefsString("inputVia", v); told = "$on/$v"; core.changed() }
+            }
             else -> return false
         }
         return true

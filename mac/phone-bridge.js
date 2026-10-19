@@ -86,6 +86,12 @@ class PhoneBridge extends EventEmitter {
     server.on(`t:${T.PHONE_INPUT}`, (m, ctx) => {
       if (!isPhone(ctx)) return;
       this.phoneInput = m.on === true;
+      // The phone's choice of input (changed there, or on connecting): the same setting here.
+      const ph = this.getSettings().phone;
+      if ((m.via === 'adb' || m.via === 'phone') && ph && ph.input !== m.via) {
+        ph.input = m.via;
+        this.emit('save');
+      }
       this.emit('change');
     });
     server.on('closed', () => { this.phoneInput = false; });
@@ -434,6 +440,11 @@ class PhoneBridge extends EventEmitter {
   get ctl() {
     if (!this.viaPhone && this.control && !this.control.closed) return this.control;
     return this.phoneInput ? this.input : null;
+  }
+
+  // The input choice changed here: to the phone, so its toggle shows the same.
+  tellVia() {
+    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.PHONE_INPUT_VIA, via: this.viaPhone ? 'phone' : 'adb' });
   }
 
   get viaPhone() {

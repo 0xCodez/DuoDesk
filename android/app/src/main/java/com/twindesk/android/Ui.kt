@@ -55,6 +55,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -179,21 +181,40 @@ fun MacCard(title: String = "", modifier: Modifier = Modifier, content: @Composa
     }
 }
 
-// A row: label and hint on the left, controls on the right; a hairline between rows.
+// A row: label and hint on the left, controls on the right; a hairline between rows. Controls too
+// wide to leave the label room (under ~half the row) go on their own line under it, at the right.
 @Composable
 fun MacRow(label: String, hint: String = "", first: Boolean = false, onClick: (() -> Unit)? = null, controls: @Composable RowScope.() -> Unit = {}) {
     Column {
         if (!first) Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(1.dp).background(pal.line))
-        Row(
-            Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(label, color = pal.text, fontSize = 15.sp)
-                if (hint.isNotEmpty()) Text(hint, color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(top = 1.dp))
+        Layout(
+            content = {
+                Column {
+                    Text(label, color = pal.text, fontSize = 15.sp)
+                    if (hint.isNotEmpty()) Text(hint, color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(top = 1.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), content = controls)
+            },
+            modifier = Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }.padding(horizontal = 16.dp, vertical = 12.dp),
+        ) { ms, c ->
+            val w = c.maxWidth
+            val ctl = ms[1].measure(Constraints(maxWidth = w))
+            val gap = if (ctl.width > 0) 12.dp.roundToPx() else 0
+            if (w - ctl.width - gap >= w * 0.45f) {
+                val lbl = ms[0].measure(Constraints(maxWidth = w - ctl.width - gap))
+                val h = maxOf(lbl.height, ctl.height)
+                layout(w, h) {
+                    lbl.place(0, (h - lbl.height) / 2)
+                    ctl.place(w - ctl.width, (h - ctl.height) / 2)
+                }
+            } else {
+                val lbl = ms[0].measure(Constraints(maxWidth = w))
+                val v = 10.dp.roundToPx()
+                layout(w, lbl.height + v + ctl.height) {
+                    lbl.place(0, 0)
+                    ctl.place(w - ctl.width, lbl.height + v)
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), content = controls)
         }
     }
 }

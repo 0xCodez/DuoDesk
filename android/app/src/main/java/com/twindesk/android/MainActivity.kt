@@ -401,6 +401,16 @@ private fun OverviewPage(core: Core, v: Int) {
                 SwitchRow("Screen", "Open it on the Screen page", core.screen.viewing, first = true) { if (it) core.ctx.startActivity(Intent(core.ctx, ViewerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 SwitchRow("Sound", "", core.sync.get("audio", "in")) { core.sync.set("audio", "in", it) }
                 SwitchRow("Mouse and keyboard", "", core.sync.get("cursor", "in")) { core.sync.set("cursor", "in", it) }
+                if (core.sync.get("cursor", "in")) MacRow("Cursor through", if (core.input.via == "phone")
+                    (if (core.input.on) "TwinDesk taps and types itself, over Wi-Fi or Bluetooth. No developer options" else "Needs Accessibility: TwinDesk (Allow under Not on the same network)")
+                    else "Wireless debugging for full control (Accessibility without it, over Bluetooth)") {
+                    SingleChoiceSegmentedButtonRow {
+                        val ways = listOf("adb" to "ADB", "phone" to "Accessibility")
+                        ways.forEachIndexed { i, (w, label) ->
+                            SegmentedButton(selected = core.input.via == w, onClick = { core.input.setVia(w); core.changed() }, shape = SegmentedButtonDefaults.itemShape(i, ways.size)) { Text(label, maxLines = 1) }
+                        }
+                    }
+                }
                 SwitchRow("Clipboard", "", core.sync.get("clipboard", "in")) { core.sync.set("clipboard", "in", it) }
                 SwitchRow("Notifications", "", core.sync.get("notifs", "in")) { core.sync.set("notifs", "in", it) }
             }
@@ -801,7 +811,7 @@ private fun GeneralPage(core: Core, v: Int) {
             !nearbyAllowed -> "Allow Nearby devices above"
             else -> "Connects to $name over Bluetooth when it isn’t on this network. Files and screens move to a direct Wi-Fi link for a while"
         }, core.bleOn, first = true) { core.store.setFlag("ble", it); core.changed() }
-        Setup("Mouse and keyboard", "$name’s cursor on this phone without wireless debugging (Accessibility: TwinDesk)", core.input.on, "Allow") { core.input.openSettings() }
+        Setup("Mouse and keyboard", "$name’s cursor on this phone without wireless debugging, on any network (Accessibility: TwinDesk)", core.input.on, "Allow") { core.input.openSettings() }
         val n = core.net
         if (n.state != "idle") MacRow("Wi-Fi", when (n.state) {
             "asking", "hosting" -> "Starting a direct Wi-Fi link…"

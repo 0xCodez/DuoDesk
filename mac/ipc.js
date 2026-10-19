@@ -113,6 +113,7 @@ function setupIpc(ctx) {
     },
     setPhone(partial) {
       setGroup('phone', partial);
+      if (partial && 'input' in partial) ctx.phone.bridge.tellVia();
     },
     phonePair(arg) {
       if (arg && typeof arg === 'object') ctx.phone.bridge.pair(arg.code, arg.where);
