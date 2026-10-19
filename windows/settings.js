@@ -33,6 +33,7 @@ function normalize(s) {
   const wk = s.wake || {};
   const ph = s.phone || {};
   const mt = s.mount || {};
+  const nt = s.net || {};
   return {
     rev: 8, // settings revision (upgrades in normalize, like the Mac's store.js)
     kvm: {
@@ -122,6 +123,7 @@ function normalize(s) {
       maxSize: [0, 1920, 1600, 1280, 1024].includes(ph.maxSize) ? ph.maxSize : 0,
       wallpaper: bool(ph.wallpaper, true),
     },
+    net: { ble: bool(nt.ble, true) }, // Bluetooth for devices not on this network (blepipe.js, netlink.js)
     mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked
     macApps: { on: bool(mca.on, true) }, // The other computer's apps open here (pair.sync 'apps' in) // The Mac may open this PC's apps (it shows them only if it accepts)
     // Setup screen: shown once. done: everything was ready, or 'Skip for now' was pressed; after that

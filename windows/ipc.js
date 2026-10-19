@@ -24,11 +24,11 @@ function setupIpc(ctx) {
   const pairWith = (d) => {
     discovery.clearInvite(d.id);
     if (d.os === P.OS.ANDROID) return ctx.connectPhoneDev(d); // a phone has no server to pair with
-    link.startPairing({ address: d.address, port: d.port, macName: d.name });
+    link.startPairing({ address: d.address, port: d.port, macName: d.name, id: d.id }); // id: one met over Bluetooth
   };
   handle('pair', (target) => {
     if (typeof target !== 'string' || !target.trim()) return;
-    const found = discovery.get(target);
+    const found = discovery.get(target) || discovery.near(target);
     if (found) return pairWith(found);
     const m = /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(target);
     if (!m) return;
@@ -165,6 +165,9 @@ function setupIpc(ctx) {
   handle('checkFirewall', () => ctx.checkFirewall());
   handle('fixFirewall', () => ctx.fixFirewall());
   handle('setStartup', (on) => ctx.setStartup(on === true));
+  // Not on the same network: Bluetooth on/off, and giving up on moving to Wi-Fi (netlink.js).
+  handle('setNet', (partial) => change('net', partial, () => ctx.applyNet()));
+  handle('netCancel', () => ctx.net && ctx.net.cancel());
 
   // pairsync.js applies a value the other computer changed, with the same side effects.
   const AFTER = {

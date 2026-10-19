@@ -22,6 +22,7 @@
     PHONE_GRACE_MS: 30000,
     PING_MS: 1000,
     TIMEOUT_MS: 4000, // close the session after this much silence
+    BLE_TIMEOUT_MS: 20000, // the same through Bluetooth, where one big message takes seconds
     PAIR_TIMEOUT_MS: 60000,
     UNAUTH_TIMEOUT_MS: 70000, // Mac closes sockets that never authenticate
     RECONNECT_MS: [1000, 2000, 3000], // Windows: then keep using the last value
@@ -177,6 +178,32 @@
       ADB_ENABLE: 'adb.enable', // Mac->phone {on}: switch wireless debugging (needs canEnable)
       ADB_PAIR: 'adb.pair', // phone->computer {code, port?}: the code from "Pair device with pairing code", typed on the phone (port: its pairing port, 0 if unknown)
       ADB_BRIDGE: 'adb.bridge', // computer->phone {state, message}: how the computer's wireless debugging link is doing (off|missing|waitingWifi|needsPair|connecting|ready|error)
+      // A session through Bluetooth moves onto Wi-Fi for files and screens (shared/netlink.js): one
+      // side hosts a network (Wi-Fi Direct group / Windows' legacy access point), the other joins
+      // it, and the guest moves the session onto it (hello {resume}, below) without ending it.
+      NET_CAPS: 'net.caps', // either {host, join, hotspot}: what this side can do (host = a network the other joins)
+      NET_NEED: 'net.need', // either {why: 'files'|'screen'}: please host a network (I can't)
+      NET_JOIN: 'net.join', // host->joiner {ssid, pass} | {error}: it's up, join it
+      NET_JOINED: 'net.joined', // joiner->host {ok, error?}
+      NET_RELEASE: 'net.release', // either {why}: I don't need it any more
+      NET_HOTSPOT: 'net.hotspot', // computer->phone {on}: ask the person to switch the phone's hotspot on (the screen through adb)
+      // Resume: `welcome` carries {resume: key}; the guest opens a second socket (another path to the
+      // host, e.g. the network once both are on one) with hello {..., resume: key} and gets welcome
+      // {resumed: true}: from then on both sides send on it, and the first socket stays as the
+      // fallback (the session ends only when both are gone).
+    },
+
+    // Bluetooth LE, when the two aren't on one network (shared/blepipe.js): the host advertises this
+    // GATT service; a guest reads INFO (the host's beacon JSON), writes CTRL ({op: 'hello', id, name,
+    // os} | {op: 'open'} | {op: 'close'}; the host notifies {op: 'invite'} | {op: 'closed'}) and
+    // pipes the session's bytes: guest writes UP, host notifies DOWN. The session (TLS, pinned
+    // certificate, token) runs through that pipe unchanged, the host's side from 127.0.0.1.
+    BLE: {
+      SERVICE: 'b7f30001-2c4e-4d1a-9a57-3e8c2f6d0a91',
+      INFO: 'b7f30002-2c4e-4d1a-9a57-3e8c2f6d0a91',
+      CTRL: 'b7f30003-2c4e-4d1a-9a57-3e8c2f6d0a91',
+      UP: 'b7f30004-2c4e-4d1a-9a57-3e8c2f6d0a91',
+      DOWN: 'b7f30005-2c4e-4d1a-9a57-3e8c2f6d0a91',
     },
 
     // Error codes (field `code` of an `error` message)

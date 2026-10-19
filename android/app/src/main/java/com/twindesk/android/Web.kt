@@ -107,11 +107,31 @@ class Screen(core: Core) : Feature(core) {
         h.post(opts()) // first: the computer's name for the messages below
         lastInfo?.let { h.post(it) }
         state?.let { h.post(it) }
-        core.send(msg("screen.policy", "accept" to true, "width" to w, "height" to hpx))
         Notify.cancelScreen(core.ctx)
+        // Through Bluetooth the picture needs Wi-Fi first (Netlink): asked for once it's there (onWifi).
+        if (core.link.ble) {
+            waitWifi = w to hpx
+            core.net.need("screen")
+            core.changed()
+            return
+        }
+        policy(w, hpx)
+    }
+
+    private fun policy(w: Int, hpx: Int) {
+        core.send(msg("screen.policy", "accept" to true, "width" to w, "height" to hpx))
         // Show the Mac's screen = the Mac starts sharing, in the mode used last.
         if (state == null) wantStart = true else startIfNeeded()
         core.changed()
+    }
+
+    @Volatile private var waitWifi: Pair<Int, Int>? = null
+
+    // The session moved onto Wi-Fi (Core): the viewer that was waiting for it starts now.
+    fun onWifi() {
+        val (w, hpx) = waitWifi ?: return
+        waitWifi = null
+        if (viewing) core.bg.execute { policy(w, hpx) }
     }
 
     private fun startIfNeeded() {
@@ -149,6 +169,8 @@ class Screen(core: Core) : Feature(core) {
         viewing = false
         size = null
         wantStart = false
+        waitWifi = null
+        core.net.release("screen")
         if (core.link.connected) {
             core.send(msg("screen.policy", "accept" to false))
             if (startedByUs && sharing) control(share = false)

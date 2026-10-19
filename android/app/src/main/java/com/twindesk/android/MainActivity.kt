@@ -216,7 +216,7 @@ private fun Identity(core: Core, v: Int, logo: Int) {
                 Dot(when { h != null -> pal.good; core.link.pair != null || core.link.state == "connecting" -> pal.warn; else -> pal.faint }, 7)
                 Text(
                     when {
-                        h != null -> h.name + (if (core.link.wired) " · USB" else "") + (core.link.rttMs?.let { " · $it ms" } ?: "")
+                        h != null -> h.name + (if (core.link.wired) " · USB" else if (core.link.ble) " · Bluetooth" else "") + (core.link.rttMs?.let { " · $it ms" } ?: "")
                         core.link.pair != null -> "Pairing…"
                         core.link.state == "connecting" -> "Connecting…"
                         else -> "Not connected"
@@ -354,7 +354,7 @@ private fun OverviewPage(core: Core, v: Int) {
                     if (host != null) Brush.horizontalGradient(listOf(pal.good, pal.accent)) else Brush.horizontalGradient(listOf(pal.trackOff, pal.trackOff)),
                 ))
                 Text(
-                    when { host != null -> listOfNotNull(if (link.wired) "USB" else null, link.rttMs?.let { "$it ms" }).joinToString(" · ").ifEmpty { "Connected" }; link.state == "connecting" -> "Connecting…"; link.pair != null -> "Pairing…"; else -> "Not connected" },
+                    when { host != null -> listOfNotNull(if (link.wired) "USB" else if (link.ble) "Bluetooth" else null, link.rttMs?.let { "$it ms" }).joinToString(" · ").ifEmpty { "Connected" }; link.state == "connecting" -> "Connecting…"; link.pair != null -> "Pairing…"; else -> "Not connected" },
                     color = pal.muted, fontSize = 11.sp, maxLines = 2, lineHeight = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -421,17 +421,17 @@ private fun OverviewPage(core: Core, v: Int) {
         val hosts = core.hosts()
         var first = true
         for (h in hosts) {
-            val near = core.discovery.found.containsKey(h.id)
-            MacRow(h.name, if (link.state == "connecting" && link.host?.id == h.id) "Connecting…" else if (near) "Nearby · paired" else "Paired · not nearby", first) {
+            val near = core.isNear(h.id)
+            MacRow(h.name, if (link.state == "connecting" && link.host?.id == h.id) "Connecting…" else if (near && !core.discovery.found.containsKey(h.id)) "Nearby over Bluetooth · paired" else if (near) "Nearby · paired" else "Paired · not nearby", first) {
                 Primary("Connect") { core.connect(h) }
             }
             first = false
         }
-        for (f in core.discovery.list().filter { f -> hosts.none { it.id == f.id } }) {
-            MacRow(f.name, "${if (f.os == "mac") "Mac" else if (f.os == "linux") "Linux" else "PC"} · ${f.address}", first) { Secondary("Pair") { core.pair(f) } }
+        for (f in core.nearby().filter { f -> hosts.none { it.id == f.id } }) {
+            MacRow(f.name, "${if (f.os == "mac") "Mac" else if (f.os == "linux") "Linux" else "PC"} · ${if (f.address.startsWith("ble:")) "Bluetooth" else f.address}", first) { Secondary("Pair") { core.pair(f) } }
             first = false
         }
-        if (first) MacRow("Looking for computers…", "Open TwinDesk on your Mac (same Wi-Fi)", true)
+        if (first) MacRow("Looking for computers…", if (core.bleOn && core.ble.allowed()) "Open TwinDesk on your computer (same Wi-Fi, or Bluetooth on)" else "Open TwinDesk on your Mac (same Wi-Fi)", true)
         var addr by remember { mutableStateOf("") }
         Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(1.dp).background(pal.line))
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -755,6 +755,12 @@ private fun GeneralPage(core: Core, v: Int) {
     @Composable
     fun Setup(label: String, hint: String, done: Boolean, action: String, first: Boolean = false, onClick: () -> Unit) =
         MacRow(label, hint, first) { if (done) Pill("Allowed", "good") else Primary(action, onClick) }
+    // Bluetooth and Wi-Fi Direct, for a computer not on this network.
+    val nearbyPerms = (Ble.permissions() + Direct.permission()).distinct().toTypedArray()
+    val nearbyAllowed = nearbyPerms.all { ctx.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
+    val askNearby = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
+    ) { core.changed() }
     MacCard("Setup") {
         if (core.notifs.supported) Setup("Notification access", "To show this device’s notifications on $name", core.notifs.hasAccess, "Allow", first = true) {
             ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -778,12 +784,30 @@ private fun GeneralPage(core: Core, v: Int) {
                 Primary("Guide") { Guide.open.value = true }
             }
         }
+        Setup("Nearby devices", "Bluetooth and Wi-Fi Direct, for $name when it isn’t on this network", nearbyAllowed, "Allow") {
+            askNearby.launch(nearbyPerms)
+        }
         Setup("Show the pointer", "Draws $name’s pointer over other apps", core.pointer.allowed, "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}")))
         }
         if (Build.VERSION.SDK_INT >= 30) Setup("Wallpaper on $name", "Optional. Android shares the wallpaper only with All files access", android.os.Environment.isExternalStorageManager(), "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${ctx.packageName}")))
         }
+    }
+    MacCard("Not on the same network") {
+        SwitchRow("Bluetooth", when {
+            !core.ble.radioOn -> "Bluetooth is off on this device"
+            !nearbyAllowed -> "Allow Nearby devices above"
+            else -> "Connects to $name over Bluetooth when it isn’t on this network. Files and screens move to a direct Wi-Fi link for a while"
+        }, core.bleOn, first = true) { core.store.setFlag("ble", it); core.changed() }
+        val n = core.net
+        if (n.state != "idle") MacRow("Wi-Fi", when (n.state) {
+            "asking", "hosting" -> "Starting a direct Wi-Fi link…"
+            "joining" -> "Joining $name’s Wi-Fi…"
+            "joined" -> "On a direct Wi-Fi link with $name"
+            "failed" -> n.error
+            else -> ""
+        })
     }
     if (core.hosts().isNotEmpty()) MacCard("Paired") {
         core.hosts().forEachIndexed { i, h ->

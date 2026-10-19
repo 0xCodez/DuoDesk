@@ -138,7 +138,11 @@ class PhoneViews extends EventEmitter {
   }
 
   _open({ kind, app, title, width, height, opts, hidden = false }) {
-    if (!this.bridge.serial) return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
+    if (!this.bridge.serial) {
+      // Through Bluetooth: the phone's hotspot first (main.js), then this window.
+      if (this.onNoAdb && this.onNoAdb({ kind, app, title, width, height, opts, hidden })) return;
+      return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
+    }
     const id = nextId++;
     const win = new BrowserWindow({
       width, height, minWidth: 220, minHeight: 300, title, show: false,

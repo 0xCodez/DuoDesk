@@ -1,6 +1,9 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // WSS client to the Mac: certificate pinning, pairing, hello, liveness, reconnect.
 // After `welcome`, messages are delivered by type through on(type, fn).
+// A host that isn't on this network but is near goes through Bluetooth (opts.ble, blepipe.js): the
+// same WSS over a 127.0.0.1 pipe. Once discovery sees the host on the network, a second socket
+// takes the session over (hello {resume}); the Bluetooth one stays as the fallback (alt).
 const WebSocket = require('ws');
 const P = require('../shared/protocol.js');
 
@@ -8,6 +11,8 @@ const T = P.T;
 // A host without `os` is an older Mac.
 const osOf = (o) => (Object.values(P.OS).includes(o) ? o : P.OS.MAC);
 const HELLO_TIMEOUT_MS = P.TIMEOUT_MS; // no `welcome` this long after hello = retry
+const RESUME_RETRY_MS = 5000; // a failed move to the network: try again after this
+const isBle = (a) => String(a || '').startsWith('ble:');
 
 const PAIR_ERRORS = {
   [P.E.PAIR_REFUSED]: '{Name} refused pairing.',
@@ -18,13 +23,20 @@ const PAIR_ERRORS = {
 
 class Link {
   // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null,
-  //   blocked() -> true while this PC hosts a session (one session at a time), or a phone holds it
+  //   blocked() -> true while this PC hosts a session (one session at a time), or a phone holds it,
+  //   ble: BleGuest | null (blepipe.js)
   constructor(opts) {
     this.device = opts.device;
     this.blocked = opts.blocked || (() => false);
     this.onAny = null; // peer.js: gets every message after welcome instead of the per-type handlers
     this.store = opts.store;
     this.resolveAddress = opts.resolveAddress;
+    this.ble = opts.ble || null;
+    this.transport = 'ip'; // the session's socket: 'ip' | 'ble'
+    this.alt = null; // its other socket after a move (the fallback)
+    this.pending = null; // a socket moving the session (hello {resume})
+    this.resumeKey = '';
+    this.seq = 0; // connection attempts: a Bluetooth pipe that opens late is dropped
     this.pairing = this.store.load(); // {macId, macName, address, port, fp, token} or null
     this.pairState = null; // pairing in progress: {phase, address, port, macName, code, error}
     this.status = { state: this.pairing ? 'connecting' : 'not_paired', rtt: null, message: '' };
@@ -67,15 +79,16 @@ class Link {
   snapshot() {
     const p = this.pairing;
     return {
-      link: { ...this.status, macName: p ? p.macName : '', address: p ? p.address : '' },
+      link: { ...this.status, macName: p ? p.macName : '', address: p ? p.address : '', transport: this.authed ? this.transport : '' },
       pairing: this.pairState ? { ...this.pairState } : null,
       paired: p ? { macId: p.macId, macName: p.macName, address: p.address, port: p.port, os: osOf(p.os) } : null,
     };
   }
 
-  startPairing({ address, port, macName }) {
+  // id: the host's, for one seen over Bluetooth (address 'ble:…').
+  startPairing({ address, port, macName, id }) {
     clearTimeout(this.timers.reconnect);
-    this.pairState = { phase: 'connecting', address, port: port || P.PORT, macName: macName || address, code: '', error: '' };
+    this.pairState = { phase: 'connecting', address, port: port || P.PORT, macName: macName || address, id: id || '', code: '', error: '' };
     this._connect('pair');
     this._changed();
   }
@@ -129,27 +142,121 @@ class Link {
     this.mode = mode;
     this.nw = this.nm = null;
     const target = mode === 'pair' ? this.pairState : this.pairing;
-    const ws = new WebSocket('wss://' + target.address + ':' + target.port, {
+    const seq = ++this.seq;
+    // Bluetooth: a host met there (pairing), or a paired one that isn't on the network but is near.
+    const hostId = mode === 'pair' ? target.id : target.macId;
+    const near = this.ble && hostId && this.ble.get(hostId);
+    const viaBle = isBle(target.address) || (mode === 'session' && near && !this.resolveAddress(hostId));
+    if (!viaBle) return this._open(target.address, target.port, 'ip');
+    if (!near) {
+      this.lastError = '{Name} isn’t nearby';
+      return mode === 'pair' ? this._pairFailed('{Name} isn’t nearby any more.') : this._scheduleReconnect();
+    }
+    this.ws = { readyState: WebSocket.CONNECTING, terminate: () => {}, close: () => {}, bufferedAmount: 0 }; // opening the pipe
+    this.ble.open(hostId).then((port) => {
+      if (seq === this.seq) this._open('127.0.0.1', port, 'ble');
+    }, (e) => {
+      if (seq !== this.seq) return;
+      this.lastError = e.message;
+      this._onClose();
+    });
+  }
+
+  _open(address, port, transport) {
+    const ws = this._socket(address, port, transport);
+    this.ws = ws;
+    ws.on('open', () => ws === this.ws && this._onOpen(ws.fp));
+    ws.on('close', () => this._socketClosed(ws));
+  }
+
+  // A WSS to the host; messages go to whichever role it has then (session, fallback, moving).
+  _socket(address, port, transport) {
+    const ws = new WebSocket('wss://' + address + ':' + port, {
       rejectUnauthorized: false, // self-signed; we pin the fingerprint instead
       maxPayload: P.MAX_PAYLOAD,
-      handshakeTimeout: 5000,
+      handshakeTimeout: transport === 'ble' ? P.BLE_TIMEOUT_MS : 5000,
     });
-    this.ws = ws;
-    let seenFp = '';
+    Object.assign(ws, { transport, fp: '', lastRx: Date.now() });
     ws.on('upgrade', (res) => {
-      seenFp = P.normFingerprint(res.socket.getPeerCertificate().fingerprint256);
+      ws.fp = P.normFingerprint(res.socket.getPeerCertificate().fingerprint256);
     });
-    ws.on('open', () => ws === this.ws && this._onOpen(seenFp));
-    ws.on('message', (data, isBinary) => ws === this.ws && !isBinary && this._onMessage(String(data)));
+    ws.on('message', (data, isBinary) => {
+      if (isBinary) return;
+      ws.lastRx = Date.now();
+      if (ws === this.ws || ws === this.alt) this._onMessage(String(data), ws);
+      else if (ws === this.pending) this._onPending(String(data));
+    });
     ws.on('error', (err) => {
       if (ws === this.ws) this.lastError = err.code || err.message;
     });
-    ws.on('close', () => ws === this.ws && this._onClose());
+    return ws;
+  }
+
+  _socketClosed(ws) {
+    if (ws === this.pending) {
+      this.pending = null;
+      this.resumeAt = Date.now() + RESUME_RETRY_MS;
+      return;
+    }
+    if (ws === this.alt) {
+      this.alt = null;
+      return this._emit('transport', {});
+    }
+    if (ws !== this.ws) return;
+    const alt = this.alt;
+    if (this.authed && alt && alt.readyState === WebSocket.OPEN) { // carry on through the other one
+      this.alt = null;
+      this.ws = alt;
+      this.transport = alt.transport;
+      console.log('[link] back on ' + (alt.transport === 'ble' ? 'Bluetooth' : 'the network'));
+      return this._emit('transport', {});
+    }
+    this._onClose();
+  }
+
+  // On Bluetooth and the host is on the network now: move the session there.
+  _tryResume() {
+    if (!this.authed || this.transport !== 'ble' || this.pending || !this.resumeKey || Date.now() < (this.resumeAt || 0)) return;
+    const seen = this.resolveAddress(this.pairing.macId);
+    if (!seen || isBle(seen.address)) return;
+    const ws = this._socket(seen.address, seen.port, 'ip');
+    this.pending = ws;
+    ws.on('open', () => {
+      if (ws !== this.pending) return;
+      if (ws.fp !== this.pairing.fp) return ws.terminate();
+      ws.send(JSON.stringify({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.WIN, resume: this.resumeKey }));
+    });
+    ws.on('close', () => this._socketClosed(ws));
+    setTimeout(() => ws === this.pending && ws.terminate(), 10000);
+  }
+
+  _onPending(text) {
+    let msg;
+    try { msg = JSON.parse(text); } catch (e) { return; }
+    const ws = this.pending;
+    if (!msg || msg.t !== T.WELCOME || !msg.resumed) {
+      if (msg && msg.t === T.ERROR) ws.terminate();
+      return;
+    }
+    this.pending = null;
+    if (this.alt) { // moved before: the newest path replaces the current one (the server does the same)
+      const old = this.ws;
+      this.ws = null;
+      old.terminate();
+    } else {
+      this.alt = this.ws;
+    }
+    this.ws = ws;
+    this.transport = ws.transport;
+    console.log('[link] moved to the network');
+    this._emit('transport', {});
   }
 
   _onOpen(seenFp) {
     this.seenFp = seenFp;
     this.lastRx = Date.now();
+    this.ws.lastRx = this.lastRx;
+    this.transport = this.ws.transport;
     this.lastError = '';
     if (this.mode === 'pair') {
       this.nw = P.randomHex(16);
@@ -176,10 +283,10 @@ class Link {
     this.timers.hello = setTimeout(() => {
       this.lastError = 'No welcome from {name}';
       if (this.ws) this.ws.terminate();
-    }, HELLO_TIMEOUT_MS);
+    }, this.transport === 'ble' ? P.BLE_TIMEOUT_MS : HELLO_TIMEOUT_MS);
   }
 
-  _onMessage(text) {
+  _onMessage(text, ws = this.ws) {
     let msg;
     try {
       msg = JSON.parse(text);
@@ -194,7 +301,7 @@ class Link {
       case T.PAIR_CANCEL: return this._pairFailed('Pairing was cancelled on {name}.');
       case T.WELCOME: return this._onWelcome(msg);
       case T.ERROR: return this._onError(msg);
-      case T.PING: return this.authed && this._raw({ t: T.PONG, ts: msg.ts });
+      case T.PING: return this.authed && ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: T.PONG, ts: msg.ts }));
       case T.PONG:
         if (typeof msg.ts === 'number') this.status.rtt = Math.max(0, Date.now() - msg.ts);
         return this._changed();
@@ -249,6 +356,8 @@ class Link {
     clearTimeout(this.timers.hello);
     this.authed = true;
     this.attempt = 0;
+    this.resumeKey = typeof msg.resume === 'string' ? msg.resume : ''; // older hosts: none, no moving
+    this.resumeAt = 0;
     const os = osOf(msg.os || this.pairing.os);
     if ((typeof msg.macName === 'string' && msg.macName && msg.macName !== this.pairing.macName) || os !== this.pairing.os) {
       if (typeof msg.macName === 'string' && msg.macName) this.pairing.macName = msg.macName;
@@ -256,13 +365,19 @@ class Link {
       this.store.save(this.pairing);
     }
     this.status.rtt = null;
+    // Each socket on its own: a quiet fallback goes, the session lives on.
     this.timers.ping = setInterval(() => {
-      if (Date.now() - this.lastRx > P.TIMEOUT_MS) {
-        this.lastError = '{Name} stopped answering';
-        if (this.ws) this.ws.terminate();
-        return;
+      const now = Date.now();
+      for (const ws of [this.ws, this.alt]) {
+        if (!ws || !ws.transport) continue;
+        if (now - ws.lastRx > (ws.transport === 'ble' ? P.BLE_TIMEOUT_MS : P.TIMEOUT_MS)) {
+          if (ws === this.ws) this.lastError = '{Name} stopped answering';
+          ws.terminate();
+        } else if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ t: T.PING, ts: now }));
+        }
       }
-      this._raw({ t: T.PING, ts: Date.now() });
+      this._tryResume();
     }, P.PING_MS);
     this._setStatus('connected', '');
     this._emit('welcome', msg);
@@ -297,6 +412,11 @@ class Link {
     const wasAuthed = this.authed;
     this._clearSocketTimers();
     this.ws = null;
+    for (const k of ['alt', 'pending']) {
+      const x = this[k];
+      this[k] = null;
+      if (x) x.terminate();
+    }
     this.authed = false;
     if (wasAuthed) this._emit('closed', {});
     if (this.mode === 'pair') {
@@ -343,7 +463,13 @@ class Link {
   _closeSocket() {
     const ws = this.ws;
     this._clearSocketTimers();
+    this.seq++;
     this.ws = null;
+    for (const k of ['alt', 'pending']) {
+      const x = this[k];
+      this[k] = null;
+      if (x) x.terminate();
+    }
     const wasAuthed = this.authed;
     this.authed = false;
     if (wasAuthed) this._emit('closed', {});

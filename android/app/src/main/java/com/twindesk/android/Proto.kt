@@ -17,6 +17,7 @@ object Proto {
     const val DEVICE_STALE_MS = 10000L
     const val PING_MS = 1000L
     const val TIMEOUT_MS = 4000L
+    const val BLE_TIMEOUT_MS = 20000L // through Bluetooth, where one big message takes seconds
     const val PHONE_GRACE_MS = 30000L
     const val CLIP_MAX_BYTES = 256 * 1024
     const val FILE_CHUNK_BYTES = 64 * 1024
@@ -72,6 +73,14 @@ object Proto {
         const val ADB_PAIR = "adb.pair"
         const val ADB_BRIDGE = "adb.bridge"
         const val WOL_INFO = "wol.info"
+        // Wi-Fi for a session through Bluetooth (Netlink.kt, shared/netlink.js)
+        const val NET_CAPS = "net.caps"
+        const val NET_NEED = "net.need"
+        const val NET_JOIN = "net.join"
+        const val NET_JOINED = "net.joined"
+        const val NET_RELEASE = "net.release"
+        const val NET_HOTSPOT = "net.hotspot"
+        const val DRAG_START = "drag.start"
     }
 
     object E {

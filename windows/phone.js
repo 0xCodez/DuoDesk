@@ -102,7 +102,7 @@ class Phone extends EventEmitter {
       this.message = '';
       return this.emit('change');
     }
-    const d = this.discovery.get(String(id));
+    const d = this.discovery.get(String(id)) || this.discovery.near(String(id)); // the network, else Bluetooth
     if (!d || d.os !== P.OS.ANDROID) return this._fail('That phone isn’t nearby any more.');
     if (this.connected && this.server.current.deviceId === d.id) return;
     clearTimeout(this.connecting && this.connecting.timer);

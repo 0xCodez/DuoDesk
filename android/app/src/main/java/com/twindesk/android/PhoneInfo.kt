@@ -118,7 +118,7 @@ class PhoneInfo(core: Core) : Feature(core) {
                 "colors" to jsonArray(colors()), "display" to display(),
             )
             val key = m.toString()
-            if (withWallpaper) wallpaperImage()?.let { m.put("wallpaper", it) }
+            if (withWallpaper && !core.link.ble) wallpaperImage()?.let { m.put("wallpaper", it) } // too big for Bluetooth
             if (!withWallpaper && key == lastSent) return@execute
             lastSent = key
             core.send(m)
@@ -140,7 +140,7 @@ class Apps(core: Core) : Feature(core) {
         return pm.queryIntentActivities(main, 0).mapNotNull { ri ->
             val pkg = ri.activityInfo.packageName
             if (pkg == core.ctx.packageName || !seen.add(pkg)) return@mapNotNull null
-            JSONObject().put("id", pkg).put("name", ri.loadLabel(pm).toString().take(100)).put("icon", icon(ri.loadIcon(pm)))
+            JSONObject().put("id", pkg).put("name", ri.loadLabel(pm).toString().take(100)).put("icon", if (core.link.ble) "" else icon(ri.loadIcon(pm)))
         }
     }
 

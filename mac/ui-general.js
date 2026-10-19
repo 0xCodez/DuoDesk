@@ -37,6 +37,8 @@ UI.tab({
     // Wake this Mac from the other computer; the Share menu entry.
     const wakeSw = UI.switch((v) => api.setWakeOnLan(v), { label: 'Wake from the network' });
     const wakeRow = UI.row('Let {name} wake {me}', '', [wakeSw]);
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth' });
+    const bleRow = UI.row('Bluetooth when not on the same network', '', [bleSw]);
     const shareRow = UI.row('TwinDesk in the Share menu', 'Share › TwinDesk sends files to the other computer',
       [UI.button('Extensions…', () => api.openSettings('extensions'), 'small')]);
 
@@ -50,7 +52,7 @@ UI.tab({
         UI.row('Keep the display awake', 'While connected', [awakeSw]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Network and sharing', [wakeRow, shareRow]),
+      UI.card('Network and sharing', [bleRow, wakeRow, shareRow]),
       UI.card('This computer', [deviceRow, helperRow]),
     );
 
@@ -74,6 +76,12 @@ UI.tab({
       wakeSw.set(w.womp === true);
       wakeSw.disable(w.womp == null);
       wakeRow.setHint(w.womp == null ? 'Checking…' : 'Wake for network access. Asks for your password to change it');
+      if (s.net) {
+        bleSw.set(s.net.ble);
+        const RADIO = { off: 'Bluetooth is off', unauthorized: 'Allow TwinDesk in System Settings › Privacy & Security › Bluetooth', unsupported: 'This Mac can’t advertise over Bluetooth' };
+        bleRow.setHint(s.net.ble && RADIO[s.net.radio] ? RADIO[s.net.radio]
+          : 'Phones and PCs nearby connect over Bluetooth. Files and screens move to a direct Wi-Fi link for a while');
+      }
       helperVal.textContent = s.helper && s.helper.running ? 'Running' : 'Not running';
       deviceName.textContent = s.macName || '';
     };

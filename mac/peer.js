@@ -29,6 +29,7 @@ class Peer extends EventEmitter {
       if (!server.current) link.poke();
     });
     server.on('rtt', (ctx) => this.emit('rtt', ctx));
+    server.on('transport', (ctx) => this.emit('transport', ctx));
     server.on('message', (msg, ctx) => this._deliver(msg, ctx));
 
     link.on('welcome', (ctx) => {
@@ -64,6 +65,17 @@ class Peer extends EventEmitter {
 
   send(ctx, msg) {
     if (!ctx) return;
+    // Through Bluetooth, files wait for Wi-Fi (netlink.js); they come back through sendNow.
+    if (this.hold && ctx === this.current && this.hold(msg)) return;
+    this._send(ctx, msg);
+  }
+
+  sendNow(msg) {
+    this._send(this.current, msg);
+  }
+
+  _send(ctx, msg) {
+    if (!ctx) return;
     if (ctx === this.link.ctx) {
       for (const m of P.swapRole(msg, this.swapOut)) this.link.send(m);
     } else {
@@ -86,6 +98,7 @@ class Peer extends EventEmitter {
       this.unknown.add(msg.t);
       console.log(`[peer] no handler for "${msg.t}" (ignored)`);
     }
+    if (this.tap) this.tap(msg);
     this.emit(`t:${msg.t}`, msg, ctx);
     this.emit('message', msg, ctx);
   }

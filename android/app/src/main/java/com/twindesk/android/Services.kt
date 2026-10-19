@@ -40,7 +40,7 @@ class TwinService : Service() {
         private var lastKey = ""
         fun refresh(ctx: Context) {
             val core = Core.get(ctx)
-            val key = listOf(core.host?.name, core.link.state, core.adb.wifiDebugging, core.files.activeLine(), core.hosts().firstOrNull { core.discovery.found.containsKey(it.id) }?.id).toString()
+            val key = listOf(core.host?.name, core.link.state, core.adb.wifiDebugging, core.files.activeLine(), core.hosts().firstOrNull { core.isNear(it.id) }?.id).toString()
             if (key == lastKey) return
             lastKey = key
             ctx.getSystemService(NotificationManager::class.java).notify(Notify.ID_LINK, Notify.link(ctx, core))

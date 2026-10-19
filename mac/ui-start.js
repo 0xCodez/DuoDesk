@@ -93,7 +93,7 @@
     const c = s.client;
     $('peer-dot').className = `dot ${c ? 'good' : s.pairing ? 'warn' : ''}`;
     const gs = s.guest && s.guest.status && s.guest.status.state;
-    $('peer-text').textContent = c ? `${c.name}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}`
+    $('peer-text').textContent = c ? `${c.name}${c.transport === 'ble' ? ' · Bluetooth' : c.rttMs != null ? ` · ${c.rttMs} ms` : ''}`
       : s.pairing || (s.guest && s.guest.pairing) ? 'Pairing…' : gs === 'connecting' || gs === 'reconnecting' ? 'Connecting…' : 'Not connected';
     renderPhones(s);
     // Tabs that don't apply to the peer (a phone has no terminal or screen to share to it…).
@@ -186,6 +186,44 @@
         : g.phase === 'waiting' ? `Waiting for Allow on ${g.name}…` : 'Connecting…';
   }
 
+  // Wi-Fi for a session through Bluetooth (netlink.js): what's happening, and for a phone's screen
+  // its hotspot's name and password (kept for that phone; the password field empty = the saved one).
+  let netShown = '';
+  function renderNet(s) {
+    const n = s.net;
+    const c = s.client;
+    const name = (c && c.name) || 'the other device';
+    const show = n && ['asking', 'hosting', 'joining', 'hotspot', 'failed'].includes(n.state) && (n.state !== 'failed' || n.error);
+    $('net-banner').hidden = !show;
+    if (!show) return void (netShown = '');
+    const form = n.state === 'hotspot';
+    $('net-form').hidden = !form;
+    $('net-join').hidden = !form;
+    $('net-cancel').textContent = n.state === 'failed' ? 'OK' : 'Cancel';
+    if (form && netShown !== 'hotspot') { // fill in once, not while typing
+      $('net-ssid').value = n.hotspotSsid || '';
+      $('net-pass').value = '';
+      $('net-pass').placeholder = n.hotspotSaved ? 'Password (saved)' : 'Password';
+      setTimeout(() => (n.hotspotSsid ? $('net-pass') : $('net-ssid')).focus(), 0);
+    }
+    netShown = n.state;
+    const TITLES = {
+      asking: `Moving to Wi-Fi with ${name}…`,
+      hosting: `Starting Wi-Fi for ${name}…`,
+      joining: `Joining ${n.ssid || 'Wi-Fi'}…`,
+      hotspot: `Switch on ${name}’s hotspot`,
+      failed: 'Couldn’t move to Wi-Fi',
+    };
+    $('net-title').textContent = TITLES[n.state];
+    $('net-hint').textContent = n.state === 'hotspot'
+      ? `${name} isn’t on this Mac’s network. Its screen needs Wi-Fi: switch its hotspot on, then type its name and password here.`
+      : n.state === 'failed' ? `${n.error}. Still connected over Bluetooth.`
+        : n.kind === 'direct' ? `${name} isn’t on this network: a direct Wi-Fi link for ${n.why.includes('files') || n.peerWhy.includes('files') ? 'the files' : 'the screen'}. This Mac is off its own Wi-Fi meanwhile.` : '';
+  }
+  $('net-join').onclick = () => api.netJoinHotspot({ ssid: $('net-ssid').value, pass: $('net-pass').value });
+  $('net-pass').onkeydown = $('net-ssid').onkeydown = (e) => { if (e.key === 'Enter') $('net-join').click(); };
+  $('net-cancel').onclick = () => api.netCancel();
+
   function render(s) {
     UI.state = s;
     UI.names(s);
@@ -195,6 +233,7 @@
     }
     renderSidebar(s);
     renderBanner(s);
+    renderNet(s);
     if (current) renderPage(current, s);
   }
 

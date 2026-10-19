@@ -71,6 +71,8 @@ const { Wired } = require('./wired');
 const { PhoneViews } = require('./phoneview');
 const { PhoneDrive } = require('./phonedrive');
 const { Updates } = require('../shared/updates.js');
+const { BleHost } = require('../shared/blepipe.js');
+const { NetLink } = require('../shared/netlink.js');
 const { aboutInfo } = require('../shared/about.js');
 
 let win = null;
@@ -172,7 +174,11 @@ function pushState() {
     }
     if (link) state.guest = link.view();
     const c = peer && peer.current;
-    state.client = c ? { id: c.deviceId, name: c.name, os: c.os, role: c.role, address: c.address, rttMs: c.rttMs } : null;
+    state.client = c ? { id: c.deviceId, name: c.name, os: c.os, role: c.role, address: c.address, rttMs: c.rttMs, transport: c.transport || 'ip' } : null;
+    if (svc && svc.net) {
+      const hs = c && settings.net.hotspots[c.deviceId];
+      state.net = { ...svc.net.view, ble: settings.net.ble !== false, radio: svc.ble.state, hotspotSsid: hs ? hs.ssid : '', hotspotSaved: !!(hs && hs.pass) };
+    }
     const { helper, displays, stream, clipboard: clip, kvm } = svc || {};
     state.helper.running = !!(helper && helper.running);
     if (displays) {
@@ -453,7 +459,7 @@ app.whenReady().then(() => {
   discovery.start();
   link = new Link(id, {
     canConnect: () => !server.current && !(pairing && pairing.pending) && !server.phoneHolds(),
-    resolve: (hostId) => discovery.get(hostId),
+    resolve: (hostId) => { const d = discovery.get(hostId); return d && !d.ble ? d : null; }, // a Mac host: on the network only
   });
   link.on('change', pushState);
   link.on('request', showWindow);
@@ -494,6 +500,7 @@ app.whenReady().then(() => {
   // The phone in Finder, through adb (the cable, else wireless debugging): only when Mount is clicked.
   svc.phoneDrive = new PhoneDrive({ adb: svc.phone.bridge.adb, bridge: svc.phone.bridge, phone: svc.phone });
   svc.phoneDrive.on('change', pushState);
+  setupNet();
   svc.kvm.local = svc.phone.bridge;
   const blockEdge = svc.kvm.blockEdge;
   svc.kvm.blockEdge = () => blockEdge() || svc.phoneViews.focused; // moving inside the phone window never crosses
@@ -562,6 +569,81 @@ app.whenReady().then(() => {
     if (missing && win && !win.isDestroyed() && win.isVisible()) refreshPermissions();
   }, 3000);
 });
+
+// Not on one network: the session through Bluetooth (this Mac advertises; phones and PCs connect),
+// and Wi-Fi for files and screens (netlink.js): this Mac joins the other side's Wi-Fi Direct group or
+// access point for a while, or, for a phone's screen, its hotspot (the banner asks for it).
+function setupNet() {
+  const { safeStorage } = require('electron');
+  svc.ble = new BleHost({
+    helper: svc.helper, server,
+    info: () => ({ id: id.macId, name: id.macName.slice(0, 40), os: P.OS.MAC, port: server.port, fp: id.fp }),
+    enabled: () => settings.net.ble !== false,
+  });
+  svc.ble.on('change', pushState);
+  discovery.extra = svc.ble;
+  const wifi = (cmd, args, ms) => svc.helper.request(cmd, args, ms);
+  svc.net = new NetLink({
+    os: P.OS.MAC,
+    send: (m) => peer.sendNow(m),
+    current: () => {
+      const c = peer.current;
+      return c && { deviceId: c.deviceId, os: c.os, role: c.role, transport: c.transport === 'ble' ? 'ble' : 'ip' };
+    },
+    host: null, // a Mac can't host a network others join while it stays on its own
+    join: {
+      can: () => true,
+      start: async (ssid, password) => {
+        await wifi('wifiLocation').catch(() => {}); // macOS shows scans only to apps with Location
+        await wifi('wifiJoin', { ssid, password }, 90000);
+      },
+      stop: () => wifi('wifiLeave', {}, 30000),
+    },
+    // A phone's screen goes through adb: on the phone's hotspot the Mac keeps the internet.
+    hotspot: (why, peerOs) => peerOs === P.OS.ANDROID && why !== 'files',
+  });
+  svc.net.on('change', () => {
+    if (svc.net.state === 'hotspot') showWindow();
+    pushState();
+  });
+  peer.hold = (m) => svc.net.holdOut(m, (x) => peer.sendNow(x));
+  peer.tap = (m) => svc.net.onMessage(m);
+  peer.on('client', () => svc.net.started());
+  peer.on('closed', () => svc.net.ended());
+  peer.on('transport', pushState);
+  // The phone's screen or an app window asked for while on Bluetooth: its hotspot, then the window.
+  let pendingView = null;
+  svc.phoneViews.onNoAdb = (v) => {
+    const c = peer.current;
+    if (!c || c.transport !== 'ble' || c.os !== P.OS.ANDROID) return false;
+    pendingView = v;
+    svc.net.need('phone').then((ok) => !ok && (pendingView = null));
+    return true;
+  };
+  svc.phone.bridge.on('change', () => {
+    if (!pendingView || !svc.phone.bridge.serial) return;
+    const v = pendingView;
+    pendingView = null;
+    if (v.kind === 'app') svc.phoneViews.openApp(v.app, v.title);
+    else svc.phoneViews.openScreen();
+  });
+  svc.phoneViews.on('change', () => {
+    if (!svc.phoneViews.list().length && !pendingView) svc.net.release('phone');
+  });
+  svc.pcView.on('change', () => !svc.pcView.isOpen && svc.net.release('view'));
+  svc.pcApps.on('change', () => {
+    const v = svc.pcApps.view;
+    if (!(v.windows || []).length) svc.net.release('apps');
+  });
+  svc.netSecret = {
+    seal: (s) => (safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(s).toString('base64') : `plain:${s}`),
+    open: (s) => {
+      if (!s) return '';
+      if (s.startsWith('plain:')) return s.slice(6);
+      try { return safeStorage.decryptString(Buffer.from(s, 'base64')); } catch { return ''; }
+    },
+  };
+}
 
 app.on('second-instance', showWindow);
 app.on('activate', showWindow);

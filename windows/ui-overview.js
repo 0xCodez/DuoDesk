@@ -21,6 +21,8 @@ UI.tab({
     const pcName = el('div', { class: 'hero-name' });
     const macName = el('div', { class: 'hero-name' });
     const status = el('div', { class: 'hero-status' });
+    const netCancel = UI.button('Cancel', () => api.netCancel(), 'small');
+    netCancel.hidden = true;
     const peerDev = el('div', { class: 'device mac' });
     const hero = el('div', { class: 'card hero' }, [
       el('div', { class: 'hero-devices' }, [
@@ -29,6 +31,7 @@ UI.tab({
         el('div', { class: 'hero-device' }, [peerDev, macName]),
       ]),
       status,
+      netCancel,
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab.
@@ -126,7 +129,8 @@ UI.tab({
       if (UI.phoneWall && p.phone) peerDev.style.setProperty('--phone-wall', UI.phoneWall);
       else peerDev.style.removeProperty('--phone-wall');
       linkLine.className = 'hero-link' + (connected ? ' up' : '');
-      linkText.textContent = connected ? (l.rtt != null ? l.rtt + ' ms' : 'Connected')
+      const ble = s.net && s.net.transport === 'ble';
+      linkText.textContent = connected ? (l.rtt != null ? l.rtt + ' ms' : 'Connected') + (ble ? ' · Bluetooth' : '')
         : s.pairing ? 'Pairing…' : s.paired ? 'Connecting…' : 'Not connected';
       const bad = l.state === 'identity_changed';
       status.textContent = bad ? 'This ' + p.kind + ' looks different now. Forget it and pair again.'
@@ -134,6 +138,14 @@ UI.tab({
           : s.peer ? 'Open TwinDesk on ' + s.peer.name + '.'
             : 'Pick a computer below, or connect by address.';
       status.classList.toggle('bad', bad);
+      // Moving the session to Wi-Fi (files, screens through Bluetooth: netlink.js)
+      const n = s.net || {};
+      const moving = { asking: 'Asking {name} for Wi-Fi…', hosting: 'Starting Wi-Fi Direct for {name}…', joining: 'Joining ' + (n.ssid || 'Wi-Fi') + '…', joined: 'On Wi-Fi with {name}' }[n.state];
+      if (connected && !bad && (moving || n.state === 'failed')) {
+        status.textContent = n.state === 'failed' ? n.error || 'Wi-Fi didn’t come up' : moving;
+        status.classList.toggle('bad', n.state === 'failed');
+      }
+      netCancel.hidden = !(connected && ['asking', 'hosting', 'joining'].includes(n.state));
 
       for (const r of m2p.concat(p2m)) r.update(s);
 

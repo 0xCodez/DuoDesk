@@ -46,6 +46,9 @@ const { PhoneDrive } = require('./phonedrive');
 const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
+const { BleHost, BleGuest } = require('../shared/blepipe.js');
+const { NetLink } = require('../shared/netlink.js');
+const { Wifi } = require('./wifi');
 const { normalize, apply: applySettings } = require('./settings');
 
 // Packaged: electron-builder's appId is the shortcut's AppUserModelID. In development Windows
@@ -112,6 +115,10 @@ let hostServer = null; // server.js, once the certificate exists
 let phone = null; // A phone as the peer: phone.js (its .bridge: phone-bridge.js)
 let phoneViews = null; // its screen and apps in windows here (phoneview.js)
 let phoneDrive = null; // its storage as a drive here (phonedrive.js)
+let bleHost = null; // Bluetooth, for devices not on this network: we host (blepipe.js)
+let bleGuest = null; // … we connect to a host
+let net = null; // Wi-Fi for a session through Bluetooth (netlink.js)
+let wfdCan = false; // this PC can host a Wi-Fi Direct network (helper wfdCaps)
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check
 // Started at sign-in (tray only), or by a pinned Mac app's shortcut (that app only).
@@ -238,6 +245,7 @@ function start() {
   pcApps = new PcApps({ link, helper, sender, settings, inputAllowed: () => kvm.mode === 'home', onChange: pushState });
   peerApps = new PeerApps({ link, settings, popup: (kind, text) => hud.show(kind, text), peerName, onChange: pushState });
   helper.on('exit', pushState);
+  setupNet(guest);
   helper.start();
   helper.once('ready', () => vdd.check()); // switches a virtual monitor left on by a crash off
   // New releases on GitHub: a notification once per version, the tray item and About › Updates.
@@ -253,6 +261,7 @@ function start() {
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, updates, settings, save: saveSettings, push: pushState, buildState,
     get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev,
+    get net() { return net; }, applyNet,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
@@ -281,6 +290,13 @@ async function startHost(guest) {
     pairing.on('request', showMain); // a code to compare: bring the window up
     link.attachHost(server, pairing);
     hostServer = server;
+    bleHost = new BleHost({
+      helper, server,
+      info: () => ({ id: device.id, name: device.name.slice(0, 40), os: P.OS.WIN, port: server.port, fp: id.fp }),
+      enabled: () => settings.net.ble,
+    });
+    bleHost.on('change', pushState);
+    discovery.extras.unshift(bleHost);
     server.on('phoneFree', () => { guest.poke(); pushState(); });
     startPhone(server, pairing);
   } catch (e) {
@@ -319,12 +335,96 @@ function startPhone(server, pairing) {
   phone.bridge.on('popup', (kind, text) => hud.show(kind, text));
   phoneViews = new PhoneViews({ bridge: phone.bridge, phone, getSettings: () => settings, server: pl, fileSend: fileDrop });
   phoneViews.on('change', pushState);
+  viaWifi(phoneViews, 'openScreen', 'phone');
+  viaWifi(phoneViews, 'openApp', 'phone');
   // A phone notification clicked here: its app in a window.
   notifs.onClick = (m) => pl.current && pl.current.os === P.OS.ANDROID && phoneViews.openNotified(m.app, m.appName);
   phoneViews.on('focus', () => kvm.applyConfig());
   kvm.local = phone.bridge; // driving a phone goes through adb
   kvm.blockEdge = () => phoneViews.focused; // moving inside the phone window never crosses
   pushState();
+}
+
+// ---- not on the same network: Bluetooth, and Wi-Fi when it's needed ----
+
+// The session through Bluetooth (blepipe.js) when the other device isn't on this network; files
+// and screens move it onto a Wi-Fi network one side hosts (netlink.js). This PC hosts with Wi-Fi
+// Direct (it keeps its own Wi-Fi) or joins the other side's (wifi.js). Nothing here runs with a
+// device that doesn't know about it: those never come through Bluetooth.
+function setupNet(guest) {
+  bleGuest = new BleGuest({ helper, hello: () => ({ id: device.id, name: device.name.slice(0, 40), os: P.OS.WIN }) });
+  bleGuest.on('change', pushState);
+  bleGuest.on('invite', () => { pushState(); showMain(); });
+  guest.ble = bleGuest;
+  discovery.extras.push(bleGuest);
+  const wifi = new Wifi();
+  helper.on('ready', () => {
+    applyNet();
+    helper.request('wfdCaps', {}, 15000).then((r) => { wfdCan = !!r.host; }, () => {});
+  });
+  net = new NetLink({
+    os: P.OS.WIN,
+    send: (m) => link.sendNow(m),
+    current: () => link.current,
+    host: {
+      can: () => wfdCan,
+      start: (ssid, pass) => helper.request('wfdHost', { ssid, pass }, 20000),
+      stop: () => helper.request('wfdStop', {}, 5000),
+    },
+    join: { can: () => wifi.can(), start: (ssid, pass) => wifi.join(ssid, pass), stop: () => wifi.leave() },
+    hotspot: null,
+  });
+  net.on('change', pushState);
+  link.hold = (m) => net.holdOut(m, (x) => link.sendNow(x));
+  link.tap = (m) => net.onMessage(m);
+  link.on('welcome', () => net.started());
+  link.on('closed', () => net.ended());
+  link.on('transport', () => { pushState(); screen.policy(); });
+  // Screens wait for Wi-Fi (WebRTC over Bluetooth would never work); each lets go when it closes.
+  const policy = screen.policy.bind(screen);
+  let screenWait = false;
+  screen.policy = () => {
+    if (!net.onBle || !screen.watching()) return policy();
+    if (screenWait) return;
+    screenWait = true;
+    waitWifi('screen', () => { screenWait = false; policy(); }, () => { screenWait = false; });
+  };
+  const setMode = pcScreen.setMode.bind(pcScreen);
+  pcScreen.setMode = (mode) => (mode !== 'off' && net.onBle ? waitWifi('share', () => setMode(mode)) : setMode(mode));
+  viaWifi(peerApps, 'launch', 'apps');
+  viaWifi(apps, 'launch', 'apps');
+  setInterval(() => {
+    if (!screen.watching()) net.release('screen');
+    if (pcScreen.mode === 'off') net.release('share');
+    if (!peerApps.view().open && !screen.watching()) net.release('apps');
+    if (phoneViews && !phoneViews.list().length) net.release('phone');
+    const near = settings.net.ble && link.snapshot().link.state !== 'connected' && !link.hosting;
+    bleGuest.scan(near); // looking for a host only while there's no session
+  }, 2000);
+}
+
+// Bluetooth on or off (General), or the helper restarted.
+function applyNet() {
+  if (bleHost) bleHost.apply();
+  if (bleGuest && !settings.net.ble) bleGuest.scan(false);
+  pushState();
+}
+
+// fn once the session is on Wi-Fi (now, if it isn't on Bluetooth); a popup if it can't be.
+function waitWifi(why, fn, failed) {
+  if (!net || !net.onBle) return fn();
+  hud.show('home', 'Moving to Wi-Fi with {name}…');
+  net.need(why).then((ok) => {
+    if (ok) return fn();
+    hud.show('home', net.error || 'Wi-Fi with {name} didn’t come up');
+    if (failed) failed();
+  });
+}
+
+// obj[method] waits for Wi-Fi first.
+function viaWifi(obj, method, why) {
+  const orig = obj[method].bind(obj);
+  obj[method] = (...args) => waitWifi(why, () => orig(...args));
 }
 
 // A phone found nearby: a paired one is asked to connect, any other to pair with this PC.
@@ -484,6 +584,7 @@ function buildState() {
     setup: { missing: miss, show: setupShows(miss) },
     phone: phone ? { ...phone.view, settings: settings.phone } : null,
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
+    net: { ...(net ? net.view : {}), ble: settings.net.ble, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
   };
 }
 
@@ -675,7 +776,7 @@ function updateTray(s = buildState()) {
       ...(found.length ? found.map((d) => ({ label: d.name + ' (' + kind(d.os) + ')', click: () => {
         if (d.os === P.OS.ANDROID) return connectPhoneDev(d);
         discovery.clearInvite(d.id);
-        link.startPairing({ address: d.address, port: d.port, macName: d.name });
+        link.startPairing({ address: d.address, port: d.port, macName: d.name, id: d.id });
         showMain();
       } })) : [{ label: 'Nobody nearby', enabled: false }]),
       { type: 'separator' },

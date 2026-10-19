@@ -86,6 +86,9 @@ const DEFAULT_SETTINGS = {
   // A phone as the peer: its screen window, apps and setup.
   phone: { sound: false, bitrateMbps: 8, maxSize: 0, wallpaper: true },
   mount: { on: false }, // the phone in Finder (phonedrive.js), only when Mount is clicked
+  // Not on one network: Bluetooth for the session (blepipe.js), Wi-Fi for files and screens
+  // (netlink.js). hotspots: {deviceId: {ssid, pass (safeStorage)}}, a phone's hotspot as typed once.
+  net: { ble: true, hotspots: {} },
 
   // The other computer's screen in a window here; framegen: shared/framegen.js.
   receive: { on: true, fullScreen: false, input: true, framegen: false },

@@ -148,6 +148,9 @@ select { padding: 3px 24px 3px 8px; border-radius: 6px; border: 1px solid var(--
 .code-label { color: var(--muted); margin-left: 8px; }
 .code { font-size: 22px; font-weight: 700; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
 .banner .hint { color: var(--muted); font-size: 12px; }
+.net-form { display: flex; gap: 8px; margin-top: 8px; }
+.net-form[hidden] { display: none; }
+.net-form input { flex: 1; min-width: 0; }
 .banner-actions { display: flex; gap: 8px; }
 
 /* ---------- motion ---------- */

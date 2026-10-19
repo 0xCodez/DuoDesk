@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 mkdir -p .build/release
 swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13.0" \
   -I Sources/VirtualDisplayBridge/include \
-  -framework CoreGraphics -framework AppKit -framework ApplicationServices -framework IOKit -framework ScreenCaptureKit -framework CoreMedia -framework NetFS -lsqlite3 \
+  -framework CoreGraphics -framework AppKit -framework ApplicationServices -framework IOKit -framework ScreenCaptureKit -framework CoreMedia -framework NetFS -framework CoreBluetooth -framework CoreWLAN -framework CoreLocation -lsqlite3 \
   Sources/macshare-helper/*.swift -o .build/release/macshare-helper
 echo "built .build/release/macshare-helper"
 swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13.0" -framework AppKit \

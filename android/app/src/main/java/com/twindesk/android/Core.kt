@@ -32,6 +32,10 @@ class Core private constructor(val ctx: Context) : Link.Events {
 
     val discovery = Discovery(ctx, { JSONObject().put("id", store.deviceId).put("name", store.deviceName) }, ::changed, ::onInvite)
     val link = Link(store, this)
+    // Computers that aren't on this phone's network, through Bluetooth (Ble.kt).
+    val ble = Ble(ctx, { JSONObject().put("id", store.deviceId).put("name", store.deviceName).put("os", Proto.OS) },
+        { id -> store.hosts().any { it.id == id } }, ::changed, ::onInvite)
+    val bleOn get() = store.flag("ble", true)
 
     // An unpaired computer asked us to pair (shown until acted on).
     @Volatile var invite: Found? = null; private set
@@ -55,7 +59,8 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val shortcuts = Shortcuts(this)
     val kvm = Kvm(this)
     val updates = Updates(this)
-    private val features: List<Feature> = listOf(sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, drive, screen, macSound, shortcuts, kvm)
+    val net = Netlink(this)
+    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, drive, screen, macSound, shortcuts, kvm)
 
     val host: Host? get() = if (link.connected) link.host else null
 
@@ -63,7 +68,36 @@ class Core private constructor(val ctx: Context) : Link.Events {
         discovery.start()
         Notify.channels(ctx)
         updates.start()
+        bg.scheduleWithFixedDelay({ runCatching { bleTick() }.onFailure { Log.e("TwinDesk", "ble", it) } }, 2, 2, TimeUnit.SECONDS)
     }
+
+    // Every 2 s: Bluetooth scans while it may be needed (not connected, or connected through it),
+    // and a session through Bluetooth moves onto the network as soon as the computer is seen there
+    // (the same Wi-Fi, or a group Netlink made).
+    private val resumeTried = HashMap<String, Long>()
+    private fun bleTick() {
+        ble.prune()
+        val want = bleOn && ble.allowed() && ble.radioOn && (!link.connected || link.ble)
+        ble.scan(want)
+        if (!bleOn && ble.found.isNotEmpty()) ble.stop()
+        val h = link.host
+        if (link.connected && !link.ble) screen.onWifi()
+        if (h == null || !link.connected || !link.ble || link.resuming) return
+        val f = discovery.found[h.id] ?: return
+        val now = System.currentTimeMillis()
+        if (now - (resumeTried[f.address] ?: 0) < 8000) return
+        resumeTried[f.address] = now
+        Log.i("TwinDesk", "${h.name} is on the network at ${f.address}: moving the session there")
+        link.resume(f.address, f.port)
+    }
+
+    // Computers near: on the network, then the ones only Bluetooth sees.
+    fun nearby(): List<Found> {
+        val net = discovery.list()
+        return net + ble.found.values.filter { b -> bleOn && net.none { it.id == b.id } }.sortedBy { it.name }
+    }
+
+    fun isNear(id: String) = discovery.found.containsKey(id) || (bleOn && ble.found.containsKey(id))
 
     // Wi-Fi out of power save while a screen streams either way (power save adds 50–200 ms bursts).
     private val wifiFast by lazy { WifiFast(ctx) }
@@ -75,7 +109,8 @@ class Core private constructor(val ctx: Context) : Link.Events {
         main.post { TwinService.refresh(ctx) }
     }
 
-    fun send(m: JSONObject): Boolean = link.send(m)
+    // Through Bluetooth, files wait for Wi-Fi (Netlink.holdOut).
+    fun send(m: JSONObject): Boolean = net.holdOut(m) || link.send(m)
 
     fun hosts(): List<Host> = store.hosts()
 
@@ -89,6 +124,15 @@ class Core private constructor(val ctx: Context) : Link.Events {
             h.address = seen.address
             h.port = seen.port
             store.putHost(h)
+        }
+        // Not on this network but near: through Bluetooth.
+        if (seen == null && bleOn && ble.get(h.id) != null) {
+            bg.execute {
+                val port = ble.open(h.id)
+                if (port != null) link.connect(h, blePort = port)
+                else if (h.address != "127.0.0.1") link.connect(h)
+            }
+            return
         }
         link.connect(h)
     }
@@ -123,6 +167,13 @@ class Core private constructor(val ctx: Context) : Link.Events {
     fun pair(f: Found) {
         invite = null
         discovery.clearInvite(f.id)
+        if (f.address.startsWith("ble:")) {
+            bg.execute {
+                val port = ble.open(f.id)
+                if (port != null) link.startPairing("127.0.0.1", port, f.name, viaBle = true)
+            }
+            return
+        }
         link.startPairing(f.address, f.port, f.name)
     }
 
@@ -145,8 +196,10 @@ class Core private constructor(val ctx: Context) : Link.Events {
         if (h != null) {
             Log.i("TwinDesk", "invite from ${f.name}: connecting")
             if (link.host?.id == h.id && (link.state == "connected" || link.state == "connecting")) return
-            h.address = f.address
-            h.port = f.port
+            if (!f.address.startsWith("ble:")) {
+                h.address = f.address
+                h.port = f.port
+            }
             connect(h)
             return
         }

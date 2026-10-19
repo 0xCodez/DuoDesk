@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // General tab: start with Windows, the switching popup, firewall self-check (+ Fix), wake from the
-// network, helper, the virtual display driver (Extend), this PC.
+// network, Bluetooth for devices not on this network, helper, the virtual display driver (Extend), this PC.
 'use strict';
 
 UI.tab({
@@ -28,6 +28,8 @@ UI.tab({
     const vddPill = el('span', { class: 'pill' });
     const vddInstall = UI.button('Install', () => api.installVdd(), 'small primary');
     const vddRow = UI.row('Virtual display driver', '', [vddPill, vddInstall]); // Share screen › Extend (vdd.js)
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth when not on the same network' });
+    const bleRow = UI.row('Bluetooth when not on the same network', '', [bleSw]);
     const deviceName = el('span', { class: 'value' });
     const deviceRow = UI.row('Computer name', 'How other computers see this one', [deviceName]);
 
@@ -36,7 +38,7 @@ UI.tab({
         UI.row('Start with Windows', '', [startup]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Network and sharing', [fwRow, wakeRow, sendToRow]),
+      UI.card('Network and sharing', [fwRow, wakeRow, sendToRow, bleRow]),
       UI.card('This computer', [deviceRow, helperRow, vddRow]),
     );
 
@@ -67,6 +69,12 @@ UI.tab({
       vddInstall.disabled = !!v.busy;
       vddRow.setHint(v.message ? v.message : v.installed ? 'Adds the extra screen for Share screen › Extend'
         : 'Needed for Share screen › Extend. Asks for administrator rights once');
+      const n = s.net || {};
+      bleSw.set(n.ble !== false);
+      bleRow.setHint(n.ble === false ? 'Only devices on this network connect'
+        : n.radio === 'off' ? 'Bluetooth is off in Windows settings'
+          : n.radio === 'unsupported' ? 'This PC’s Bluetooth can’t do it (needs Bluetooth LE)'
+            : 'A phone or computer nearby connects through Bluetooth; files and screens switch to Wi-Fi Direct for a moment');
       deviceName.textContent = s.device.name;
     };
   },

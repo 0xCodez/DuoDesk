@@ -27,6 +27,7 @@ data class PairState(
     val code: String = "",
     val error: String = "",
     val wired: Boolean = false, // through the USB cable: no code to compare, only Allow on the computer
+    val ble: Boolean = false, // through Bluetooth: the address is the pipe's, not the computer's
 )
 
 class Link(
@@ -48,6 +49,9 @@ class Link(
     @Volatile var rttMs: Long? = null; private set
     // On a USB cable: the computer's port reached through adb reverse on this device's 127.0.0.1.
     @Volatile var wired = false; private set
+    // Through Bluetooth (Ble.kt): the computer's port reached through a pipe on 127.0.0.1. After a
+    // resume onto the network (Core), false again, with the Bluetooth socket kept as the fallback.
+    @Volatile var ble = false; private set
     val connected get() = state == "connected"
 
     private val exec = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "td-link").apply { isDaemon = true } }
@@ -59,22 +63,47 @@ class Link(
     private var lastRx = 0L
     private var lastCode: String? = null
     private var pinger: ScheduledFuture<*>? = null
+    // Resume (hello {resume}): the session's other socket, and one being opened.
+    private var resumeKey = ""
+    private var alt: WebSocket? = null
+    private var altBle = false
+    private var pending: WebSocket? = null
+    private var pendingAddress = ""
+    private val lastRxOf = java.util.concurrent.ConcurrentHashMap<WebSocket, Long>()
     private var helloTimer: ScheduledFuture<*>? = null
 
     private fun run(block: () -> Unit) = exec.execute { try { block() } catch (e: Exception) { Log.e("TwinDesk", "link", e) } }
 
     // usbPort: connect through the cable (adb reverse) instead of the network; the host's own
     // address stays as it is, for when the cable comes out.
-    fun connect(h: Host, usbPort: Int = 0) = run {
+    // blePort: through a Bluetooth pipe on 127.0.0.1 instead.
+    fun connect(h: Host, usbPort: Int = 0, blePort: Int = 0) = run {
         val viaUsb = usbPort > 0
-        if (ws != null && host?.id == h.id && wired == viaUsb && (state == "connecting" || state == "connected")) return@run
+        val viaBle = blePort > 0
+        if (ws != null && host?.id == h.id && wired == viaUsb && ble == viaBle && (state == "connecting" || state == "connected")) return@run
         closeSocket()
         pair = null
         host = h
         wired = viaUsb
-        if (viaUsb) open("session", "127.0.0.1", usbPort, h.fp) else open("session", h.address, h.port, h.fp)
+        ble = viaBle
+        when {
+            viaUsb -> open("session", "127.0.0.1", usbPort, h.fp)
+            viaBle -> open("session", "127.0.0.1", blePort, h.fp)
+            else -> open("session", h.address, h.port, h.fp)
+        }
         setState("connecting", "")
     }
+
+    // The session is through Bluetooth and the computer is on the network now (the same one, or a
+    // Wi-Fi Direct group / hotspot just made for it): move it there without ending it.
+    fun resume(address: String, port: Int) = run {
+        val h = host ?: return@run
+        if (state != "connected" || !ble || resumeKey.isEmpty() || pending != null) return@run
+        pendingAddress = address
+        pending = socket("wss://$address:$port", h.fp)
+    }
+
+    val resuming get() = pending != null
 
     fun disconnect() = run {
         closeSocket()
@@ -84,12 +113,13 @@ class Link(
     // nonce: through the USB cable (WiredReceiver): pair.start carries it, which tells the computer
     // the request is from the phone on its cable, and the code is confirmed here without asking
     // (only the computer the phone allowed USB debugging for could have sent the nonce).
-    fun startPairing(address: String, port: Int, name: String, nonce: String = "") = run {
+    fun startPairing(address: String, port: Int, name: String, nonce: String = "", viaBle: Boolean = false) = run {
         closeSocket()
         host = null
         wired = false
+        ble = viaBle
         pairNonce = nonce
-        pair = PairState("connecting", address, port, name, wired = nonce.isNotEmpty())
+        pair = PairState("connecting", address, port, name, wired = nonce.isNotEmpty(), ble = viaBle)
         open("pair", address, port, null)
         events.onChange()
     }
@@ -126,7 +156,11 @@ class Link(
         nw = ""
         seenFp = ""
         lastCode = null
-        // Self-signed certificates: the fingerprint is the identity (pinned once paired).
+        ws = socket("wss://$address:$port", pinFp)
+    }
+
+    // Self-signed certificates: the fingerprint is the identity (pinned once paired).
+    private fun socket(url: String, pinFp: String?): WebSocket {
         val trust = object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
             override fun checkServerTrusted(chain: Array<out X509Certificate>, authType: String?) {
@@ -143,22 +177,76 @@ class Link(
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
-        val req = Request.Builder().url("wss://$address:$port").build()
-        ws = client.newWebSocket(req, Listener())
+        return client.newWebSocket(Request.Builder().url(url).build(), Listener())
+    }
+
+    // ---- the resume socket and the fallback ----
+
+    private fun gone(w: WebSocket, failure: String?) {
+        lastRxOf.remove(w)
+        when {
+            w === pending -> pending = null
+            w === alt -> { alt = null; events.onChange() }
+            w === ws -> if (!(state == "connected" && fallBack())) onClose(failure)
+        }
+    }
+
+    private fun onPendingOpen(w: WebSocket) {
+        val h = host ?: return
+        lastRxOf[w] = System.currentTimeMillis()
+        w.send(msg(Proto.T.HELLO, "v" to Proto.VERSION, "id" to store.deviceId, "name" to store.deviceName, "os" to Proto.OS, "token" to h.token, "resume" to resumeKey).toString())
+        exec.schedule({ if (pending === w) { pending = null; w.cancel() } }, Proto.TIMEOUT_MS, TimeUnit.MILLISECONDS)
+    }
+
+    // welcome {resumed}: the computer sends on the new socket from now on; so do we.
+    private fun promote(w: WebSocket) {
+        pending = null
+        alt?.cancel()
+        alt = ws
+        altBle = ble
+        ws = w
+        ble = false
+        host?.let { h ->
+            if (h.address != pendingAddress) { h.address = pendingAddress; store.putHost(h) }
+        }
+        Log.i("TwinDesk", "session moved to $pendingAddress")
+        events.onChange()
+    }
+
+    // The session's socket closed: carry on through the other one if it's still there.
+    private fun fallBack(): Boolean {
+        val a = alt ?: return false
+        alt = null
+        ws = a
+        ble = altBle
+        Log.i("TwinDesk", "session back on ${if (ble) "Bluetooth" else "the network"}")
+        events.onChange()
+        return true
     }
 
     private inner class Listener : WebSocketListener() {
-        override fun onOpen(webSocket: WebSocket, response: Response) = run { if (webSocket === ws) onOpen() }
-        override fun onMessage(webSocket: WebSocket, text: String) = run { if (webSocket === ws) onText(text) }
+        override fun onOpen(webSocket: WebSocket, response: Response) = run {
+            if (webSocket === ws) onOpen() else if (webSocket === pending) onPendingOpen(webSocket)
+        }
+        override fun onMessage(webSocket: WebSocket, text: String) = run {
+            lastRxOf[webSocket] = System.currentTimeMillis()
+            if (webSocket === pending) {
+                val m = runCatching { JSONObject(text) }.getOrNull()
+                if (m?.optString("t") == Proto.T.WELCOME && m.optBoolean("resumed")) promote(webSocket)
+                else { pending = null; webSocket.cancel() }
+            } else if (webSocket === ws || webSocket === alt) onText(text)
+        }
         // The computer closed it (Disconnect, Forget…): answer at once. OkHttp waits for us to,
         // and until then neither side saw the session end.
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) = run {
             webSocket.close(1000, null)
-            if (webSocket === ws) onClose(null)
+            gone(webSocket, null)
         }
-        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = run { if (webSocket === ws) onClose(null) }
+        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = run { gone(webSocket, null) }
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = run {
-            if (webSocket !== ws) return@run
+            if (webSocket !== ws) return@run gone(webSocket, t.message)
+            lastRxOf.remove(webSocket)
+            if (state == "connected" && fallBack()) return@run
             onClose(if (generateSequence(t) { it.cause }.any { it is CertificateException }) "identity" else t.message ?: "failed")
         }
     }
@@ -223,13 +311,15 @@ class Link(
         if (token.isEmpty() || id.isEmpty()) return pairFailed("The computer sent a bad pairing message.")
         // Through the cable the address is this phone's own end of adb reverse: the computer's
         // network address comes from discovery when it's seen (Core.connect), else the cable again.
-        val h = if (p.wired) Host(id, m.optString("macName").take(64).ifEmpty { p.name }, m.optString("os", "mac"), "127.0.0.1", Proto.PORT, seenFp, token, System.currentTimeMillis())
+        // Through Bluetooth likewise: no network address yet (Core keeps the pipe for it).
+        val h = if (p.wired || p.ble) Host(id, m.optString("macName").take(64).ifEmpty { p.name }, m.optString("os", "mac"), "127.0.0.1", Proto.PORT, seenFp, token, System.currentTimeMillis())
             else Host(id, m.optString("macName").take(64).ifEmpty { p.name }, m.optString("os", "mac"), p.address, p.port, seenFp, token, System.currentTimeMillis())
         store.putHost(h)
         pair = null
         mode = "session"
         host = h
         wired = p.wired
+        ble = p.ble
         setState("connecting", "")
         hello()
     }
@@ -242,11 +332,18 @@ class Link(
         h.lastSeen = System.currentTimeMillis()
         store.putHost(h)
         rttMs = null
+        resumeKey = m.optString("resume")
+        ws?.let { lastRxOf[it] = System.currentTimeMillis() }
+        // Each of the session's sockets on its own: a quiet fallback goes, the session lives on.
         pinger = exec.scheduleWithFixedDelay({
-            if (System.currentTimeMillis() - lastRx > Proto.TIMEOUT_MS) {
-                message = "Stopped answering"
-                ws?.cancel()
-            } else raw(msg(Proto.T.PING, "ts" to System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            for (w in listOfNotNull(ws, alt)) {
+                val limit = if (if (w === ws) ble else altBle) Proto.BLE_TIMEOUT_MS else Proto.TIMEOUT_MS
+                if (now - (lastRxOf[w] ?: lastRx) > limit) {
+                    if (w === ws && alt == null) message = "Stopped answering"
+                    w.cancel()
+                } else w.send(msg(Proto.T.PING, "ts" to now).toString())
+            }
         }, Proto.PING_MS, Proto.PING_MS, TimeUnit.MILLISECONDS)
         setState("connected", "")
         events.onWelcome(h)
@@ -280,10 +377,20 @@ class Link(
         events.onChange()
     }
 
+    private fun dropOthers() {
+        resumeKey = ""
+        alt?.cancel()
+        alt = null
+        pending?.cancel()
+        pending = null
+        lastRxOf.clear()
+    }
+
     private fun onClose(failure: String?) {
         pinger?.cancel(false)
         helloTimer?.cancel(false)
         ws = null
+        dropOthers()
         if (mode == "pair") {
             val p = pair
             if (p != null && p.phase != "failed") {
@@ -306,6 +413,7 @@ class Link(
         helloTimer?.cancel(false)
         val w = ws
         ws = null
+        dropOthers()
         val wasConnected = state == "connected"
         if (wasConnected) state = "idle"
         w?.close(1000, null)

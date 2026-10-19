@@ -1,0 +1,356 @@
+// TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+// Bluetooth LE, for a computer that isn't on this phone's network (shared/protocol.js P.BLE). The
+// computer advertises the TwinDesk service; we scan for it, read INFO (its beacon), and stay
+// connected to the ones we're paired with, saying hello on CTRL so the computer shows this phone
+// nearby and can invite it. The session goes through a pipe: a 127.0.0.1 port here (Link connects
+// its WSS there, as for the USB cable), whose bytes we write to UP and get back from DOWN. TLS, the
+// pinned certificate and the token are the session's own, end to end.
+package com.twindesk.android
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.ParcelUuid
+import android.util.Log
+import org.json.JSONObject
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.LinkedBlockingDeque
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
+
+@SuppressLint("MissingPermission") // every entry point checks allowed()
+class Ble(
+    private val ctx: Context,
+    private val hello: () -> JSONObject, // {id, name, os}
+    private val isPaired: (String) -> Boolean,
+    private val onChange: () -> Unit,
+    private val onInvite: (Found) -> Unit,
+) {
+    companion object {
+        val SERVICE: UUID = UUID.fromString("b7f30001-2c4e-4d1a-9a57-3e8c2f6d0a91")
+        val INFO: UUID = UUID.fromString("b7f30002-2c4e-4d1a-9a57-3e8c2f6d0a91")
+        val CTRL: UUID = UUID.fromString("b7f30003-2c4e-4d1a-9a57-3e8c2f6d0a91")
+        val UP: UUID = UUID.fromString("b7f30004-2c4e-4d1a-9a57-3e8c2f6d0a91")
+        val DOWN: UUID = UUID.fromString("b7f30005-2c4e-4d1a-9a57-3e8c2f6d0a91")
+        val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        const val STALE_MS = 20000L
+        const val RETRY_MS = 15000L // a computer we couldn't read: try it again after this
+
+        fun permissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31)
+            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    // Computers near: host id -> Found (address "ble:<mac>").
+    val found = ConcurrentHashMap<String, Found>()
+    @Volatile var scanning = false; private set
+    private val conns = ConcurrentHashMap<String, Conn>() // device MAC -> connection
+    private val tried = ConcurrentHashMap<String, Long>() // device MAC -> when we last connected to read it
+    private val manager get() = ctx.getSystemService(BluetoothManager::class.java)
+
+    fun allowed(): Boolean = permissions().all { ctx.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+    val radioOn: Boolean get() = runCatching { manager?.adapter?.isEnabled == true }.getOrDefault(false)
+
+    fun get(id: String): Found? = found[id]
+
+    // ---- scanning ----
+
+    private val scanCb = object : ScanCallback() {
+        override fun onScanResult(type: Int, r: ScanResult) = seen(r.device)
+        override fun onBatchScanResults(results: MutableList<ScanResult>) { for (r in results) seen(r.device) }
+        override fun onScanFailed(code: Int) { Log.w("TwinDesk", "ble: scan failed $code"); scanning = false }
+    }
+
+    fun scan(on: Boolean) {
+        if (on == scanning) return
+        val sc = runCatching { manager?.adapter?.bluetoothLeScanner }.getOrNull()
+        if (on) {
+            if (!allowed() || !radioOn || sc == null) return
+            val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(SERVICE)).build()
+            val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_POWER).build()
+            runCatching { sc.startScan(listOf(filter), settings, scanCb); scanning = true }.onFailure { Log.w("TwinDesk", "ble: scan: ${it.message}") }
+        } else {
+            scanning = false
+            runCatching { sc?.stopScan(scanCb) }
+        }
+    }
+
+    // An advertisement: a computer we know by its address stays fresh; a new one is read once.
+    private fun seen(d: BluetoothDevice) {
+        val mac = d.address
+        val f = found.values.find { it.address == "ble:$mac" }
+        if (f != null) {
+            found[f.id] = f.copy(lastSeen = System.currentTimeMillis())
+            if (isPaired(f.id) && conns[mac] == null) connect(d) // keep a link to paired computers (invites)
+            return
+        }
+        if (conns[mac] != null || System.currentTimeMillis() - (tried[mac] ?: 0) < RETRY_MS) return
+        tried[mac] = System.currentTimeMillis()
+        connect(d)
+    }
+
+    fun prune() {
+        val now = System.currentTimeMillis()
+        var changed = false
+        for ((id, f) in found) {
+            val mac = f.address.removePrefix("ble:")
+            if (now - f.lastSeen > STALE_MS && conns[mac]?.ready != true) { found.remove(id); changed = true }
+        }
+        if (changed) onChange()
+    }
+
+    // keep: stay connected even if not paired (pairing goes through the pipe).
+    private fun connect(d: BluetoothDevice, keep: Boolean = false) {
+        if (!allowed()) return
+        val c = Conn(d, keep)
+        conns[d.address] = c
+        c.start()
+    }
+
+    // A pipe to the computer with this id: the 127.0.0.1 port for the session's socket, or null.
+    fun open(id: String, timeoutMs: Long = 15000): Int? {
+        val f = found[id] ?: return null
+        val mac = f.address.removePrefix("ble:")
+        var c = conns[mac]
+        if (c == null) {
+            val d = runCatching { manager.adapter.getRemoteDevice(mac) }.getOrNull() ?: return null
+            connect(d, keep = true)
+            c = conns[mac] ?: return null
+        }
+        return c.openPipe(timeoutMs)
+    }
+
+    fun stop() {
+        scan(false)
+        for (c in conns.values) c.close()
+        conns.clear()
+        found.clear()
+    }
+
+    // ---- one computer ----
+
+    private inner class Conn(val dev: BluetoothDevice, val keep: Boolean) {
+        @Volatile var gatt: BluetoothGatt? = null
+        @Volatile var ready = false
+        @Volatile var hostId = ""
+        private var mtu = 23
+        private var ctrl: BluetoothGattCharacteristic? = null
+        private var up: BluetoothGattCharacteristic? = null
+        // GATT does one operation at a time: each waits for its callback.
+        private val ops = LinkedBlockingDeque<() -> Boolean>()
+        private val opDone = java.util.concurrent.Semaphore(0)
+        @Volatile private var alive = true
+        private val readyWait = java.util.concurrent.CountDownLatch(1)
+        // The pipe: its socket here, and whether the computer opened its end.
+        @Volatile private var sock: Socket? = null
+        @Volatile private var opened: java.util.concurrent.CountDownLatch? = null
+        private val upSlots = java.util.concurrent.Semaphore(16) // UP writes in flight
+
+        fun start() {
+            thread(name = "td-ble-ops", isDaemon = true) { opLoop() }
+            gatt = runCatching {
+                dev.connectGatt(ctx, false, cb, BluetoothDevice.TRANSPORT_LE)
+            }.getOrNull()
+            if (gatt == null) close()
+        }
+
+        private fun opLoop() {
+            while (alive) {
+                val op = ops.poll(1, TimeUnit.SECONDS) ?: continue
+                val started = runCatching { op() }.getOrDefault(false)
+                if (started && !opDone.tryAcquire(5, TimeUnit.SECONDS)) Log.w("TwinDesk", "ble: GATT op timed out")
+            }
+        }
+
+        private fun op(block: () -> Boolean) = ops.add(block)
+
+        private val cb = object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(g: BluetoothGatt, status: Int, state: Int) {
+                if (state == BluetoothProfile.STATE_CONNECTED) {
+                    op { g.requestMtu(517) }
+                } else if (state == BluetoothProfile.STATE_DISCONNECTED) close()
+            }
+
+            override fun onMtuChanged(g: BluetoothGatt, m: Int, status: Int) {
+                mtu = if (status == BluetoothGatt.GATT_SUCCESS) m else 23
+                opDone.release()
+                op { g.discoverServices() }
+            }
+
+            override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+                opDone.release()
+                val s = g.getService(SERVICE) ?: return close()
+                ctrl = s.getCharacteristic(CTRL)
+                up = s.getCharacteristic(UP)
+                val info = s.getCharacteristic(INFO) ?: return close()
+                op { g.readCharacteristic(info) }
+            }
+
+            @Deprecated("API < 33")
+            override fun onCharacteristicRead(g: BluetoothGatt, c: BluetoothGattCharacteristic, status: Int) {
+                @Suppress("DEPRECATION") onRead(g, c.value ?: ByteArray(0), status)
+            }
+
+            override fun onCharacteristicRead(g: BluetoothGatt, c: BluetoothGattCharacteristic, value: ByteArray, status: Int) = onRead(g, value, status)
+
+            override fun onCharacteristicWrite(g: BluetoothGatt, c: BluetoothGattCharacteristic, status: Int) {
+                if (c.uuid == UP) upSlots.release()
+                opDone.release()
+            }
+
+            override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) { opDone.release() }
+
+            @Deprecated("API < 33")
+            override fun onCharacteristicChanged(g: BluetoothGatt, c: BluetoothGattCharacteristic) {
+                @Suppress("DEPRECATION") onNotify(c.uuid, c.value ?: return)
+            }
+
+            override fun onCharacteristicChanged(g: BluetoothGatt, c: BluetoothGattCharacteristic, value: ByteArray) = onNotify(c.uuid, value)
+        }
+
+        private fun onRead(g: BluetoothGatt, value: ByteArray, status: Int) {
+            opDone.release()
+            val o = runCatching { JSONObject(String(value)) }.getOrNull()
+            val id = o?.optString("id").orEmpty()
+            if (status != BluetoothGatt.GATT_SUCCESS || id.isEmpty()) return close()
+            hostId = id
+            val os = o!!.optString("os", "mac")
+            val f = Found(id, o.optString("name").take(100).ifEmpty { "Computer" }, os, "ble:${dev.address}",
+                o.optInt("port", Proto.PORT), Proto.normFingerprint(o.optString("fp")), System.currentTimeMillis(), false)
+            val old = found[id]
+            found[id] = f
+            if (old == null || old.name != f.name || old.address != f.address) onChange()
+            if (!isPaired(id) && !keep) { close(); return } // listed for pairing; connected again for that
+            // Paired: listen on CTRL (invites) and DOWN (the pipe), and say who we are.
+            for (uuid in listOf(CTRL, DOWN)) {
+                val c = g.getService(SERVICE)?.getCharacteristic(uuid) ?: continue
+                g.setCharacteristicNotification(c, true)
+                val d = c.getDescriptor(CCCD) ?: continue
+                op { writeDescriptor(g, d, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+            }
+            ctrlWrite(hello().put("op", "hello"))
+            op { ready = true; readyWait.countDown(); false }
+        }
+
+        private fun onNotify(uuid: UUID, value: ByteArray) {
+            if (uuid == DOWN) {
+                val s = sock ?: return
+                runCatching { s.getOutputStream().write(value) }.onFailure { closePipe(false) }
+                return
+            }
+            if (uuid != CTRL) return
+            val o = runCatching { JSONObject(String(value)) }.getOrNull() ?: return
+            when (o.optString("op")) {
+                "invite" -> found[hostId]?.let { onInvite(it.copy(invited = true)) }
+                "closed" -> closePipe(false)
+            }
+        }
+
+        fun openPipe(timeoutMs: Long): Int? {
+            if (!readyWait.await(timeoutMs, TimeUnit.MILLISECONDS)) return null
+            closePipe(true)
+            val latch = java.util.concurrent.CountDownLatch(1)
+            opened = latch
+            val server = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
+            thread(name = "td-ble-pipe", isDaemon = true) {
+                val s = runCatching { server.soTimeout = timeoutMs.toInt(); server.accept() }.getOrNull()
+                runCatching { server.close() }
+                if (s == null) return@thread
+                s.tcpNoDelay = true
+                sock = s
+                gatt?.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH)
+                ctrlWrite(JSONObject().put("op", "open"))
+                pump(s)
+            }
+            return server.localPort
+        }
+
+        // The session's bytes to UP, in MTU-sized writes, at most upSlots in flight.
+        private fun pump(s: Socket) {
+            val buf = ByteArray(4096)
+            val max = (mtu - 3).coerceAtLeast(20)
+            val input = s.getInputStream()
+            while (alive && sock === s) {
+                val n = runCatching { input.read(buf) }.getOrDefault(-1)
+                if (n < 0) break
+                var i = 0
+                while (i < n) {
+                    val len = minOf(max, n - i)
+                    val chunk = buf.copyOfRange(i, i + len)
+                    i += len
+                    if (!upSlots.tryAcquire(10, TimeUnit.SECONDS)) { closePipe(true); return }
+                    op {
+                        val ok = writeRetry(up, chunk, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+                        if (!ok) { upSlots.release(); closePipe(true) } // a lost chunk breaks the TLS stream: start over
+                        ok
+                    }
+                }
+            }
+            if (sock === s) closePipe(true)
+        }
+
+        private fun ctrlWrite(o: JSONObject) {
+            val c = ctrl ?: return
+            val bytes = o.toString().toByteArray()
+            op { writeRetry(c, bytes, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) }
+        }
+
+        // Android refuses a write while its own buffers are full: try again for a moment.
+        private fun writeRetry(c: BluetoothGattCharacteristic?, v: ByteArray, type: Int): Boolean {
+            c ?: return false
+            repeat(50) {
+                val g = gatt ?: return false
+                if (writeChr(g, c, v, type)) return true
+                Thread.sleep(10)
+            }
+            return false
+        }
+
+        private fun closePipe(tell: Boolean) {
+            val s = sock ?: return
+            sock = null
+            runCatching { s.close() }
+            if (tell && alive) ctrlWrite(JSONObject().put("op", "close"))
+            gatt?.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_BALANCED)
+        }
+
+        fun close() {
+            if (!alive) return
+            alive = false
+            ready = false
+            runCatching { sock?.close() }
+            sock = null
+            runCatching { gatt?.disconnect(); gatt?.close() }
+            gatt = null
+            conns.remove(dev.address, this)
+            readyWait.countDown()
+        }
+
+        @Suppress("DEPRECATION")
+        private fun writeChr(g: BluetoothGatt, c: BluetoothGattCharacteristic, v: ByteArray, type: Int): Boolean =
+            if (Build.VERSION.SDK_INT >= 33) g.writeCharacteristic(c, v, type) == BluetoothGatt.GATT_SUCCESS
+            else { c.writeType = type; c.value = v; g.writeCharacteristic(c) }
+
+        @Suppress("DEPRECATION")
+        private fun writeDescriptor(g: BluetoothGatt, d: BluetoothGattDescriptor, v: ByteArray): Boolean =
+            if (Build.VERSION.SDK_INT >= 33) g.writeDescriptor(d, v) == BluetoothGatt.GATT_SUCCESS
+            else { d.value = v; g.writeDescriptor(d) }
+    }
+}

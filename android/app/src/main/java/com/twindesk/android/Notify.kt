@@ -27,6 +27,7 @@ object Notify {
     const val ID_PAIR = 5
     const val ID_UPDATE = 6
     const val ID_SCREEN = 7
+    const val ID_HOTSPOT = 8
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -102,7 +103,7 @@ object Notify {
             core.link.state == "connecting" -> b.setContentTitle("Connecting to ${core.link.host?.name ?: "your computer"}…")
             else -> {
                 b.setContentTitle("Ready for your computer")
-                val near = core.hosts().firstOrNull { core.discovery.found.containsKey(it.id) }
+                val near = core.hosts().firstOrNull { core.isNear(it.id) }
                 b.setContentText(if (near != null) "${near.name} is nearby" else "Open TwinDesk on your Mac to connect")
                 if (near != null) b.addAction(Notification.Action.Builder(null, "Connect to ${near.name}", action(ctx, ActionReceiver.CONNECT, 13, near.id)).build())
             }
@@ -125,6 +126,27 @@ object Notify {
     }
 
     fun cancelInvite(ctx: Context) = nm(ctx).cancel(ID_INVITE)
+
+    // The computer (a Mac, through Bluetooth) wants this phone's screen, which needs Wi-Fi: the
+    // hotspot, which only the person can switch on. Tap: the hotspot settings.
+    fun hotspot(ctx: Context, name: String) {
+        val settings = Intent("android.settings.TETHER_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val target = if (settings.resolveActivity(ctx.packageManager) != null) settings
+            else Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val open = PendingIntent.getActivity(ctx, 8, target, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        runCatching {
+            nm(ctx).notify(ID_HOTSPOT, Notification.Builder(ctx, CH_INVITE)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("Switch on the hotspot for $name")
+                .setContentText("$name isn’t on this phone’s network. Tap to open the hotspot, then type its name and password on $name.")
+                .setStyle(Notification.BigTextStyle().bigText("$name isn’t on this phone’s network. Tap to open the hotspot, then type its name and password on $name."))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build())
+        }
+    }
+
+    fun cancelHotspot(ctx: Context) = nm(ctx).cancel(ID_HOTSPOT)
 
     // A new release on GitHub (Updates): tap to download it in the browser.
     fun update(ctx: Context, latest: String, current: String) {

@@ -196,8 +196,10 @@ function setupIpc(ctx) {
       if (by !== 'apps' && ctx.apps) ctx.apps.autoShare = false;
       settings.sharing.on = !!on;
       save();
-      if (on) ctx.displays.applyVirtual().then(() => ctx.stream.restart('sharing on'));
+      // Through Bluetooth the picture needs Wi-Fi first (netlink.js); it starts once the session is on it.
+      if (on) ctx.net.need('share').then(() => settings.sharing.on && ctx.displays.applyVirtual().then(() => ctx.stream.restart('sharing on')));
       else {
+        ctx.net.release('share');
         ctx.stream.stop('off');
         ctx.input.releaseAll();
         ctx.displays.applyVirtual(); // removes the virtual display
@@ -356,16 +358,38 @@ function setupIpc(ctx) {
       ctx.pcApps.list();
     },
     openPcApp(id) {
-      ctx.pcApps.open(String(id));
+      ctx.net.need('apps').then(() => ctx.pcApps.open(String(id)));
     },
     keepPcAppInDock(id) {
       ctx.pcApps.keepInDock(String(id));
     },
     showPcView() {
-      ctx.pcView.show();
+      ctx.net.need('view').then(() => ctx.pcView.show());
     },
     closePcView() {
       ctx.pcView.close();
+      ctx.net.release('view');
+    },
+    // Bluetooth when not on one network (netlink.js, blepipe.js).
+    setNet(partial) {
+      if (typeof partial.ble === 'boolean') settings.net.ble = partial.ble;
+      save();
+      ctx.ble.apply();
+    },
+    // The banner: the phone's hotspot is on; join it (remembered for that phone).
+    netJoinHotspot(arg) {
+      const c = ctx.server.current;
+      const ssid = String((arg && arg.ssid) || '').trim().slice(0, 32);
+      let pass = String((arg && arg.pass) || '').slice(0, 63);
+      const saved = c && settings.net.hotspots[c.deviceId];
+      if (!pass && saved && saved.ssid === ssid) pass = ctx.netSecret.open(saved.pass);
+      if (!ssid || !c) return;
+      settings.net.hotspots[c.deviceId] = { ssid, pass: pass ? ctx.netSecret.seal(pass) : '' };
+      save();
+      ctx.net.joinHotspot(ssid, pass);
+    },
+    netCancel() {
+      ctx.net.cancel();
     },
     setAudio(partial) {
       setGroup('audio', partial);

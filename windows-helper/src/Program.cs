@@ -80,9 +80,11 @@ namespace MacShare
             {
                 string l = line;
                 if (l.Trim().Length == 0) continue;
+                if (Net.Handle(l)) continue; // Bluetooth / Wi-Fi Direct: on this thread (Net.cs)
                 invoker.BeginInvoke((MethodInvoker)delegate { Dispatch(l); });
             }
             // stdin closed: main is gone. Give the user their input back and exit.
+            Net.Shutdown();
             invoker.BeginInvoke((MethodInvoker)delegate
             {
                 capture.Shutdown();
