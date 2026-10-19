@@ -65,21 +65,39 @@ class Direct(private val ctx: Context) {
         return ok
     }
 
+    private val wifi get() = ctx.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
+
+    // Wi-Fi off: Wi-Fi Direct can't work (Android answers "busy"). Ask the person to switch it on
+    // (a notification, or the Wi-Fi panel if TwinDesk is open) and wait for it.
+    private fun ensureWifi(name: String) {
+        if (wifi?.isWifiEnabled == true) return
+        Log.i("TwinDesk", "direct: Wi-Fi is off, asking for it")
+        Notify.wifiOff(ctx, name)
+        repeat(90) {
+            if (wifi?.isWifiEnabled == true) { Notify.cancelWifiOff(ctx); Thread.sleep(1500); return } // P2P comes up a moment after Wi-Fi
+            Thread.sleep(500)
+        }
+        Notify.cancelWifiOff(ctx)
+        throw Exception("Wi-Fi is off on the phone")
+    }
+
     private fun config(ssid: String, pass: String) = WifiP2pConfig.Builder()
         .setNetworkName(ssid).setPassphrase(pass).enablePersistentMode(false)
         .setGroupOperatingBand(WifiP2pConfig.GROUP_OWNER_BAND_AUTO).build()
 
     // Blocking (a background thread): throws with why when it can't.
-    fun host(ssid: String, pass: String) {
+    fun host(ssid: String, pass: String, name: String = "The computer") {
         if (!can()) throw Exception(if (!supported()) "no Wi-Fi Direct" else "Nearby devices not allowed")
+        ensureWifi(name)
         await("remove") { mgr!!.removeGroup(ch!!, it) }
         await("create") { mgr!!.createGroup(ch!!, config(ssid, pass), it) }?.let { throw Exception(it) }
         repeat(30) { if (groupUp(true)) return; Thread.sleep(500) }
         throw Exception("the group didn’t start")
     }
 
-    fun join(ssid: String, pass: String) {
+    fun join(ssid: String, pass: String, name: String = "The computer") {
         if (!can()) throw Exception(if (!supported()) "no Wi-Fi Direct" else "Nearby devices not allowed")
+        ensureWifi(name)
         await("remove") { mgr!!.removeGroup(ch!!, it) }
         await("connect") { mgr!!.connect(ch!!, config(ssid, pass), it) }?.let { throw Exception(it) }
         repeat(60) { if (groupUp(false)) return; Thread.sleep(500) }
@@ -232,7 +250,7 @@ class Netlink(core: Core) : Feature(core) {
         set("hosting", "")
         armDeadline()
         try {
-            direct.host(ssid, pass)
+            direct.host(ssid, pass, core.host?.name ?: "The computer")
         } catch (e: Exception) {
             core.link.send(msg(Proto.T.NET_JOIN, "error" to (e.message ?: "failed")))
             return fail("Couldn’t start Wi-Fi Direct: ${e.message}")
@@ -247,7 +265,7 @@ class Netlink(core: Core) : Feature(core) {
         set("joining", "")
         armDeadline()
         try {
-            direct.join(s, p)
+            direct.join(s, p, core.host?.name ?: "The computer")
         } catch (e: Exception) {
             core.link.send(msg(Proto.T.NET_JOINED, "ok" to false, "error" to (e.message ?: "failed")))
             return fail("Couldn’t join $s: ${e.message}")

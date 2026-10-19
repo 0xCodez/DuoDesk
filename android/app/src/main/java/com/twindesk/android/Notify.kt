@@ -8,6 +8,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.os.Build
 import android.content.Intent
 import android.net.Uri
 
@@ -28,6 +29,7 @@ object Notify {
     const val ID_UPDATE = 6
     const val ID_SCREEN = 7
     const val ID_HOTSPOT = 8
+    const val ID_WIFI = 9
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -147,6 +149,28 @@ object Notify {
     }
 
     fun cancelHotspot(ctx: Context) = nm(ctx).cancel(ID_HOTSPOT)
+
+    // Wi-Fi Direct needs Wi-Fi on (no network needed), and Android doesn't let apps switch it on.
+    fun wifiOff(ctx: Context, name: String) {
+        val panel = Intent(if (Build.VERSION.SDK_INT >= 29) android.provider.Settings.Panel.ACTION_WIFI else android.provider.Settings.ACTION_WIFI_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val open = PendingIntent.getActivity(ctx, 9, panel, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val text = "Files and screens with $name go over a direct Wi-Fi link. Tap to switch Wi-Fi on; it doesn’t need to join a network."
+        runCatching {
+            nm(ctx).notify(ID_WIFI, Notification.Builder(ctx, CH_INVITE)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("Switch on Wi-Fi for $name")
+                .setContentText(text)
+                .setStyle(Notification.BigTextStyle().bigText(text))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build())
+        }
+        // TwinDesk on screen: the Wi-Fi panel straight away (Android ignores this from the background).
+        runCatching { ctx.startActivity(panel) }
+    }
+
+    fun cancelWifiOff(ctx: Context) = nm(ctx).cancel(ID_WIFI)
 
     // A new release on GitHub (Updates): tap to download it in the browser.
     fun update(ctx: Context, latest: String, current: String) {
