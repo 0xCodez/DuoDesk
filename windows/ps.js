@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Run PowerShell scripts: normally, or elevated (one UAC prompt, waits for it to finish). Each
-// script goes in a .ps1 file in temp, run with -File, so nothing needs quoting. Not -EncodedCommand:
+// script goes in a .ps1 file in temp, run with -File, so nothing needs quoting. Not as an encoded command:
 // base64 PowerShell is what droppers use, and antivirus heuristics flag the app for it.
 const { execFile } = require('child_process');
 const crypto = require('crypto');
