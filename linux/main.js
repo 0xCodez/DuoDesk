@@ -291,12 +291,18 @@ async function startHost(guest, tries = 0) {
     link.attachHost(server, pairing);
     hostServer = server;
     server.on('phoneFree', () => { guest.poke(); pushState(); });
-    startPhone(server, pairing);
   } catch (e) {
     console.error('[host]', e.message);
     link.host = { on: false, error: 'No certificate: ' + e.message };
     pushState();
     if (tries < 5) setTimeout(() => startHost(guest, tries + 1), 15000); // a busy computer at login: try again
+    return;
+  }
+  // Outside the retry: the server already holds the port, a second one would only find it in use.
+  try {
+    startPhone(hostServer, link.pairing);
+  } catch (e) {
+    console.error('[phone]', e.message);
   }
 }
 

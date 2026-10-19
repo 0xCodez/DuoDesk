@@ -32,6 +32,7 @@ class Server extends EventEmitter {
     this.https = https.createServer({ key, cert });
     this.wss = new WebSocketServer({ server: this.https, maxPayload: P.MAX_PAYLOAD });
     this.wss.on('connection', (ws, req) => this._onConnection(ws, req));
+    this.wss.on('error', () => {}); // ws repeats the server's errors here; listenError below reports them
     this.https.on('error', (err) => this.emit('listenError', err)); // e.g. EADDRINUSE: another copy listens
     this.port = LISTEN_PORT;
     this.https.listen(LISTEN_PORT, '0.0.0.0', () => this.emit('listening'));
