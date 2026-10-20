@@ -64,7 +64,8 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val kvm = Kvm(this)
     val updates = Updates(this)
     val net = Netlink(this)
-    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, input, drive, screen, macSound, shortcuts, kvm)
+    val hub = Hub(this) // Calls, Messages and Photos on the computer: nothing runs until one is on
+    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, input, drive, screen, macSound, shortcuts, kvm, hub)
 
     val host: Host? get() = if (link.connected) link.host else null
 

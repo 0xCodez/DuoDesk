@@ -268,7 +268,7 @@ function start() {
   });
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, updates, settings, save: saveSettings, push: pushState, buildState,
-    get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev,
+    get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev, hub: loadHub,
     get net() { return net; }, applyNet,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
@@ -323,6 +323,7 @@ async function startHost(guest) {
 function startPhone(server, pairing) {
   const pl = new PhoneLink(link, server);
   phone = new Phone({ server: pl, raw: server, discovery, pairing });
+  setupHub(pl);
   phone.on('change', pushState);
   // The phone's Keyboard page names this PC's hotkey (double-tap = everything back here).
   pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && pl.sendToClient({ t: 'phone.mac', hotkey: P.hotkeyName(settings.keys.hotkey || P.HOTKEY_WIN, 'win') }));
@@ -355,6 +356,38 @@ function startPhone(server, pairing) {
   kvm.local = phone.bridge; // driving a phone goes through adb
   kvm.blockEdge = () => phoneViews.focused; // moving inside the phone window never crosses
   pushState();
+}
+
+// Calls, Messages and Photos from a phone (shared/phonehub.js): loaded when a phone connects with
+// one of them on, or the first time a page uses it. Before that none of it exists: no module, no
+// listener, nothing sent to the phone. The call window (shared/callwin.js) only with a call.
+let hub = null;
+let phoneLink = null; // phone-link.js, the phone's session (startPhone)
+let callwin = null;
+function setupHub(pl) {
+  phoneLink = pl;
+  const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media;
+  pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && !hub && anyOn() && loadHub());
+}
+
+function loadHub() {
+  if (hub || !phoneLink) return hub || { act() {} };
+  const { PhoneHub } = require('../shared/phonehub.js');
+  hub = new PhoneHub({
+    server: phoneLink, getSettings: () => settings, save: saveSettings,
+    audio: (opts) => require('./callaudio.js').create({ helper, ...opts }), // the calls' sound over Bluetooth
+  });
+  hub.on('change', pushState);
+  hub.on('data', (m) => mainWin && !mainWin.isDestroyed() && mainWin.webContents.send('hub', m));
+  const popup = () => {
+    if (!callwin && !hub.call) return;
+    callwin = callwin || require('../shared/callwin.js');
+    callwin.update(hub, { corner: 'bottom', open: goTab });
+  };
+  hub.on('call', popup);
+  hub.on('change', popup);
+  if (phoneLink.current && phoneLink.current.os === P.OS.ANDROID) hub.started();
+  return hub;
 }
 
 // ---- not on the same network: Bluetooth, and Wi-Fi when it's needed ----
@@ -610,6 +643,8 @@ function buildState() {
     setup: { missing: miss, show: setupShows(miss) },
     phone: phone ? { ...phone.view, settings: settings.phone } : null,
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
+    // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
+    hub: { ...(hub ? hub.view : { ...settings.hub, connected: false }), paired: phone ? phone.pairing.list().some((p) => p.os === P.OS.ANDROID) : false },
     net: { ...(net ? net.view : {}), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
   };
 }
@@ -834,6 +869,8 @@ app.on('before-quit', () => {
   if (wired) wired.stop();
   if (phoneDrive) phoneDrive.shutdown();
   if (phone) phone.bridge.adb.killServer();
+  if (hub && hub.audio) hub.audio.stop(); // the phone's calls go back to it
+  if (callwin) callwin.close();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
 });
 

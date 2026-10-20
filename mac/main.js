@@ -61,7 +61,7 @@ const { Peer } = require('./peer');
 const { Server } = require('./server');
 const { Pairing } = require('./pairing');
 const { startServices } = require('./services');
-const { setupIpc } = require('./ipc');
+const { setupIpc, TABS } = require('./ipc');
 const login = require('./login');
 const { Hud } = require('./hud');
 const { PairSync } = require('./pairsync');
@@ -219,6 +219,8 @@ function pushState() {
     if (svc) state.wake = svc.wake.view;
     if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone };
     if (svc && svc.phoneDrive) state.mount = { ...svc.phoneDrive.view, on: !!settings.mount.on };
+    // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
+    state.hub = { ...(svc && svc.hub ? svc.hub.view : { ...settings.hub, connected: false }), paired: !!(pairing && pairing.list().some((p) => p.os === P.OS.ANDROID)) };
     if (updates) state.updates = updates.view;
     if (pairSync) pairSync.check();
     sendScreenState();
@@ -519,6 +521,7 @@ app.whenReady().then(() => {
   svc.phoneDrive = new PhoneDrive({ adb: svc.phone.bridge.adb, bridge: svc.phone.bridge, phone: svc.phone });
   svc.phoneDrive.on('change', pushState);
   setupNet();
+  setupHub();
   svc.kvm.local = svc.phone.bridge;
   const blockEdge = svc.kvm.blockEdge;
   svc.kvm.blockEdge = () => blockEdge() || svc.phoneViews.focused; // moving inside the phone window never crosses
@@ -547,7 +550,7 @@ app.whenReady().then(() => {
     },
   });
   updates.start();
-  actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions, updates });
+  actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, hub: loadHub, login, refreshPermissions, updates });
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
   hud = new Hud(() => settings);
   svc.kvm.on('where', (mode) => {
@@ -681,6 +684,43 @@ function setupNet() {
   };
 }
 
+// Calls, Messages and Photos from a phone (shared/phonehub.js): loaded when a phone connects with
+// one of them on, or the first time a page uses it. Before that none of it exists: no module, no
+// listener, nothing sent to the phone. The call window (shared/callwin.js) only with a call.
+function setupHub() {
+  const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media;
+  peer.on('client', (ctx) => ctx.os === P.OS.ANDROID && !svc.hub && anyOn() && loadHub());
+}
+
+let callwin = null;
+function loadHub() {
+  if (svc.hub) return svc.hub;
+  const { PhoneHub } = require('../shared/phonehub.js');
+  const hub = new PhoneHub({
+    server: peer, getSettings: () => settings, save: () => store.saveSettings(settings),
+    audio: (opts) => require('./callaudio.js').create({ helper: svc.helper, ...opts }), // the calls' sound over Bluetooth
+  });
+  svc.hub = hub;
+  hub.on('change', pushState);
+  hub.on('data', (m) => win && !win.isDestroyed() && win.webContents.send('hub', m));
+  const popup = () => {
+    if (!callwin && !hub.call) return;
+    callwin = callwin || require('../shared/callwin.js');
+    callwin.update(hub, { corner: 'top', open: goTab });
+  };
+  hub.on('call', popup);
+  hub.on('change', popup);
+  if (peer.current && peer.current.os === P.OS.ANDROID) hub.started();
+  return hub;
+}
+
+// The window on one page (the call window's name opens Calls).
+function goTab(tab) {
+  if (TABS.includes(tab)) settings.ui.tab = tab; // a window made now opens there
+  showWindow();
+  if (win && !win.isDestroyed()) win.webContents.send('go', tab);
+}
+
 app.on('second-instance', showWindow);
 app.on('activate', showWindow);
 app.on('window-all-closed', () => {}); // keep running in the menu bar
@@ -692,6 +732,8 @@ app.on('before-quit', () => {
   quitting = true;
   if (svc && svc.phoneViews) svc.phoneViews.shutdown();
   if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();
+  if (svc && svc.hub && svc.hub.audio) svc.hub.audio.stop(); // the phone's calls go back to it
+  if (callwin) callwin.close();
   if (svc && svc.wired) svc.wired.stop();
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input
   if (discovery) discovery.stop();

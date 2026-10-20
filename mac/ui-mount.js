@@ -5,6 +5,7 @@
 
 UI.tab({
   id: 'mount',
+  wifiOnly: true, // over Bluetooth it can't work and doesn't move the session onto Wi-Fi: greyed out
   group: 'Share',
   order: 55,
   title: 'Mount',

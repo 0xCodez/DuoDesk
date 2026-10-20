@@ -20,6 +20,7 @@ object Notify {
     const val CH_COMPUTER = "computer"
     const val CH_UPDATES = "updates"
     const val CH_SCREEN = "screen"
+    const val CH_ASK = "ask"
 
     const val ID_LINK = 1
     const val ID_INVITE = 2
@@ -31,6 +32,7 @@ object Notify {
     const val ID_HOTSPOT = 8
     const val ID_WIFI = 9
     const val ID_INPUT = 10
+    const val ID_HUB_ASK = 11
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -191,6 +193,29 @@ object Notify {
     }
 
     fun cancelInput(ctx: Context) = nm(ctx).cancel(ID_INPUT)
+
+    // The computer's Allow for Calls, Messages or Photos, when the prompt can't open by itself
+    // (no "Display over other apps"): tap for Android's prompt. Its channel is made the first time.
+    fun hubAsk(ctx: Context, what: String, name: String) {
+        val open = PendingIntent.getActivity(ctx, 11, Intent(ctx, PermActivity::class.java).putExtra("what", what).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val text = "$name asks to use ${Hub.label(what)} from this phone. Tap to allow it."
+        runCatching {
+            nm(ctx).createNotificationChannel(NotificationChannel(CH_ASK, "Requests from your computer", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Your computer asks for access it needs (Calls, Messages, Photos)"
+            })
+            nm(ctx).notify(ID_HUB_ASK, Notification.Builder(ctx, CH_ASK)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("Allow ${Hub.label(what)} for $name")
+                .setContentText(text)
+                .setStyle(Notification.BigTextStyle().bigText(text))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build())
+        }
+    }
+
+    fun cancelHubAsk(ctx: Context) = runCatching { nm(ctx).cancel(ID_HUB_ASK) }.let { }
 
     // A new release on GitHub (Updates): tap to download it in the browser.
     fun update(ctx: Context, latest: String, current: String) {

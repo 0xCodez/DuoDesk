@@ -3,7 +3,7 @@
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
-const TABS = ['phone', 'overview', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
@@ -33,6 +33,7 @@ function normalize(s) {
   const wk = s.wake || {};
   const ph = s.phone || {};
   const mt = s.mount || {};
+  const hub = s.hub || {};
   return {
     rev: 8, // settings revision (upgrades in normalize, like the Mac's store.js)
     kvm: {
@@ -123,6 +124,12 @@ function normalize(s) {
       wallpaper: bool(ph.wallpaper, true),
     },
     mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked
+    // Calls, Messages and Photos from a phone (shared/phonehub.js), each off until switched on.
+    // callAudio: the calls' sound here over Bluetooth; btDevice: which paired phone, when several.
+    hub: {
+      calls: bool(hub.calls, false), messages: bool(hub.messages, false), media: bool(hub.media, false),
+      callAudio: bool(hub.callAudio, true), btDevice: typeof hub.btDevice === 'string' ? hub.btDevice.slice(0, 64) : '',
+    },
     macApps: { on: bool(mca.on, true) }, // The other computer's apps open here (pair.sync 'apps' in) // The Mac may open this PC's apps (it shows them only if it accepts)
     // Setup screen: shown once. done: everything was ready, or 'Skip for now' was pressed; after that
     // General and Display show what's missing (a firewall that changes with the network, a helper

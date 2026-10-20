@@ -87,6 +87,9 @@ const DEFAULT_SETTINGS = {
   // A phone as the peer: its screen window, apps and setup.
   phone: { sound: false, bitrateMbps: 8, maxSize: 0, wallpaper: true, input: 'adb' }, // input: 'adb' | 'phone' (phone-bridge.js ctl)
   mount: { on: false }, // the phone in Finder (phonedrive.js), only when Mount is clicked
+  // Calls, Messages and Photos from a phone (shared/phonehub.js), each off until switched on.
+  // callAudio: the calls' sound on this Mac over Bluetooth; btDevice: which paired phone, when several.
+  hub: { calls: false, messages: false, media: false, callAudio: true, btDevice: '' },
   // Not on one network: Bluetooth for the session (blepipe.js), Wi-Fi for files and screens
   // (netlink.js). hotspots: {deviceId: {ssid, pass (safeStorage)}}, a phone's hotspot as typed once.
   net: { ble: true, hotspots: {} },
@@ -102,7 +105,7 @@ function loadSettings() {
   const s = read('settings.json', {});
   if (s.sharing) s.sharing.on = false; // screen sharing never starts by itself
   const out = { ...DEFAULT_SETTINGS, ...s };
-  for (const k of ['wake', 'sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs', 'updates', 'phone', 'mount']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
+  for (const k of ['wake', 'sharing', 'virtual', 'kvm', 'keys', 'clipboard', 'ui', 'app', 'audio', 'terminal', 'files', 'smb', 'apps', 'receive', 'papps', 'notifs', 'updates', 'phone', 'mount', 'hub']) out[k] = { ...DEFAULT_SETTINGS[k], ...(s[k] || {}) };
   if (s.ui && s.ui.setupSkipped && s.ui.setupDone === undefined) out.ui.setupDone = true;
   if ((s.rev || 0) < 7) { // Clipboard instant by default
     out.clipboard.mode = 'instant';

@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('macshare', {
   getState: call('getState'),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onGo: (fn) => ipcRenderer.on('go', (_e, tab) => fn(tab)),
+  hub: call('hub'), // Calls, Messages and Photos (shared/phonehub.js)
+  onHub: (fn) => ipcRenderer.on('hub', (_e, m) => fn(m)), // the phone's answers for them
   pair: call('pair'),
   connectAddress: call('connectAddress'),
   refreshFound: call('refreshFound'),

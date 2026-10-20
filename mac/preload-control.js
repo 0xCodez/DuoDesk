@@ -11,13 +11,15 @@ const ACTIONS = [
   'keepPcAppInDock', 'sendFiles', 'chooseSendFiles', 'setNotifs', 'muteNotifApp', 'allowFullDisk',
   'connectAddress', 'pairWith', 'confirmGuestCode', 'cancelGuestPair', 'forgetHost', 'refreshDiscovery', 'copyText', 'allowPermission', 'skipSetup',
   'connectPhone', 'disconnectPhone', 'disconnect', 'connectAgain', 'setPhone', 'phonePair', 'phoneScreen', 'phoneOpenApp', 'phoneCloseView', 'phoneRetry', 'phoneInstallFull', 'phoneMount', 'phoneUnmount', 'setMount', 'phoneAppMenu',
-  'setUpdates', 'checkUpdates', 'openUpdate', 'openLink', 'setNet', 'netJoinHotspot', 'netCancel', 'netWifi',
+  'setUpdates', 'checkUpdates', 'openUpdate', 'openLink', 'setNet', 'netJoinHotspot', 'netCancel', 'netWifi', 'hub',
 ];
 
 const api = {
   getState: () => ipcRenderer.invoke('getState'),
   phoneAssets: () => ipcRenderer.invoke('phoneAssets'),
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
+  onHub: (fn) => ipcRenderer.on('hub', (_e, m) => fn(m)), // the phone's answers for Calls, Messages and Photos
+  onGo: (fn) => ipcRenderer.on('go', (_e, tab) => fn(tab)), // show a page (the call window's Calls)
   pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files -> paths
 };
 for (const name of ACTIONS) api[name] = (arg) => ipcRenderer.send(name, arg);

@@ -86,6 +86,27 @@ object Proto {
         const val NET_RELEASE = "net.release"
         const val NET_HOTSPOT = "net.hotspot"
         const val DRAG_START = "drag.start"
+        // Calls, Messages and Media on the computer (Hub.kt, shared/phonehub.js)
+        const val HUB_POLICY = "hub.policy"
+        const val HUB_STATE = "hub.state"
+        const val HUB_ASK = "hub.ask"
+        const val HUB_SET = "hub.set"
+        const val HUB_BT = "hub.bt"
+        const val CALL_STATE = "call.state"
+        const val CALL_DO = "call.do"
+        const val CALL_DONE = "call.done"
+        const val CALL_LOG = "call.log"
+        const val CONTACTS = "contacts"
+        const val SMS_THREADS = "sms.threads"
+        const val SMS_THREAD = "sms.thread"
+        const val SMS_PART = "sms.part"
+        const val SMS_SEND = "sms.send"
+        const val SMS_SENT = "sms.sent"
+        const val SMS_NEW = "sms.new"
+        const val MEDIA_LIST = "media.list"
+        const val MEDIA_THUMB = "media.thumb"
+        const val MEDIA_VIEW = "media.view"
+        const val MEDIA_SAVE = "media.save"
     }
 
     object E {

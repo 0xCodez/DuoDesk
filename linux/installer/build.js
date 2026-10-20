@@ -49,15 +49,11 @@ async function main() {
   console.log('Staging…');
   fs.rmSync(STAGE, { recursive: true, force: true });
   copy(LIN, path.join(STAGE, 'linux'), (name) => !SKIP.has(name));
-  copy(path.join(ROOT, 'shared', 'protocol.js'), path.join(STAGE, 'shared', 'protocol.js'));
-  copy(path.join(ROOT, 'shared', 'adbmdns.js'), path.join(STAGE, 'shared', 'adbmdns.js'));
-  copy(path.join(ROOT, 'shared', 'usbadb.js'), path.join(STAGE, 'shared', 'usbadb.js')); // a phone on the cable, asked without adb
-  copy(path.join(ROOT, 'shared', 'turn.js'), path.join(STAGE, 'shared', 'turn.js')); // the phone on a USB cable
-  copy(path.join(ROOT, 'shared', 'phonedrive.js'), path.join(STAGE, 'shared', 'phonedrive.js')); // the phone as a drive
-  copy(path.join(ROOT, 'shared', 'sshconfig.js'), path.join(STAGE, 'shared', 'sshconfig.js'));
-  copy(path.join(ROOT, 'shared', 'updates.js'), path.join(STAGE, 'shared', 'updates.js'));
-  copy(path.join(ROOT, 'shared', 'about.js'), path.join(STAGE, 'shared', 'about.js'));
-  copy(path.join(ROOT, 'shared', 'framegen.js'), path.join(STAGE, 'shared', 'framegen.js'));
+  // Every shared module (a list missed new ones: the app then failed on its first require), and the
+  // pages' styles and the call window (phonehub.css, callpop.html).
+  for (const name of fs.readdirSync(path.join(ROOT, 'shared'))) {
+    if (/\.(js|css|html)$/.test(name)) copy(path.join(ROOT, 'shared', name), path.join(STAGE, 'shared', name));
+  }
   copy(path.join(ROOT, 'linux-helper', 'bin', 'macshare-linuxhelper'), path.join(STAGE, 'linux-helper', 'bin', 'macshare-linuxhelper'));
   // A phone: its screen, apps and input go through adb and scrcpy-server (phone-bridge.js).
   if (!fs.existsSync(path.join(LIN, 'vendor', 'scrcpy-server'))) {

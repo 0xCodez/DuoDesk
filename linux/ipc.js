@@ -21,6 +21,8 @@ function setupIpc(ctx) {
   };
 
   handle('getState', () => ctx.buildState());
+  // Calls, Messages and Photos (shared/phonehub.js, loaded the first time it's used).
+  handle('hub', (r) => ctx.hub().act(r));
 
   const pairWith = (d) => {
     discovery.clearInvite(d.id);

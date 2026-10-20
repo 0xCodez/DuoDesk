@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -134,10 +135,10 @@ fun Dot(color: Color, size: Int = 8) = Box(Modifier.size(size.dp).clip(CircleSha
 
 // One sidebar entry (the Mac's `.nav-item`): tile, label, and a green dot when the feature is on.
 @Composable
-fun NavItem(icon: ImageVector, colors: List<Color>, label: String, selected: Boolean, on: Boolean, onClick: () -> Unit) {
+fun NavItem(icon: ImageVector, colors: List<Color>, label: String, selected: Boolean, on: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(8.dp))
-            .background(if (selected) pal.accent else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 8.dp),
+        Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(8.dp)).alpha(if (enabled) 1f else 0.4f)
+            .background(if (selected) pal.accent else Color.Transparent).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Tile(icon, colors)

@@ -15,7 +15,7 @@ const SETTINGS_URLS = {
   fullDisk: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
-const TABS = ['phone', 'overview', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -458,6 +458,10 @@ function setupIpc(ctx) {
     },
     clearHistory() {
       ctx.clipboard.clearHistory();
+    },
+    // Calls, Messages and Photos (shared/phonehub.js, loaded the first time it's used).
+    hub(r) {
+      ctx.hub().act(r);
     },
     setTab(tab) {
       if (!TABS.includes(tab)) return;

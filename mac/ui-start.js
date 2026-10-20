@@ -11,6 +11,7 @@
   let current = null;
 
   let lastGroup = null;
+  let gap = null; // the gap before the current group (hidden with the group: renderSidebar)
   for (const def of UI.tabs.slice().sort((a, b) => (a.order ?? 50) - (b.order ?? 50))) {
     if (def.navHidden) { // reached another way (the phone tile)
       views.set(def.id, { def, ...buildPage(def), navBtn: el('button'), stateEl: el('span') });
@@ -18,7 +19,7 @@
     }
     if (def.bottom && !nav.querySelector('.sep')) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } })); // one line above General and About
     // Groups (System Settings style): a small gap before each, no heading, icons in one column.
-    if (def.group !== lastGroup && !def.bottom && nav.children.length) nav.append(el('li', { class: 'gap', attrs: { role: 'presentation' } }));
+    if (def.group !== lastGroup && !def.bottom && nav.children.length) nav.append(gap = el('li', { class: 'gap', attrs: { role: 'presentation' } }));
     lastGroup = def.group;
     const stateEl = el('span', { class: 'state' });
     const tile = el('span', { class: 'tile' }, [UI.icon(def.icon || def.id)]);
@@ -30,9 +31,9 @@
       label,
       stateEl,
     ]);
-    navBtn.onclick = () => show(def.id, true);
+    navBtn.onclick = () => !navBtn.classList.contains('needs-wifi') && show(def.id, true);
     nav.append(el('li', {}, [navBtn]));
-    views.set(def.id, { def, ...buildPage(def), navBtn, stateEl });
+    views.set(def.id, { def, ...buildPage(def), navBtn, stateEl, gap });
   }
 
   function buildPage(def) {
@@ -50,12 +51,19 @@
       master = UI.switch((v) => def.master.set(v), { label: def.title, disabled: !!def.master.disabled });
     }
     page.append(el('header', { class: 'page-head' }, [titles, master ? master.el : null]));
+    // Over Bluetooth, a page that needs Wi-Fi (and doesn't move the session onto it) says so.
+    const wifiNote = def.wifiOnly ? UI.note('warn', '') : null;
+    if (wifiNote) { wifiNote.classList.add('wifi-note'); wifiNote.hidden = true; page.append(wifiNote); }
     const body = el('div', { class: 'page-body' });
     page.append(body);
     pages.append(page);
     const render = def.build(body, page) || (() => {});
-    return { page, master, render };
+    return { page, master, render, wifiNote };
   }
+
+  // The session is through Bluetooth (pages that need Wi-Fi are greyed out).
+  const onBle = (s) => !!(s && s.client && s.client.transport === 'ble');
+  const WIFI_TEXT = 'Needs Wi-Fi: off while connected over Bluetooth. Connect with Wi-Fi Direct on the Overview, or join the same network.';
 
   function show(id, user) {
     const v = views.get(id) || views.get('overview');
@@ -76,6 +84,11 @@
   }
 
   function renderPage(v, s) {
+    if (v.wifiNote) {
+      const off = onBle(s);
+      v.wifiNote.set(off ? WIFI_TEXT : '');
+      v.page.classList.toggle('wifi-off', off);
+    }
     if (v.master) {
       const on = !!v.def.master.get(s);
       v.master.set(on);
@@ -102,10 +115,16 @@
       if (v.navBtn.parentElement) v.navBtn.parentElement.hidden = hide;
       if (hide && current === v) show(s.phone && s.phone.connected ? 'phone' : 'overview', false);
     }
+    // A group with every tab hidden takes its gap with it.
+    for (const v of views.values()) if (v.gap) v.gap.hidden = [...views.values()].every((x) => x.gap !== v.gap || !x.navBtn.parentElement || x.navBtn.parentElement.hidden);
     for (const v of views.values()) {
       const b = v.def.badge ? v.def.badge(s) : v.def.phase ? `P${v.def.phase}` : '';
-      v.stateEl.className = `state${b === 'on' ? ' on' : ''}`;
-      v.stateEl.textContent = b === 'on' ? '' : b || '';
+      v.stateEl.className = `state${b === 'on' ? ' on' : b === 'warn' ? ' warn' : ''}`;
+      v.stateEl.textContent = b === 'on' || b === 'warn' ? '' : b || '';
+      if (!v.def.wifiOnly) continue;
+      const off = onBle(s);
+      v.navBtn.classList.toggle('needs-wifi', off);
+      v.navBtn.title = off ? 'Needs Wi-Fi: off while connected over Bluetooth' : '';
     }
   }
 
@@ -240,6 +259,7 @@
   $('pair-allow').onclick = () => (bannerMode === 'guest' ? api.confirmGuestCode() : api.pairRespond(true));
   $('pair-deny').onclick = () => (bannerMode === 'guest' ? api.cancelGuestPair() : api.pairRespond(false));
   window.addEventListener('macshare-go', (e) => show(e.detail, true));
+  if (api.onGo) api.onGo((tab) => typeof tab === 'string' && views.has(tab) && show(tab, true));
 
   // ↑/↓ move between tabs while the sidebar has focus.
   nav.addEventListener('keydown', (e) => {

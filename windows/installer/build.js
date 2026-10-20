@@ -61,8 +61,9 @@ async function main() {
   console.log('Staging…');
   fs.rmSync(STAGE, { recursive: true, force: true });
   copy(WIN, path.join(STAGE, 'windows'), (name) => !SKIP.has(name));
-  // Every shared module (a list missed new ones: the app then failed on its first require).
-  copy(path.join(ROOT, 'shared'), path.join(STAGE, 'shared'), (name) => name.endsWith('.js'));
+  // Every shared module (a list missed new ones: the app then failed on its first require), and the
+  // pages' styles and the call window (phonehub.css, callpop.html).
+  copy(path.join(ROOT, 'shared'), path.join(STAGE, 'shared'), (name) => /\.(js|css|html)$/.test(name));
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
   // A phone: its screen, apps and input go through adb and scrcpy-server (phone-bridge.js).

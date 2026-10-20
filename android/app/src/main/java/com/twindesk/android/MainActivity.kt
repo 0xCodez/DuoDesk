@@ -97,14 +97,25 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        shown = true
         resumed.value++ // permissions may have changed in Settings
         Core.get(this).adb.check() // back from Settings: is wireless debugging on now?
+        Core.get(this).hub.let { if (it.callsOn || it.messagesOn || it.mediaOn) it.permsChanged() }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        shown = false
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         // In front: Android lets us read the clipboard now.
         if (hasFocus) Core.get(this).let { if (it.sync.get("clipboard", "out")) it.clip.sendCurrent(false) }
+    }
+
+    companion object {
+        @Volatile var shown = false // on screen: Android lets us open a prompt (Hub.ask)
     }
 }
 
@@ -138,6 +149,10 @@ private fun isOn(core: Core, t: Tab): Boolean = when (t) {
 } && core.host != null
 
 private fun them(core: Core) = core.host?.name ?: core.hosts().firstOrNull()?.name ?: "the computer"
+
+// Pages that can't work over Bluetooth and don't move the session onto Wi-Fi by themselves
+// (sound streams over the network): greyed out while the session is on Bluetooth.
+private fun wifiOnly(core: Core, t: Tab) = t == Tab.Sound && core.host != null && core.link.ble
 
 @Composable
 fun App(core: Core, resumed: Int) {
@@ -238,7 +253,7 @@ private fun Sidebar(core: Core, v: Int, tab: Tab, go: (Tab) -> Unit) {
             if (t.group == "bottom" && group != "bottom") Box(Modifier.padding(horizontal = 8.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(pal.line))
             else if (group != null && t.group != group) Spacer(Modifier.height(10.dp))
             group = t.group
-            NavItem(t.icon, t.colors, t.title, tab == t, isOn(core, t)) { go(t) }
+            NavItem(t.icon, t.colors, t.title, tab == t, isOn(core, t), enabled = !wifiOnly(core, t)) { go(t) }
         }
     }
 }
@@ -258,9 +273,11 @@ private fun MoreList(core: Core, v: Int, modifier: Modifier, go: (Tab) -> Unit) 
             Tab.entries.filter { it !in BOTTOM }.forEachIndexed { i, t ->
                 Column {
                     if (i > 0) Box(Modifier.padding(start = 58.dp).fillMaxWidth().height(1.dp).background(pal.line))
-                    Row(Modifier.fillMaxWidth().clickable { go(t) }.padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val off = wifiOnly(core, t)
+                    Row(Modifier.fillMaxWidth().clickable(enabled = !off) { go(t) }.alpha(if (off) 0.4f else 1f).padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         Tile(t.icon, t.colors, 30)
                         Text(t.title, color = pal.text, fontSize = 16.sp, modifier = Modifier.padding(start = 12.dp).weight(1f))
+                        if (off) Text("Needs Wi-Fi", color = pal.muted, fontSize = 12.sp)
                         if (isOn(core, t)) Dot(pal.good, 7)
                         Text("›", color = pal.faint, fontSize = 20.sp, modifier = Modifier.padding(start = 8.dp))
                     }
@@ -441,6 +458,27 @@ private fun OverviewPage(core: Core, v: Int) {
                 SwitchRow("Sound", "Through wireless debugging", core.sync.get("audio", "out"), first = true) { core.sync.set("audio", "out", it) }
                 SwitchRow("Clipboard", "", core.sync.get("clipboard", "out")) { core.sync.set("clipboard", "out", it) }
                 SwitchRow("Notifications", if (core.notifs.hasAccess) "" else if (!core.notifs.supported) "Needs TwinDesk with notifications (Notifications page)" else "Needs Notification access (General)", core.sync.get("notifs", "out")) { core.sync.set("notifs", "out", it) }
+                // Calls, Messages and Photos, when the computer has them: what each needs is asked for as it's switched on.
+                if (core.hub.peer) for (what in listOf("calls", "messages", "media")) {
+                    val perm = core.hub.perm(what)
+                    val on = core.hub.on(what)
+                    SwitchRow(
+                        Hub.label(what),
+                        when {
+                            perm == "none" -> "Needs TwinDesk with notifications (Notifications page)"
+                            on && perm == "ask" -> "Tap Allow on the prompt, or switch it on again"
+                            on && perm == "partial" && what == "media" -> "Only the photos you chose"
+                            on && perm == "partial" -> "Some access is missing: switch it on again to allow it"
+                            what == "calls" -> "Answer and make calls on ${host.name}"
+                            what == "messages" -> "Read and send texts on ${host.name}"
+                            else -> "See and save them on ${host.name}"
+                        },
+                        on, enabled = perm != "none",
+                    ) {
+                        core.hub.set(what, it)
+                        if (it && perm != "ok") core.ctx.startActivity(Intent(core.ctx, PermActivity::class.java).putExtra("what", what).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
+                }
             }
         }
         if (wide) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { m2p(Modifier.weight(1f)); p2m(Modifier.weight(1f)) }
@@ -780,6 +818,7 @@ private fun SoundPage(core: Core, v: Int) {
     val me = core.store.deviceName
     PageHead("Sound", "Hear one on the other.")
     if (core.host == null) NotConnected(core, v)
+    else if (wifiOnly(core, Tab.Sound)) Note("Sound needs Wi-Fi: it’s off while connected over Bluetooth. Connect with Wi-Fi Direct on the Overview, or join the same network.", "warn")
     MacCard {
         DirHead(name, false, me, true)
         SwitchRow("Play $name’s sound here", if (core.macSound.playing) "Playing" else "", core.sync.get("audio", "in"), first = true) { core.sync.set("audio", "in", it) }

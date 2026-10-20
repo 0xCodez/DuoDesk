@@ -60,6 +60,7 @@ class Notifs(core: Core) : Feature(core) {
         if (sbn.packageName == core.ctx.packageName || sbn.isOngoing) return
         if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return // the group's children come too
         if (n.category == Notification.CATEGORY_TRANSPORT || n.category == Notification.CATEGORY_PROGRESS || n.category == Notification.CATEGORY_SERVICE) return
+        if (n.category == Notification.CATEGORY_CALL && core.hub.callsOn) return // the computer shows the call itself
         if (sbn.packageName in muted) return
         val x = n.extras
         val title = x.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""

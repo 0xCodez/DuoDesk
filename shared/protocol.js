@@ -194,6 +194,29 @@
       NET_JOINED: 'net.joined', // joiner->host {ok, error?}
       NET_RELEASE: 'net.release', // either {why}: I don't need it any more; {all: true}: Back to Bluetooth, nobody does
       NET_HOTSPOT: 'net.hotspot', // computer->phone {on}: ask the person to switch the phone's hotspot on (the screen through adb)
+      // Calls, Messages and Media from a phone (shared/phonehub.js here, Hub.kt on the phone). Each is
+      // off until switched on (its page here, or the phone's Overview); while one is off the phone
+      // keeps nothing running for it: no listener, no observer, no query.
+      HUB_POLICY: 'hub.policy', // computer->phone {calls, messages, media, bt}: which are on here (at every session start: it also says the computer has them); bt = call audio here over Bluetooth
+      HUB_STATE: 'hub.state', // phone->computer {calls: {perm}, messages: {perm}, media: {perm}, bt: {name, bonded, on}}: perm 'ok'|'partial'|'ask'|'blocked'|'none' (not in this build)
+      HUB_ASK: 'hub.ask', // computer->phone {what: 'calls'|'messages'|'media'}: ask the person on the phone for that one's permissions
+      HUB_SET: 'hub.set', // phone->computer {what, on}: switched on or off on the phone
+      HUB_BT: 'hub.bt', // computer->phone {address, bond?}: this computer's Bluetooth address (is the phone paired with it?); bond: pair with it now
+      CALL_STATE: 'call.state', // phone->computer {state: 'idle'|'ringing'|'offhook', number, name, photo?, dir: 'in'|'out', since}
+      CALL_DO: 'call.do', // computer->phone {a: 'dial'|'answer'|'end'|'mute', number?, on?}
+      CALL_DONE: 'call.done', // phone->computer {a, ok, error?}
+      CALL_LOG: 'call.log', // computer->phone {n} | phone->computer {items: [{number, name, type: 'in'|'out'|'missed'|'rejected'|'blocked', at, dur}]}
+      CONTACTS: 'contacts', // computer->phone {q} | phone->computer {q, items: [{name, numbers: [{n, label}]}]}
+      SMS_THREADS: 'sms.threads', // computer->phone {n} | phone->computer {items: [{id, addrs, name, snippet, at, unread, out}]}
+      SMS_THREAD: 'sms.thread', // computer->phone {id, before?, n} | phone->computer {id, before, items: [{id, body, at, out, from, status, parts?: [{id, type}]}], more}
+      SMS_PART: 'sms.part', // computer->phone {id}: an MMS picture | phone->computer {id, data}
+      SMS_SEND: 'sms.send', // computer->phone {to, body, ref}
+      SMS_SENT: 'sms.sent', // phone->computer {ref, ok, error?}
+      SMS_NEW: 'sms.new', // phone->computer {thread, summary, msg}: a message arrived or was sent on the phone
+      MEDIA_LIST: 'media.list', // computer->phone {kind: 'all'|'photos'|'videos'|'screenshots', before?, n} | phone->computer {kind, before, items: [{id, video, at, w, h, size, name, dur, album}], more}
+      MEDIA_THUMB: 'media.thumb', // computer->phone {ids}: these next (the ones still waiting are dropped) | phone->computer {id, data}
+      MEDIA_VIEW: 'media.view', // computer->phone {id} | phone->computer {id, data}: a big preview
+      MEDIA_SAVE: 'media.save', // computer->phone {ids}: send these files here (they come as file.offer, drop 'send')
       // Resume: `welcome` carries {resume: key}; the guest opens a second socket (another path to the
       // host, e.g. the network once both are on one) with hello {..., resume: key} and gets welcome
       // {resumed: true}: from then on both sides send on it, and the first socket stays as the
