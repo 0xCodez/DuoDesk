@@ -166,27 +166,138 @@
     const h = (size && size.height) || canvas.height;
     return { x: Math.max(0, Math.min(w - 1, ((e.clientX - r.left) / r.width) * w)), y: Math.max(0, Math.min(h - 1, ((e.clientY - r.top) / r.height) * h)) };
   };
+
+  // Full-direction swipe helper (e.g. for Arrow keys)
+  let swiping = false;
+  function performSwipe(direction) {
+    if (swiping) return;
+    const w = (size && size.width) || canvas.width || 1080;
+    const h = (size && size.height) || canvas.height || 2400;
+    let startX, startY, endX, endY;
+
+    switch (direction) {
+      case 'up':
+        // Swipe up: finger moves from bottom to top (scrolls down feed, opens app drawer)
+        startX = w * 0.5;
+        startY = h * 0.75;
+        endX = w * 0.5;
+        endY = h * 0.25;
+        break;
+      case 'down':
+        // Swipe down: finger moves from top to bottom (scrolls up feed, pulls notifications)
+        startX = w * 0.5;
+        startY = h * 0.25;
+        endX = w * 0.5;
+        endY = h * 0.75;
+        break;
+      case 'left':
+        // Swipe left: finger moves right to left (slides to next page/screen)
+        startX = w * 0.8;
+        startY = h * 0.5;
+        endX = w * 0.2;
+        endY = h * 0.5;
+        break;
+      case 'right':
+        // Swipe right: finger moves left to right (slides to previous page/screen)
+        startX = w * 0.2;
+        startY = h * 0.5;
+        endX = w * 0.8;
+        endY = h * 0.5;
+        break;
+      default:
+        return;
+    }
+
+    swiping = true;
+    const steps = 7;
+    const duration = 120; // 120ms total duration for natural fling velocity
+    const stepInterval = duration / steps;
+
+    api.send({ t: 'touch', action: ACTION.DOWN, pointer: FINGER, x: startX, y: startY });
+
+    let currentStep = 1;
+    const interval = setInterval(() => {
+      // Ease-out cubic curve
+      const t = currentStep / steps;
+      const ease = 1 - Math.pow(1 - t, 2.5);
+      const curX = startX + (endX - startX) * ease;
+      const curY = startY + (endY - startY) * ease;
+
+      api.send({ t: 'touch', action: ACTION.MOVE, pointer: FINGER, x: curX, y: curY });
+
+      currentStep++;
+      if (currentStep > steps) {
+        clearInterval(interval);
+        api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, x: endX, y: endY });
+        setTimeout(() => { swiping = false; }, 40);
+      }
+    }, stepInterval);
+  }
+
   let down = false;
+  let rightDown = false;
+  let rightDragging = false;
+  let rightStart = null;
+
   canvas.addEventListener('pointerdown', (e) => {
     canvas.focus();
-    if (e.button === 2) return api.send({ t: 'nav', key: 'back' });
     if (e.button === 1) return api.send({ t: 'nav', key: 'home' });
+    if (e.button === 2) {
+      canvas.setPointerCapture(e.pointerId);
+      rightDown = true;
+      rightDragging = false;
+      rightStart = { ...at(e), clientX: e.clientX, clientY: e.clientY };
+      return;
+    }
     if (e.button !== 0) return;
     canvas.setPointerCapture(e.pointerId);
     down = true;
     api.send({ t: 'touch', action: ACTION.DOWN, pointer: FINGER, ...at(e) });
   });
+
   canvas.addEventListener('pointermove', (e) => {
+    if (rightDown && rightStart) {
+      const dist = Math.hypot(e.clientX - rightStart.clientX, e.clientY - rightStart.clientY);
+      if (!rightDragging && dist > 5) {
+        rightDragging = true;
+        api.send({ t: 'touch', action: ACTION.DOWN, pointer: FINGER, x: rightStart.x, y: rightStart.y });
+      }
+      if (rightDragging) {
+        api.send({ t: 'touch', action: ACTION.MOVE, pointer: FINGER, ...at(e) });
+      }
+      return;
+    }
     if (down) api.send({ t: 'touch', action: ACTION.MOVE, pointer: FINGER, ...at(e) });
     else api.send({ t: 'touch', action: ACTION.HOVER_MOVE, pointer: -1, ...at(e) });
   });
+
   const up = (e) => {
+    if (e.button === 2 && rightDown) {
+      if (rightDragging) {
+        api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, ...at(e) });
+      } else {
+        // Simple right-click tap without dragging: standard Back action
+        api.send({ t: 'nav', key: 'back' });
+      }
+      rightDown = false;
+      rightDragging = false;
+      rightStart = null;
+      return;
+    }
     if (!down) return;
     down = false;
     api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, ...at(e) });
   };
   canvas.addEventListener('pointerup', up);
-  canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('pointercancel', (e) => {
+    if (rightDown) {
+      if (rightDragging) api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, ...at(e) });
+      rightDown = false;
+      rightDragging = false;
+      rightStart = null;
+    }
+    up(e);
+  });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // Scroll, and pinch (Chromium turns a touchpad pinch into ctrl+wheel): two fingers around the
@@ -220,6 +331,15 @@
   // Keys go to the phone; Alt+F4 closes the window like any other.
   const onKey = (e) => {
     if (e.altKey && e.code === 'F4') return;
+    // Arrow keys: full direction swipe across the phone screen (unless Ctrl/Alt/Shift held)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      if (e.type === 'keydown' && !e.repeat) {
+        const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.code];
+        if (dir) performSwipe(dir);
+      }
+      return;
+    }
     e.preventDefault();
     api.send({ t: 'key', code: e.code, down: e.type === 'keydown', repeat: e.repeat });
   };
