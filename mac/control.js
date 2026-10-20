@@ -329,6 +329,7 @@ const UI = {
     const i = s.input || { where: 'home' };
     if (i.tapError) return ['bad', 'macOS is blocking the mouse and keyboard. Allow Accessibility and Input Monitoring in General, then restart.'];
     if (s.kvm && s.kvm.linked === false) return ['warn', `Cursor sharing is off. Double-tap ${UI.hotkeyName(s)} to turn it on.`];
+    if (i.paused) return ['warn', `Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap ${UI.hotkeyName(s)} to turn it on.`];
     if (!s.client) return ['info', `Waiting for ${UI.peer(s).name}.`];
     const hk = UI.hotkeyName(s);
     if (i.where === 'driving') return ['info', `You’re using ${s.client.name}. Double-tap ${hk} to come back and turn cursor sharing off.`];

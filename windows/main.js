@@ -196,13 +196,15 @@ function start() {
   const hudShow = hud.show.bind(hud);
   hud.show = (kind, text, sub) => hudShow(kind, fillNames(text), fillNames(sub || '')); // device names in popups
   // Cursor sharing switched on/off (hotkey double-tap, tray, or the other computer): the big card.
-  kvm.onLinked = (on, here) => {
+  // ble: Over Bluetooth was switched (kvm.setShared through Bluetooth).
+  kvm.onLinked = (on, here, ble) => {
     const p = peerView();
     const name = link.snapshot().link.state === 'connected' && p ? p.name : '';
     const key = P.hotkeyName(settings.keys.hotkey, 'win');
     const sub = !here && name ? 'Turned ' + (on ? 'on' : 'off') + ' on ' + name
-      : on ? (name ? 'With ' + name + '. ' : '') + 'Double-tap ' + key + ' to turn it off' : 'Double-tap ' + key + ' to turn it on';
-    hud.show(on ? 'linkOn' : 'linkOff', 'Cursor sharing ' + (on ? 'on' : 'off'), sub);
+      : on ? (name ? 'With ' + name + '. ' : '') + 'Double-tap ' + key + ' to turn it off'
+        : (ble ? 'It comes back on Wi-Fi. ' : '') + 'Double-tap ' + key + ' to turn it on';
+    hud.show(on ? 'linkOn' : 'linkOff', 'Cursor sharing ' + (on ? 'on' : 'off') + (!on && ble ? ' over Bluetooth' : ''), sub);
   };
   kvm.onWhere = (mode) => { // the switching popup
     const name = peerName();
@@ -766,7 +768,7 @@ function updateTray(s = buildState()) {
   const watching = screen.sentAccept === true;
   const host = s.paired && s.paired.macName;
   const again = !connected && host && (s.link.state === 'stopped' || !!s.link.busy);
-  const key = JSON.stringify([name, rtt, again, away, kvm.linked, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
+  const key = JSON.stringify([name, rtt, again, away, kvm.linked, kvm.paused, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
     settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
   if (key === trayKey) return;
   trayKey = key;
@@ -782,7 +784,7 @@ function updateTray(s = buildState()) {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: connected ? 'Connected to ' + name + rtt : 'Not connected', enabled: false },
     ...(away ? [{ label: 'Bring Mouse and Keyboard Back', click: () => kvm.home() }] : []),
-    check('Cursor Sharing', kvm.linked, (i) => kvm.setLinked(i.checked)),
+    check('Cursor Sharing', kvm.linked && !kvm.paused, (i) => kvm.setShared(i.checked)),
     { type: 'separator' },
     check('Share Screen', sharing, (i) => pcScreen.setMode(i.checked ? 'mirror' : 'off')),
     // Opens/closes the screen window (opening starts the other computer's sharing).

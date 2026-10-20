@@ -69,6 +69,8 @@ class Kvm {
       this._linkLost('{Name} disconnected');
       this.applyConfig();
     });
+    // Onto Bluetooth with Over Bluetooth off: everything home; back on Wi-Fi it crosses again.
+    link.on('transport', () => this.applyConfig());
 
     const helper = this.helper;
     helper.on('ready', () => {
@@ -121,7 +123,7 @@ class Kvm {
       side: this.crossingSide,
       resistancePx: k.resistancePx,
       hotkey: this.settings.keys.hotkey || P.HOTKEY_WIN,
-      driveOther: !!(this.linked && k.driveOther && k.mouse && this.connected && this.crossingSide && !this.blockEdge()),
+      driveOther: !!(this.linked && k.driveOther && k.mouse && this.connected && this.crossingSide && !this.blockEdge() && !this.paused),
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
@@ -133,6 +135,10 @@ class Kvm {
     if (this.connected && accept !== this.sentDragPolicy) {
       this.sentDragPolicy = accept;
       this.link.send({ t: T.DRAG_POLICY, accept });
+    }
+    if (this.paused && this.mode !== 'home') {
+      this.home();
+      this._note('Cursor sharing is off over Bluetooth');
     }
   }
 
@@ -160,20 +166,48 @@ class Kvm {
     this.onChange();
   }
 
+  // Over Bluetooth (kvm.ble, the same on both: pair.sync 'ble'): off, nothing crosses either way
+  // while the session runs through Bluetooth, and it crosses again once it's on Wi-Fi.
+  get onBle() {
+    const c = this.link.current;
+    return !!c && c.transport === 'ble';
+  }
+
+  get paused() {
+    return this.cfg.ble === false && this.onBle;
+  }
+
+  // The one switch (the Cursor tab, the tray, the hotkey's double-tap). Through Bluetooth, with
+  // cursor sharing on, it is Over Bluetooth: off there leaves it on for Wi-Fi.
+  setShared(on) {
+    if (this.onBle && this.linked) return this._setBle(on);
+    if (on && this.onBle) this.cfg.ble = true; // saved by setLinked
+    this.setLinked(on);
+  }
+
+  _setBle(on) {
+    if (on === (this.cfg.ble !== false)) return;
+    this.cfg.ble = on;
+    if (this.save) this.save();
+    this.applyConfig(); // off: everything home first
+    if (this.onLinked) this.onLinked(on, true, true);
+    this.onChange();
+  }
+
   _peerId() {
     const s = this.link.snapshot().session;
     return s && s.id ? String(s.id) : '';
   }
 
   view() {
-    return { linked: this.linked, mode: this.mode, message: this.message, pcSide: this.pcSide, helper: this.helper.running ? '' : this.helper.error || 'starting' };
+    return { linked: this.linked, paused: this.paused, mode: this.mode, message: this.message, pcSide: this.pcSide, helper: this.helper.running ? '' : this.helper.error || 'starting' };
   }
 
   // ---- owner (this PC drives the Mac) ----
 
   _canDrive() {
     const k = this.cfg;
-    return this.connected && this.linked && k.driveOther && (k.mouse || k.keyboard);
+    return this.connected && this.linked && !this.paused && k.driveOther && (k.mouse || k.keyboard);
   }
 
   _onHelper(name, msg) {
@@ -210,7 +244,12 @@ class Kvm {
           break;
         }
         // Off (by the switch, the hotkey or the other computer) → on, mouse included: the
-        // state the Cursor tab's one switch shows. On → off.
+        // state the Cursor tab's one switch shows. On → off. Through Bluetooth: Over Bluetooth.
+        if (this.onBle && this.linked && k.mouse) {
+          this.setShared(this.paused);
+          break;
+        }
+        if (this.onBle) k.ble = true; // off → on: Over Bluetooth too (saved below)
         if (this.linked && k.mouse) this.setLinked(false);
         else if (this.linked) { // linked but the mouse was off: turn the mouse on, show the card
           this.settings.kvm = { ...k, mouse: true };
@@ -291,9 +330,9 @@ class Kvm {
       if (m.side && m.mouse !== false) this.helper.send('place', { side: m.side, offset: m.offset });
       return;
     }
-    if (!this.cfg.beDriven || !this.linked) { // cursor sharing off
+    if (!this.cfg.beDriven || !this.linked || this.paused) { // cursor sharing off
       this.link.send({ t: T.KVM_REFUSE, route, why: P.REFUSE.NOT_ALLOWED });
-      this._note('{Name} tried to use {me}. It’s turned off here.');
+      this._note(this.paused ? '{Name} tried to use {me} over Bluetooth. It’s turned off here.' : '{Name} tried to use {me}. It’s turned off here.');
       return;
     }
     this.peerRoute = route;

@@ -74,7 +74,8 @@ function setupIpc(ctx) {
 
   handle('setKvm', (partial) => {
     if (partial && typeof partial.linked === 'boolean') kvm.setLinked(partial.linked); // home first, tells the other side
-    const { linked, ...rest } = partial && typeof partial === 'object' ? partial : {};
+    if (partial && typeof partial.shared === 'boolean') kvm.setShared(partial.shared); // the Cursor tab's switch (Over Bluetooth through it)
+    const { linked, shared, ...rest } = partial && typeof partial === 'object' ? partial : {};
     change('kvm', rest, () => kvm.applyConfig());
   });
   handle('setLayout', (side) => kvm.setLayout(side));

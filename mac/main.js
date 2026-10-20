@@ -398,7 +398,7 @@ function updateTray() {
   const OS = { mac: 'Mac', linux: 'Linux', android: 'Phone' };
   const g = (svc && link && link.view()) || { status: {}, hosts: [] };
   const again = !c && g.hosts.length && (g.status.state === 'stopped' || !!g.status.busy);
-  const key = JSON.stringify([c && c.name, c && c.transport, phone, again, where, k.linked, k.driveOther, k.beDriven, settings.sharing.on,
+  const key = JSON.stringify([c && c.name, c && c.transport, phone, again, where, k.linked, k.ble, k.driveOther, k.beDriven, settings.sharing.on,
     !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud,
     found.map((d) => [d.id, d.name, d.os]), updates && updates.status.available && updates.status.latest]);
   if (key === trayKey) return;
@@ -410,7 +410,7 @@ function updateTray() {
       { label: c ? `Connected to ${c.name}${c.transport === 'ble' ? ' · Bluetooth' : ''}` : 'Not connected', enabled: false },
       ...(where === 'driving' || where === 'driven'
         ? [{ label: 'Bring Mouse and Keyboard Back', click: () => svc.kvm.home() }] : []),
-      check('Cursor Sharing', k.linked !== false, (i) => actions.setKvm({ linked: i.checked })),
+      check('Cursor Sharing', k.linked !== false && !(svc && svc.kvm.paused), (i) => actions.setKvm({ shared: i.checked })),
       { type: 'separator' },
       check('Share Screen', settings.sharing.on, (i) => actions.setSharing(i.checked)),
       phone
@@ -534,7 +534,7 @@ app.whenReady().then(() => {
   };
   pairSync = new PairSync({ server: peer, getSettings: () => settings, saveSettings: () => store.saveSettings(settings),
     apply: (f, dir, on) => (f !== 'value' ? SYNC_ACTIONS[f](dir, on)
-      : ['gestures', 'keyboard', 'speed', 'reverseScroll'].includes(dir) ? actions.setKvm({ [dir]: on }) : actions.setSharingOpts({ [dir]: on })) });
+      : ['gestures', 'ble', 'keyboard', 'speed', 'reverseScroll'].includes(dir) ? actions.setKvm({ [dir]: on }) : actions.setSharingOpts({ [dir]: on })) });
   // New releases on GitHub: a notification once per version, the menu bar item and About › Updates.
   updates = new Updates({
     current: app.getVersion(), platform: 'mac', getSettings: () => settings,
@@ -562,12 +562,13 @@ app.whenReady().then(() => {
   if (app.isPackaged) app.setAsDefaultProtocolClient('macshare');
   for (const url of linkQueue.splice(0)) handleLink(url);
   // The hotkey's double-tap: the big card "Cursor sharing on/off" (also when the other side switched it).
-  svc.kvm.on('linked', (on, here) => {
+  // ble: Over Bluetooth was switched (kvm.setShared through Bluetooth).
+  svc.kvm.on('linked', (on, here, ble) => {
     const name = peer.current ? peer.current.name : '';
     const key = P.hotkeyName(settings.keys.hotkey);
     const sub = !here && name ? `Turned ${on ? 'on' : 'off'} on ${name}`
-      : on ? `${name ? `With ${name}. ` : ''}Double-tap ${key} to turn it off` : `Double-tap ${key} to turn it on`;
-    hud.show(on ? 'linkOn' : 'linkOff', `Cursor sharing ${on ? 'on' : 'off'}`, sub);
+      : on ? `${name ? `With ${name}. ` : ''}Double-tap ${key} to turn it off` : `${ble ? 'It comes back on Wi-Fi. ' : ''}Double-tap ${key} to turn it on`;
+    hud.show(on ? 'linkOn' : 'linkOff', `Cursor sharing ${on ? 'on' : 'off'}${!on && ble ? ' over Bluetooth' : ''}`, sub);
   });
   svc.drop.on('batch', (b) => {
     if (b.kind === 'send') hud.show('driven', `Received ${b.files} file${b.files === 1 ? '' : 's'} from ${peer.current ? peer.current.name : 'the other computer'}`);

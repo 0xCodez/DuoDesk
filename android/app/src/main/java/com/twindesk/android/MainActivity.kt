@@ -545,10 +545,17 @@ private fun CursorPage(core: Core, v: Int) {
     val host = core.host
     val name = them(core)
     val me = core.store.deviceName
-    val shared = core.kvm.linked && core.sync.get("cursor", "in")
+    // Over Bluetooth (pair.sync "ble", the computer's kvm.js): off, nothing crosses while the session runs through Bluetooth.
+    val paused = core.link.ble && core.sync.value("ble") == "false"
+    val shared = core.kvm.linked && core.sync.get("cursor", "in") && !paused
     PageHead("Cursor", "Move $name’s pointer off the edge of its screen to use this device.", if (host != null) shared else null) {
-        if (it && !core.sync.get("cursor", "in")) core.sync.set("cursor", "in", true)
-        core.kvm.setLinked(it)
+        // Through Bluetooth, with cursor sharing on, the switch is Over Bluetooth: off there leaves it on for Wi-Fi.
+        if (core.link.ble && core.kvm.linked && core.sync.get("cursor", "in")) core.sync.setValue("ble", it)
+        else {
+            if (it && !core.sync.get("cursor", "in")) core.sync.set("cursor", "in", true)
+            if (it && core.link.ble) core.sync.setValue("ble", true)
+            core.kvm.setLinked(it)
+        }
     }
     if (host == null) return NotConnected(core, v)
     // Accessibility (chosen, or a session on Bluetooth): no wireless debugging needed, only the service.
@@ -562,6 +569,7 @@ private fun CursorPage(core: Core, v: Int) {
             adbMissing -> "$name moves the pointer here through wireless debugging, which is off. Or choose Accessibility below."
             !core.pointer.allowed -> "Allow “Show the pointer” in General › Setup to see $name’s pointer here."
             !core.kvm.linked -> "Cursor sharing is off. Double-tap ${core.kvm.hotkey} on $name to turn it on."
+            paused -> "Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap ${core.kvm.hotkey} on $name to turn it on."
             else -> "Push $name’s pointer past its edge to come here. Double-tap ${core.kvm.hotkey} to take everything back."
         },
         if (adbMissing || viaPhone && !core.input.on || !core.pointer.allowed) "warn" else "info",
@@ -598,6 +606,10 @@ private fun CursorPage(core: Core, v: Int) {
         SwitchRow("Reverse scrolling", "Scroll here the other way", core.sync.value("reverseScroll") == "true") { core.sync.setValue("reverseScroll", it) }
         MacRow("Right click", "Back")
         MacRow("Middle click", "Home")
+    }
+    MacCard("Not on the same network") {
+        SwitchRow("Over Bluetooth", "When $name isn’t on this network and you’re connected through Bluetooth (slower). Off: nothing crosses until you’re on Wi-Fi again. The same on both",
+            core.sync.value("ble") != "false", first = true) { core.sync.setValue("ble", it) }
     }
 }
 

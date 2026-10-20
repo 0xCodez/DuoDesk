@@ -10,9 +10,9 @@ UI.tab({
   desc: 'Move the pointer off the edge of the screen to go to the other computer.',
   color: 'linear-gradient(#ffb340, #ff9500)',
   // One switch: cursor sharing, the same one the hotkey's double-tap and the other
-  // computer flip (kvm.link keeps both in step).
-  master: { get: (s) => !!(s.kvm && s.kvm.mouse && s.kvm.linked !== false), set: (v) => UI.api.setKvm(v ? { mouse: true, linked: true } : { linked: false }) },
-  badge: (s) => (s.kvm && s.kvm.mouse && s.kvm.linked !== false ? 'on' : ''),
+  // computer flip (kvm.link keeps both in step). Through Bluetooth it is Over Bluetooth (kvm.setShared).
+  master: { get: (s) => !!(s.kvm && s.kvm.mouse && s.kvm.linked !== false && !(s.input && s.input.paused)), set: (v) => UI.api.setKvm(v ? { mouse: true, shared: true } : { shared: false }) },
+  badge: (s) => (s.kvm && s.kvm.mouse && s.kvm.linked !== false && !(s.input && s.input.paused) ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
     const status = UI.note('info', '');
@@ -41,6 +41,8 @@ UI.tab({
     const reverse = UI.switch((v) => api.setKvm({ reverseScroll: v }), { label: 'Reverse scrolling' });
     const gestures = UI.switch((v) => api.setKvm({ gestures: v }), { label: 'Trackpad gestures' });
     const gestureRow = UI.row('Trackpad gestures', 'Pinch to zoom, swipe between desktops, Mission Control / Task View, back and forward — done the native way on {name}. The same on both', [gestures]);
+    const ble = UI.switch((v) => api.setKvm({ ble: v }), { label: 'Over Bluetooth' });
+    const bleRow = UI.row('Over Bluetooth', 'When {name} isn’t on this network and you’re connected through Bluetooth (slower). Off: nothing crosses until you’re on Wi-Fi again. The same on both', [ble]);
 
     // A phone as the peer: how the pointer and keys reach it (settings.phone.input, the phone's own toggle too).
     const via = UI.segmented([{ value: 'adb', label: 'ADB' }, { value: 'phone', label: 'Accessibility' }], (v) => api.setPhone({ input: v }));
@@ -65,6 +67,7 @@ UI.tab({
         peerRow('Reverse scrolling from {name}', '', [reverse]),
         gestureRow,
       ]),
+      UI.card('Not on the same network', [bleRow]),
     );
 
     return (s) => {
@@ -88,6 +91,7 @@ UI.tab({
       speed.set(k.speed);
       reverse.set(k.reverseScroll);
       gestures.set(k.gestures !== false);
+      ble.set(k.ble !== false);
       viaRow.hidden = !p.phone;
       via.set(((s.phone || {}).settings || {}).input === 'phone' ? 'phone' : 'adb');
     };
