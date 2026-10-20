@@ -211,7 +211,19 @@ class PhoneBridge extends EventEmitter {
       await this._checkInput(ready);
       return this._startControl();
     }
+    // Check if standard ADB is open on port 5555 (e.g., enabled via USB adb tcpip 5555)
+    if (address) {
+      const r5555 = await this.adb.connect(address, 5555);
+      if (r5555.ok && await this._findDevice(address)) {
+        this.lastPort.set(address, 5555);
+        this.misses = 0;
+        return this._kick();
+      }
+    }
     if (!a.wifi) {
+      if (a.hotspot) {
+        return this._set('hotspotReady', 'Hotspot Link active: Second screen, files & clipboard are ready. (For phone mirroring/control, plug USB once or run adb tcpip 5555)');
+      }
       if (a.canEnable) {
         this.server.sendToClient({ t: T.ADB_ENABLE, on: true });
         return this._set('connecting', 'Turning on wireless debugging…');
@@ -226,7 +238,7 @@ class PhoneBridge extends EventEmitter {
     await this._dropStale(address);
     const services = await this.adb.mdns();
     const seen = services.filter((s) => s.type === 'connect' && s.address === address).map((s) => s.port);
-    const ports = [...new Set([a.port, ...seen, this.lastPort.get(address)])].filter((n) => n > 0 && n < 65536);
+    const ports = [...new Set([5555, a.port, ...seen, this.lastPort.get(address)])].filter((n) => n > 0 && n < 65536);
     let unpaired = false;
     for (const port of ports) {
       const r = await this.adb.connect(address, port);

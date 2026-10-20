@@ -181,7 +181,7 @@ class Adb(core: Core) : Feature(core) {
     // a while (canPair), asks again.
     private fun knownKey() = core.host?.let { "adb.known.${it.id}" }
     val known get() = knownKey()?.let { core.store.flag(it, false) } ?: false
-    val setupNeeded get() = (!paired && (!known || bridge == "needsPair" || canPair)) || inputBlocked
+    val setupNeeded get() = (bridge != "hotspotReady" && !paired && (!known || bridge == "needsPair" || canPair)) || inputBlocked
     @Volatile var pairing = false; private set // a code went to the computer, waiting for the answer
     private var nsd: android.net.nsd.NsdManager.DiscoveryListener? = null
     @Volatile private var pairPort = 0 // our own "Pair device with pairing code" port, from mDNS
@@ -215,16 +215,29 @@ class Adb(core: Core) : Feature(core) {
     // Wireless debugging only runs while USB debugging is on, and MIUI switches that off too.
     val wifiDebugging get() = Settings.Global.getInt(cr, Settings.Global.ADB_ENABLED, 0) == 1 && Settings.Global.getInt(cr, "adb_wifi_enabled", 0) == 1
     val canEnable get() = core.ctx.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED
+    val isHotspotActive get(): Boolean = runCatching {
+        val ifaces = NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
+        ifaces.any { it.name.startsWith("ap") || it.name.startsWith("swlan") || it.name.startsWith("rndis") || it.name.startsWith("tether") }
+    }.getOrDefault(false)
 
     fun address(): String = runCatching {
-        NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback && (it.name.startsWith("wlan") || it.name.startsWith("eth")) }
-            .flatMap { it.inetAddresses.toList() }.firstOrNull { it is Inet4Address }?.hostAddress
+        val ifaces = NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
+        val preferredPrefixes = listOf("ap", "swlan", "rndis", "tether", "wlan", "eth")
+        for (prefix in preferredPrefixes) {
+            val addr = ifaces.filter { it.name.startsWith(prefix) }
+                .flatMap { it.inetAddresses.toList() }
+                .firstOrNull { it is Inet4Address && !it.isLoopbackAddress && !it.isLinkLocalAddress }?.hostAddress
+            if (!addr.isNullOrEmpty()) return addr
+        }
+        ifaces.flatMap { it.inetAddresses.toList() }
+            .firstOrNull { it is Inet4Address && !it.isLoopbackAddress && !it.isLinkLocalAddress }?.hostAddress
     }.getOrNull() ?: ""
 
     fun sendState() {
         val on = wifiDebugging
         if (on && core.link.connected) watchConnectPort() else { stopConnectWatch(); connectPort = 0 }
-        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to on, "canEnable" to canEnable, "address" to address(), "full" to BuildConfig.NOTIF_LISTENER, "port" to connectPort))
+        val hotspot = isHotspotActive
+        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to on, "canEnable" to canEnable, "address" to address(), "full" to BuildConfig.NOTIF_LISTENER, "port" to connectPort, "hotspot" to hotspot))
         core.changed()
     }
 
@@ -260,11 +273,11 @@ class Adb(core: Core) : Feature(core) {
     // dialog and a notification, both open the setting). Locked: wait for the unlock.
     fun check(tries: Int = 3) {
         main.removeCallbacksAndMessages(null)
-        if (!core.link.connected || wifiDebugging) return settle(false)
+        if (!core.link.connected || wifiDebugging || isHotspotActive) return settle(false)
         if (!unlocked) return
         if (canEnable) enable(true)
         main.postDelayed({
-            if (!core.link.connected || wifiDebugging) settle(false)
+            if (!core.link.connected || wifiDebugging || isHotspotActive) settle(false)
             else if (canEnable && tries > 1) check(tries - 1)
             else settle(true)
         }, 2000)
