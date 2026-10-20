@@ -10,6 +10,11 @@
 // Direct group or joins one. A Mac with a phone, for the screen: the phone's own hotspot, switched
 // on by the person (opts.hotspot), so the Mac keeps the internet.
 //
+// When hosting doesn't work here (it didn't start, or the other side couldn't join it), this side
+// says it can't host any more (net.caps, which every version reads), and the other side hosts
+// instead when it can: asked again (net.need) when this side needed it, else told (net.join
+// {error, retry}); a joiner that couldn't join and can host hosts at once (net.joined {retry}).
+//
 // Sent files wait (holdOut) until the session is on Wi-Fi, or go through Bluetooth when it can't be.
 //
 // Events: 'change' — view changed; 'dropped' — Back to Bluetooth on the other side.
@@ -42,6 +47,7 @@ class NetLink extends EventEmitter {
     this.needs = new Map(); // why -> {idleMs, last}
     this.peerNeeds = new Set();
     this.peerCaps = null;
+    this.noHost = false; // hosting didn't work here this session
     this.held = [];
     this.waiters = [];
     this.timers = {};
@@ -62,12 +68,19 @@ class NetLink extends EventEmitter {
   // A session started: on Bluetooth, say what we can do.
   started() {
     this.peerCaps = null;
+    this.noHost = false;
+    this.caps();
+  }
+
+  // What we can do, again (it changed).
+  caps() {
     if (!this.onBle) return;
-    this.o.send({ t: T.NET_CAPS, host: !!(this.o.host && this.o.host.can()), join: !!(this.o.join && this.o.join.can()), hotspot: false });
+    this.o.send({ t: T.NET_CAPS, host: this._canHost(), join: this._canJoin(), hotspot: false });
   }
 
   ended() {
     clearTimeout(this.timers.linger);
+    this.noHost = false;
     this.needs.clear();
     this.peerNeeds.clear();
     this.peerCaps = null;
@@ -93,11 +106,13 @@ class NetLink extends EventEmitter {
         if (this._plan() !== 'me') return this.o.send({ t: T.NET_JOIN, error: 'can’t host' });
         return this._startHost();
       case T.NET_JOIN:
+        if (m.error && m.retry && this._plan() === 'me') return this._startHost(); // it couldn't host after all
         if (m.error || typeof m.ssid !== 'string' || typeof m.pass !== 'string') return this._fail(`The other side can’t host Wi-Fi${m.error ? ` (${m.error})` : ''}`);
         return this._join(m.ssid.slice(0, 32), m.pass.slice(0, 63));
       case T.NET_JOINED:
-        if (!m.ok) return this._fail(String(m.error || 'The other side couldn’t join').slice(0, 200));
-        return;
+        if (m.ok || this.state !== 'hosting') return;
+        if (m.retry) return this._swapped(); // it hosts now: its network comes in net.join
+        return this._cantHost(String(m.error || 'The other side couldn’t join').slice(0, 200));
       case T.NET_RELEASE:
         if (m.all) return void (this._drop(), this.emit('dropped')); // Back to Bluetooth on the other side
         this.peerNeeds.delete(String(m.why || ''));
@@ -113,9 +128,10 @@ class NetLink extends EventEmitter {
     const n = this.needs.get(why);
     this.needs.set(why, { idleMs, last: Date.now() });
     clearTimeout(this.timers.linger);
+    const done = new Promise((resolve) => this.waiters.push(resolve)); // first: _ensure can fail at once
     if (!n || ['idle', 'failed'].includes(this.state)) this._ensure(why);
     this.emit('change');
-    return new Promise((resolve) => this.waiters.push(resolve));
+    return done;
   }
 
   release(why) {
@@ -188,8 +204,8 @@ class NetLink extends EventEmitter {
     const c = this.o.current();
     const them = this.peerCaps;
     if (!c || !them) return null;
-    const meHost = !!(this.o.host && this.o.host.can()) && them.join;
-    const peerHost = them.host && !!(this.o.join && this.o.join.can());
+    const meHost = this._canHost() && them.join;
+    const peerHost = them.host && this._canJoin();
     if (meHost && !peerHost) return 'me';
     if (peerHost && !meHost) return 'peer';
     if (!meHost) return null;
@@ -219,7 +235,8 @@ class NetLink extends EventEmitter {
 
   _deadline(ms = ASK_TIMEOUT_MS) {
     clearTimeout(this.timers.ask);
-    this.timers.ask = setTimeout(() => this.onBle && this.waiters.length && this._fail('Wi-Fi didn’t come up in time'), ms);
+    // 'asking' without waiters: hosting went to the other side for its need (_swapped)
+    this.timers.ask = setTimeout(() => this.onBle && (this.waiters.length || this.state === 'asking') && this._fail('Wi-Fi didn’t come up in time'), ms);
   }
 
   async _startHost() {
@@ -231,10 +248,50 @@ class NetLink extends EventEmitter {
     try {
       await this.o.host.start(this.ssid, this.pass);
     } catch (e) {
-      this.o.send({ t: T.NET_JOIN, error: e.message });
-      return this._fail(`Couldn’t host Wi-Fi: ${e.message}`);
+      return this._cantHost(`Couldn’t host Wi-Fi: ${e.message}`, e.message);
     }
     if (this.state === 'hosting') this._joinMsg();
+  }
+
+  _canHost() {
+    return !this.noHost && !!(this.o.host && this.o.host.can());
+  }
+
+  _canJoin() {
+    return !!(this.o.join && this.o.join.can());
+  }
+
+  // Hosting didn't work here (error; detail: it didn't start, for the other side): the other side
+  // hosts when it can, else this fails.
+  _cantHost(error, detail) {
+    this.noHost = true;
+    this.caps();
+    const mine = [...this.needs.keys()];
+    if (this._plan() !== 'peer' || (!mine.length && !detail)) {
+      if (detail) this.o.send({ t: T.NET_JOIN, error: detail });
+      return this._fail(error);
+    }
+    console.log(`[netlink] ${error}: the other side hosts`);
+    this._down();
+    if (!mine.length) {
+      // Only the other side needs it: it hosts once it hears (an older version gives up instead).
+      this.o.send({ t: T.NET_JOIN, error: detail, retry: true });
+      return this._set('idle');
+    }
+    this.error = '';
+    this._set('asking');
+    this._deadline();
+    for (const why of mine) this.o.send({ t: T.NET_NEED, why });
+  }
+
+  // The other side couldn't join our network and hosts its own instead: ours goes, theirs comes.
+  _swapped() {
+    console.log('[netlink] the other side couldn’t join: it hosts');
+    this.noHost = true;
+    this.caps();
+    this._down();
+    this._set('asking');
+    this._deadline();
   }
 
   _joinMsg() {
@@ -248,7 +305,15 @@ class NetLink extends EventEmitter {
     try {
       await this.o.join.start(ssid, pass);
     } catch (e) {
-      if (!hotspot) this.o.send({ t: T.NET_JOINED, ok: false, error: e.message });
+      // Its network doesn't work here: ours, when we can (it can't host again: noHost there).
+      const swap = !hotspot && this._canHost() && !!this.peerCaps && this.peerCaps.join;
+      if (!hotspot) this.o.send({ t: T.NET_JOINED, ok: false, error: e.message, retry: swap || undefined });
+      if (swap) {
+        console.log(`[netlink] couldn’t join ${ssid} (${e.message}): hosting here`);
+        this.o.join.stop().catch(() => {});
+        this._startHost();
+        return false;
+      }
       this._fail(`Couldn’t join ${ssid}: ${e.message}`);
       return false;
     }

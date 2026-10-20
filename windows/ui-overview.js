@@ -23,6 +23,8 @@ UI.tab({
     const status = el('div', { class: 'hero-status' });
     const netCancel = UI.button('Cancel', () => api.netCancel(), 'small');
     netCancel.hidden = true;
+    const netLocation = UI.button('Location settings', () => api.netLocation(), 'small'); // joining needed Windows' Location
+    netLocation.hidden = true;
     // A session on Bluetooth: onto a direct Wi-Fi link on request, until Back to Bluetooth.
     let wifiOn = false;
     const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn), 'small');
@@ -36,6 +38,7 @@ UI.tab({
       ]),
       status,
       netCancel,
+      netLocation,
       wifiBtn,
     ]);
 
@@ -151,6 +154,7 @@ UI.tab({
         status.classList.toggle('bad', n.state === 'failed');
       }
       netCancel.hidden = !(connected && ['asking', 'hosting', 'joining'].includes(n.state));
+      netLocation.hidden = !(connected && n.state === 'failed' && n.location);
       wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
       wifiBtn.hidden = !connected || !netCancel.hidden || !(wifiOn || ble);

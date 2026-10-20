@@ -7,7 +7,8 @@
 //   Guest (this PC connects to a host): bleScan {on}, bleOpen {dev, hello}, bleSend, bleClose {dev}
 //     events ble.state, ble.found {dev, info}, ble.invite, ble.opened, ble.data, ble.close, ble.gone, ble.sent
 //   Wi-Fi Direct (a network the other side joins while this PC stays on its own Wi-Fi):
-//     wfdCaps -> {host}; wfdHost {ssid, pass}; wfdStop
+//     wfdCaps -> {host, wifi}; wfdHost {ssid, pass}; wfdStop; and for joining (wifi.js) too:
+//     wfdRadio {on} -> {was} (Wi-Fi on/off); wfdSsid -> {ssid}; wfdLocation -> {status}
 // See shared/blepipe.js and shared/netlink.js for what main does with them.
 using System;
 using System.Collections.Generic;
@@ -93,11 +94,26 @@ namespace MacShare
                     case "bleScan": guest.Scan(Json.Bool(m, "on", false)); Reply(id, null); break;
                     case "bleOpen": guest.Open(dev, Json.Str(m, "hello", "{}")); Reply(id, null); break;
                     case "bleClose": guest.Close(dev); Reply(id, null); break;
-                    case "wfdCaps":
+                    case "wfdCaps": Async(id, () => wfd.Caps()); break;
+                    case "wfdRadio":
+                        bool on = Json.Bool(m, "on", true);
                         Async(id, async () =>
                         {
                             Dictionary<string, object> r = new Dictionary<string, object>();
-                            r["host"] = await wfd.Can();
+                            r["was"] = await wfd.SetRadio(on);
+                            return r;
+                        });
+                        break;
+                    case "wfdSsid":
+                        Dictionary<string, object> ss = new Dictionary<string, object>();
+                        ss["ssid"] = wfd.Ssid();
+                        Reply(id, ss);
+                        break;
+                    case "wfdLocation":
+                        Async(id, async () =>
+                        {
+                            Dictionary<string, object> r = new Dictionary<string, object>();
+                            r["status"] = await wfd.Location();
                             return r;
                         });
                         break;

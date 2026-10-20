@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('macshare', {
   setStartup: call('setStartup'),
   setNet: call('setNet'),
   netCancel: call('netCancel'),
+  netLocation: call('netLocation'),
   netWifi: call('netWifi'),
   sendFiles: call('sendFiles'),
   chooseSendFiles: call('chooseSendFiles'),

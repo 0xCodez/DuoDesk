@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Main process: lifecycle, windows, tray, IPC and the state pushed to the main window.
-const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification, shell } = require('electron');
 const { Updates } = require('../shared/updates.js');
 const { aboutInfo } = require('../shared/about.js');
 const { execFile } = require('child_process');
@@ -118,7 +118,7 @@ let phoneDrive = null; // its storage as a drive here (phonedrive.js)
 let bleHost = null; // Bluetooth, for devices not on this network: we host (blepipe.js)
 let bleGuest = null; // … we connect to a host
 let net = null; // Wi-Fi for a session through Bluetooth (netlink.js)
-let wfdCan = false; // this PC can host a Wi-Fi Direct network (helper wfdCaps)
+let wifi = null; // this PC's Wi-Fi for it: hosting, joining (wifi.js)
 let lastMode = 'home';
 let fw = { checking: true, ok: null, message: 'Checking…' }; // firewall self-check
 // Started at sign-in (tray only), or by a pinned Mac app's shortcut (that app only).
@@ -351,27 +351,30 @@ function startPhone(server, pairing) {
 // The session through Bluetooth (blepipe.js) when the other device isn't on this network; files
 // and screens move it onto a Wi-Fi network one side hosts (netlink.js). This PC hosts with Wi-Fi
 // Direct (it keeps its own Wi-Fi) or joins the other side's (wifi.js). Nothing here runs with a
-// device that doesn't know about it: those never come through Bluetooth.
+// device that doesn't know about it: those never come through Bluetooth. netsh refusing to join
+// for want of Location opens its settings, once a run (the status says what to switch on).
 function setupNet(guest) {
   bleGuest = new BleGuest({ helper, hello: () => ({ id: device.id, name: device.name.slice(0, 40), os: P.OS.WIN }) });
   bleGuest.on('change', pushState);
   bleGuest.on('invite', () => { pushState(); showMain(); });
   guest.ble = bleGuest;
   discovery.extras.push(bleGuest);
-  const wifi = new Wifi();
+  let locationShown = false;
+  wifi = new Wifi(helper, () => {
+    if (!locationShown) shell.openExternal('ms-settings:privacy-location').catch(() => {});
+    locationShown = true;
+  });
+  // What this PC can do (a Wi-Fi adapter plugged in, Wi-Fi Direct): the other side hears when it changes.
+  const recheck = () => wifi.refresh().then((changed) => changed && net.caps(), () => {});
   helper.on('ready', () => {
     applyNet();
-    helper.request('wfdCaps', {}, 15000).then((r) => { wfdCan = !!r.host; }, () => {});
+    recheck();
   });
   net = new NetLink({
     os: P.OS.WIN,
     send: (m) => link.sendNow(m),
     current: () => link.current,
-    host: {
-      can: () => wfdCan,
-      start: (ssid, pass) => helper.request('wfdHost', { ssid, pass }, 20000),
-      stop: () => helper.request('wfdStop', {}, 5000),
-    },
+    host: { can: () => wifi.canHost(), start: (ssid, pass) => wifi.host(ssid, pass), stop: () => wifi.unhost() },
     join: { can: () => wifi.can(), start: (ssid, pass) => wifi.join(ssid, pass), stop: () => wifi.leave() },
     hotspot: null,
     cable: () => {
@@ -383,7 +386,10 @@ function setupNet(guest) {
   net.on('dropped', () => pcScreen.mode !== 'off' && pcScreen.setMode('off')); // Back to Bluetooth on the phone: it can't carry the screen
   link.hold = (m) => net.holdOut(m, (x) => link.sendNow(x));
   link.tap = (m) => net.onMessage(m);
-  link.on('welcome', () => net.started());
+  link.on('welcome', () => {
+    net.started();
+    recheck();
+  });
   link.on('closed', () => net.ended());
   link.on('transport', () => { pushState(); screen.policy(); });
   // Screens wait for Wi-Fi (WebRTC over Bluetooth would never work); each lets go when it closes.
@@ -590,7 +596,7 @@ function buildState() {
     setup: { missing: miss, show: setupShows(miss) },
     phone: phone ? { ...phone.view, settings: settings.phone } : null,
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
-    net: { ...(net ? net.view : {}), ble: settings.net.ble, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
+    net: { ...(net ? net.view : {}), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
   };
 }
 

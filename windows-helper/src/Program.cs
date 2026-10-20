@@ -6,9 +6,14 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+
+// The name Windows shows for this process: Location's prompt and its list of apps, Task Manager.
+[assembly: AssemblyTitle("TwinDesk")]
+[assembly: AssemblyProduct("TwinDesk")]
 
 namespace MacShare
 {

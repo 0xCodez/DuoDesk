@@ -25,13 +25,14 @@ final class WifiCtl: NSObject, CLLocationManagerDelegate {
             "joined": joined, "location": locationState()]
   }
 
-  // Main thread (CLLocationManager wants the thread it was made on to have a run loop).
+  // Main thread (CLLocationManager wants the thread it was made on to have a run loop). When In
+  // Use is all Wi-Fi names need.
   func askLocation() {
     if loc == nil {
       loc = CLLocationManager()
       loc?.delegate = self
     }
-    if loc?.authorizationStatus == .notDetermined { loc?.requestAlwaysAuthorization() }
+    if loc?.authorizationStatus == .notDetermined { loc?.requestWhenInUseAuthorization() }
   }
 
   private func locationState() -> String {
@@ -53,8 +54,8 @@ final class WifiCtl: NSObject, CLLocationManagerDelegate {
         return done(nil)
       }
       // CoreWLAN first; macOS hides scan results from apps without Location, so networksetup
-      // (which scans for itself) when that finds nothing.
-      for _ in 0..<5 {
+      // (which scans for itself) when that finds nothing, and at once without Location.
+      for _ in 0..<(self.locationState() == "granted" ? 5 : 0) {
         if let net = (try? i.scanForNetworks(withName: ssid, includeHidden: false))?.first {
           do {
             try i.associate(to: net, password: password)
