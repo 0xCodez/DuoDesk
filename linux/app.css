@@ -41,6 +41,9 @@ button, input, select { font: inherit; color: inherit; }
 .who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .app-name { font-weight: 700; font-size: 18px; line-height: 1.2; text-align: left; letter-spacing: -0.2px; }
 .peer { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+/* one line whatever the ping says: wrapping would move the icon beside it each time it changes */
+.peer { max-width: 100%; min-width: 0; }
+#peer-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--idle); flex: none; }
 .dot.good { background: var(--good); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
 
