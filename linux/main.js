@@ -506,7 +506,7 @@ function buildState() {
     phone: phone ? { ...phone.view, settings: settings.phone } : null,
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
     // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
-    hub: { ...(hub ? hub.view : { ...settings.hub, connected: false }), paired: phone ? phone.pairing.list().some((p) => p.os === P.OS.ANDROID) : false },
+    hub: hub ? hub.view : { ...settings.hub, connected: false },
   };
 }
 

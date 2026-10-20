@@ -12,7 +12,7 @@ UI.tab({
   icon: 'message',
   color: 'linear-gradient(#64d2ff, #0a84ff)',
   desc: 'Read and send your phone’s texts here.',
-  hidden: (s) => !(s.hub && s.hub.paired),
+  hidden: (s) => !UI.isPhone(s), // only while a phone is connected
   master: { get: (s) => !!(s.hub && s.hub.messages), set: (v) => UI.api.hub({ do: 'set', what: 'messages', on: v }) },
   badge: (s) => (s.hub && s.hub.messages ? (s.hub.unread ? String(s.hub.unread) : 'on') : ''),
   build(body, page) {

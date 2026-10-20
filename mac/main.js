@@ -81,6 +81,7 @@ let hud = null;
 let quitting = false;
 let startHidden = process.argv.includes('--hidden');
 let settings, id, server, pairing, discovery, link, peer, svc, actions, pairSync, updates;
+let phoneHub = null; // Calls, Messages and Photos (loadHub); svc.hub is the Mac's sound capture (audiohub.js)
 
 const state = {
   macName: '',
@@ -220,7 +221,7 @@ function pushState() {
     if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone };
     if (svc && svc.phoneDrive) state.mount = { ...svc.phoneDrive.view, on: !!settings.mount.on };
     // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
-    state.hub = { ...(svc && svc.hub ? svc.hub.view : { ...settings.hub, connected: false }), paired: !!(pairing && pairing.list().some((p) => p.os === P.OS.ANDROID)) };
+    state.hub = phoneHub ? phoneHub.view : { ...settings.hub, connected: false };
     if (updates) state.updates = updates.view;
     if (pairSync) pairSync.check();
     sendScreenState();
@@ -689,18 +690,18 @@ function setupNet() {
 // listener, nothing sent to the phone. The call window (shared/callwin.js) only with a call.
 function setupHub() {
   const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media;
-  peer.on('client', (ctx) => ctx.os === P.OS.ANDROID && !svc.hub && anyOn() && loadHub());
+  peer.on('client', (ctx) => ctx.os === P.OS.ANDROID && !phoneHub && anyOn() && loadHub());
 }
 
 let callwin = null;
 function loadHub() {
-  if (svc.hub) return svc.hub;
+  if (phoneHub) return phoneHub;
   const { PhoneHub } = require('../shared/phonehub.js');
   const hub = new PhoneHub({
     server: peer, getSettings: () => settings, save: () => store.saveSettings(settings),
     audio: (opts) => require('./callaudio.js').create({ helper: svc.helper, ...opts }), // the calls' sound over Bluetooth
   });
-  svc.hub = hub;
+  phoneHub = hub;
   hub.on('change', pushState);
   hub.on('data', (m) => win && !win.isDestroyed() && win.webContents.send('hub', m));
   const popup = () => {
@@ -732,7 +733,7 @@ app.on('before-quit', () => {
   quitting = true;
   if (svc && svc.phoneViews) svc.phoneViews.shutdown();
   if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();
-  if (svc && svc.hub && svc.hub.audio) svc.hub.audio.stop(); // the phone's calls go back to it
+  if (phoneHub && phoneHub.audio) phoneHub.audio.stop(); // the phone's calls go back to it
   if (callwin) callwin.close();
   if (svc && svc.wired) svc.wired.stop();
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input

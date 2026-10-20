@@ -12,7 +12,7 @@ UI.tab({
   icon: 'photo',
   color: 'linear-gradient(#ffd60a, #ff9f0a)',
   desc: 'See your phone’s photos and videos and copy them here.',
-  hidden: (s) => !(s.hub && s.hub.paired),
+  hidden: (s) => !UI.isPhone(s), // only while a phone is connected
   wifiOnly: true, // pictures are too big for Bluetooth, and this page doesn't move the session to Wi-Fi
   master: { get: (s) => !!(s.hub && s.hub.media), set: (v) => UI.api.hub({ do: 'set', what: 'media', on: v }) },
   badge: (s) => (s.hub && s.hub.media ? 'on' : ''),
