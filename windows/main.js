@@ -380,6 +380,7 @@ function setupNet(guest) {
     },
   });
   net.on('change', pushState);
+  net.on('dropped', () => pcScreen.mode !== 'off' && pcScreen.setMode('off')); // Back to Bluetooth on the phone: it can't carry the screen
   link.hold = (m) => net.holdOut(m, (x) => link.sendNow(x));
   link.tap = (m) => net.onMessage(m);
   link.on('welcome', () => net.started());

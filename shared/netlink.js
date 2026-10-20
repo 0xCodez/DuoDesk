@@ -12,7 +12,7 @@
 //
 // Sent files wait (holdOut) until the session is on Wi-Fi, or go through Bluetooth when it can't be.
 //
-// Events: 'change' — view changed.
+// Events: 'change' — view changed; 'dropped' — Back to Bluetooth on the other side.
 'use strict';
 
 const crypto = require('crypto');
@@ -49,7 +49,7 @@ class NetLink extends EventEmitter {
   }
 
   get view() {
-    return { state: this.state, kind: this.kind, error: this.error, ssid: this.ssid, why: [...this.needs.keys()], peerWhy: [...this.peerNeeds] };
+    return { state: this.state, linked: this.linked, kind: this.kind, error: this.error, ssid: this.ssid, why: [...this.needs.keys()], peerWhy: [...this.peerNeeds] };
   }
 
   get onBle() {
@@ -99,6 +99,7 @@ class NetLink extends EventEmitter {
         if (!m.ok) return this._fail(String(m.error || 'The other side couldn’t join').slice(0, 200));
         return;
       case T.NET_RELEASE:
+        if (m.all) return void (this._drop(), this.emit('dropped')); // Back to Bluetooth on the other side
         this.peerNeeds.delete(String(m.why || ''));
         return this._maybeDown();
     }
@@ -134,6 +135,23 @@ class NetLink extends EventEmitter {
     this._set('idle');
     this._flush();
     this._settle(false);
+  }
+
+  // Back to Bluetooth (the person): what either side needed it for ends now, on both.
+  drop() {
+    if (this.o.current()) this.o.send({ t: T.NET_RELEASE, why: '', all: true });
+    this._drop();
+  }
+
+  _drop() {
+    this.needs.clear();
+    this.peerNeeds.clear();
+    this.cancel();
+  }
+
+  // On a link made here (for whatever reason): Back to Bluetooth can end it.
+  get linked() {
+    return ['hosting', 'joining', 'joined'].includes(this.state);
   }
 
   touch(why) {

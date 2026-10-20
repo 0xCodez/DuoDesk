@@ -180,7 +180,7 @@
       PHONE_AWAKE: 'phone.awake', // phone->computer {unlocked, waiting?}: unlocked (now, or once the person unlocked it); waiting = it's asking for the unlock
       // Wireless debugging (adb), which the Mac uses for the screen, touch, mouse and keyboard,
       // the clipboard in the background and apps in their own windows (scrcpy):
-      ADB_STATE: 'adb.state', // phone->Mac {devOptions, wifi (wireless debugging on), canEnable (WRITE_SECURE_SETTINGS granted), address, full, port (its wireless debugging port from its own mDNS, 0 if not known yet)}
+      ADB_STATE: 'adb.state', // phone->Mac {devOptions, wifi (wireless debugging on), canEnable (WRITE_SECURE_SETTINGS granted), address, full, port (its wireless debugging port from its own mDNS, 0 if not known yet), net (on a Wi-Fi network: wireless debugging can't be on without one)}
       ADB_ENABLE: 'adb.enable', // Mac->phone {on}: switch wireless debugging (needs canEnable)
       ADB_PAIR: 'adb.pair', // phone->computer {code, port?}: the code from "Pair device with pairing code", typed on the phone (port: its pairing port, 0 if unknown)
       ADB_BRIDGE: 'adb.bridge', // computer->phone {state, message}: how the computer's wireless debugging link is doing (off|missing|waitingWifi|needsPair|connecting|ready|error)
@@ -191,7 +191,7 @@
       NET_NEED: 'net.need', // either {why: 'files'|'screen'}: please host a network (I can't)
       NET_JOIN: 'net.join', // host->joiner {ssid, pass} | {error}: it's up, join it
       NET_JOINED: 'net.joined', // joiner->host {ok, error?}
-      NET_RELEASE: 'net.release', // either {why}: I don't need it any more
+      NET_RELEASE: 'net.release', // either {why}: I don't need it any more; {all: true}: Back to Bluetooth, nobody does
       NET_HOTSPOT: 'net.hotspot', // computer->phone {on}: ask the person to switch the phone's hotspot on (the screen through adb)
       // Resume: `welcome` carries {resume: key}; the guest opens a second socket (another path to the
       // host, e.g. the network once both are on one) with hello {..., resume: key} and gets welcome

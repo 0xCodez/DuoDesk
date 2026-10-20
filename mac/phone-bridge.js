@@ -26,6 +26,9 @@ const { PhoneInput } = require('../shared/phoneinput.js');
 const T = P.T;
 const APP_ID = 'com.twindesk.android';
 const POLL_MS = 3000;
+// adb's older TCP mode: unlike wireless debugging it doesn't need a Wi-Fi network (Android switches
+// wireless debugging off on a Wi-Fi Direct link), and stays on until the phone restarts.
+const TCPIP_PORT = 5555;
 // macOS's Local Network privacy: adb (started by TwinDesk) may not open connections on the LAN.
 // The phone answers ping, but every connect and pairing attempt fails with EHOSTUNREACH.
 const NO_ROUTE = /no route to host/i;
@@ -76,6 +79,7 @@ class PhoneBridge extends EventEmitter {
     this.keys = new KeyState();
     this.views = null; // phoneview.js sets this
     this.setupDone = new Set(); // serials granted this run
+    this.tcpipDone = new Set(); // serials whose TCP mode was checked this run
     this.lastPort = new Map(); // phone address -> the wireless debugging port that last worked
     this.misses = 0; // tries in a row that found no way in
     // Phones (by id) adb has reached before. Android keeps the computer's key (Settings lists it),
@@ -229,16 +233,34 @@ class PhoneBridge extends EventEmitter {
       this._known(true);
       this.serial = ready;
       await this._setup(ready);
+      if (await this._tcpip(ready)) return; // adbd restarts: found again on the next poll
       await this._checkInput(ready);
       return this._startControl();
     }
-    if (!a.wifi) {
-      if (a.canEnable) {
-        this.server.sendToClient({ t: T.ADB_ENABLE, on: true });
-        return this._set('connecting', 'Turning on wireless debugging…');
+    // TCP mode, switched on the last time we were in (USB cable or wireless debugging): works on a
+    // direct Wi-Fi link too, where wireless debugging can't (though its switch may still say on).
+    // Only at the session's own network address: on Bluetooth or the cable that's 127.0.0.1, where
+    // port 5555 is this computer's Android emulator, and the phone's Wi-Fi address is out of reach.
+    const c = this.server.current;
+    const sessionIp = c && c.transport !== 'ble' && c.address && !/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(c.address) ? c.address.replace(/^::ffff:/, '') : '';
+    if (sessionIp && sessionIp === address) {
+      const serial = `${address}:${TCPIP_PORT}`;
+      const r = await this.adb.connect(address, TCPIP_PORT);
+      if (r.ok && await this._findDevice(address)) return this._kick();
+      // Not allowed yet ("failed to authenticate", kept as unauthorized): the phone asks; keep that connection.
+      if ((await this.adb.devices()).some((d) => d.serial === serial && d.state === 'unauthorized')) {
+        return this._set('waitingWifi', 'Tap Allow on the phone (“Allow USB debugging?”).');
       }
+      if (r.ok) await this.adb.disconnect(serial);
+    }
+    // A direct Wi-Fi link without a Wi-Fi network on the phone: wireless debugging can’t come on. (On
+    // its own Wi-Fi as well it can, reached at the session's address; older apps don't say: the address.)
+    const direct = a.net === false || (!a.wifi && /^192\.168\.(49|137)\./.test(address));
+    if (!a.wifi || direct) {
+      if (a.canEnable) this.server.sendToClient({ t: T.ADB_ENABLE, on: true }); // also refreshes adb.state
+      if (a.canEnable && !direct) return this._set('connecting', 'Turning on wireless debugging…');
       // Android keeps wireless debugging off without a Wi-Fi network: a Wi-Fi Direct group isn't one.
-      if (/^192\.168\.49\./.test(address)) return this._set('waitingWifi', 'On a direct Wi-Fi link the phone can’t turn wireless debugging on (it needs a Wi-Fi network). The mouse and keyboard work through Accessibility.');
+      if (direct) return this._set('waitingWifi', 'On a direct Wi-Fi link the phone can’t turn wireless debugging on (it needs a Wi-Fi network). Connect it once by USB cable or on the same Wi-Fi, and it works here too until the phone restarts. Meanwhile the mouse and keyboard work through Accessibility.');
       return this._set('waitingWifi', a.devOptions ? 'Turn on USB debugging and Wireless debugging on the phone (both).' : 'Turn on Developer options, then USB debugging and Wireless debugging on the phone (both).');
     }
     // Wireless debugging is on: connect where it listens. The phone tells us its port (it finds
@@ -356,6 +378,19 @@ class PhoneBridge extends EventEmitter {
     for (const c of cmds) await this.adb.shell(serial, c, { timeout: 8000 });
     this.setupDone.add(serial);
     setTimeout(() => this.server.sendToClient({ t: T.PHONE_APPS_LIST }), 500);
+  }
+
+  // TCP mode on (once per phone restart), for a direct Wi-Fi link later. True: adbd restarts now.
+  // On the USB cable wired.js has done it before the session moved onto it (here it would restart adbd under it).
+  async _tcpip(serial) {
+    if (this.tcpipDone.has(serial) || !serial.includes(':')) return false;
+    this.tcpipDone.add(serial);
+    const r = await this.adb.shell(serial, 'getprop service.adb.tcp.port', { timeout: 4000 });
+    if (r.out.trim() === String(TCPIP_PORT)) return false;
+    this._set('connecting', 'Setting up the phone for Wi-Fi Direct…');
+    await this.adb.run(['-s', serial, 'tcpip', String(TCPIP_PORT)], { timeout: 8000 });
+    setTimeout(() => this._kick(), 2000);
+    return true;
   }
 
   async _startControl() {

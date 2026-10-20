@@ -392,10 +392,12 @@ function setupIpc(ctx) {
     netCancel() {
       ctx.net.cancel();
     },
-    // Connect with Wi-Fi Direct (a session on Bluetooth), or back to Bluetooth.
+    // Connect with Wi-Fi Direct (a session on Bluetooth), or back to Bluetooth: the link ends
+    // whatever it was made for (the screen too: Bluetooth can't carry it).
     netWifi(on) {
-      if (on) ctx.net.need('user');
-      else ctx.net.release('user');
+      if (on) return void ctx.net.need('user');
+      ctx.net.drop();
+      if (settings.sharing.on) actions.setSharing(false);
     },
     setAudio(partial) {
       setGroup('audio', partial);

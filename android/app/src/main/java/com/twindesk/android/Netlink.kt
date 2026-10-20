@@ -157,6 +157,26 @@ class Netlink(core: Core) : Feature(core) {
         set("idle", "")
     }
 
+    // On a link made here or there (for whatever reason): Back to Bluetooth can end it.
+    val linked get() = state in setOf("hosting", "joining", "joined")
+
+    // Back to Bluetooth here: what either side needed the link for ends now, on both.
+    fun drop() {
+        core.link.send(msg(Proto.T.NET_RELEASE, "why" to "", "all" to true))
+        core.bg.execute { dropped() }
+    }
+
+    // Back to Bluetooth (here, or on the computer: net.release {all}): nobody needs the link any more.
+    private fun dropped() {
+        synchronized(this) {
+            needs.clear(); peerNeeds.clear()
+            linger?.cancel(false)
+            flushLocked()
+        }
+        down()
+        set("idle", "")
+    }
+
     override fun onMessage(t: String, m: JSONObject): Boolean {
         if (t == Proto.T.FILE_CHUNK) { touch("files"); return false }
         when (t) {
@@ -175,7 +195,7 @@ class Netlink(core: Core) : Feature(core) {
                 else core.bg.execute { join(s.take(32), m.optString("pass").take(63)) }
             }
             Proto.T.NET_JOINED -> if (!m.optBoolean("ok")) fail(m.optString("error").ifEmpty { "The computer couldn’t join" }.take(200))
-            Proto.T.NET_RELEASE -> { synchronized(this) { peerNeeds.remove(m.optString("why")) }; maybeDown() }
+            Proto.T.NET_RELEASE -> if (m.optBoolean("all")) dropped() else { synchronized(this) { peerNeeds.remove(m.optString("why")) }; maybeDown() }
             Proto.T.NET_HOTSPOT -> {
                 hotspotAsked = m.optBoolean("on")
                 if (hotspotAsked) Notify.hotspot(core.ctx, core.host?.name ?: "The computer") else Notify.cancelHotspot(core.ctx)

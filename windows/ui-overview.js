@@ -151,7 +151,7 @@ UI.tab({
         status.classList.toggle('bad', n.state === 'failed');
       }
       netCancel.hidden = !(connected && ['asking', 'hosting', 'joining'].includes(n.state));
-      wifiOn = (n.why || []).includes('user');
+      wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
       wifiBtn.hidden = !connected || !netCancel.hidden || !(wifiOn || ble);
 

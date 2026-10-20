@@ -121,7 +121,7 @@ UI.tab({
       const ready = br.state === 'ready';
       showBtn.disabled = !ready;
       const n = s.net || {};
-      wifiOn = (n.why || []).includes('user');
+      wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
       wifiBtn.hidden = !(wifiOn || !!(s.net && s.net.transport === 'ble'));
       const off = br.state === 'waitingWifi';

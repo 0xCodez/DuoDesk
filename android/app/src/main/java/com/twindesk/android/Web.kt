@@ -141,13 +141,10 @@ class Screen(core: Core) : Feature(core) {
         control(share = true, mode = pickMode())
     }
 
-    // Extend (a screen of the phone's own shape) unless Mirror was picked here; what the computer
-    // offers wins (a PC without its virtual display driver only mirrors). "screen.mode" was saved
-    // on every start, so it isn't a choice: "screen.picked" is.
+    // Always Mirror to start with (the computer's screen as it is); Extend is a tap away in the viewer.
     private fun pickMode(): String {
-        val want = core.store.prefsString("screen.picked", "extend")
         val modes = state?.optJSONArray("modes")?.let { a -> (0 until a.length()).map { a.optString(it) } } ?: listOf("extend", "mirror")
-        return if (want in modes) want else modes.firstOrNull() ?: "mirror"
+        return if ("mirror" in modes) "mirror" else modes.firstOrNull() ?: "mirror"
     }
 
     // The computer started sharing by itself (its Share Screen): open the viewer, or, where
@@ -217,9 +214,8 @@ class Screen(core: Core) : Feature(core) {
         if (core.link.connected && sharing) control(share = false, close = true)
     }
 
-    // Mirror / Extend tapped in the viewer: remembered for next time.
+    // Mirror / Extend tapped in the viewer (for this time: the next one starts on Mirror again).
     fun pick(mode: String) {
-        core.store.setPrefsString("screen.picked", mode)
         control(share = true, mode = mode)
     }
 

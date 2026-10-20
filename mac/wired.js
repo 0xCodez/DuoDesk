@@ -27,6 +27,7 @@ const APP_ID = 'com.twindesk.android';
 const TURN_PORT = 47802;
 const POLL_MS = 2000;
 const RETRY_MS = 15000; // a phone without TwinDesk (or not answering yet) is looked at again after this
+const TCPIP_PORT = 5555; // adb's TCP mode, where phone-bridge.js reaches the phone on a direct Wi-Fi link
 
 const isUsb = (serial) => !/[:]/.test(serial) && !serial.startsWith('emulator-') && !serial.includes('._adb-tls');
 const isLoopback = (a) => a === '127.0.0.1' || a === '::1';
@@ -171,9 +172,22 @@ class Wired extends EventEmitter {
     throw new Error(`adb reverse ${port}: ${(r.err || r.out).trim()}`);
   }
 
+  // TCP mode on, for a direct Wi-Fi link later (Android keeps wireless debugging off there): it
+  // stays on until the phone restarts. Switching it on restarts adbd, which ends every adb reverse,
+  // so it's done before the session comes onto the cable, not under it.
+  async _tcpip(serial) {
+    const prop = await this.adb.shell(serial, 'getprop service.adb.tcp.port', { timeout: 4000 });
+    if (prop.code || prop.out.trim() === String(TCPIP_PORT)) return;
+    console.log(`[wired] ${serial}: adb's TCP mode on (${TCPIP_PORT})`);
+    await this.adb.run(['-s', serial, 'tcpip', String(TCPIP_PORT)], { timeout: 8000 });
+    await new Promise((r) => setTimeout(r, 1500)); // adbd goes away, then comes back on the cable
+    await this.adb.run(['-s', serial, 'wait-for-device'], { timeout: 15000 });
+  }
+
   async _invite(serial) {
     const has = await this.adb.shell(serial, `pm path ${APP_ID}`, { timeout: 5000 });
     if (!/package:/.test(has.out)) return;
+    await this._tcpip(serial);
     const port = await this._reverse(serial, this.raw.port);
     this.phoneTurn = await this._reverse(serial, TURN_PORT);
     // One per plug-in: a phone still pairing with the last broadcast's nonce keeps it valid.

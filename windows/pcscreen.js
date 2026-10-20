@@ -38,6 +38,9 @@ class PcScreen {
       this.apply();
     });
     link.on('closed', () => { clearTimeout(this.policyTimer); this.mac.accept = false; this.stateKey = ''; this.apply(); });
+    // The session moved (Bluetooth -> a Wi-Fi Direct link, or back): a session offered on the old path
+    // never connects on the new one; the transport is part of the key, so apply() starts again.
+    link.on('transport', () => this.apply());
     link.on(T.SCREEN_CTL, (m) => this._onCtl(m));
     link.on(T.SCREEN_POLICY, (m) => {
       const n = (v) => (Number.isInteger(v) && v >= 320 && v <= 7680 ? v : 0);
@@ -174,14 +177,16 @@ class PcScreen {
 
   async _applyOnce() {
     const connected = this.link.status.state === 'connected';
-    const want = connected && this.mode !== 'off' && !this.busy && this.mac.accept;
+    // Bluetooth can't carry the picture: it starts once the session is on Wi-Fi (netlink.js).
+    const transport = (this.link.current && this.link.current.transport) || 'ip';
+    const want = connected && this.mode !== 'off' && !this.busy && this.mac.accept && transport !== 'ble';
     if (!want) return this._stopSend(connected);
     const d = await this._target();
     if (!d) return this._stopSend(true);
     const rect = displays.dipToScreenRect(null, d.bounds);
     const [width, height] = this._streamSize(rect);
     const fps = PcScreen.fps(d);
-    const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound, fps].join(',');
+    const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound, fps, transport].join(',');
     if (this.sending && this.sending.key === key) return;
     const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
     const src = sources.find((s) => s.display_id === String(d.id));

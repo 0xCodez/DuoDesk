@@ -637,6 +637,7 @@ function setupNet() {
     if (svc.net.state === 'hotspot') showWindow();
     pushState();
   });
+  svc.net.on('dropped', () => settings.sharing.on && actions.setSharing(false)); // Bluetooth can't carry the screen
   peer.hold = (m) => svc.net.holdOut(m, (x) => peer.sendNow(x));
   peer.tap = (m) => svc.net.onMessage(m);
   peer.on('client', () => svc.net.started());

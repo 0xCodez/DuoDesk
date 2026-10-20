@@ -175,7 +175,7 @@ UI.tab({
             : 'Pick a computer above, or connect by address.');
       status.classList.toggle('bad', !!bad);
       const n = s.net || {};
-      wifiOn = (n.why || []).includes('user');
+      wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
       wifiBtn.hidden = !c || !(wifiOn || c.transport === 'ble');
 

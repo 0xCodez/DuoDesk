@@ -370,12 +370,25 @@ private fun OverviewPage(core: Core, v: Int) {
             color = pal.muted, fontSize = 12.5.sp, lineHeight = 17.sp, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 14.dp),
         )
+        // Wireless debugging not set up (or off): one line under Connected, with the way to fix it.
+        // Reached anyway (adb's TCP mode, on a direct Wi-Fi link): nothing to fix.
+        if (host != null && !core.adb.paired && (core.adb.setupNeeded || !core.adb.wifiDebugging)) Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp).clip(RoundedCornerShape(8.dp)).background(pal.warn.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (core.adb.setupNeeded) "Wireless debugging isn’t set up. ${host.name} needs it to show this screen and control it through ADB."
+                else "Wireless debugging is off. ${host.name} needs it to show this screen and control it through ADB.",
+                color = pal.text, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f).padding(end = 8.dp),
+            )
+            if (core.adb.setupNeeded) Secondary("Set up") { Guide.open.value = true } else Secondary("Turn on") { core.adb.turnOn() }
+        }
         if (host != null) {
             val show = { core.ctx.startActivity(Intent(core.ctx, ViewerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            // On Bluetooth: a direct Wi-Fi link on request ("user" until Back to Bluetooth), not only for files and screens.
-            val onWifi = core.net.wanted("user")
+            // On Bluetooth: a direct Wi-Fi link on request, or made for files and screens: Back to Bluetooth ends it (both sides).
+            val onWifi = core.net.wanted("user") || core.net.linked
             val wifiLabel = if (onWifi) "Back to Bluetooth" else if (core.link.ble) "Connect with Wi-Fi Direct" else null
-            val wifiClick = { if (onWifi) core.net.release("user") else core.net.need("user"); core.changed() }
+            val wifiClick = { if (onWifi) core.net.drop() else core.net.need("user"); core.changed() }
             if (LocalConfiguration.current.screenWidthDp >= 600) {
                 Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
                     Primary("Show ${host.name}’s screen", show)
@@ -396,8 +409,6 @@ private fun OverviewPage(core: Core, v: Int) {
         }
     }
 
-    // Wireless debugging, under the connected card, until the computer is paired with it.
-    WirelessCard(core, LocalContext.current, v)
 
     if (host != null) {
         val wide = LocalConfiguration.current.screenWidthDp >= 840
@@ -528,8 +539,10 @@ private fun CursorPage(core: Core, v: Int) {
     }
     if (host == null) return NotConnected(core, v)
     // Accessibility (chosen, or a session on Bluetooth): no wireless debugging needed, only the service.
-    val viaPhone = core.input.via == "phone" || core.link.ble && !core.adb.wifiDebugging
-    val adbMissing = !viaPhone && !core.adb.wifiDebugging
+    // ADB reached without wireless debugging (its TCP mode, on a direct Wi-Fi link) counts as there.
+    val adbOn = core.adb.wifiDebugging || core.adb.paired
+    val viaPhone = core.input.via == "phone" || core.link.ble && !adbOn
+    val adbMissing = !viaPhone && !adbOn
     Note(
         when {
             viaPhone && !core.input.on -> "Allow TwinDesk in Accessibility, so $name’s pointer can tap and type here."
@@ -800,7 +813,7 @@ private fun GeneralPage(core: Core, v: Int) {
                 else -> "For this screen and sound on $name, and its mouse and keyboard here"
             },
         ) {
-            if (core.adb.paired && core.adb.wifiDebugging) Pill("Paired", "good")
+            if (core.adb.paired) Pill("Paired", "good")
             else {
                 if (!core.adb.wifiDebugging) Secondary("Turn on") { core.adb.turnOn() }
                 Primary("Guide") { Guide.open.value = true }
