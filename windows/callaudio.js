@@ -15,7 +15,7 @@ const fs = require('fs');
 const readline = require('readline');
 const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
-const { run, q } = require('./ps');
+const { script } = require('./ps');
 
 const ROOT = path.join(__dirname, '..'); // the package's external location: its exe is windows-helper\bin\macshare-calls.exe in it
 const BIN = path.join(ROOT, 'windows-helper', 'bin');
@@ -27,19 +27,6 @@ const PKG_VERSION = '1.0.0.0'; // as windows-helper/calls/AppxManifest.xml
 const RETRY_MS = [5000, 15000, 30000, 60000, 120000];
 const SYSTEM_ONLY = 'Windows keeps calls over Bluetooth for Phone Link on this PC. Calls still ring, answer and dial here; their sound stays on the phone';
 let refused = ''; // Windows said no: not asked again until the app restarts
-
-// Registered (again when its version or place changed: force), for this user only.
-const REGISTER = (force) => `
-$ErrorActionPreference = 'Stop'
-$out = @{}
-try {
-  $p = Get-AppxPackage -Name ${q(PKG)}
-  if ($p -and (${force ? '$true' : '$false'} -or "$($p.Version)" -ne ${q(PKG_VERSION)})) { $p | Remove-AppxPackage; $p = $null }
-  if (-not $p) { Add-AppxPackage -Path ${q(MSIX)} -ExternalLocation ${q(ROOT)} -ForceUpdateFromAnyVersion }
-  $out.ok = $true
-} catch { $out.error = $_.Exception.Message }
-ConvertTo-Json $out -Compress
-`;
 
 const parse = (s) => { try { return JSON.parse(String(s).trim().split('\n').pop()) || {}; } catch { return {}; } };
 
@@ -119,7 +106,8 @@ class CallAudio extends EventEmitter {
     }
     this._set('starting');
     let r;
-    try { r = parse(await run(REGISTER(force), 90000)); } catch (e) { r = { error: e.message }; }
+    // scripts/calls-register.ps1: for this user only, again when its version or place changed (force).
+    try { r = parse(await script('calls-register', { Name: PKG, Version: PKG_VERSION, Msix: MSIX, Root: ROOT, Force: !!force }, 90000)); } catch (e) { r = { error: e.message }; }
     if (gen !== this.gen || this.stopped) return;
     if (!r.ok) {
       this._log(`package: ${r.error || 'failed'}`);
