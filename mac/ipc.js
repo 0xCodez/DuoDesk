@@ -13,6 +13,8 @@ const SETTINGS_URLS = {
   inputMonitoring: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent',
   localNetwork: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork',
   fullDisk: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
+  bluetooth: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth',
+  location: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
 const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
@@ -46,7 +48,7 @@ const SCHEMA = {
   receive: { on: bool, fullScreen: bool, input: bool, framegen: bool },
   sharing: { remote: bool, pace: oneOf(['fast', 'smooth'], 'fast') },
   papps: { on: bool },
-  phone: { sound: bool, bitrateMbps: (v) => Math.round(clamp(2, 40, 8)(v)), maxSize: oneOf([0, 1920, 1600, 1280, 1024], 0), wallpaper: bool, input: oneOf(['adb', 'phone'], 'adb') },
+  phone: { sound: bool, bitrateMbps: (v) => Math.round(clamp(2, 40, 8)(v)), maxSize: oneOf([0, 1920, 1600, 1280, 1024], 0), wallpaper: bool, input: oneOf(['adb', 'phone'], 'adb'), inputPicked: bool },
   mount: { on: bool },
   clipboard: {
     enabled: bool, send: bool, receive: bool, mode: oneOf(['switch', 'instant'], 'instant'),
@@ -89,6 +91,11 @@ function setupIpc(ctx) {
         return report(`Connecting to ${dev.name}…`);
       }
       discovery.invite(dev.address);
+      if (dev.os === P.OS.ANDROID) { // the popup says Pair has to be pressed on the phone, for a minute at most
+        const inv = { id: dev.id, name: dev.name };
+        connect.inviting = inv;
+        setTimeout(() => { if (connect.inviting === inv) { connect.inviting = null; pushState(); } }, 60 * 1000);
+      }
       return report(`Asked ${dev.name} to connect. Confirm on ${dev.name}.`);
     }
     if (dev && pairing.list().some((p) => p.id === dev.id)) {
@@ -186,6 +193,8 @@ function setupIpc(ctx) {
       ctx.link.confirmCode();
     },
     cancelGuestPair() {
+      connect.inviting = null;
+      pushState();
       ctx.link.cancelPair();
     },
     forgetHost(hostId) {
@@ -382,7 +391,7 @@ function setupIpc(ctx) {
       ctx.pcApps.list();
     },
     openPcApp(id) {
-      ctx.net.need('apps').then(() => ctx.pcApps.open(String(id)));
+      ctx.pcApps.open(String(id)); // Wi-Fi first through Bluetooth (main.js)
     },
     keepPcAppInDock(id) {
       ctx.pcApps.keepInDock(String(id));

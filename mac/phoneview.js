@@ -119,7 +119,8 @@ class PhoneViews extends EventEmitter {
     const n = this.notified;
     if (!n || !n.unlocked) return;
     if (Date.now() - n.at > NOTIFIED_MS) return void (this.notified = null);
-    if (this.bridge.state !== 'ready' || !this.bridge.serial) return;
+    const ble = this.server.current && this.server.current.transport === 'ble'; // Wi-Fi first: onNoAdb
+    if ((this.bridge.state !== 'ready' || !this.bridge.serial) && !(ble && this.onNoAdb)) return;
     this.notified = null;
     this.openApp(n.pkg, this._info(n.pkg, n.name).name);
   }

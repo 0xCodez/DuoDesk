@@ -184,8 +184,18 @@
   }
 
   function renderBanner(s) {
+    const inv = !s.pairing && s.inviting;
+    $('banner').hidden = !s.pairing && !inv;
+    if (inv) { // this PC asked a phone to pair: it goes on there
+      $('banner').classList.remove('failed');
+      $('pair-title').textContent = 'Press Pair on ' + inv.name;
+      $('pair-code-wrap').hidden = true;
+      $('pair-match').hidden = true;
+      $('pair-cancel').textContent = 'Cancel';
+      $('pair-hint').textContent = 'TwinDesk on ' + inv.name + ' asks to pair with this PC. Press Pair there, then compare the codes.';
+      return;
+    }
     const p = s.pairing;
-    $('banner').hidden = !p;
     if (!p) return;
     $('banner').classList.toggle('failed', p.phase === 'failed');
     const host = p.role === 'host'; // another computer asks to pair with this PC

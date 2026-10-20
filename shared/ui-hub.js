@@ -33,6 +33,17 @@
 
   // The session runs through Bluetooth (Mac: s.client; PC and Linux: s.net). USB, Wi-Fi and Wi-Fi
   // Direct aren't: Photos and Phone Files work on those, and load nothing over Bluetooth.
+  // Wireless debugging reaches the phone over Wi-Fi only: over Bluetooth its card is greyed out and
+  // says so (the Phone page, the Overview). True while it is.
+  UI.adbBle = (s, card, row, pill) => {
+    const ble = UI.onBle(s);
+    card.classList.toggle('wifi-only', ble);
+    if (!ble) return false;
+    pill.className = 'pill muted';
+    pill.textContent = 'Wi-Fi only';
+    row.setHint('Only available over Wi-Fi: you’re connected over Bluetooth. Connect with Wi-Fi Direct, or join the same Wi-Fi network.');
+    return true;
+  };
   UI.onBle = (s) => !!(s && ((s.client && s.client.transport === 'ble') || (s.net && s.net.transport === 'ble')));
   // How the session runs, for the status lines: Bluetooth; a Wi-Fi Direct link (or a phone's
   // hotspot) made for a file or a screen, which goes again by itself ("Temporary"), or asked for

@@ -170,12 +170,22 @@
   function renderBanner(s) {
     const p = s.pairing;
     const g = s.guest && s.guest.pairing;
-    bannerMode = p ? 'host' : g ? 'guest' : null;
+    // This Mac asked a phone to pair: it goes on there (Cancel only hides this).
+    const inv = !p && !g && s.connect && s.connect.inviting && !(s.client && s.client.id === s.connect.inviting.id) ? s.connect.inviting : null;
+    bannerMode = p ? 'host' : g ? 'guest' : inv ? 'guest' : null;
     $('banner').hidden = !bannerMode;
     if (!bannerMode) return;
+    if (inv) {
+      $('pair-title').replaceChildren('Press Pair on ', el('strong', { text: inv.name }));
+      $('pair-code').hidden = $('pair-code-label').hidden = true;
+      $('pair-allow').hidden = true;
+      $('pair-deny').textContent = 'Cancel';
+      $('pair-hint').textContent = `TwinDesk on ${inv.name} asks to pair with this Mac. Press Pair there, then compare the codes.`;
+      return;
+    }
     const code = (p || g).code;
     $('pair-code').textContent = code ? `${code.slice(0, 3)} ${code.slice(3)}` : '…';
-    $('pair-code').hidden = !!(p && p.wired); // on the USB cable: nothing to compare
+    $('pair-code').hidden = $('pair-code-label').hidden = !!(p && p.wired); // on the USB cable: nothing to compare
     if (p) {
       $('pair-title').replaceChildren(el('strong', { text: p.name }), ' wants to pair');
       $('pair-allow').textContent = 'Allow';

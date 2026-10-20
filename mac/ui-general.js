@@ -20,6 +20,11 @@ UI.tab({
       { kind: 'screen', label: 'Screen Recording', note: 'To share your screen' },
       { kind: 'accessibility', label: 'Accessibility', note: 'So the other computer can control this one' },
       { kind: 'inputMonitoring', label: 'Input Monitoring', note: 'To use this keyboard on the other computer' },
+      // Every other permission a feature uses, in one place (each is asked for when the feature is used).
+      { kind: 'localNetwork', label: 'Local Network', note: 'To find your other computers and phones', state: (s) => (s.discovery ? s.discovery.localNetwork !== false : null) },
+      { kind: 'bluetooth', label: 'Bluetooth', note: 'For a phone or computer that isn’t on this network', state: (s) => (s.net && s.net.radio ? s.net.radio !== 'denied' && s.net.radio !== 'unauthorized' : null) },
+      { kind: 'location', label: 'Location', note: 'To join a phone’s or PC’s Wi-Fi Direct (macOS shows Wi-Fi networks only with it)', state: () => null },
+      { kind: 'fullDisk', label: 'Full Disk Access', note: 'Optional: to share any folder with the other computer', state: () => null },
     ];
     const perms = PERMS.map((p) => {
       const pill = el('span', { class: 'pill' });
@@ -58,13 +63,14 @@ UI.tab({
 
     return (s) => {
       for (const { p, pill } of perms) {
-        const v = s.permissions[p.kind];
+        const v = p.state ? p.state(s) : s.permissions[p.kind];
         const ok = p.kind === 'screen' ? v === 'granted' : v === true;
         const unknown = v === null || v === undefined || v === 'unknown';
         pill.className = `pill ${unknown ? 'muted' : ok ? 'good' : 'bad'}`;
         // macOS counts Accessibility as enough for TwinDesk's keyboard tap: Input Monitoring reads
         // as allowed then, with its own switch in System Settings still off (that's fine).
         const viaAx = p.kind === 'inputMonitoring' && ok && s.permissions.accessibility === true;
+        pill.hidden = unknown && !!p.state; // macOS doesn't tell: Open shows it
         pill.textContent = unknown ? 'Unknown' : viaAx ? 'Allowed by Accessibility' : ok ? 'Allowed' : 'Not allowed';
       }
       if (s.app) {

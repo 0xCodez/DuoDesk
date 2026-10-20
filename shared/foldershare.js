@@ -1,7 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Shared folders with a phone, both ways, for the Mac, PC and Linux apps (FolderShare.kt on the
 // phone). Made by phonehub.js while a phone is connected; on USB, Wi-Fi or Wi-Fi Direct, never
-// through Bluetooth.
+// through Bluetooth: there the phone says it shares one (share.offer {on: false, wifi}), and Open
+// moves the session onto Wi-Fi Direct first (wifi(true), netlink.js), kept up while it's mounted.
 //   - The phone's folder here: the phone serves the folder chosen in TwinDesk there over WebDAV
 //     with TLS (share.offer {on, port, secret, name, cert}: its certificate comes through the
 //     session, so it's pinned) and this computer mounts it as the Mount page mounts the phone
@@ -39,9 +40,13 @@ class FolderShare extends EventEmitter {
   // adb: the phone bridge's (run), only for a phone on the cable. serialOf(deviceId): its USB serial.
   // chooseFolder(): a folder picked here. defaultFolder: shared when none was chosen.
   // tls(): the session server's certificate and key ({key, cert} or {pfx, passphrase}).
-  constructor(hub, { mounter, adb, serialOf, chooseFolder, defaultFolder, tls }) {
+  // wifi(on): through Bluetooth, Wi-Fi Direct for the folder (resolves true once the session is on
+  // it) or not any more; none where this computer has no Bluetooth sessions.
+  constructor(hub, { mounter, adb, serialOf, chooseFolder, defaultFolder, tls, wifi }) {
     super();
-    Object.assign(this, { hub, mounter, adb, serialOf, chooseFolder, defaultFolder, tls });
+    Object.assign(this, { hub, mounter, adb, serialOf, chooseFolder, defaultFolder, tls, wifi });
+    this.offerBle = ''; // the folder's name while the phone shares one and the session is on Bluetooth
+    this.wantMount = false; // Open through Bluetooth: mounted when the offer comes on Wi-Fi
     this.proxy = null; // 127.0.0.1 -> the phone's WebDAV over TLS, while mounted
     // The phone's folder here
     this.offer = null; // {port, secret, name} while the phone shares one
@@ -80,6 +85,8 @@ class FolderShare extends EventEmitter {
 
   async stopped() {
     this.offer = null;
+    this.offerBle = '';
+    this.wantMount = false;
     await this.unmount('');
     this._proxy(null);
     this._serve(false);
@@ -100,6 +107,7 @@ class FolderShare extends EventEmitter {
     const cert = str(m && m.cert, 8000);
     const ok = m && m.on && Number.isInteger(m.port) && m.port > 0 && m.port < 65536 && /^[a-f0-9]{16,64}$/.test(String(m.secret || '')) && /^[A-Za-z0-9+/=]{100,}$/.test(cert);
     const was = this.offer;
+    this.offerBle = m && !m.on && m.wifi ? this._volume(str(m.name, 80)) : '';
     this.offer = ok ? { port: m.port, secret: m.secret, name: this._volume(str(m.name, 80)), cert: `-----BEGIN CERTIFICATE-----\n${cert.match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----\n` } : null;
     const same = was && this.offer && was.port === this.offer.port && was.secret === this.offer.secret && was.cert === this.offer.cert;
     if (!this.offer || !same) this.unmount('').then(() => this._auto());
@@ -112,6 +120,7 @@ class FolderShare extends EventEmitter {
   }
 
   _auto() {
+    if (this.offer && this.wantMount && !this.mountPath && !this.busy && this._ctx()) return this.mount();
     if (this.offer && this.settings.shareMount && !this.mountPath && !this.busy && this._ctx()) this.mount();
   }
 
@@ -122,6 +131,7 @@ class FolderShare extends EventEmitter {
     if (!(await this.mounter.mountedAt(this.mountPort, this.mountHost))) {
       this.mountPath = '';
       this.message = '';
+      if (this.wifi) this.wifi(false);
       this.emit('change');
     }
   }
@@ -131,8 +141,19 @@ class FolderShare extends EventEmitter {
   async mount() {
     if (this.busy) return;
     if (this.mountPath) return this.reveal();
+    const c = this.hub.phone;
+    if (c && c.transport === 'ble' && this.offerBle && this.wifi) {
+      // Wi-Fi Direct first: the phone offers it again there, and _auto mounts it then.
+      this.wantMount = true;
+      this._set('wifi', '');
+      const ok = await this.wifi(true);
+      this._set('', ok ? '' : 'Wi-Fi Direct with the phone didn’t come up');
+      if (!ok) this.wantMount = false;
+      return this._auto();
+    }
     const ctx = this._ctx();
     if (!this.offer || !ctx) return;
+    this.wantMount = false;
     this._set('mounting', '');
     try {
       let host = ctx.address;
@@ -155,6 +176,7 @@ class FolderShare extends EventEmitter {
       this.reveal();
     } catch (e) {
       this._set('', `Couldn’t open it: ${String(e.message).split('\n')[0]}`);
+      if (this.wifi) this.wifi(false);
     }
   }
 
@@ -165,6 +187,7 @@ class FolderShare extends EventEmitter {
     await this.mounter.unmount(at).catch(() => {});
     this.mountPath = '';
     this._proxy(null);
+    if (this.wifi) this.wifi(false);
     this._set('', message);
   }
 
@@ -414,7 +437,7 @@ class FolderShare extends EventEmitter {
 
   get view() {
     return {
-      phone: { offered: !!this.offer, name: this.offer ? this.offer.name : '', mounted: this.mountPath, busy: this.busy, message: this.message, auto: !!this.settings.shareMount },
+      phone: { offered: !!(this.offer || this.offerBle), name: this.offer ? this.offer.name : this.offerBle, wifi: !this.offer && !!this.offerBle && !!this.wifi, mounted: this.mountPath, busy: this.busy, message: this.message, auto: !!this.settings.shareMount },
       mine: { on: !!this.settings.shareServe, folder: this.folder, error: this.serveError, serving: !!this.server && !!this._ctx() },
     };
   }

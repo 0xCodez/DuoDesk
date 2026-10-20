@@ -92,8 +92,9 @@ class PhoneBridge extends EventEmitter {
       this.phoneInput = m.on === true;
       // The phone's choice of input (changed there, or on connecting): the same setting here.
       const ph = this.getSettings().phone;
-      if ((m.via === 'adb' || m.via === 'phone') && ph && ph.input !== m.via) {
+      if ((m.via === 'adb' || m.via === 'phone') && ph && (ph.input !== m.via || !ph.inputPicked)) { // 'auto' there: as it is here
         ph.input = m.via;
+        ph.inputPicked = true;
         this.emit('save');
       }
       this.emit('change');
@@ -131,6 +132,7 @@ class PhoneBridge extends EventEmitter {
     return {
       state: this.state, message: this.message, serial: this.serial, available: this.adb.available, canPair: this.canPair, inputBlocked: this.inputBlocked,
       via: this.via, // 'usb' | 'wifi' | null: how adb reaches the phone
+      input: this.inputVia, inputMode: this.inputMode, // the mouse and keyboard: what they go through now, and the choice
       control: !!(this.control && !this.control.closed), driving: !!this.kvm,
       install: this.install, fullApk: !!fullApk(),
       windows: this.views ? this.views.list() : [],
@@ -491,18 +493,32 @@ class PhoneBridge extends EventEmitter {
 
   // The input choice changed here: to the phone, so its toggle shows the same.
   tellVia() {
-    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.PHONE_INPUT_VIA, via: this.viaPhone ? 'phone' : 'adb' });
+    if (isPhone(this.server.current)) this.server.sendToClient({ t: T.PHONE_INPUT_VIA, via: this.inputMode });
   }
 
   get viaPhone() {
     return (this.getSettings().phone || {}).input === 'phone';
   }
 
+  // 'auto' until one is picked (here or on the phone): ADB once wireless debugging is ready, else
+  // Accessibility, whose permission the phone asks for only then. An 'adb' saved before it could
+  // be picked is 'auto'.
+  get inputMode() {
+    const ph = this.getSettings().phone || {};
+    return ph.input === 'phone' ? 'phone' : ph.input === 'adb' && ph.inputPicked ? 'adb' : 'auto';
+  }
+
+  // What the mouse and keyboard go through now, for the window's toggle.
+  get inputVia() {
+    const m = this.inputMode;
+    return m === 'auto' ? (this.state === 'ready' ? 'adb' : 'phone') : m;
+  }
+
   _take(m) {
     const d = this._display();
     if (!this.ctl || !d) {
       setImmediate(() => this.server.inject({ t: T.KVM_REFUSE, route: m.route, why: P.REFUSE.NOT_ALLOWED }));
-      if (d && (this.viaPhone || this.state !== 'ready')) { // no wireless debugging (Bluetooth), or chosen: the phone does it itself, once allowed
+      if (d && (this.viaPhone || (this.state !== 'ready' && this.inputMode !== 'adb'))) { // no wireless debugging (Bluetooth), or chosen: the phone does it itself, once allowed
         this.server.sendToClient({ t: T.PHONE_INPUT_ASK });
         this.emit('popup', 'home', 'On the phone, allow TwinDesk to control it (the notification there)');
       } else {

@@ -173,9 +173,13 @@ class InputService : AccessibilityService() {
 // via: how the computer's mouse and keyboard reach this phone, "adb" (wireless debugging, else this
 // service) or "phone" (always this service: Wi-Fi, direct Wi-Fi or Bluetooth, no developer options).
 // The same choice as on the computer: whichever side changes it last (phone.input.via from there).
+// "auto" until one is picked: ADB once wireless debugging is there, else Accessibility, whose
+// permission is asked for only then.
 class Input(core: Core) : Feature(core) {
     val on get() = InputService.running != null
-    val via get() = core.store.prefsString("inputVia", "adb")
+    val via get() = core.store.prefsString("inputVia", "auto")
+    // What the computer's mouse and keyboard go through now.
+    val effective get() = if (via == "auto") (if (core.adb.wifiDebugging || core.adb.paired) "adb" else "phone") else via
     private var told: String? = null
 
     fun setVia(v: String) {
@@ -215,7 +219,7 @@ class Input(core: Core) : Feature(core) {
             Proto.T.PHONE_INPUT_ASK -> if (!on) Notify.input(core.ctx, core.host?.name ?: "Your computer") else changed()
             Proto.T.PHONE_INPUT_VIA -> {
                 val v = m.optString("via")
-                if (v == "adb" || v == "phone") { core.store.setPrefsString("inputVia", v); told = "$on/$v"; core.changed() }
+                if (v == "adb" || v == "phone" || v == "auto") { core.store.setPrefsString("inputVia", v); told = "$on/$v"; core.changed() }
             }
             else -> return false
         }

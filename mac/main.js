@@ -110,7 +110,7 @@ let pendingPhoneApp = null; // {pkg, until}
 function openPhoneApp(pkg) {
   if (!/^[\w.]{1,200}$/.test(pkg)) return;
   const phone = svc.phone;
-  if (phone.connected && phone.bridge.state === 'ready') {
+  if (phone.connected && (phone.bridge.state === 'ready' || svc.net.onBle)) { // through Bluetooth: Wi-Fi first (onNoAdb)
     pendingPhoneApp = null;
     return svc.phoneViews.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
   }
@@ -248,9 +248,9 @@ function onScreenCtl(m) {
   // The phone viewer's Close stops sharing even when the viewer may not start and switch it.
   if (m.share === false && m.close === true) return void (settings.sharing.on && actions.setSharing(false, 'remote'));
   if (settings.sharing.remote === false) return void (screenStateKey = '', pushState()); // re-send: remote false
-  if (m.mode === 'extend' || m.mode === 'mirror') {
-    if (displayMode() !== m.mode) actions.setDisplayMode(m.mode);
-  }
+  // Started from the viewer without a mode: Mirror (the virtual display doesn't always start); Extend is its switch.
+  const mode = m.mode === 'extend' || m.mode === 'mirror' ? m.mode : m.share === true && !settings.sharing.on ? 'mirror' : null;
+  if (mode && displayMode() !== mode) actions.setDisplayMode(mode);
   if (typeof m.share === 'boolean' && m.share !== !!settings.sharing.on) actions.setSharing(m.share, 'remote');
 }
 
@@ -673,7 +673,11 @@ function setupNet() {
   peer.tap = (m) => svc.net.onMessage(m);
   peer.on('client', () => svc.net.started());
   peer.on('closed', () => svc.net.ended());
-  peer.on('transport', pushState);
+  peer.on('transport', () => {
+    pushState();
+    if (!svc.smb.onBle) svc.smb.mountPc(); // on Wi-Fi now: the PC's folder too
+  });
+  svc.smb.wifi = (on) => (on ? svc.net.need('smb') : Promise.resolve(svc.net.release('smb')));
   // The phone's screen or an app window asked for while on Bluetooth: its hotspot, then the window.
   let pendingView = null;
   svc.phoneViews.onNoAdb = (v) => {
@@ -694,6 +698,8 @@ function setupNet() {
     if (!svc.phoneViews.list().length && !pendingView) svc.net.release('phone');
   });
   svc.pcView.on('change', () => !svc.pcView.isOpen && svc.net.release('view'));
+  const openPcApp = svc.pcApps.open.bind(svc.pcApps);
+  svc.pcApps.open = (id) => svc.net.need('apps').then((ok) => ok && openPcApp(id));
   svc.pcApps.on('change', () => {
     const v = svc.pcApps.view;
     if (!(v.windows || []).length) svc.net.release('apps');
@@ -735,6 +741,7 @@ function loadHub() {
       chooseFolder: () => dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { properties: ['openDirectory', 'createDirectory'] }).then((r) => (r.canceled ? '' : r.filePaths[0])),
       defaultFolder: path.join(require('os').homedir(), 'MacShare'),
       tls: () => server && server.tls, // served with the session's certificate, which the phone pinned
+      wifi: (on) => (!svc.net ? Promise.resolve(false) : on ? svc.net.need('folder') : Promise.resolve(svc.net.release('folder'))), // through Bluetooth
     },
   });
   phoneHub = hub;

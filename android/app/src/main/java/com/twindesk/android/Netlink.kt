@@ -241,7 +241,7 @@ class Netlink(core: Core) : Feature(core) {
         maybeDown()
     }
 
-    private fun touch(why: String) = synchronized(this) { if (needs.containsKey(why)) lastUse[why] = System.currentTimeMillis() }
+    fun touch(why: String) = synchronized(this) { if (needs.containsKey(why)) lastUse[why] = System.currentTimeMillis() }
 
     private fun plan(): String? {
         val them = peerCaps ?: return null

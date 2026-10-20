@@ -291,7 +291,7 @@ function start() {
   });
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, updates, settings, save: saveSettings, push: pushState, buildState,
-    get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev, hub: loadHub,
+    get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev, cancelPhoneInvite, hub: loadHub,
     get net() { return net; }, applyNet, joinHotspot,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
@@ -362,6 +362,11 @@ function startPhone(server, pairing) {
   phoneDrive.on('change', pushState);
   phone.bridge.on('change', () => {
     pushState();
+    if (pendingView && phone.bridge.serial) {
+      const v = pendingView;
+      pendingView = null;
+      if (Date.now() < v.until) v.kind === 'app' ? phoneViews.openApp(v.app, v.title) : phoneViews.openScreen();
+    }
     if (pendingPhoneApp && phone.bridge.state === 'ready') {
       const p = pendingPhoneApp;
       pendingPhoneApp = null;
@@ -373,6 +378,15 @@ function startPhone(server, pairing) {
   phoneViews.on('change', pushState);
   viaWifi(phoneViews, 'openScreen', 'phone');
   viaWifi(phoneViews, 'openApp', 'phone');
+  // On Wi-Fi after Bluetooth, wireless debugging takes a moment more: the window opens once it's up.
+  phoneViews.onNoAdb = (v) => {
+    const c = pl.current;
+    if (!c || c.os !== P.OS.ANDROID || !(c.transport === 'ble' || net.linked)) return false;
+    pendingView = { ...v, until: Date.now() + 60 * 1000 };
+    if (net.onBle) net.need('phone').then((ok) => !ok && (pendingView = null));
+    else hud.show('home', 'Opening it when wireless debugging is ready…');
+    return true;
+  };
   // A phone notification clicked here: its app in a window.
   notifs.onClick = (m) => pl.current && pl.current.os === P.OS.ANDROID && phoneViews.openNotified(m.app, m.appName);
   phoneViews.on('focus', () => kvm.applyConfig());
@@ -410,6 +424,7 @@ function loadHub() {
       chooseFolder: () => require('electron').dialog.showOpenDialog(mainWin && !mainWin.isDestroyed() ? mainWin : undefined, { properties: ['openDirectory', 'createDirectory'] }).then((r) => (r.canceled ? '' : r.filePaths[0])),
       defaultFolder: path.join(os.homedir(), 'MacShare'),
       tls: () => hostServer && hostServer.tls, // served with the session's certificate, which the phone pinned
+      wifi: (on) => (!net ? Promise.resolve(false) : on ? net.need('folder') : Promise.resolve(net.release('folder'))), // through Bluetooth
     },
   });
   hub.on('change', pushState);
@@ -472,7 +487,30 @@ function setupNet(guest) {
     recheck();
   });
   link.on('closed', () => net.ended());
-  link.on('transport', () => { pushState(); screen.policy(); });
+  link.on('transport', () => {
+    pushState();
+    screen.policy();
+    if (!net.onBle && settings.files.mountMac && smb.mac && !smb.drive) smbMount(); // on Wi-Fi now: the folder too
+  });
+  // The other computer's folder through Bluetooth: not mapped there (its address is the pipe's);
+  // Open moves the session onto Wi-Fi Direct and maps it then, kept up while it's mapped.
+  const smbMount = smb.mount.bind(smb);
+  let smbWait = false;
+  smb.canWifi = () => net.onBle;
+  smb.mount = () => {
+    if (!net.onBle) return smbMount();
+    smb.mountMessage = '';
+    smb.onChange();
+    return Promise.resolve();
+  };
+  smb.openOverWifi = () => {
+    if (smbWait) return;
+    smbWait = true;
+    waitWifi('smb', () => smbMount().then(() => {
+      smbWait = false;
+      if (smb.drive) shell.openPath(smb.drive + '\\');
+    }), () => { smbWait = false; });
+  };
   // Screens wait for Wi-Fi (WebRTC over Bluetooth would never work); each lets go when it closes.
   const policy = screen.policy.bind(screen);
   let screenWait = false;
@@ -490,7 +528,8 @@ function setupNet(guest) {
     if (!screen.watching()) net.release('screen');
     if (pcScreen.mode === 'off') net.release('share');
     if (!peerApps.view().open && !screen.watching()) net.release('apps');
-    if (phoneViews && !phoneViews.list().length) net.release('phone');
+    if (phoneViews && !phoneViews.list().length && !pendingView) net.release('phone');
+    if (!smb.drive && !smbWait) net.release('smb');
     const near = settings.net.ble && link.snapshot().link.state !== 'connected' && !link.hosting;
     bleGuest.scan(near); // looking for a host only while there's no session
     if (blePhones) blePhones.scan(near); // … and for phones
@@ -547,12 +586,28 @@ function viaWifi(obj, method, why) {
   obj[method] = (...args) => waitWifi(why, () => orig(...args));
 }
 
-// A phone found nearby: a paired one is asked to connect, any other to pair with this PC.
+// A phone found nearby: a paired one is asked to connect, any other to pair with this PC (the
+// popup says Pair has to be pressed on it, until it starts pairing or a minute went by).
+let phoneInvite = null; // {id, name, until}
 function connectPhoneDev(d) {
   discovery.clearInvite(d.id);
+  const paired = phone && link.pairing && link.pairing.list().some((p) => p.id === d.id);
+  if (!paired) {
+    phoneInvite = { id: d.id, name: d.name, until: Date.now() + 60 * 1000 };
+    setTimeout(pushState, 61 * 1000);
+    pushState();
+  }
   if (String(d.address).startsWith('ble:')) return discovery.invite(d.address); // near over Bluetooth only (BlePhones)
-  if (phone && link.pairing && link.pairing.list().some((p) => p.id === d.id)) phone.connect(d.id);
+  if (paired) phone.connect(d.id);
   else discovery.invite(d.address);
+}
+function phoneInviteView(s) {
+  if (phoneInvite && (Date.now() > phoneInvite.until || s.pairing || (s.peer && s.peer.id === phoneInvite.id))) phoneInvite = null;
+  return phoneInvite && { name: phoneInvite.name };
+}
+function cancelPhoneInvite() {
+  phoneInvite = null;
+  pushState();
 }
 
 // ---- pinned Mac apps ----
@@ -568,6 +623,7 @@ function openMacAppArg(argv) {
 // A pinned phone app starts "TwinDesk.exe --phone-app=<package>": open it once the phone's
 // wireless debugging is ready (connecting a paired phone nearby first, if none is connected).
 let pendingPhoneApp = null; // {pkg, until}
+let pendingView = null; // a phone window waiting for wireless debugging (phoneViews.onNoAdb)
 function openPhoneAppArg(argv) {
   const arg = (argv || []).find((a) => typeof a === 'string' && a.startsWith('--phone-app='));
   if (!arg) return false;
@@ -577,7 +633,7 @@ function openPhoneAppArg(argv) {
 }
 
 function openPhoneApp(pkg) {
-  if (phone && phoneViews && phone.connected && phone.bridge.state === 'ready') return phoneViews.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
+  if (phone && phoneViews && phone.connected && (phone.bridge.state === 'ready' || (net && net.onBle))) return phoneViews.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
   const first = !pendingPhoneApp;
   pendingPhoneApp = { pkg, until: (pendingPhoneApp && pendingPhoneApp.until) || Date.now() + 2 * 60 * 1000 };
   if (first && hud) hud.show('home', 'Opening it when the phone is ready…');
@@ -610,6 +666,7 @@ function pushState() {
   setImmediate(() => {
     pushQueued = false;
     const s = buildState();
+    s.inviting = phoneInviteView(s);
     if (pcScreen) pcScreen.sendState(); // The viewer learns what we share
     if (sendTo) sendTo.sync(s.peer && s.peer.name);
     if (pairSync) pairSync.check(); // Tell the other computer what changed here // the Send to entry follows the peer's name

@@ -103,6 +103,7 @@ UI.tab({
       steps.set(br.state === 'waitingWifi'
         ? 'On the phone: Settings › About phone › tap Build number 7 times (Developer options). Then Settings › System › Developer options › USB debugging and Wireless debugging: both on (wireless debugging only works with USB debugging on). After pairing once, TwinDesk turns them on by itself.'
         : br.state === 'needsPair' ? 'TwinDesk pairs with the phone’s wireless debugging once. After that the phone’s screen, apps, mouse and keyboard work without this step.' : '');
+      if (UI.adbBle(s, adbCard, adbRow, adbPill)) { pairRow.hidden = true; steps.set(''); }
 
       const settings = ph.settings || {};
       sound.set(!!settings.sound);

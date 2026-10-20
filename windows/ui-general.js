@@ -30,6 +30,10 @@ UI.tab({
     const vddRow = UI.row('Virtual display driver', '', [vddPill, vddInstall]); // Share screen › Extend (vdd.js)
     const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth when not on the same network' });
     const bleRow = UI.row('Bluetooth when not on the same network', '', [bleSw]);
+    // What Windows has to allow, in one place (each is also asked for where a feature needs it).
+    const btPill = el('span', { class: 'pill' });
+    const btRow = UI.row('Bluetooth', 'For a phone or computer that isn’t on this network', [btPill, UI.button('Open', () => api.openBluetoothSettings(), 'small')]);
+    const locRow = UI.row('Location', 'To join a phone’s or computer’s Wi-Fi Direct (Windows shows Wi-Fi networks only with it)', [UI.button('Open', () => api.netLocation(), 'small')]);
     const deviceName = el('span', { class: 'value' });
     const deviceRow = UI.row('Computer name', 'How other computers see this one', [deviceName]);
 
@@ -38,7 +42,8 @@ UI.tab({
         UI.row('Start with Windows', '', [startup]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Network and sharing', [fwRow, wakeRow, sendToRow, bleRow]),
+      UI.card('Permissions', [fwRow, btRow, locRow]),
+      UI.card('Network and sharing', [wakeRow, sendToRow, bleRow]),
       UI.card('This computer', [deviceRow, helperRow, vddRow]),
     );
 
@@ -75,6 +80,8 @@ UI.tab({
         : n.radio === 'off' ? 'Bluetooth is off in Windows settings'
           : n.radio === 'unsupported' ? 'This PC’s Bluetooth can’t do it (needs Bluetooth LE)'
             : 'A phone or computer nearby connects through Bluetooth; files and screens switch to Wi-Fi Direct for a moment');
+      btPill.textContent = n.radio === 'off' ? 'Off' : n.radio === 'unsupported' ? 'Not supported' : n.radio ? 'On' : 'Unknown';
+      btPill.className = 'pill ' + (n.radio === 'off' || n.radio === 'unsupported' ? 'bad' : n.radio ? 'good' : 'muted');
       deviceName.textContent = s.device.name;
     };
   },

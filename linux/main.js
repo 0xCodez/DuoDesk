@@ -273,7 +273,7 @@ function start() {
   });
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, fileDrop, smb, fileClip, vdd, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, updates, settings, save: saveSettings, push: pushState, buildState,
-    get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev, hub: loadHub,
+    get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev, cancelPhoneInvite, hub: loadHub,
     checkFirewall, fixFirewall, fixInput, setStartup, onApp: () => updateTray(buildState()) });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', pushState);
@@ -404,10 +404,23 @@ function loadHub() {
 }
 
 // A phone found nearby: a paired one is asked to connect, any other to pair with this computer.
+// An unpaired one: the popup says Pair has to be pressed on it, until it starts pairing or a minute went by.
+let phoneInvite = null; // {id, name, until}
 function connectPhoneDev(d) {
   discovery.clearInvite(d.id);
-  if (phone && link.pairing && link.pairing.list().some((p) => p.id === d.id)) phone.connect(d.id);
-  else discovery.invite(d.address);
+  if (phone && link.pairing && link.pairing.list().some((p) => p.id === d.id)) return phone.connect(d.id);
+  phoneInvite = { id: d.id, name: d.name, until: Date.now() + 60 * 1000 };
+  setTimeout(pushState, 61 * 1000);
+  pushState();
+  discovery.invite(d.address);
+}
+function phoneInviteView(s) {
+  if (phoneInvite && (Date.now() > phoneInvite.until || s.pairing || (s.peer && s.peer.id === phoneInvite.id))) phoneInvite = null;
+  return phoneInvite && { name: phoneInvite.name };
+}
+function cancelPhoneInvite() {
+  phoneInvite = null;
+  pushState();
 }
 
 // ---- Mac apps from their launchers ----
@@ -439,6 +452,7 @@ function pushState() {
   setImmediate(() => {
     pushQueued = false;
     const s = buildState();
+    s.inviting = phoneInviteView(s);
     if (pcScreen) pcScreen.sendState(); // the viewer learns what we share
     if (sendTo) sendTo.sync(s.peer && s.peer.name); // the Send to entries follow the peer's name
     if (pairSync) pairSync.check(); // tell the other computer what changed here

@@ -117,7 +117,8 @@ class PhoneViews extends EventEmitter {
     const n = this.notified;
     if (!n || !n.unlocked) return;
     if (Date.now() - n.at > NOTIFIED_MS) return void (this.notified = null);
-    if (this.bridge.state !== 'ready' || !this.bridge.serial) return;
+    const ble = this.server.current && this.server.current.transport === 'ble'; // Wi-Fi first: onNoAdb
+    if ((this.bridge.state !== 'ready' || !this.bridge.serial) && !(ble && this.onNoAdb)) return;
     this.notified = null;
     const a = this._app(n.pkg);
     this.openApp(n.pkg, (a && a.name) || n.name);
@@ -137,7 +138,11 @@ class PhoneViews extends EventEmitter {
   }
 
   _open({ kind, app, title, width, height, opts, hidden = false }) {
-    if (!this.bridge.serial) return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
+    if (!this.bridge.serial) {
+      // Wireless debugging not up yet (just on Wi-Fi after Bluetooth): main.js opens it once it is.
+      if (this.onNoAdb && this.onNoAdb({ kind, app, title, width, height, opts, hidden })) return;
+      return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
+    }
     const id = nextId++;
     const win = new BrowserWindow({
       width, height, minWidth: 220, minHeight: 300, title, show: false,

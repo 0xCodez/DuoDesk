@@ -85,7 +85,7 @@ const DEFAULT_SETTINGS = {
   apps: { offer: true }, // The PC can list and open this Mac's apps
   papps: { on: true }, // PC apps on this Mac, each window here with its own Dock icon
   // A phone as the peer: its screen window, apps and setup.
-  phone: { sound: false, bitrateMbps: 8, maxSize: 0, wallpaper: true, input: 'adb' }, // input: 'adb' | 'phone' (phone-bridge.js ctl)
+  phone: { sound: false, bitrateMbps: 8, maxSize: 0, wallpaper: true, input: 'adb', inputPicked: false }, // input: 'adb' | 'phone' (phone-bridge.js ctl), automatic until picked (inputMode)
   mount: { on: false }, // the phone in Finder (phonedrive.js), only when Mount is clicked
   // Calls, Messages, Photos and Files from a phone (shared/phonehub.js), each off until switched on.
   hub: { calls: false, messages: false, media: false, files: false, shareMount: false, shareServe: false, shareFolder: '' }, // share*: shared folders (foldershare.js)

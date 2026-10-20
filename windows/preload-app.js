@@ -80,6 +80,7 @@ contextBridge.exposeInMainWorld('macshare', {
   setNet: call('setNet'),
   netCancel: call('netCancel'),
   netLocation: call('netLocation'),
+  openBluetoothSettings: call('openBluetoothSettings'),
   netWifi: call('netWifi'),
   netJoinHotspot: call('netJoinHotspot'),
   sendFiles: call('sendFiles'),

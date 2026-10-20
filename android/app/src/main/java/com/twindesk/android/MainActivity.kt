@@ -175,7 +175,7 @@ fun App(core: Core, resumed: Int) {
     // Wireless debugging went off (MIUI / HyperOS): ask once per time it happens.
     var adbAsked by rememberSaveable { mutableStateOf(false) }
     if (!core.adb.off) adbAsked = false
-    if (core.adb.off && !adbAsked) {
+    if (core.adb.off && !adbAsked && !core.link.ble) { // over Bluetooth it can't be used anyway
         val name = them(core)
         AlertDialog(
             onDismissRequest = { adbAsked = true },
@@ -191,6 +191,34 @@ fun App(core: Core, resumed: Int) {
             },
             confirmButton = { TextButton(onClick = { adbAsked = true; core.adb.openSettings() }) { Text("Open Settings", color = pal.accent) } },
             dismissButton = { TextButton(onClick = { adbAsked = true }) { Text("Not now", color = pal.muted) } },
+        )
+    }
+
+    // A computer wants to pair, or its code is up: over whatever page is open, not only the
+    // notification and the Overview.
+    core.invite?.let { inv ->
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = pal.card,
+            title = { Text("${inv.name} wants to pair", color = pal.text) },
+            text = { Text("Press Pair to pair this device with ${inv.name}. You’ll check that both show the same code.", color = pal.muted) },
+            confirmButton = { TextButton(onClick = { core.pair(inv) }) { Text("Pair", color = pal.accent) } },
+            dismissButton = { TextButton(onClick = { core.dismissInvite() }) { Text("Not now", color = pal.muted) } },
+        )
+    }
+    core.link.pair?.takeIf { it.phase == "code" && !it.wired }?.let { p ->
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = pal.card,
+            title = { Text("Pair with ${p.name}?", color = pal.text) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Check that ${p.name} shows the same code.", color = pal.muted)
+                    Text("${p.code.take(3)} ${p.code.drop(3)}", fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp, color = pal.text)
+                }
+            },
+            confirmButton = { TextButton(onClick = { core.link.confirmCode() }) { Text("Codes match", color = pal.accent) } },
+            dismissButton = { TextButton(onClick = { core.link.cancelPairing() }) { Text("Cancel", color = pal.muted) } },
         )
     }
 
@@ -406,16 +434,19 @@ private fun OverviewPage(core: Core, v: Int) {
         )
         // Wireless debugging not set up (or off): one line under Connected, with the way to fix it.
         // Reached anyway (adb's TCP mode, on a direct Wi-Fi link): nothing to fix.
-        if (host != null && !core.adb.paired && (core.adb.setupNeeded || !core.adb.wifiDebugging)) Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp).clip(RoundedCornerShape(8.dp)).background(pal.warn.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 8.dp),
+        // Over Bluetooth: greyed out, it only works over Wi-Fi.
+        val adbBle = core.link.ble
+        if (host != null && !core.adb.paired && (adbBle || core.adb.setupNeeded || !core.adb.wifiDebugging)) Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp).clip(RoundedCornerShape(8.dp)).background(if (adbBle) pal.line.copy(alpha = 0.35f) else pal.warn.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                if (core.adb.setupNeeded) "Wireless debugging isn’t set up. ${host.name} needs it to show this screen and control it through ADB."
+                if (adbBle) "Wireless debugging: only available over Wi-Fi. You’re connected to ${host.name} over Bluetooth."
+                else if (core.adb.setupNeeded) "Wireless debugging isn’t set up. ${host.name} needs it to show this screen and control it through ADB."
                 else "Wireless debugging is off. ${host.name} needs it to show this screen and control it through ADB.",
-                color = pal.text, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f).padding(end = 8.dp),
+                color = if (adbBle) pal.muted else pal.text, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f).padding(end = 8.dp),
             )
-            if (core.adb.setupNeeded) Secondary("Set up") { Guide.open.value = true } else Secondary("Turn on") { core.adb.turnOn() }
+            if (!adbBle) { if (core.adb.setupNeeded) Secondary("Set up") { Guide.open.value = true } else Secondary("Turn on") { core.adb.turnOn() } }
         }
         if (host != null) {
             val show = { core.ctx.startActivity(Intent(core.ctx, ViewerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
@@ -691,8 +722,8 @@ private fun SharedFolders(core: Core, v: Int) {
         SwitchRow(
             "Share a folder with $name",
             when {
-                ble -> "Over Wi-Fi Direct, Wi-Fi or USB"
                 !sh.allowed -> "Needs All files access (above)"
+                ble && sh.on -> "${sh.shown()}: $name opens it over Wi-Fi Direct"
                 sh.error.isNotEmpty() -> "Couldn’t share: ${sh.error}"
                 sh.on && sh.serving -> "${sh.shown()}: open on $name (Phone Files › Shared folders)"
                 else -> sh.shown()
@@ -707,20 +738,22 @@ private fun SharedFolders(core: Core, v: Int) {
         MacRow(
             "$name’s shared folder",
             when {
-                ble -> "Over Wi-Fi Direct, Wi-Fi or USB"
+                ble && sh.opening -> "Connecting with Wi-Fi Direct…"
+                ble && sh.pcServe -> "Open connects with Wi-Fi Direct"
                 pc != null -> "“${pc.name}” in the Files app and every app’s file picker"
                 sh.pcServe -> "Opening…"
                 else -> "Off: switch it on to see a folder of $name in the Files app"
             },
         ) {
             if (pc != null) Primary("Open") { openPcShare(ctx) }
-            MacSwitch(sh.pcServe, { sh.setPcServe(it) }, enabled = !ble)
+            else if (ble && sh.pcServe && !sh.opening) Primary("Open") { sh.openOverWifi() }
+            MacSwitch(sh.pcServe, { sh.setPcServe(it) })
         }
     }
 }
 
 // The Files app at the computer's shared folder (its root; else the system's file picker there).
-private fun openPcShare(ctx: android.content.Context) {
+fun openPcShare(ctx: android.content.Context) {
     val root = android.provider.DocumentsContract.buildRootUri(PcShareProvider.authority(ctx), PcShareProvider.ROOT)
     val doc = android.provider.DocumentsContract.buildDocumentUri(PcShareProvider.authority(ctx), "/")
     val tries = listOf(
@@ -801,7 +834,7 @@ private fun CursorPage(core: Core, v: Int) {
     // Accessibility (chosen, or a session on Bluetooth): no wireless debugging needed, only the service.
     // ADB reached without wireless debugging (its TCP mode, on a direct Wi-Fi link) counts as there.
     val adbOn = core.adb.wifiDebugging || core.adb.paired
-    val viaPhone = core.input.via == "phone" || core.link.ble && !adbOn
+    val viaPhone = core.input.via == "phone" || (core.input.via == "auto" || core.link.ble) && !adbOn
     val adbMissing = !viaPhone && !adbOn
     Note(
         when {
@@ -822,13 +855,16 @@ private fun CursorPage(core: Core, v: Int) {
     MacCard {
         DirHead(name, false, me, true)
         SwitchRow("Use $name’s mouse and keyboard on $me", "Push the pointer past the edge", core.sync.get("cursor", "in"), first = true) { core.sync.set("cursor", "in", it) }
-        MacRow("Through", if (core.input.via == "phone")
-            "Accessibility: TwinDesk taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth. No developer options"
-            else "ADB (wireless debugging): full control. Over Bluetooth without it, Accessibility") {
+        MacRow("Through", when {
+            core.input.via == "auto" && core.input.effective == "adb" -> "Automatic: ADB, wireless debugging is on"
+            core.input.via == "auto" -> "Automatic: Accessibility until wireless debugging is on"
+            core.input.via == "phone" -> "Accessibility: TwinDesk taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth. No developer options"
+            else -> "ADB (wireless debugging): full control. Over Bluetooth without it, Accessibility"
+        }) {
             SingleChoiceSegmentedButtonRow {
                 val ways = listOf("adb" to "ADB", "phone" to "Accessibility")
                 ways.forEachIndexed { i, (w, label) ->
-                    SegmentedButton(selected = core.input.via == w, onClick = { core.input.setVia(w); core.changed() }, shape = SegmentedButtonDefaults.itemShape(i, ways.size)) { Text(label, maxLines = 1) }
+                    SegmentedButton(selected = core.input.effective == w, onClick = { core.input.setVia(w); core.changed() }, shape = SegmentedButtonDefaults.itemShape(i, ways.size)) { Text(label, maxLines = 1) }
                 }
             }
         }
@@ -1062,10 +1098,30 @@ private fun GeneralPage(core: Core, v: Int) {
     val askNearby = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
     ) { core.changed() }
-    MacCard("Setup") {
-        if (core.notifs.supported) Setup("Notification access", "To show this device’s notifications on $name", core.notifs.hasAccess, "Allow", first = true) {
+    val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { core.changed() }
+    // Every permission and feature in one place: each is asked for only when switched on elsewhere,
+    // or here.
+    MacCard("Allow") {
+        if (Build.VERSION.SDK_INT >= 33) Setup("Notifications", "Files arriving, invites from $name, and TwinDesk staying connected",
+            ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED, "Allow") {
+            askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        // Calls, Messages, Photos and Files on $name (Hub): what each needs, asked here too.
+        for ((what, hint) in listOf(
+            "calls" to "Answer and make calls on $name",
+            "messages" to "Read and send texts on $name",
+            "media" to "Your photos and videos on $name",
+            "files" to "This device’s storage and shared folders on $name, no ADB",
+        )) {
+            val perm = core.hub.perm(what)
+            if (perm == "none") MacRow(Hub.label(what), if (what == "files") "Needs Android 11 or later" else "Needs TwinDesk with notifications ($name installs it)")
+            else Setup(Hub.label(what), if (perm == "partial") "Some access is missing: $hint" else hint, perm == "ok", "Allow") { core.hub.askHere(what) }
+        }
+        if (core.notifs.supported) Setup("Notification access", "To show this device’s notifications on $name", core.notifs.hasAccess, "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        } else MacRow("Notification access", "Comes with TwinDesk with notifications, which $name installs (its Phone page)", first = true)
+        } else MacRow("Notification access", "Comes with TwinDesk with notifications, which $name installs (its Phone page)")
         Setup("Run in the background", "So $name can reach this device any time", pm.isIgnoringBatteryOptimizations(ctx.packageName), "Allow") {
             @Suppress("BatteryLife")
             ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")))
@@ -1074,12 +1130,14 @@ private fun GeneralPage(core: Core, v: Int) {
             "Wireless debugging",
             when {
                 core.adb.paired -> "Paired with $name: this screen and sound there, its mouse and keyboard here"
+                core.link.ble -> "Only available over Wi-Fi: you’re connected over Bluetooth"
                 core.adb.wifiDebugging && !core.adb.setupNeeded -> "Paired with $name, reconnecting…"
                 core.adb.wifiDebugging -> "On. Pair it with $name once (the guide walks you through it)"
                 else -> "For this screen and sound on $name, and its mouse and keyboard here"
             },
         ) {
             if (core.adb.paired) Pill("Paired", "good")
+            else if (core.link.ble) Pill("Wi-Fi only", "muted")
             else {
                 if (!core.adb.wifiDebugging) Secondary("Turn on") { core.adb.turnOn() }
                 Primary("Guide") { Guide.open.value = true }
@@ -1088,10 +1146,11 @@ private fun GeneralPage(core: Core, v: Int) {
         Setup("Nearby devices", "Bluetooth and Wi-Fi Direct, for $name when it isn’t on this network", nearbyAllowed, "Allow") {
             askNearby.launch(nearbyPerms)
         }
+        Setup("Mouse and keyboard", "Accessibility: $name’s cursor on this phone without wireless debugging, on any network. Only needed when ADB isn’t used", core.input.on, "Allow") { core.input.openSettings() }
         Setup("Show the pointer", "Draws $name’s pointer over other apps", core.pointer.allowed, "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}")))
         }
-        if (Build.VERSION.SDK_INT >= 30) Setup("Wallpaper on $name", "Optional. Android shares the wallpaper only with All files access", android.os.Environment.isExternalStorageManager(), "Allow") {
+        if (Build.VERSION.SDK_INT >= 30) Setup("All files access", "Your wallpaper on $name, Files and shared folders", android.os.Environment.isExternalStorageManager(), "Allow") {
             ctx.startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:${ctx.packageName}")))
         }
     }
@@ -1101,7 +1160,6 @@ private fun GeneralPage(core: Core, v: Int) {
             !nearbyAllowed -> "Allow Nearby devices above"
             else -> "Connects to $name over Bluetooth when it isn’t on this network. Files and screens move to a direct Wi-Fi link for a while"
         }, core.bleOn, first = true) { core.store.setFlag("ble", it); core.changed() }
-        Setup("Mouse and keyboard", "$name’s cursor on this phone without wireless debugging, on any network (Accessibility: TwinDesk)", core.input.on, "Allow") { core.input.openSettings() }
         val n = core.net
         if (n.state != "idle") MacRow("Wi-Fi", when (n.state) {
             "asking", "hosting" -> "Starting a direct Wi-Fi link…"

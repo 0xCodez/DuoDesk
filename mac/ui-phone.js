@@ -30,13 +30,12 @@ UI.tab({
     const via = UI.segmented([
       { value: 'adb', label: 'ADB', title: 'Wireless debugging: full control' },
       { value: 'phone', label: 'Accessibility', title: 'TwinDesk on the phone taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth. No developer options' },
-    ], (v) => api.setPhone({ input: v }));
+    ], (v) => api.setPhone({ input: v, inputPicked: true })); // picked: no longer automatic
     const hero = el('div', { class: 'card hero phone-hero' }, [
       dev,
       el('div', { class: 'phone-hero-text' }, [
         name, sub,
         el('div', { class: 'phone-hero-actions' }, [showBtn, wifiBtn, hotspotBtn, discBtn]),
-        el('div', { class: 'phone-hero-via' }, [el('span', { text: 'Mouse and keyboard' }), via.el]),
       ]),
     ]);
 
@@ -93,7 +92,10 @@ UI.tab({
 
 
     const notConnected = UI.note('info', '');
-    body.append(notConnected, hero, adbCard, appsCard, winCard, optsCard);
+    // Below the phone's card: how the mouse and keyboard reach it (automatic until one is picked).
+    const viaRow = UI.row('Mouse and keyboard', '', [via.el]);
+    const viaCard = UI.card('', [viaRow]);
+    body.append(notConnected, hero, viaCard, adbCard, appsCard, winCard, optsCard);
 
     let appsKey = '';
     let winKey = '';
@@ -107,7 +109,7 @@ UI.tab({
       const c = ph.connected;
       const info = ph.info || {};
       const br = ph.bridge || { state: 'off' };
-      for (const x of [hero, adbCard, appsCard, winCard, optsCard]) x.hidden = !c;
+      for (const x of [hero, viaCard, adbCard, appsCard, winCard, optsCard]) x.hidden = !c;
       notConnected.set(c ? '' : ph.nearby && ph.nearby.length ? 'Click the phone above Overview to connect it.' : 'No phone connected. Open TwinDesk on the phone and pair it from Overview › Nearby.');
 
       if (!c) return;
@@ -138,6 +140,7 @@ UI.tab({
         : ready ? 'The phone’s screen, touch, mouse and keyboard, and its clipboard in the background' : br.message);
       pairRow.hidden = br.state !== 'needsPair' && !br.canPair;
       steps.set(br.state === 'needsPair' ? 'TwinDesk pairs with the phone’s wireless debugging once. After that the phone’s screen, apps, mouse and keyboard work without this step.' : '');
+      if (UI.adbBle(s, adbCard, adbRow, adbPill)) { pairRow.hidden = how.hidden = howBtn.hidden = true; steps.set(''); }
 
       // The standard build can't read notifications (Play Protect blocks downloaded apps that do).
       const full = !ph.adb || ph.adb.full !== false;
@@ -153,7 +156,9 @@ UI.tab({
       sound.set(!!settings.sound);
       quality.set(String(settings.bitrateMbps || 8));
       wall.set(settings.wallpaper !== false);
-      via.set(settings.input === 'phone' ? 'phone' : 'adb');
+      via.set(br.input || (settings.input === 'phone' ? 'phone' : 'adb'));
+      viaRow.setHint(br.inputMode === 'auto' ? (br.state === 'ready' ? 'Automatic: ADB, wireless debugging is ready' : 'Automatic: Accessibility until wireless debugging is ready')
+        : br.input === 'phone' ? 'TwinDesk on the phone taps and types itself. The phone asks once to allow it in Accessibility' : 'Wireless debugging: full control');
 
       // apps (icons come with UI.phoneAssets)
       const apps = (UI.phoneAssets && UI.phoneAssets.apps) || [];

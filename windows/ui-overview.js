@@ -207,6 +207,7 @@ UI.tab({
         adbPill.textContent = label;
         adbRow.setHint(br.message || '');
         adbPairRow.hidden = !pairable;
+        if (UI.adbBle(s, adbCard, adbRow, adbPill)) adbPairRow.hidden = true;
       }
 
       // this PC

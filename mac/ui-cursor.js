@@ -45,7 +45,7 @@ UI.tab({
     const bleRow = UI.row('Over Bluetooth', 'When {name} isn’t on this network and you’re connected through Bluetooth (slower). Off: nothing crosses until you’re on Wi-Fi again. The same on both', [ble]);
 
     // A phone as the peer: how the pointer and keys reach it (settings.phone.input, the phone's own toggle too).
-    const via = UI.segmented([{ value: 'adb', label: 'ADB' }, { value: 'phone', label: 'Accessibility' }], (v) => api.setPhone({ input: v }));
+    const via = UI.segmented([{ value: 'adb', label: 'ADB' }, { value: 'phone', label: 'Accessibility' }], (v) => api.setPhone({ input: v, inputPicked: true }));
     const viaRow = UI.row('Through', 'ADB: full control. Accessibility: TwinDesk on the phone taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth, no developer options', [via.el]);
     // A row whose label follows the other computer's name (UI.names fills it on render).
     const peerRow = (label, hint, controls) => {
@@ -93,7 +93,7 @@ UI.tab({
       gestures.set(k.gestures !== false);
       ble.set(k.ble !== false);
       viaRow.hidden = !p.phone;
-      via.set(((s.phone || {}).settings || {}).input === 'phone' ? 'phone' : 'adb');
+      via.set(((s.phone || {}).bridge || {}).input || (((s.phone || {}).settings || {}).input === 'phone' ? 'phone' : 'adb'));
     };
   },
 });

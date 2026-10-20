@@ -37,7 +37,8 @@ UI.tab({
         UI.row('Open at login', 'Starts in the tray', [startup]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Network and sharing', [fwRow, wakeRow]),
+      UI.card('Permissions', [fwRow]),
+      UI.card('Network and sharing', [wakeRow]),
       UI.card('This computer', [deviceRow, sessRow, inRow, helperRow]),
       UI.card('Quit', [
         UI.row('Quit TwinDesk', 'Stops sharing until you open it again', [UI.button('Quit', () => api.quit(), 'small')]),

@@ -82,7 +82,7 @@ UI.tab({
     const tilde = (p) => String(p || '').replace(/^(\/Users\/[^/]+|\/home\/[^/]+|[A-Z]:\\Users\\[^\\]+)/, '~');
     function renderShare(s) {
       const sh = s.hub && s.hub.share;
-      shareCard.hidden = !sh || UI.onBle(s);
+      shareCard.hidden = !sh; // over Bluetooth too: Open moves the session onto Wi-Fi Direct first
       if (shareCard.hidden) return;
       const ph = UI.phoneName(s);
       const p = sh.phone;
@@ -92,14 +92,15 @@ UI.tab({
       openBtn.disabled = !!p.busy;
       openBtn.textContent = p.mounted ? `Show in ${fm === 'the file manager' ? 'Files' : fm}` : 'Open';
       ejectBtn.hidden = !p.mounted;
-      phoneRow.setHint(p.message || (p.busy === 'mounting' ? 'Opening…'
+      phoneRow.setHint(p.message || (p.busy === 'mounting' ? 'Opening…' : p.busy === 'wifi' ? 'Connecting with Wi-Fi Direct…'
+        : p.wifi ? `“${p.name}”: Open connects with Wi-Fi Direct and shows it in ${fm}`
         : !p.offered ? `None shared: on ${ph}, TwinDesk › File access › Share a folder`
           : p.mounted ? `“${p.name}”, in ${fm}${fm === 'Finder' ? ' under Locations' : ''}` : `“${p.name}”: Open shows it in ${fm}`));
       phoneRow.hint.classList.toggle('bad', !!p.message);
       const m = sh.mine;
       mineRow.label.textContent = `Share a folder with ${ph}`;
       serveSw.set(m.on);
-      mineRow.setHint(m.error ? `Couldn’t share: ${m.error}` : `${tilde(m.folder)}${m.on ? `: in ${ph}’s Files app and file pickers` : ''}`);
+      mineRow.setHint(m.error ? `Couldn’t share: ${m.error}` : `${tilde(m.folder)}${m.on ? `: in ${ph}’s Files app and file pickers${UI.onBle(s) ? ', over Wi-Fi Direct (Open on the phone connects it)' : ''}` : ''}`);
       mineRow.hint.classList.toggle('bad', !!m.error);
     }
 

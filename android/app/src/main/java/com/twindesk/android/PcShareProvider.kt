@@ -46,7 +46,7 @@ class PcShareProvider : DocumentsProvider() {
 
     override fun onCreate() = true
 
-    private fun pc(): FolderShare.Pc = Core.get(context!!).share.pc ?: throw FileNotFoundException("not shared")
+    private fun pc(): FolderShare.Pc = Core.get(context!!).let { it.net.touch("folder"); it.share.pc } ?: throw FileNotFoundException("not shared") // in use: Wi-Fi Direct stays
 
     // Document ids: "/" the folder, "/a/b" inside it.
     private fun rel(id: String) = id.trim('/')

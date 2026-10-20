@@ -52,7 +52,7 @@ function setupIpc(ctx) {
   handle('refreshFound', () => discovery.probe());
   handle('copyText', (text) => typeof text === 'string' && text.length < 1000 && clipboard.writeText(text));
   handle('confirmCode', () => link.confirmCode());
-  handle('cancelPair', () => link.cancelPair());
+  handle('cancelPair', () => { ctx.cancelPhoneInvite(); link.cancelPair(); });
   handle('forget', () => link.forget());
   // Disconnect (either side of the session); Connect again / Take over the computer we're a guest of.
   handle('disconnect', () => link.disconnect());

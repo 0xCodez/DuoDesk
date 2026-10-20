@@ -51,7 +51,7 @@ function setupIpc(ctx) {
   handle('refreshFound', () => discovery.probe());
   handle('copyText', (text) => typeof text === 'string' && text.length < 1000 && clipboard.writeText(text));
   handle('confirmCode', () => link.confirmCode());
-  handle('cancelPair', () => link.cancelPair());
+  handle('cancelPair', () => { ctx.cancelPhoneInvite(); link.cancelPair(); });
   handle('forget', () => link.forget());
   // Disconnect (either side of the session); Connect again / Take over the computer we're a guest of.
   handle('disconnect', () => link.disconnect());
@@ -131,7 +131,7 @@ function setupIpc(ctx) {
     if (!r.canceled && r.filePaths[0]) await smb.chooseFolder(r.filePaths[0]);
   });
   handle('removeShare', () => smb.unshare());
-  handle('openMacDrive', () => smb.drive && shell.openPath(smb.drive + '\\'));
+  handle('openMacDrive', () => (smb.drive ? shell.openPath(smb.drive + '\\') : smb.openOverWifi && smb.openOverWifi())); // through Bluetooth: Wi-Fi Direct first
   handle('cancelDrop', () => fileDrop.cancel());
   // With another PC the apps come through peerapps.js (no Monitor 2 or Start pinning).
   const pcPeer = () => link.peerOs !== P.OS.MAC; // a PC or a Linux computer
@@ -186,6 +186,7 @@ function setupIpc(ctx) {
   handle('netCancel', () => ctx.net && ctx.net.cancel());
   handle('netJoinHotspot', (arg) => ctx.joinHotspot(arg));
   handle('netLocation', () => shell.openExternal('ms-settings:privacy-location')); // netsh's Wi-Fi commands need it (wifi.js)
+  handle('openBluetoothSettings', () => shell.openExternal('ms-settings:bluetooth'));
   // Connect with Wi-Fi Direct (a session on Bluetooth), or back to Bluetooth (the link ends, whatever it was made for).
   // on = 'hotspot': Connect with hotspot (a phone's; the Overview asks for its name and password).
   handle('netWifi', (on) => {

@@ -245,7 +245,8 @@ class PcScreen {
     if (m.share === false) return this.setMode('off');
     if (mode && (m.share === true || this.mode !== 'off')) return this.setMode(mode);
     if (mode) { this.lastMode = mode; return this.onChange(); }
-    if (m.share === true && this.mode === 'off') return this.setMode(this.lastMode);
+    // Started from the viewer: Mirror (a virtual display doesn't always start); Extend is its switch.
+    if (m.share === true && this.mode === 'off') return this.setMode('mirror');
   }
 
   // Frames per second to send: the display's refresh rate (30–120), so motion is never decimated.

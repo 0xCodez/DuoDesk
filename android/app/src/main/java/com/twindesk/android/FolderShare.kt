@@ -32,6 +32,8 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 
+private const val FOLDER_IDLE_MS = 10 * 60_000L // Wi-Fi Direct for the computer's folder: this long after it was last used
+
 class FolderShare(core: Core) : Feature(core) {
     // The computer's shared folder, while it shares one: http://<host>:<port>/<token>/...
     data class Pc(val host: String, val port: Int, val token: String, val name: String, val fp: String) // fp: the session's certificate, pinned
@@ -60,6 +62,7 @@ class FolderShare(core: Core) : Feature(core) {
 
     override fun onClosed() {
         lastLink = ""
+        opening = false
         core.bg.execute { stopDav() }
         setPc(null)
     }
@@ -75,9 +78,18 @@ class FolderShare(core: Core) : Feature(core) {
         return true
     }
 
+    // Open on the computer's folder through Bluetooth: Wi-Fi Direct first, then the Files app once it's there.
+    @Volatile var opening = false; private set
+    fun openOverWifi() {
+        opening = true
+        core.net.need("folder", FOLDER_IDLE_MS)
+        core.changed()
+    }
+
     private fun setPc(p: Pc?) {
         if (p == pc) return
         pc = p
+        if (p != null && opening) { opening = false; openPcShare(core.ctx) }
         runCatching { core.ctx.contentResolver.notifyChange(DocumentsContract.buildRootsUri(PcShareProvider.authority(core.ctx)), null) }
         core.changed()
     }
@@ -111,7 +123,9 @@ class FolderShare(core: Core) : Feature(core) {
             }
         } else {
             stopDav()
-            if (core.link.connected) core.send(msg(Proto.T.SHARE_OFFER, "on" to false))
+            // Through Bluetooth: shared all the same, opened there over Wi-Fi Direct (foldershare.js).
+            val ble = core.link.connected && core.link.ble && on && allowed
+            if (core.link.connected) core.send(if (ble) msg(Proto.T.SHARE_OFFER, "on" to false, "wifi" to true, "name" to volumeName(folder)) else msg(Proto.T.SHARE_OFFER, "on" to false))
         }
         core.changed()
     }
@@ -137,6 +151,7 @@ class FolderShare(core: Core) : Feature(core) {
     // The computer's folder on or off, from here (the computer keeps it, and answers with share.host).
     fun setPcServe(v: Boolean) {
         pcServe = v
+        if (!v) { opening = false; core.net.release("folder") }
         core.send(msg(Proto.T.SHARE_SET, "serve" to v))
         core.changed()
     }

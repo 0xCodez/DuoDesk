@@ -154,7 +154,10 @@ UI.tab({
       if (!recent.children.length) recent.append(el('div', { class: 'hub-empty', text: m.items ? 'No calls yet' : '' }));
     });
 
-    body.append(top.el, nowCard, dialCard, recentCard, contactsCard, soundCard);
+    // Where this computer can't carry the call's sound (the Mac: macOS won't let an app be the
+    // phone's hands-free headset), said on top.
+    const noSound = UI.note('info', '');
+    body.append(top.el, noSound, nowCard, dialCard, recentCard, contactsCard, soundCard);
 
     let loaded = false;
     let hadCall = false;
@@ -203,6 +206,8 @@ UI.tab({
       recentCard.hidden = !ready || !(h.perm && !(h.perm.calls.missing || []).includes('numbers'));
 
       // Sound
+      noSound.hidden = !h.calls || !!h.canAudio;
+      if (!noSound.hidden) noSound.textContent = `The call’s sound stays on ${UI.phoneName(s)}: macOS doesn’t let apps be a phone’s Bluetooth headset. Answer, end and mute calls here, and talk on the phone or its headphones.`;
       soundCard.hidden = !h.calls || !h.canAudio;
       audioSw.set(!!h.callAudio);
       const a = h.audio;
