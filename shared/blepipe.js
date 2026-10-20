@@ -25,6 +25,16 @@ const OPEN_TIMEOUT_MS = 15000;
 
 const str = (v, n = 100) => (typeof v === 'string' ? v.slice(0, n) : '');
 
+const livePipes = new Set(); // every live Pipe, for backlog()
+
+// Bytes handed to the radio and not sent yet, on the busiest pipe: kvm holds cursor moves back
+// while it's high, so they don't queue up behind each other (the cursor would lag seconds).
+function backlog() {
+  let n = 0;
+  for (const p of livePipes) if (p.inflight > n) n = p.inflight;
+  return n;
+}
+
 // One pipe: a TCP socket on one side, the helper on the other, with flow control both ways.
 class Pipe {
   constructor(helper, dev, sock, cmd = 'bleSend') {
@@ -32,6 +42,8 @@ class Pipe {
     this.dev = dev;
     this.sock = sock;
     this.inflight = 0;
+    livePipes.add(this);
+    sock.on('close', () => livePipes.delete(this));
     sock.setNoDelay(true);
     sock.on('data', (buf) => {
       helper.send(cmd, { dev, data: buf.toString('base64') });
@@ -553,4 +565,4 @@ class BlePhones extends EventEmitter {
   }
 }
 
-module.exports = { BleHost, BleGuest, BleLook, BlePhones };
+module.exports = { BleHost, BleGuest, BleLook, BlePhones, backlog };

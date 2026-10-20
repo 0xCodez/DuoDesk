@@ -252,29 +252,67 @@ namespace MacShare
                 q.CompleteAdding();
             }
 
+            // What's waiting for the same characteristic right after it, as one buffer (up to 8 KB):
+            // the notifications then go full-size, not one per message. `held`: the next item, taken
+            // to look at it, when it was for the other characteristic.
+            KeyValuePair<GattLocalCharacteristic, byte[]>? held;
+
+            KeyValuePair<GattLocalCharacteristic, byte[]> Merge(KeyValuePair<GattLocalCharacteristic, byte[]> first)
+            {
+                List<byte[]> parts = new List<byte[]> { first.Value };
+                int total = first.Value.Length;
+                KeyValuePair<GattLocalCharacteristic, byte[]> next;
+                while (total < 8192 && q.TryTake(out next))
+                {
+                    if (next.Key != first.Key) { held = next; break; }
+                    parts.Add(next.Value);
+                    total += next.Value.Length;
+                }
+                if (parts.Count == 1) return first;
+                byte[] all = new byte[total];
+                int at = 0;
+                foreach (byte[] b in parts)
+                {
+                    Buffer.BlockCopy(b, 0, all, at, b.Length);
+                    at += b.Length;
+                }
+                return new KeyValuePair<GattLocalCharacteristic, byte[]>(first.Key, all);
+            }
+
             void Loop()
             {
-                foreach (KeyValuePair<GattLocalCharacteristic, byte[]> item in q.GetConsumingEnumerable())
+                foreach (KeyValuePair<GattLocalCharacteristic, byte[]> taken in q.GetConsumingEnumerable())
                 {
-                    int max = 20;
-                    try { max = Math.Max(20, (int)client.MaxNotificationSize); } catch (Exception) { }
-                    byte[] data = item.Value;
-                    int sent = 0;
-                    for (int i = 0; i < data.Length; i += max)
+                    Send(Merge(taken));
+                    while (held.HasValue)
                     {
-                        int n = Math.Min(max, data.Length - i);
-                        byte[] chunk = new byte[n];
-                        Buffer.BlockCopy(data, i, chunk, 0, n);
-                        try
-                        {
-                            GattClientNotificationResult r = item.Key.NotifyValueAsync(chunk.AsBuffer(), client).AsTask().Result;
-                            if (r.Status != GattCommunicationStatus.Success) { Net.Log("notify: " + r.Status); break; }
-                        }
-                        catch (Exception e) { Net.Log("notify: " + e.Message); break; }
-                        sent += n;
+                        KeyValuePair<GattLocalCharacteristic, byte[]> h = held.Value;
+                        held = null;
+                        Send(Merge(h));
                     }
-                    if (item.Key == down && sent > 0) Net.Event("ble.sent", dev, "bytes", sent);
                 }
+            }
+
+            void Send(KeyValuePair<GattLocalCharacteristic, byte[]> item)
+            {
+                int max = 20;
+                try { max = Math.Max(20, (int)client.MaxNotificationSize); } catch (Exception) { }
+                byte[] data = item.Value;
+                int sent = 0;
+                for (int i = 0; i < data.Length; i += max)
+                {
+                    int n = Math.Min(max, data.Length - i);
+                    byte[] chunk = new byte[n];
+                    Buffer.BlockCopy(data, i, chunk, 0, n);
+                    try
+                    {
+                        GattClientNotificationResult r = item.Key.NotifyValueAsync(chunk.AsBuffer(), client).AsTask().Result;
+                        if (r.Status != GattCommunicationStatus.Success) { Net.Log("notify: " + r.Status); break; }
+                    }
+                    catch (Exception e) { Net.Log("notify: " + e.Message); break; }
+                    sent += n;
+                }
+                if (item.Key == down && sent > 0) Net.Event("ble.sent", dev, "bytes", sent);
             }
         }
     }
@@ -440,6 +478,28 @@ namespace MacShare
             GattCharacteristic ctrl, up, down;
             readonly BlockingCollection<byte[]> q = new BlockingCollection<byte[]>();
             volatile bool alive = true;
+            IDisposable fast; // the short connection interval we asked for (Fast), while the pipe lives
+
+            // Windows' default connection interval (30 ms or more) makes each write (with response:
+            // two intervals) slow. Throughput-optimized asks for the shortest; Windows 11 22H2 and
+            // later only, so looked up first (FastRequest isn't compiled to native code before then).
+            static IDisposable Fast(BluetoothLEDevice d)
+            {
+                try
+                {
+                    if (!Windows.Foundation.Metadata.ApiInformation.IsMethodPresent("Windows.Devices.Bluetooth.BluetoothLEDevice", "RequestPreferredConnectionParameters")) return null;
+                    return FastRequest(d);
+                }
+                catch (Exception e) { Net.Log("connection parameters: " + e.Message); return null; }
+            }
+
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+            static IDisposable FastRequest(BluetoothLEDevice d)
+            {
+                BluetoothLEPreferredConnectionParametersRequest r = d.RequestPreferredConnectionParameters(BluetoothLEPreferredConnectionParameters.ThroughputOptimized);
+                if (r.Status != BluetoothLEPreferredConnectionParametersRequestStatus.Success) Net.Log("connection parameters: " + r.Status);
+                return r;
+            }
 
             public Pipe(string dev, Guid service, string ev)
             {
@@ -459,6 +519,7 @@ namespace MacShare
                 if (device == null) throw new Exception("not found");
                 session = await GattSession.FromDeviceIdAsync(device.BluetoothDeviceId);
                 session.MaintainConnection = true;
+                fast = Fast(device);
                 GattDeviceServicesResult sr = await device.GetGattServicesForUuidAsync(service, BluetoothCacheMode.Uncached);
                 if (sr.Status != GattCommunicationStatus.Success || sr.Services.Count == 0) throw new Exception("no TwinDesk service (" + sr.Status + ")");
                 svc = sr.Services[0];
@@ -523,10 +584,36 @@ namespace MacShare
                 try { q.Add(data); } catch (InvalidOperationException) { }
             }
 
+            // Everything waiting, as one buffer (up to MERGE bytes): each write is a round trip on the
+            // radio, so a backlog goes in full-size writes, not one per message.
+            const int MERGE = 8192;
+
+            byte[] Merge(byte[] first)
+            {
+                byte[] next;
+                if (first.Length >= MERGE || !q.TryTake(out next)) return first;
+                List<byte[]> parts = new List<byte[]> { first, next };
+                int total = first.Length + next.Length;
+                while (total < MERGE && q.TryTake(out next))
+                {
+                    parts.Add(next);
+                    total += next.Length;
+                }
+                byte[] all = new byte[total];
+                int at = 0;
+                foreach (byte[] b in parts)
+                {
+                    Buffer.BlockCopy(b, 0, all, at, b.Length);
+                    at += b.Length;
+                }
+                return all;
+            }
+
             void Loop()
             {
-                foreach (byte[] data in q.GetConsumingEnumerable())
+                foreach (byte[] taken in q.GetConsumingEnumerable())
                 {
+                    byte[] data = Merge(taken);
                     int max = 20;
                     try { max = Math.Min(512, Math.Max(20, session.MaxPduSize - 3)); } catch (Exception) { } // an attribute value is at most 512 bytes
                     for (int i = 0; i < data.Length && alive; i += max)
@@ -562,6 +649,7 @@ namespace MacShare
                 {
                     try { ctrl.WriteValueWithResultAsync(Encoding.UTF8.GetBytes("{\"op\":\"close\"}").AsBuffer(), GattWriteOption.WriteWithResponse); } catch (Exception) { }
                 }
+                try { if (fast != null) fast.Dispose(); } catch (Exception) { }
                 try { if (session != null) session.Dispose(); } catch (Exception) { }
                 try { if (svc != null) svc.Dispose(); } catch (Exception) { }
                 try { if (device != null) device.Dispose(); } catch (Exception) { }

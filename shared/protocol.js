@@ -33,6 +33,8 @@
     KVM_TAKE_TIMEOUT_MS: 1000, // owner goes home if no kvm.accept by then
     KVM_SILENCE_MS: 2000, // while driving/driven: no message from the peer for this long = link lost
     KVM_SILENCE_BLE_MS: 6000, // the same through Bluetooth (a slower, burstier link)
+    KVM_MOVE_BLE_MS: 16, // through Bluetooth: cursor moves summed and sent at most this often
+    KVM_BLE_BACKLOG: 512, // … and held (still summed) while this many bytes wait for the radio
     HELPER_KEEPALIVE_MS: 500, // main -> helper keepalive while capturing
     HELPER_DEADMAN_MS: 1500, // helper stops capturing by itself after this much keepalive silence
     RESISTANCE_PX: 120, // default push through an edge before crossing

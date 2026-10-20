@@ -2,6 +2,7 @@
 // Shared cursor and keyboard: state machine, Windows side, both roles
 // (this PC drives the Mac, or the Mac drives this PC).
 const P = require('../shared/protocol.js');
+const blepipe = require('../shared/blepipe.js');
 
 const T = P.T;
 const K_TYPES = new Set([T.K_MOVE, T.K_DOWN, T.K_UP, T.K_WHEEL, T.K_KEY_DOWN, T.K_KEY_UP]);
@@ -19,6 +20,8 @@ class Kvm {
     this.keepalive = null;
     this.silence = null;
     this.dragPending = false; // we crossed with a file drag; cleared when our left button comes up
+    this.pendingMove = null; // k.mm summed while driving, sent as one
+    this.moveTimer = null; // its flush, through Bluetooth
     this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
     this.blockEdge = () => false; // main.js: true while the edge must not cross (a phone window has focus)
 
@@ -266,6 +269,16 @@ class Kvm {
       case 'ev':
         if (this.mode === 'driving' && msg.ev && (K_TYPES.has(msg.ev.t) || (msg.ev.t === T.K_GESTURE && this.cfg.gestures !== false))) {
           if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there
+          if (msg.ev.t === T.K_MOVE) {
+            if (!this.pendingMove) {
+              this.pendingMove = { dx: 0, dy: 0 };
+              this._scheduleMove();
+            }
+            this.pendingMove.dx += Number(msg.ev.dx) || 0;
+            this.pendingMove.dy += Number(msg.ev.dy) || 0;
+            break;
+          }
+          this._flushMove(); // a click goes where the moves before it took the pointer
           this._drive(msg.ev);
           if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released on the Mac
         }
@@ -299,6 +312,26 @@ class Kvm {
   }
 
   // Input while driving goes to the other computer, or to the phone bridge when a phone is the peer.
+  // Moves summed: one message per turn of the event loop. Through Bluetooth every message is a
+  // round trip on the radio, so they go at most every KVM_MOVE_BLE_MS and wait (still summed)
+  // while earlier bytes haven't gone out: otherwise they queue up and the cursor lags minutes.
+  _scheduleMove() {
+    if (!this.onBle || (this.local && this.local.drives())) return setImmediate(() => this._flushMove());
+    if (this.moveTimer) return;
+    this.moveTimer = setTimeout(() => {
+      this.moveTimer = null;
+      if (!this.pendingMove) return;
+      if (blepipe.backlog() > P.KVM_BLE_BACKLOG) return this._scheduleMove();
+      this._flushMove();
+    }, P.KVM_MOVE_BLE_MS);
+  }
+
+  _flushMove() {
+    const m = this.pendingMove;
+    this.pendingMove = null;
+    if (m && this.mode === 'driving') this._drive({ t: T.K_MOVE, dx: m.dx, dy: m.dy });
+  }
+
   _drive(msg) {
     if (this.local && this.local.drives()) this.local.handle(msg);
     else this.link.send(msg);
@@ -448,6 +481,7 @@ class Kvm {
     }
     this.message = message || '';
     if (mode !== 'driving' && this.fileClip) this.fileClip.resetKeys();
+    if (mode !== 'driving') this.pendingMove = null;
     if (mode === 'driving' && was !== 'driving') {
       clearInterval(this.keepalive);
       this.keepalive = setInterval(() => this.helper.send('keepalive'), P.HELPER_KEEPALIVE_MS);

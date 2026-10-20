@@ -9,6 +9,7 @@
 
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const blepipe = require('../shared/blepipe.js');
 const store = require('./store');
 
 // {them} = the other computer's name (Kvm._them).
@@ -32,6 +33,7 @@ class Kvm extends EventEmitter {
     this.tapError = null;
     this.acceptTimer = null;
     this.pendingMove = null; // coalesced k.mm while driving
+    this.moveTimer = null; // its flush, through Bluetooth
     this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
 
     setInterval(() => this._tick(), 250);
@@ -265,6 +267,19 @@ class Kvm extends EventEmitter {
     this._setMode('home', message);
   }
 
+  // Through Bluetooth every message is a round trip on the radio: moves go at most every
+  // KVM_MOVE_BLE_MS, and wait (still summed) while earlier bytes haven't gone out yet.
+  _scheduleMove() {
+    if (!this.onBle || (this.local && this.local.drives())) return setImmediate(() => this._flushMove());
+    if (this.moveTimer) return;
+    this.moveTimer = setTimeout(() => {
+      this.moveTimer = null;
+      if (!this.pendingMove) return;
+      if (blepipe.backlog() > P.KVM_BLE_BACKLOG) return this._scheduleMove();
+      this._flushMove();
+    }, P.KVM_MOVE_BLE_MS);
+  }
+
   _flushMove() {
     const m = this.pendingMove;
     this.pendingMove = null;
@@ -328,7 +343,7 @@ class Kvm extends EventEmitter {
         if (e.t === P.T.K_MOVE) {
           if (!this.pendingMove) {
             this.pendingMove = { dx: 0, dy: 0 };
-            setImmediate(() => this._flushMove());
+            this._scheduleMove();
           }
           this.pendingMove.dx += e.dx;
           this.pendingMove.dy += e.dy;
