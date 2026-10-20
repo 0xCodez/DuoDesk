@@ -37,4 +37,6 @@ set OLD=macshare-calls.old.exe
 if exist "%BIN%\%OLD%" set OLD=macshare-calls.old-%RANDOM%.exe
 if exist "%BIN%\macshare-calls.exe" ren "%BIN%\macshare-calls.exe" %OLD%
 ren "%BIN%\macshare-calls.new.exe" macshare-calls.exe
+rem Without PowerShell 7's module path (a pwsh terminal, CI): Windows PowerShell then loads its own PKI.
+set PSModulePath=
 powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0calls\pack.ps1" -Bin "%BIN%" || exit /b 1

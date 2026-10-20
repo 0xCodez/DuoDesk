@@ -26,7 +26,7 @@ try {
   if ($LASTEXITCODE) { throw 'makeappx failed' }
 } finally { Remove-Item -Recurse -Force $stage }
 
-$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq 'CN=TwinDesk' -and $_.NotAfter -gt (Get-Date).AddDays(30) } | Select-Object -First 1
+$cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq 'CN=TwinDesk' -and $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date).AddDays(30) } | Select-Object -First 1
 if (-not $cert) {
   $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=TwinDesk' -CertStoreLocation Cert:\CurrentUser\My `
     -KeyUsage DigitalSignature -NotAfter (Get-Date).AddYears(10) -TextExtension @('2.5.29.19={text}')
