@@ -1,13 +1,10 @@
 /* TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-   Calls, Messages and Photos pages (ui-calls.js, ui-messages.js, ui-media.js) on the Mac, PC and
-   Linux, with the app's own colours (control.css / app.css); then the call window (callpop.html),
-   which has none of its own. Also: tabs greyed out over Bluetooth (the shells' wifiOnly). */
+   Calls, Messages, Photos and Phone Files pages (ui-calls.js, ui-messages.js, ui-media.js,
+   ui-pfiles.js) on the Mac, PC and Linux, with the app's own colours (control.css / app.css); then the call window (callpop.html),
+   which has none of its own. Also: pages that need Wi-Fi, over Bluetooth (the shells' wifiOnly). */
 
 /* ---------- Bluetooth: pages that need Wi-Fi ---------- */
-.nav-item.needs-wifi { opacity: 0.4; }
-.nav-item.needs-wifi:hover { background: none; }
 .page .wifi-note { margin-bottom: 16px; }
-.page.wifi-off .page-body { opacity: 0.45; pointer-events: none; }
 .nav-item .state.warn::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 
 /* ---------- shared ---------- */
@@ -135,6 +132,26 @@
 .hub-viewer-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: #fff; background: rgba(0, 0, 0, 0.4); }
 .hub-viewer-bar .hint { color: rgba(255, 255, 255, 0.7); }
 .hub-big-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Phone Files ---------- */
+.hub-fs[hidden], .hub-fs-sel[hidden], .hub-fs-new[hidden] { display: none; }
+.hub-fs.over .card { box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }
+.hub-crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; flex-wrap: wrap; }
+.hub-crumb {
+  border: 0; background: none; color: var(--accent); font: inherit; padding: 2px 4px; border-radius: 5px; cursor: default;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hub-crumb:hover:not(:disabled) { background: var(--nav-hover); }
+.hub-crumb:disabled { color: var(--text); font-weight: 600; }
+.hub-crumb-sep { color: var(--faint); }
+.hub-fs-sel { padding: 6px 10px; border-radius: 8px; background: var(--accent-soft); }
+.hub-fs-row { gap: 10px; }
+.hub-fs-row.chosen { background: var(--accent-soft); }
+.hub-fs-check { flex: none; margin: 0; }
+.hub-fs-ico { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round; }
+.hub-fs-ico.dir { stroke: var(--accent); fill: var(--accent-soft); }
+.hub-fs-status { margin-top: 8px; }
+.hub-media-bar .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
 /* ---------- the call window ---------- */
 body.callpop {

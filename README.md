@@ -207,8 +207,9 @@ computer's can show up on your phone. Hide the message text for privacy or mute 
 
 Answer, decline and make your phone's calls from the computer: a small window shows who's calling,
 and the **Calls** page has a number pad, your contacts and the call history. With Bluetooth, the
-computer becomes the phone's headset, so you talk and listen right there (on the Mac and on Linux
-with PipeWire; Windows keeps that for Phone Link, so there the sound stays on the phone). Read and
+computer becomes the phone's headset, so you talk and listen right there (on Windows and on Linux
+with PipeWire; macOS doesn't let an app carry a call's sound, so on the Mac the sound stays on the
+phone). Read and
 reply to texts on the **Messages** page (Android lets only the build the computer installs over
 wireless debugging read texts: the page offers it), and browse the phone's photos and videos on
 **Photos**, saving any of them to the computer.

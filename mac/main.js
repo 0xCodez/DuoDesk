@@ -685,12 +685,15 @@ function setupNet() {
   };
 }
 
-// Calls, Messages and Photos from a phone (shared/phonehub.js): loaded when a phone connects with
+// Calls, Messages, Photos and Files from a phone (shared/phonehub.js): loaded when a phone connects with
 // one of them on, or the first time a page uses it. Before that none of it exists: no module, no
 // listener, nothing sent to the phone. The call window (shared/callwin.js) only with a call.
 function setupHub() {
-  const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media;
+  const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media || settings.hub.files || settings.hub.shareServe;
   peer.on('client', (ctx) => ctx.os === P.OS.ANDROID && !phoneHub && anyOn() && loadHub());
+  // The phone shares a folder: loaded for it (its listener comes with it, so this one passes it on).
+  peer.on(`t:${P.T.SHARE_OFFER}`, (m, ctx) => ctx && ctx.os === P.OS.ANDROID && !phoneHub && loadHub().share && phoneHub.share.onOffer(m));
+  peer.on(`t:${P.T.SHARE_SET}`, (m, ctx) => ctx && ctx.os === P.OS.ANDROID && !phoneHub && loadHub().share && phoneHub.share.act('serve', { on: !!m.serve }));
 }
 
 let callwin = null;
@@ -699,7 +702,17 @@ function loadHub() {
   const { PhoneHub } = require('../shared/phonehub.js');
   const hub = new PhoneHub({
     server: peer, getSettings: () => settings, save: () => store.saveSettings(settings),
-    audio: (opts) => require('./callaudio.js').create({ helper: svc.helper, ...opts }), // the calls' sound over Bluetooth
+    // No audio: a Mac answers, ends and mutes calls, their sound stays on the phone (macOS won't open
+    // a hands-free's voice link for an app: kIOReturnUnsupported on Apple silicon).
+    send: (paths, batch) => !!(svc.fileSend && svc.fileSend.sendBatch(paths, 'send', batch)), // Files: into a folder on the phone
+    choose: () => dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { properties: ['openFile', 'openDirectory', 'multiSelections'] })
+      .then((r) => (r.canceled ? [] : r.filePaths)),
+    share: { // shared folders with the phone (shared/foldershare.js)
+      mounter: require('./phonedrive').mounter, adb: svc && svc.phone.bridge.adb, serialOf: (id) => svc && svc.wired && svc.wired.serialOf(id),
+      chooseFolder: () => dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { properties: ['openDirectory', 'createDirectory'] }).then((r) => (r.canceled ? '' : r.filePaths[0])),
+      defaultFolder: path.join(require('os').homedir(), 'MacShare'),
+      tls: () => server && server.tls, // served with the session's certificate, which the phone pinned
+    },
   });
   phoneHub = hub;
   hub.on('change', pushState);
@@ -734,6 +747,7 @@ app.on('before-quit', () => {
   if (svc && svc.phoneViews) svc.phoneViews.shutdown();
   if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();
   if (phoneHub && phoneHub.audio) phoneHub.audio.stop(); // the phone's calls go back to it
+  if (phoneHub && phoneHub.share) phoneHub.share.stop();
   if (callwin) callwin.close();
   if (svc && svc.wired) svc.wired.stop();
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input

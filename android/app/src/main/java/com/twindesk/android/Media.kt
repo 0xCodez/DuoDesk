@@ -99,7 +99,7 @@ class Media(private val hub: Hub, private val core: Core) {
     // One at a time, while the link has little queued: input and the rest never wait behind them.
     private fun pump() {
         try {
-            while (!stopped && core.link.connected) {
+            while (!stopped && core.link.connected && !core.link.ble) {
                 val id = synchronized(want) { want.removeFirstOrNull() } ?: break
                 while (core.link.queued() > 256 * 1024 && !stopped) Thread.sleep(5)
                 val data = runCatching { jpeg(cr.loadThumbnail(uri(id)!!, Size(256, 256), null), 72) }.getOrNull()

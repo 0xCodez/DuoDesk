@@ -217,5 +217,17 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- The computer's shared folder in the Files app and file pickers (PcShareProvider.kt). -->
+        <provider
+            android:name=".PcShareProvider"
+            android:authorities="${applicationId}.pcshare"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
     </application>
 </manifest>

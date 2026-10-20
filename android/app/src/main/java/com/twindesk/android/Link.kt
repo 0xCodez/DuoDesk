@@ -126,6 +126,15 @@ class Link(
         events.onChange()
     }
 
+    // Pairing through Bluetooth: shown at once while the pipe opens (Core.pair), then startPairing,
+    // or failed with why.
+    fun pairOpening(name: String) {
+        pair = PairState("connecting", "", 0, name, ble = true)
+        events.onChange()
+    }
+
+    fun pairUnreachable(error: String) = run { pairFailed(error) }
+
     fun confirmCode() = run {
         val p = pair ?: return@run
         if (p.phase != "code" || mode != "pair") return@run

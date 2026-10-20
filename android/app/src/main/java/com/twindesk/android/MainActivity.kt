@@ -100,7 +100,8 @@ class MainActivity : ComponentActivity() {
         shown = true
         resumed.value++ // permissions may have changed in Settings
         Core.get(this).adb.check() // back from Settings: is wireless debugging on now?
-        Core.get(this).hub.let { if (it.callsOn || it.messagesOn || it.mediaOn) it.permsChanged() }
+        Core.get(this).hub.let { if (it.callsOn || it.messagesOn || it.mediaOn || it.filesOn) it.permsChanged() }
+        Core.get(this).share.let { if (it.on && it.serving != it.allowed) it.core.bg.execute { it.sync() } } // All files access just allowed (or taken away)
     }
 
     override fun onPause() {
@@ -124,6 +125,11 @@ private fun grad(a: Long, b: Long) = listOf(Color(a), Color(b))
 // The pages, with the Mac's tile colours and groups.
 private enum class Tab(val title: String, val icon: ImageVector, val colors: List<Color>, val group: String) {
     Overview("Overview", Ico.overview, grad(0xFF8E8E93, 0xFF636366), ""),
+    // On the computer, from this phone (Hub.kt): their settings here.
+    Calls("Calls", Ico.call, grad(0xFF5EE07A, 0xFF30B94D), "Phone"),
+    Messages("Messages", Ico.message, grad(0xFF5EE07A, 0xFF30B94D), "Phone"),
+    Photos("Photos", Ico.photo, grad(0xFFFFD60A, 0xFFFF9F0A), "Phone"),
+    FileAccess("File access", Ico.folder, grad(0xFF64D2FF, 0xFF0A84FF), "Phone"),
     Screen("Screen", Ico.display, grad(0xFF5AC8FA, 0xFF0A84FF), "Display"),
     Cursor("Cursor", Ico.cursor, grad(0xFFFFB340, 0xFFFF9500), "Input"),
     Keyboard("Keyboard", Ico.keyboard, grad(0xFFD1D1D6, 0xFF8E8E93), "Input"),
@@ -145,14 +151,19 @@ private fun isOn(core: Core, t: Tab): Boolean = when (t) {
     Tab.Clipboard -> core.sync.get("clipboard", "in") || core.sync.get("clipboard", "out")
     Tab.Notifications -> core.sync.get("notifs", "in") || core.sync.get("notifs", "out")
     Tab.Sound -> core.sync.get("audio", "in") || core.sync.get("audio", "out")
+    Tab.Calls -> core.hub.callsOn
+    Tab.Messages -> core.hub.messagesOn
+    Tab.Photos -> core.hub.mediaOn
+    Tab.FileAccess -> core.hub.filesOn
     else -> false
 } && core.host != null
 
 private fun them(core: Core) = core.host?.name ?: core.hosts().firstOrNull()?.name ?: "the computer"
 
 // Pages that can't work over Bluetooth and don't move the session onto Wi-Fi by themselves
-// (sound streams over the network): greyed out while the session is on Bluetooth.
-private fun wifiOnly(core: Core, t: Tab) = t == Tab.Sound && core.host != null && core.link.ble
+// (sound streams over the network; the computer's Photos): shown as they are while the session
+// is on Bluetooth, saying so, with Connect with Wi-Fi Direct (WifiGate).
+private fun wifiOnly(core: Core, t: Tab) = (t == Tab.Sound || t == Tab.Photos) && core.host != null && core.link.ble
 
 @Composable
 fun App(core: Core, resumed: Int) {
@@ -253,7 +264,7 @@ private fun Sidebar(core: Core, v: Int, tab: Tab, go: (Tab) -> Unit) {
             if (t.group == "bottom" && group != "bottom") Box(Modifier.padding(horizontal = 8.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(pal.line))
             else if (group != null && t.group != group) Spacer(Modifier.height(10.dp))
             group = t.group
-            NavItem(t.icon, t.colors, t.title, tab == t, isOn(core, t), enabled = !wifiOnly(core, t)) { go(t) }
+            NavItem(t.icon, t.colors, t.title, tab == t, isOn(core, t)) { go(t) }
         }
     }
 }
@@ -273,11 +284,10 @@ private fun MoreList(core: Core, v: Int, modifier: Modifier, go: (Tab) -> Unit) 
             Tab.entries.filter { it !in BOTTOM }.forEachIndexed { i, t ->
                 Column {
                     if (i > 0) Box(Modifier.padding(start = 58.dp).fillMaxWidth().height(1.dp).background(pal.line))
-                    val off = wifiOnly(core, t)
-                    Row(Modifier.fillMaxWidth().clickable(enabled = !off) { go(t) }.alpha(if (off) 0.4f else 1f).padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clickable { go(t) }.padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         Tile(t.icon, t.colors, 30)
                         Text(t.title, color = pal.text, fontSize = 16.sp, modifier = Modifier.padding(start = 12.dp).weight(1f))
-                        if (off) Text("Needs Wi-Fi", color = pal.muted, fontSize = 12.sp)
+                        if (wifiOnly(core, t)) Text("Wi-Fi Direct", color = pal.muted, fontSize = 12.sp)
                         if (isOn(core, t)) Dot(pal.good, 7)
                         Text("›", color = pal.faint, fontSize = 20.sp, modifier = Modifier.padding(start = 8.dp))
                     }
@@ -294,6 +304,10 @@ private fun Page(core: Core, v: Int, tab: Tab, modifier: Modifier) {
         Column(Modifier.widthIn(max = 820.dp)) {
             when (tab) {
                 Tab.Overview -> OverviewPage(core, v)
+                Tab.Calls -> CallsPage(core, v)
+                Tab.Messages -> MessagesPage(core, v)
+                Tab.Photos -> PhotosPage(core, v)
+                Tab.FileAccess -> FileAccessPage(core, v)
                 Tab.Screen -> ScreenPage(core, v)
                 Tab.Cursor -> CursorPage(core, v)
                 Tab.Keyboard -> KeyboardPage(core, v)
@@ -356,7 +370,10 @@ private fun OverviewPage(core: Core, v: Int) {
                         Text(p.error, color = pal.bad)
                         Secondary("OK") { link.cancelPairing() }
                     }
-                    else -> Text("Connecting…", color = pal.muted)
+                    else -> {
+                        Text(if (p.ble) "Connecting over Bluetooth…" else "Connecting…", color = pal.muted)
+                        Secondary("Cancel") { link.cancelPairing() }
+                    }
                 }
             }
         }
@@ -459,18 +476,21 @@ private fun OverviewPage(core: Core, v: Int) {
                 SwitchRow("Clipboard", "", core.sync.get("clipboard", "out")) { core.sync.set("clipboard", "out", it) }
                 SwitchRow("Notifications", if (core.notifs.hasAccess) "" else if (!core.notifs.supported) "Needs TwinDesk with notifications (Notifications page)" else "Needs Notification access (General)", core.sync.get("notifs", "out")) { core.sync.set("notifs", "out", it) }
                 // Calls, Messages and Photos, when the computer has them: what each needs is asked for as it's switched on.
-                if (core.hub.peer) for (what in listOf("calls", "messages", "media")) {
+                if (core.hub.peer) for (what in listOf("calls", "messages", "media", "files")) {
                     val perm = core.hub.perm(what)
                     val on = core.hub.on(what)
                     SwitchRow(
                         Hub.label(what),
                         when {
+                            perm == "none" && what == "files" -> "Needs Android 11 or later"
                             perm == "none" -> "Needs TwinDesk with notifications (Notifications page)"
+                            on && perm == "ask" && what == "files" -> "Allow All files access: switch it on again"
                             on && perm == "ask" -> "Tap Allow on the prompt, or switch it on again"
                             on && perm == "partial" && what == "media" -> "Only the photos you chose"
                             on && perm == "partial" -> "Some access is missing: switch it on again to allow it"
                             what == "calls" -> "Answer and make calls on ${host.name}"
                             what == "messages" -> "Read and send texts on ${host.name}"
+                            what == "files" -> "Browse this phone’s storage on ${host.name}, no ADB"
                             else -> "See and save them on ${host.name}"
                         },
                         on, enabled = perm != "none",
@@ -527,6 +547,187 @@ private fun Device(name: String, phone: Boolean, modifier: Modifier) {
         Text(name, fontWeight = FontWeight.SemiBold, color = pal.text, fontSize = 13.sp, maxLines = 2, lineHeight = 16.sp, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis,
             softWrap = name.contains(' '), modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp))
     }
+}
+
+// ---- Wi-Fi Direct ----
+
+// Over Bluetooth, a page that needs Wi-Fi says so and offers the way there (the Overview's
+// Connect with Wi-Fi Direct): the page itself stays as it is.
+@Composable
+private fun WifiGate(core: Core, what: String) {
+    if (core.host == null || !core.link.ble) return
+    val n = core.net
+    val moving = n.state in listOf("asking", "hosting", "joining")
+    Note(
+        when {
+            moving -> "$what is only available over Wi-Fi Direct. Connecting…"
+            n.state == "failed" -> "$what is only available over Wi-Fi Direct. ${n.error.ifEmpty { "Wi-Fi Direct didn’t come up" }}"
+            else -> "$what is only available over Wi-Fi Direct (or the same Wi-Fi network): you’re connected over Bluetooth."
+        },
+        "warn",
+    )
+    if (!moving) Row(Modifier.padding(bottom = 14.dp)) {
+        Primary(if (n.state == "failed") "Try again" else "Connect with Wi-Fi Direct") { core.net.need("user"); core.changed() }
+    }
+}
+
+// ---- Calls, Messages, Photos, File access (on the computer, from this phone: Hub.kt) ----
+
+// The top of each: the switch (the computer keeps it), and what's missing here, with Allow.
+@Composable
+private fun HubHead(core: Core, v: Int, what: String, title: String, desc: String): Boolean {
+    @Suppress("UNUSED_EXPRESSION") v // redraw on every Core change (Compose skips unread parameters)
+    val hub = core.hub
+    val name = them(core)
+    val perm = hub.perm(what)
+    val on = hub.on(what)
+    PageHead(title, desc, if (core.host != null && hub.peer && perm != "none") on else null) {
+        hub.set(what, it)
+        if (it && perm != "ok") hub.askHere(what)
+    }
+    if (core.host == null) { NotConnected(core, v); return false }
+    if (!hub.peer) { Note("TwinDesk on $name needs to be up to date for $title.", "warn"); return false }
+    when {
+        perm == "none" && what == "files" -> Note("File access needs Android 11 or later. Mount on $name works through ADB instead.", "warn")
+        perm == "none" -> Note("$title needs TwinDesk with notifications: Android doesn’t let downloaded apps read texts. $name installs it once wireless debugging is set up (its Phone page › Install). Your settings and pairing stay.", "warn")
+        !on -> Note("Off. Switch it on here or on $name.")
+        perm == "ask" -> {
+            Note(
+                when (what) {
+                    "files" -> "Allow All files access, so $name can browse this phone’s storage. TwinDesk reads and writes the files itself: no ADB."
+                    "media" -> "Allow photos and videos, so $name can show them."
+                    else -> "Allow what $title needs: ${Hub.wanted(what).size} permissions, asked for once."
+                },
+                "warn",
+            )
+            Row(Modifier.padding(bottom = 14.dp)) { Primary("Allow") { hub.askHere(what) } }
+        }
+        perm == "partial" -> {
+            Note(if (what == "media") "Only the photos you chose show on $name." else "Some of $title needs more: allow the rest to use all of it.")
+            Row(Modifier.padding(bottom = 14.dp)) { Secondary("Allow more") { hub.askHere(what) } }
+        }
+        else -> Note("On: $title from this phone on $name.")
+    }
+    return on && perm != "none"
+}
+
+@Composable
+private fun CallsPage(core: Core, v: Int) {
+    val name = them(core)
+    if (!HubHead(core, v, "calls", "Calls", "Answer, make and end this phone’s calls on ${them(core)}.")) return
+    MacCard("On $name") {
+        MacRow("Answer and decline", "A window on $name when this phone rings", first = true)
+        MacRow("Make calls", "The number pad, contacts and recent calls on $name’s Calls page")
+    }
+    // The computer as this phone's headset: paired over classic Bluetooth.
+    val hub = core.hub
+    if (hub.btAudio) MacCard("Sound on $name") {
+        val bt = hub.btState()
+        MacRow(
+            "Bluetooth",
+            when {
+                bt.optBoolean("allowed", true).not() -> "Allow Nearby devices so this phone can pair with $name"
+                !bt.optBoolean("radio", true) -> "Bluetooth is off on this phone"
+                bt.optBoolean("bonding") -> "Pairing… Confirm the code here and on $name"
+                bt.optBoolean("forget") -> "Forget $name in Bluetooth settings first (the old pairing can’t carry calls), then Pair"
+                bt.optBoolean("bonded") -> "Paired with $name: calls can play there"
+                bt.optBoolean("le") -> "Paired over Bluetooth LE only, which can’t carry a call: Pair again"
+                bt.optBoolean("failed") -> "Pairing didn’t finish: Pair again"
+                !hub.btKnown -> "Waiting for $name…"
+                else -> "Not paired with $name over Bluetooth yet"
+            },
+            first = true,
+        ) {
+            if (hub.btKnown && !bt.optBoolean("bonded") && !bt.optBoolean("bonding")) Primary("Pair") { hub.pairBt() }
+        }
+    }
+}
+
+@Composable
+private fun MessagesPage(core: Core, v: Int) {
+    val name = them(core)
+    if (!HubHead(core, v, "messages", "Messages", "Read and send this phone’s texts on ${them(core)}.")) return
+    MacCard("On $name") {
+        MacRow("Conversations", "Texts and MMS pictures on $name’s Messages page", first = true)
+        MacRow("New texts", "Counted on the Messages tab on $name")
+    }
+}
+
+@Composable
+private fun PhotosPage(core: Core, v: Int) {
+    val name = them(core)
+    WifiGate(core, "Photos on $name")
+    if (!HubHead(core, v, "media", "Photos", "See this phone’s photos and videos on ${them(core)} and copy them there.")) return
+    MacCard("On $name") {
+        MacRow("Photos, videos and screenshots", "Newest first on $name’s Photos page", first = true)
+        MacRow("Save", "Copies go to $name’s Downloads")
+    }
+}
+
+@Composable
+private fun FileAccessPage(core: Core, v: Int) {
+    val name = them(core)
+    WifiGate(core, "Phone Files on $name")
+    if (HubHead(core, v, "files", "File access", "Browse this phone’s storage on ${them(core)}, and copy files both ways.")) MacCard("On $name") {
+        MacRow("Phone Files", "Folders, Save to $name, Upload, New folder, Rename, Delete", first = true)
+        MacRow("No ADB", "TwinDesk reads and writes the files itself with All files access. Mount on $name is the ADB way")
+        MacRow("Where", "On USB, Wi-Fi or Wi-Fi Direct. Over Bluetooth $name says so, with Connect with Wi-Fi Direct")
+    }
+    if (core.host != null) SharedFolders(core, v)
+}
+
+// Shared folders, both ways (FolderShare.kt): this phone's in the computer's file manager, the
+// computer's in the Files app here.
+@Composable
+private fun SharedFolders(core: Core, v: Int) {
+    @Suppress("UNUSED_EXPRESSION") v // redraw on every Core change (Compose skips unread parameters)
+    val ctx = LocalContext.current
+    val sh = core.share
+    val name = them(core)
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) sh.choose(uri) }
+    val ble = core.link.ble
+    MacCard("Shared folders") {
+        SwitchRow(
+            "Share a folder with $name",
+            when {
+                ble -> "Over Wi-Fi Direct, Wi-Fi or USB"
+                !sh.allowed -> "Needs All files access (above)"
+                sh.error.isNotEmpty() -> "Couldn’t share: ${sh.error}"
+                sh.on && sh.serving -> "${sh.shown()}: open on $name (Phone Files › Shared folders)"
+                else -> sh.shown()
+            },
+            sh.on, first = true,
+        ) {
+            sh.setOn(it)
+            if (it && !sh.allowed) core.hub.askHere("files")
+        }
+        MacRow("Folder", sh.shown()) { Secondary("Choose…") { pick.launch(null) } }
+        val pc = sh.pc
+        MacRow(
+            "$name’s shared folder",
+            when {
+                ble -> "Over Wi-Fi Direct, Wi-Fi or USB"
+                pc != null -> "“${pc.name}” in the Files app and every app’s file picker"
+                sh.pcServe -> "Opening…"
+                else -> "Off: switch it on to see a folder of $name in the Files app"
+            },
+        ) {
+            if (pc != null) Primary("Open") { openPcShare(ctx) }
+            MacSwitch(sh.pcServe, { sh.setPcServe(it) }, enabled = !ble)
+        }
+    }
+}
+
+// The Files app at the computer's shared folder (its root; else the system's file picker there).
+private fun openPcShare(ctx: android.content.Context) {
+    val root = android.provider.DocumentsContract.buildRootUri(PcShareProvider.authority(ctx), PcShareProvider.ROOT)
+    val doc = android.provider.DocumentsContract.buildDocumentUri(PcShareProvider.authority(ctx), "/")
+    val tries = listOf(
+        Intent(Intent.ACTION_VIEW).setDataAndType(root, "vnd.android.document/root"),
+        Intent(Intent.ACTION_VIEW).setDataAndType(doc, android.provider.DocumentsContract.Document.MIME_TYPE_DIR),
+        Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, doc),
+    )
+    for (i in tries) if (runCatching { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)) }.isSuccess) return
 }
 
 // ---- Screen ----
@@ -818,7 +1019,7 @@ private fun SoundPage(core: Core, v: Int) {
     val me = core.store.deviceName
     PageHead("Sound", "Hear one on the other.")
     if (core.host == null) NotConnected(core, v)
-    else if (wifiOnly(core, Tab.Sound)) Note("Sound needs Wi-Fi: it’s off while connected over Bluetooth. Connect with Wi-Fi Direct on the Overview, or join the same network.", "warn")
+    else WifiGate(core, "Sound")
     MacCard {
         DirHead(name, false, me, true)
         SwitchRow("Play $name’s sound here", if (core.macSound.playing) "Playing" else "", core.sync.get("audio", "in"), first = true) { core.sync.set("audio", "in", it) }

@@ -197,11 +197,11 @@
       // Calls, Messages and Media from a phone (shared/phonehub.js here, Hub.kt on the phone). Each is
       // off until switched on (its page here, or the phone's Overview); while one is off the phone
       // keeps nothing running for it: no listener, no observer, no query.
-      HUB_POLICY: 'hub.policy', // computer->phone {calls, messages, media, bt}: which are on here (at every session start: it also says the computer has them); bt = call audio here over Bluetooth
-      HUB_STATE: 'hub.state', // phone->computer {calls: {perm}, messages: {perm}, media: {perm}, bt: {name, bonded, on}}: perm 'ok'|'partial'|'ask'|'blocked'|'none' (not in this build)
-      HUB_ASK: 'hub.ask', // computer->phone {what: 'calls'|'messages'|'media'}: ask the person on the phone for that one's permissions
+      HUB_POLICY: 'hub.policy', // computer->phone {calls, messages, media, files, bt}: which are on here (at every session start: it also says the computer has them); bt = call audio here over Bluetooth
+      HUB_STATE: 'hub.state', // phone->computer {calls: {perm}, messages: {perm}, media: {perm}, files: {perm}, bt: {name, bonded, le, bonding, failed, allowed, radio}}: perm 'ok'|'partial'|'ask'|'blocked'|'none' (not in this build)
+      HUB_ASK: 'hub.ask', // computer->phone {what: 'calls'|'messages'|'media'|'files'|'bt'}: ask the person on the phone for that one's permissions
       HUB_SET: 'hub.set', // phone->computer {what, on}: switched on or off on the phone
-      HUB_BT: 'hub.bt', // computer->phone {address, bond?}: this computer's Bluetooth address (is the phone paired with it?); bond: pair with it now
+      HUB_BT: 'hub.bt', // computer->phone {address, bond?, unpair?}: this computer's Bluetooth address (is the phone paired with it?); bond: pair with it now; unpair: forget it
       CALL_STATE: 'call.state', // phone->computer {state: 'idle'|'ringing'|'offhook', number, name, photo?, dir: 'in'|'out', since}
       CALL_DO: 'call.do', // computer->phone {a: 'dial'|'answer'|'end'|'mute', number?, on?}
       CALL_DONE: 'call.done', // phone->computer {a, ok, error?}
@@ -217,6 +217,17 @@
       MEDIA_THUMB: 'media.thumb', // computer->phone {ids}: these next (the ones still waiting are dropped) | phone->computer {id, data}
       MEDIA_VIEW: 'media.view', // computer->phone {id} | phone->computer {id, data}: a big preview
       MEDIA_SAVE: 'media.save', // computer->phone {ids}: send these files here (they come as file.offer, drop 'send')
+      // Files: the phone's storage, through TwinDesk on it with All files access (no ADB). Paths are
+      // relative to the phone's shared storage ('' its top, 'DCIM/Camera'), never '..'.
+      FS_LIST: 'fs.list', // computer->phone {path, hidden?} | phone->computer {path, items: [{name, dir, size, at, n? (a folder's items)}], free, total, error?}
+      FS_DO: 'fs.do', // computer->phone {a: 'mkdir'|'rename'|'delete', path, name? (mkdir, rename: the new name), paths? (delete), ref}
+      FS_DONE: 'fs.done', // phone->computer {ref, ok, error?, path (the folder that changed)}
+      FS_SAVE: 'fs.save', // computer->phone {paths}: send these here, folders with what's in them (file.offer, drop 'send')
+      FS_EXPECT: 'fs.expect', // computer->phone {batch, path}: the files of this batch (file.offer, drop 'send') go into that folder
+      // Shared folders (shared/foldershare.js, FolderShare.kt), on USB, Wi-Fi or Wi-Fi Direct only.
+      SHARE_OFFER: 'share.offer', // phone->computer {on, port, secret, name}: its folder over WebDAV at its address, http://<it>:<port>/<secret>/<name>/; sent again when the session moves
+      SHARE_HOST: 'share.host', // computer->phone {on, port, token, name}: this computer's folder, http://<computer>:<port>/<token>/<op>?p= (list, stat, file, mkdir, delete, rename)
+      SHARE_SET: 'share.set', // phone->computer {serve}: switch the computer's folder for the phone on or off (its setting; share.host says how it is)
       // Resume: `welcome` carries {resume: key}; the guest opens a second socket (another path to the
       // host, e.g. the network once both are on one) with hello {..., resume: key} and gets welcome
       // {resumed: true}: from then on both sides send on it, and the first socket stays as the

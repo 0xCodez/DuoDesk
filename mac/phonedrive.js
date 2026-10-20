@@ -7,11 +7,12 @@ const { execFile, execFileSync } = require('child_process');
 const shared = require('../shared/phonedrive.js');
 
 // Where the volume served on this port is mounted ('' if it isn't).
-function mountedAt(port) {
+// (host: the phone's address, for its shared folder: shared/foldershare.js)
+function mountedAt(port, host = '127.0.0.1') {
   return new Promise((resolve) => {
     if (!port) return resolve('');
     execFile('/sbin/mount', [], { timeout: 5000 }, (err, out) => {
-      const line = String(out || '').split('\n').find((l) => l.includes(`127.0.0.1:${port}/`));
+      const line = String(out || '').split('\n').find((l) => l.includes(`${host}:${port}/`));
       const m = line && / on (.+?) \(/.exec(line);
       resolve(m ? m[1] : '');
     });
@@ -20,7 +21,7 @@ function mountedAt(port) {
 
 // Finder's "Connect to Server" by AppleScript. osascript often doesn't come back after a WebDAV
 // mount that worked, so the mount table says when it's there; resolves to the mount point.
-function mount(url, { user, password, port }) {
+function mount(url, { user, password, port, host }) {
   return new Promise((resolve, reject) => {
     let err = '';
     const child = execFile('/usr/bin/osascript', ['-e', `mount volume "${url}" as user name "${user}" with password "${password}"`], (e, out, errOut) => {
@@ -28,7 +29,7 @@ function mount(url, { user, password, port }) {
     });
     const started = Date.now();
     const tick = async () => {
-      const at = await mountedAt(port);
+      const at = await mountedAt(port, host);
       if (at) {
         child.kill();
         return resolve(at);
@@ -61,4 +62,4 @@ class PhoneDrive extends shared.PhoneDrive {
   }
 }
 
-module.exports = { PhoneDrive };
+module.exports = { PhoneDrive, mounter };

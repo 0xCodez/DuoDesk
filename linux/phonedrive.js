@@ -20,22 +20,23 @@ const run = (args, timeout = 30000) => new Promise((resolve) => {
 
 // GVFS's folder for the volume on this port ('' if it isn't mounted):
 // dav:host=127.0.0.1,port=<port>,ssl=false,prefix=…
-function mountedAt(port) {
+// (host: the phone's address, for its shared folder: shared/foldershare.js)
+function mountedAt(port, host = '127.0.0.1') {
   if (!port) return Promise.resolve('');
   let names = [];
   try {
     names = fs.readdirSync(gvfsDir());
   } catch {}
-  const name = names.find((n) => n.startsWith('dav:') && n.includes('host=127.0.0.1') && n.includes(`port=${port},`));
+  const name = names.find((n) => n.startsWith('dav:') && n.includes(`host=${host},`) && n.includes(`port=${port},`));
   return Promise.resolve(name ? path.join(gvfsDir(), name) : '');
 }
 
-async function mount(url, { port }) {
+async function mount(url, { port, host }) {
   const r = await run(['mount', dav(url)], 60000);
   if (r.err && r.err.code === 'ENOENT') throw new Error('GVFS’s gio is missing (install gvfs and gvfs-backends)');
   // The FUSE folder can show up a moment after gio returns.
   for (let i = 0; i < 20; i++) {
-    const at = await mountedAt(port);
+    const at = await mountedAt(port, host);
     if (at) return at;
     await new Promise((res) => setTimeout(res, 250));
   }
@@ -60,4 +61,4 @@ class PhoneDrive extends shared.PhoneDrive {
   }
 }
 
-module.exports = { PhoneDrive };
+module.exports = { PhoneDrive, mounter };

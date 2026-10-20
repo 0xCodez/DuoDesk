@@ -116,6 +116,10 @@ object Ico {
     val bell = lineIcon("bell", "M5.5 13.5V9a4.5 4.5 0 0 1 9 0v4.5l1.5 1.5h-12z M8.5 16.5a1.5 1.5 0 0 0 3 0")
     val phone = lineIcon("phone", "M6.5 2.5h7a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z M9 15h2")
     val more = lineIcon("more", "M4.5 10h.1 M10 10h.1 M15.5 10h.1")
+    val call = lineIcon("call", "M6 3h2.5l1.2 3.2-1.7 1.3a9 9 0 0 0 4.5 4.5l1.3-1.7 3.2 1.2V16a1 1 0 0 1-1 1A13 13 0 0 1 3 4a1 1 0 0 1 1-1z")
+    val message = lineIcon("message", "M3 4.5h14v9H8.5L5 16.5v-3H3z")
+    val photo = lineIcon("photo", "M3 4.5h14v11H3z M3 13l4-4 3.5 3.5 2-2L17 14.5 M12.5 7.5h.1")
+    val folder = lineIcon("folder", "M2.5 5h5.5l1.5 2h8v9.5h-15z")
 }
 
 // A sidebar tile: the icon in white on its section's gradient (the Mac's `.tile`).

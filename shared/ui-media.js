@@ -1,7 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Photos page (Mac, PC and Linux): the phone's photos and videos, newest first, a page at a
 // time; small pictures only for the tiles on screen; click one to see it big; Save copies the
-// files here (into Downloads, as Send does). Needs Wi-Fi: greyed out over Bluetooth.
+// files here (into Downloads, as Send does). On USB, Wi-Fi or Wi-Fi Direct; over Bluetooth it says
+// so and loads nothing (thumbnails there slowed everything else down).
 'use strict';
 
 UI.tab({
@@ -13,7 +14,7 @@ UI.tab({
   color: 'linear-gradient(#ffd60a, #ff9f0a)',
   desc: 'See your phone’s photos and videos and copy them here.',
   hidden: (s) => !UI.isPhone(s), // only while a phone is connected
-  wifiOnly: true, // pictures are too big for Bluetooth, and this page doesn't move the session to Wi-Fi
+  wifiOnly: true, // pictures are too big for Bluetooth: Connect with Wi-Fi Direct on top, nothing loads
   master: { get: (s) => !!(s.hub && s.hub.media), set: (v) => UI.api.hub({ do: 'set', what: 'media', on: v }) },
   badge: (s) => (s.hub && s.hub.media ? 'on' : ''),
   build(body, page) {
@@ -92,6 +93,7 @@ UI.tab({
       }
       clearTimeout(thumbTimer);
       thumbTimer = setTimeout(() => {
+        if (UI.onBle(UI.state)) return; // over Bluetooth: none
         const ids = [...visible].filter((id) => !thumbs.has(id));
         // A little ahead too: the next row or two below.
         const last = items.findIndex((x) => x.id === [...visible].pop());
@@ -107,6 +109,7 @@ UI.tab({
     end.observe(sentinel);
 
     function page1() {
+      if (UI.onBle(UI.state)) return;
       asking = true;
       UI.hubAsk({ t: 'media.list', kind, before: nextKey, n: 120 });
     }
@@ -121,7 +124,7 @@ UI.tab({
       visible.clear();
       grid.replaceChildren();
       paint();
-      if (UI.hubReady(UI.state, 'media')) page1();
+      if (UI.hubReady(UI.state, 'media') && !UI.onBle(UI.state)) page1();
     }
 
     function save(ids) {
@@ -139,7 +142,7 @@ UI.tab({
       if (thumbs.get(it.id)) bigImg.src = thumbs.get(it.id); else bigImg.removeAttribute('src');
       bigName.textContent = it.name;
       bigSub.textContent = [new Date(it.at).toLocaleString(), it.w && it.h ? `${it.w} × ${it.h}` : '', UI.bytes(it.size || 0), it.album].filter(Boolean).join(' · ');
-      UI.hubAsk({ t: 'media.view', id: it.id });
+      if (!UI.onBle(UI.state)) UI.hubAsk({ t: 'media.view', id: it.id });
       const i = items.indexOf(it);
       prev.disabled = i <= 0;
       next.disabled = i < 0 || i >= items.length - 1;
@@ -185,14 +188,14 @@ UI.tab({
     let loaded = false;
     UI.onShown(page, (shown) => {
       if (!shown) view(null);
-      else if (UI.hubReady(UI.state, 'media') && !loaded) { loaded = true; reset(); }
+      else if (UI.hubReady(UI.state, 'media') && !UI.onBle(UI.state) && !loaded) { loaded = true; reset(); }
     });
     paint();
 
     return (s) => {
       top.render(s);
       bigSave.textContent = `Save to ${UI.fill('{me}')}`;
-      const ready = UI.hubReady(s, 'media');
+      const ready = UI.hubReady(s, 'media') && !UI.onBle(s); // over Bluetooth: the Wi-Fi Direct note only
       wrap.hidden = !ready;
       if (!ready) { loaded = false; view(null); return; }
       if (!loaded) { loaded = true; reset(); }

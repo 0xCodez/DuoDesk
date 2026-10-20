@@ -345,7 +345,7 @@ function startPhone(server, pairing) {
   pushState();
 }
 
-// Calls, Messages and Photos from a phone (shared/phonehub.js): loaded when a phone connects with
+// Calls, Messages, Photos and Files from a phone (shared/phonehub.js): loaded when a phone connects with
 // one of them on, or the first time a page uses it. Before that none of it exists: no module, no
 // listener, nothing sent to the phone. The call window (shared/callwin.js) only with a call.
 let hub = null;
@@ -353,8 +353,11 @@ let phoneLink = null; // phone-link.js, the phone's session (startPhone)
 let callwin = null;
 function setupHub(pl) {
   phoneLink = pl;
-  const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media;
+  const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media || settings.hub.files || settings.hub.shareServe;
   pl.on('client', (ctx) => ctx.os === P.OS.ANDROID && !hub && anyOn() && loadHub());
+  // The phone shares a folder: loaded for it (its listener comes with it, so this one passes it on).
+  pl.on(`t:${P.T.SHARE_OFFER}`, (m, ctx) => ctx && ctx.os === P.OS.ANDROID && !hub && loadHub().share && hub.share.onOffer(m));
+  pl.on(`t:${P.T.SHARE_SET}`, (m, ctx) => ctx && ctx.os === P.OS.ANDROID && !hub && loadHub().share && hub.share.act('serve', { on: !!m.serve }));
 }
 
 function loadHub() {
@@ -363,6 +366,15 @@ function loadHub() {
   hub = new PhoneHub({
     server: phoneLink, getSettings: () => settings, save: saveSettings,
     audio: (opts) => require('./callaudio.js').create({ helper, ...opts }), // the calls' sound over Bluetooth
+    send: (paths, batch) => !!(fileDrop && fileDrop.sendBatch(paths, 'send', batch)), // Files: into a folder on the phone
+    choose: () => require('electron').dialog.showOpenDialog(mainWin && !mainWin.isDestroyed() ? mainWin : undefined, { properties: ['openFile', 'multiSelections'] }) // files only: with folders too it picks only folders here
+      .then((r) => (r.canceled ? [] : r.filePaths)),
+    share: { // shared folders with the phone (shared/foldershare.js)
+      mounter: require('./phonedrive').mounter, adb: phone && phone.bridge.adb, serialOf: (id) => wired && wired.serialOf(id),
+      chooseFolder: () => require('electron').dialog.showOpenDialog(mainWin && !mainWin.isDestroyed() ? mainWin : undefined, { properties: ['openDirectory', 'createDirectory'] }).then((r) => (r.canceled ? '' : r.filePaths[0])),
+      defaultFolder: path.join(os.homedir(), 'MacShare'),
+      tls: () => hostServer && hostServer.tls, // served with the session's certificate, which the phone pinned
+    },
   });
   hub.on('change', pushState);
   hub.on('data', (m) => mainWin && !mainWin.isDestroyed() && mainWin.webContents.send('hub', m));
@@ -721,6 +733,7 @@ app.on('before-quit', () => {
   if (phoneDrive) phoneDrive.shutdown();
   if (phone) phone.bridge.adb.killServer();
   if (hub && hub.audio) hub.audio.stop(); // the phone's calls go back to it
+  if (hub && hub.share) hub.share.stop();
   if (callwin) callwin.close();
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
   loopback.shutdown();

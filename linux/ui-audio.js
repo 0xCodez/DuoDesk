@@ -6,7 +6,7 @@
 
 UI.tab({
   id: 'audio',
-  wifiOnly: true, // over Bluetooth it can't work and doesn't move the session onto Wi-Fi: greyed out
+  wifiOnly: true, // over Bluetooth it can't work and doesn't move the session onto Wi-Fi: says so, with Connect with Wi-Fi Direct
   order: 70,
   title: 'Audio',
   color: 'linear-gradient(#ff6482, #ff2d55)',

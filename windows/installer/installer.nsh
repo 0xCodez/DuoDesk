@@ -5,11 +5,13 @@
 
 !macro customInit
   nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
+  nsExec::Exec 'taskkill /f /im macshare-calls.exe'
   nsExec::Exec '"$INSTDIR\resources\app\windows\vendor\adb\adb.exe" kill-server'
 !macroend
 
 !macro customUnInit
   nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
+  nsExec::Exec 'taskkill /f /im macshare-calls.exe'
   nsExec::Exec '"$INSTDIR\resources\app\windows\vendor\adb\adb.exe" kill-server'
 !macroend
 
@@ -19,6 +21,7 @@
 !macro customCheckAppRunning
   nsExec::Exec 'taskkill /f /t /im TwinDesk.exe'
   nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
+  nsExec::Exec 'taskkill /f /im macshare-calls.exe'
   Sleep 500
   RMDir /r "$INSTDIR\resources\app"
 !macroend
@@ -38,9 +41,17 @@
   ; The phone as a drive goes through Windows' WebDAV client (phonedrive.js), which refuses files
   ; over 50 MB unless this says otherwise: 4 GB, its maximum (read when WebClient next starts).
   nsExec::Exec 'reg add HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters /v FileSizeLimitInBytes /t REG_DWORD /d 4294967295 /f'
+  ; Calls on this PC (callaudio.js): Windows adds the calls' sparse package (an identity for
+  ; macshare-calls.exe) only when it trusts its certificate, self-signed: trusted for app packages
+  ; only (TrustedPeople, not a root). The app registers the package per user when Calls needs it.
+  IfFileExists "$INSTDIR\resources\app\windows-helper\bin\twindesk-calls.cer" 0 +2
+  nsExec::Exec 'certutil -f -addstore TrustedPeople "$INSTDIR\resources\app\windows-helper\bin\twindesk-calls.cer"'
 !macroend
 
 !macro customUnInstall
+  ; Calls on this PC: its package (this user's) and its certificate.
+  nsExec::Exec 'powershell -NoProfile -NonInteractive -Command "Get-AppxPackage -Name TwinDesk.Calls | Remove-AppxPackage"'
+  nsExec::Exec 'certutil -delstore TrustedPeople TwinDesk'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk" program="$INSTDIR\TwinDesk.exe"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (TCP 47800)"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (adb)"'

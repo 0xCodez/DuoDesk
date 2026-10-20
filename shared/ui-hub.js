@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// What the Calls, Messages and Photos pages share, on the Mac, PC and Linux alike (they use only
+// What the Calls, Messages, Photos and Files pages share, on the Mac, PC and Linux alike (they use only
 // the UI kit's common API): the line at the top of each saying what's missing — the phone, its
 // permission (Allow asks on the phone, only now), the right TwinDesk on it — and the phone's
 // answers (phonehub.js passes them on as 'hub' messages) by type.
@@ -31,6 +31,10 @@
     return !!(h && h[what] && h.connected && h.perm && h.perm[what] && ['ok', 'partial'].includes(h.perm[what].perm));
   };
 
+  // The session runs through Bluetooth (Mac: s.client; PC and Linux: s.net). USB, Wi-Fi and Wi-Fi
+  // Direct aren't: Photos and Phone Files work on those, and load nothing over Bluetooth.
+  UI.onBle = (s) => !!(s && ((s.client && s.client.transport === 'ble') || (s.net && s.net.transport === 'ble')));
+
   UI.phoneName = (s) => (s && s.hub && s.hub.name) || 'your phone';
 
   // page shown / hidden (the shells toggle `hidden`).
@@ -42,7 +46,7 @@
     calls: { state: 'its calls', numbers: 'who is calling and the call history', dial: 'making calls', answer: 'answering and ending calls', contacts: 'contact names' },
     messages: { read: 'reading texts', send: 'sending texts', contacts: 'contact names' },
   };
-  const LABEL = { calls: 'Calls', messages: 'Messages', media: 'Photos and videos' };
+  const LABEL = { calls: 'Calls', messages: 'Messages', media: 'Photos and videos', files: 'Files' };
 
   // The top of a page: { el, render(s) }.
   UI.hubTop = (what) => {
@@ -61,15 +65,18 @@
       const phone = UI.phoneName(s);
       const st = h.perm && h.perm[what];
       let msg = '', kind = 'info', canAllow = false, canInstall = false;
-      if (!h[what]) msg = `Off: nothing of it runs here or on ${phone}. When you switch it on, ${phone} asks for what it needs.`;
+      if (!h[what]) msg = `Off. When you switch it on, ${phone} asks for what it needs.`;
       else if (!h.connected) msg = `Connect ${phone} to use ${LABEL[what]}: click it at the top of the sidebar.`;
       else if (!h.supported) msg = `Waiting for ${phone}… TwinDesk on it needs to be up to date for ${LABEL[what]}.`;
+      else if (st.perm === 'none' && what === 'files') { msg = `Files needs Android 11 or later on ${phone}. Mount works through ADB instead.`; kind = 'warn'; }
       else if (st.perm === 'none') {
         msg = `${LABEL[what]} need TwinDesk with notifications on ${phone} (Android doesn’t let downloaded apps read texts). ${s.phone && s.phone.adb && s.phone.adb.address ? 'Install puts it on the phone through wireless debugging; your settings stay.' : 'Set up wireless debugging on the Phone page, then Install.'}`;
         kind = 'warn';
         canInstall = !!UI.api.phoneInstallFull;
       } else if (st.perm === 'ask') {
-        msg = what === 'media' ? `Allow ${phone} to share its photos and videos with TwinDesk.` : `Allow ${LABEL[what]} on ${phone}: TwinDesk asks for ${Object.values(NEEDS[what]).join(', ')}.`;
+        msg = what === 'media' ? `Allow ${phone} to share its photos and videos with TwinDesk.`
+          : what === 'files' ? `Allow All files access for TwinDesk on ${phone}: it reads and writes the phone’s storage itself, no ADB. Android opens the setting there.`
+            : `Allow ${LABEL[what]} on ${phone}: TwinDesk asks for ${Object.values(NEEDS[what]).join(', ')}.`;
         kind = 'warn';
         canAllow = true;
       } else if (st.perm === 'partial') {
@@ -85,6 +92,31 @@
       const recently = Number(allow.dataset.at || 0) > Date.now() - 60000;
       asked.textContent = canAllow && recently ? (h.perm && h.perm.opens ? `Check ${phone}: Android asks there.` : `Tap the notification on ${phone}.`) : '';
       asked.hidden = !asked.textContent;
+    };
+    return { el: box, render };
+  };
+
+  // Over Bluetooth, a page that needs Wi-Fi (the shells' wifiOnly) is shown as it is, with this on
+  // top: only over Wi-Fi Direct (or the same network), and the button that moves the session
+  // there (netlink.js; Linux has none: join the same network). { el, render(s, off) }.
+  UI.wifiGate = () => {
+    const { el, api } = UI;
+    const text = el('div', { class: 'hub-top-text' });
+    const go = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(true), 'primary');
+    const box = el('div', { class: 'note warn hub-top wifi-note' }, [el('div', { class: 'hub-top-body' }, [text]), el('div', { class: 'hub-top-actions' }, [go])]);
+    box.hidden = true;
+    const render = (s, off) => {
+      box.hidden = !off;
+      if (!off) return;
+      const n = s.net || {};
+      const moving = ['asking', 'hosting', 'joining'].includes(n.state);
+      const can = !!api.netWifi;
+      text.textContent = moving ? 'Only available over Wi-Fi Direct. Connecting…'
+        : n.state === 'failed' ? `Only available over Wi-Fi Direct. ${n.error || 'Wi-Fi Direct didn’t come up'}.`
+          : `Only available over Wi-Fi Direct${can ? '' : ' or the same Wi-Fi network'}: you’re connected over Bluetooth.${can ? ' Or join the same Wi-Fi network.' : ''}`;
+      go.hidden = !can;
+      go.disabled = moving;
+      go.textContent = moving ? 'Connecting…' : n.state === 'failed' ? 'Try again' : 'Connect with Wi-Fi Direct';
     };
     return { el: box, render };
   };

@@ -6,7 +6,8 @@
 // connected one `gdbus monitor` that only wakes when the phone's Bluetooth state changes.
 // stop() ends it all: the phone gets its calls back.
 //
-// view: as mac/callaudio.js. Events: 'change', 'address' (this computer's).
+// view: {state: 'starting'|'unavailable'|'needs-pair'|'choose'|'connecting'|'ready'|'failed'|'off',
+//        message, device, devices, here, address}. Events: 'change', 'address' (this computer's).
 'use strict';
 
 const fs = require('fs');
@@ -62,6 +63,16 @@ class CallAudio extends EventEmitter {
   phone(name) {
     if (name) this.phoneName = name;
     if (!this.stopped && ['needs-pair', 'choose'].includes(this.state)) this._info(this.gen);
+  }
+
+  // Forget the phone on this computer (the phone forgets it too: phonehub.js).
+  unpair() {
+    const d = this._device();
+    if (!d || !this.adapter) return;
+    this.save('');
+    this.id = '';
+    busctl(['call', 'org.bluez', this.adapter, 'org.bluez.Adapter1', 'RemoveDevice', 'o', d.path]);
+    this._set('needs-pair');
   }
 
   // Pair asks the phone to pair with this computer: it has to let it.
@@ -173,7 +184,7 @@ class CallAudio extends EventEmitter {
     const name = this.phoneName.trim().toLowerCase();
     const d = this.devices.find((x) => x.id === saved)
       || (name && this.devices.find((x) => x.name.trim().toLowerCase() === name))
-      || (this.devices.length === 1 ? this.devices[0] : null);
+      || this.devices[0]; // the connected phone: by its name, else the paired one (no choosing)
     if (!d) return this._set(this.devices.length ? 'choose' : 'needs-pair');
     this.id = d.id;
     if (d.id !== saved) this.save(d.id);
@@ -247,7 +258,7 @@ class CallAudio extends EventEmitter {
       starting: 'Starting…',
       unavailable: this.error ? `Not available: ${this.error}` : 'Bluetooth is off on this computer',
       'needs-pair': `Pair ${this.phoneName || 'the phone'} with this computer over Bluetooth once: Pair asks the phone, or use Settings › Bluetooth`,
-      choose: 'Choose the phone below',
+      choose: 'Pair the phone that’s connected',
       connecting: `Connecting to ${name}…`,
       ready: this.parked ? `This call plays on ${name}` : `Connected to ${name} over Bluetooth: calls play on this computer`,
       failed: `Couldn’t reach ${name} over Bluetooth${this.error ? ` (${this.error})` : ''}. ${this.tries > RETRY_MS.length ? 'Click Connect to try again' : 'Trying again soon'}`,
@@ -255,7 +266,7 @@ class CallAudio extends EventEmitter {
     };
     return {
       state: this.state, message: MESSAGES[this.state] || '', device: this.id,
-      devices: this.devices.map(({ id, name: n }) => ({ id, name: n })), here: this.here, address: this.address,
+      canUnpair: true, devices: this.devices.map(({ id, name: n }) => ({ id, name: n })), here: this.here, address: this.address,
     };
   }
 }

@@ -1,21 +1,24 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Calls, Messages and Photos from a phone, for the Mac, PC and Linux apps alike (Hub.kt on the
-// phone). Required by main.js only once a phone connects or one of them is switched on, so a
+// Calls, Messages, Photos and Files from a phone, for the Mac, PC and Linux apps alike (Hub.kt on
+// the phone). Required by main.js only once a phone connects or one of them is switched on, so a
 // computer that never uses them never loads this. While each is off nothing of it runs here or on
 // the phone; the phone only hears which are on (hub.policy) as a session starts.
 //
 // server: the phone-facing session (mac/peer.js, or phone-link.js): on('client'|'closed'),
 // on('t:<type>'), sendToClient(), current. audio: () => this computer's call sound over Bluetooth
 // (callaudio.js), made only while Calls and its Bluetooth option are on with a phone connected.
+// send(paths, batch): files to the phone (the file sender's sendBatch); choose(): files picked here.
+// share: shared folders' options (foldershare.js), when this computer has them.
 //
 // Events: 'change' (view), 'data' (a reply for the window: forwarded as is), 'call' (call, before).
 'use strict';
 
+const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const P = require('./protocol.js');
 
 const T = P.T;
-const WHAT = ['calls', 'messages', 'media'];
+const WHAT = ['calls', 'messages', 'media', 'files'];
 const isPhone = (ctx) => !!ctx && ctx.os === P.OS.ANDROID;
 const str = (v, n = 200) => (typeof v === 'string' ? v.slice(0, n) : '');
 const picture = (v, max) => (typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v) && v.length <= max ? v : '');
@@ -25,18 +28,33 @@ const ASKS = {
   [T.CALL_DO]: 'calls', [T.CALL_LOG]: 'calls', [T.CONTACTS]: 'calls',
   [T.SMS_THREADS]: 'messages', [T.SMS_THREAD]: 'messages', [T.SMS_PART]: 'messages', [T.SMS_SEND]: 'messages',
   [T.MEDIA_LIST]: 'media', [T.MEDIA_THUMB]: 'media', [T.MEDIA_VIEW]: 'media', [T.MEDIA_SAVE]: 'media',
+  [T.FS_LIST]: 'files', [T.FS_DO]: 'files', [T.FS_SAVE]: 'files',
 };
 // The phone's answers, passed to the window.
 const ANSWERS = {
   [T.CALL_DONE]: 'calls', [T.CALL_LOG]: 'calls', [T.CONTACTS]: 'calls',
   [T.SMS_THREADS]: 'messages', [T.SMS_THREAD]: 'messages', [T.SMS_PART]: 'messages', [T.SMS_SENT]: 'messages', [T.SMS_NEW]: 'messages',
   [T.MEDIA_LIST]: 'media', [T.MEDIA_THUMB]: 'media', [T.MEDIA_VIEW]: 'media',
+  [T.FS_LIST]: 'files', [T.FS_DONE]: 'files',
 };
+// A path on the phone, relative to its shared storage: no '..', no empty or odd segments.
+const phonePath = (v) => {
+  if (typeof v !== 'string' || v.length > 1000) return null;
+  const parts = v.split('/').filter((p) => p !== '' && p !== '.');
+  if (parts.some((p) => p === '..' || /[\u0000-\u001f]/.test(p))) return null;
+  return parts.join('/');
+};
+const fileName = (v) => (typeof v === 'string' && v.trim() && v.length <= 255 && !/[/\u0000-\u001f]/.test(v) && v.trim() !== '.' && v.trim() !== '..' ? v.trim() : '');
 
 class PhoneHub extends EventEmitter {
-  constructor({ server, getSettings, save, audio }) {
+  constructor({ server, getSettings, save, audio, send, choose, share }) {
     super();
-    Object.assign(this, { server, getSettings, save, makeAudio: audio || null });
+    Object.assign(this, { server, getSettings, save, makeAudio: audio || null, sendFiles: send || null, choose: choose || null });
+    this.share = null;
+    if (share) {
+      this.share = new (require('./foldershare.js').FolderShare)(this, share);
+      this.share.on('change', () => this.emit('change'));
+    }
     this.state = null; // hub.state: the phone's permissions (null: no phone, or one too old to know these)
     this.call = null; // {state: 'ringing'|'offhook', number, name, photo, dir, since}
     this.ended = null; // the call that just ended {..., missed, at}
@@ -55,7 +73,11 @@ class PhoneHub extends EventEmitter {
         calls: { perm: perm(m.calls), missing: missing(m.calls) },
         messages: { perm: perm(m.messages), missing: missing(m.messages) },
         media: { perm: perm(m.media) },
-        bt: { allowed: bt.allowed !== false, radio: bt.radio !== false, name: str(bt.name, 100), bonded: bt.bonded === true ? true : bt.bonded === false ? false : null },
+        files: { perm: perm(m.files) },
+        bt: {
+          allowed: bt.allowed !== false, radio: bt.radio !== false, name: str(bt.name, 100), bonded: bt.bonded === true ? true : bt.bonded === false ? false : null,
+          le: !!bt.le, bonding: !!bt.bonding, failed: !!bt.failed, forget: !!bt.forget, // le: paired over Bluetooth LE only (no calls' sound through it)
+        },
         opens: !!m.opens,
       };
       if (this.audio) this.audio.phone(this.state.bt.name);
@@ -70,6 +92,8 @@ class PhoneHub extends EventEmitter {
       this.emit('change');
     });
     on(T.CALL_STATE, (m) => this.onCall(m));
+    on(T.SHARE_OFFER, (m) => { if (this.share) { this.share.onOffer(m); this.share.host(); } });
+    on(T.SHARE_SET, (m) => this.share && this.share.act('serve', { on: !!m.serve })); // switched on the phone
     for (const t of Object.keys(ANSWERS)) on(t, (m) => this.onAnswer(m));
   }
 
@@ -89,10 +113,12 @@ class PhoneHub extends EventEmitter {
     this.unread = 0;
     this.policy();
     this.applyAudio();
+    if (this.share) this.share.started();
     this.emit('change');
   }
 
   stopped() {
+    if (this.share) this.share.stopped();
     const had = this.call;
     this.state = null;
     this.call = null;
@@ -103,13 +129,14 @@ class PhoneHub extends EventEmitter {
 
   policy() {
     const s = this.settings;
-    this.server.sendToClient({ t: T.HUB_POLICY, calls: !!s.calls, messages: !!s.messages, media: !!s.media, bt: !!(s.calls && s.callAudio) });
+    this.server.sendToClient({ t: T.HUB_POLICY, calls: !!s.calls, messages: !!s.messages, media: !!s.media, files: !!s.files, bt: !!(this.makeAudio && s.calls && s.callAudio) }); // bt: be this computer's hands-free (none on a Mac)
   }
 
   // ---- from the window ----
 
   // {do: 'set', what, on} | {do: 'opt', callAudio?, btDevice?} | {do: 'ask', what} | {do: 'seen'}
-  // | {do: 'send', msg} | {do: 'audio', a: 'here'|'phone'|'connect'|'pair'} | {do: 'call', a, number?, on?}
+  // | {do: 'send', msg} | {do: 'audio', a: 'here'|'phone'|'connect'|'pair'|'unpair'} | {do: 'call', a, number?, on?}
+  // | {do: 'upload', path, paths? (none: chosen here first)} | {do: 'share', a: 'mount'|'unmount'|'auto'|'serve'|'choose'|'default', on?}
   act(r) {
     if (!r || typeof r !== 'object') return;
     const s = this.settings;
@@ -130,8 +157,10 @@ class PhoneHub extends EventEmitter {
         this.applyAudio();
         return this.emit('change');
       case 'ask':
-        if (WHAT.includes(r.what)) this.server.sendToClient({ t: T.HUB_ASK, what: r.what });
+        if (WHAT.includes(r.what) || r.what === 'bt') this.server.sendToClient({ t: T.HUB_ASK, what: r.what });
         return;
+      case 'upload':
+        return this.upload(r.path, r.paths);
       case 'seen':
         if (!this.unread) return;
         this.unread = 0;
@@ -142,6 +171,8 @@ class PhoneHub extends EventEmitter {
         return this.audioAct(String(r.a || ''));
       case 'call':
         return this.callAct(String(r.a || ''), r);
+      case 'share':
+        return this.share && this.share.act(String(r.a || ''), r);
       default:
     }
   }
@@ -164,9 +195,44 @@ class PhoneHub extends EventEmitter {
       case T.MEDIA_THUMB: out.ids = ids(m.ids); break;
       case T.MEDIA_VIEW: out.id = str(m.id, 40); break;
       case T.MEDIA_SAVE: out.ids = ids(m.ids); break;
+      case T.FS_LIST: {
+        const p = phonePath(m.path);
+        if (p == null) return;
+        Object.assign(out, { path: p, hidden: !!m.hidden });
+        break;
+      }
+      case T.FS_DO: {
+        const p = phonePath(m.path);
+        const a = ['mkdir', 'rename', 'delete'].includes(m.a) ? m.a : '';
+        if (p == null || !a) return;
+        Object.assign(out, { a, path: p, ref: str(m.ref, 60) });
+        if (a !== 'delete' && !(out.name = fileName(m.name))) return;
+        if (a === 'delete') {
+          out.paths = (Array.isArray(m.paths) ? m.paths : []).map(phonePath).filter((x) => x).slice(0, 500);
+          if (!out.paths.length) return;
+        }
+        break;
+      }
+      case T.FS_SAVE:
+        out.paths = (Array.isArray(m.paths) ? m.paths : []).map(phonePath).filter((x) => x).slice(0, 500);
+        if (!out.paths.length) return;
+        break;
       default: return;
     }
     this.server.sendToClient(out);
+  }
+
+  // Files from here into a folder on the phone: it's told where this batch goes, then the batch
+  // goes as Send does (a direct Wi-Fi link through Bluetooth, as for any files).
+  async upload(dir, paths) {
+    const p = phonePath(dir);
+    if (p == null || !this.settings.files || !this.phone || !this.sendFiles) return;
+    if (!Array.isArray(paths)) paths = this.choose ? await this.choose() : [];
+    paths = (paths || []).filter((x) => typeof x === 'string' && x).slice(0, 1000);
+    if (!paths.length || !this.phone) return;
+    const batch = crypto.randomUUID();
+    this.server.sendToClient({ t: T.FS_EXPECT, batch, path: p });
+    if (!this.sendFiles(paths, batch)) this.emit('data', { t: T.FS_DONE, ok: false, error: 'Nothing to send', path: p });
   }
 
   // Answer, Decline, End, Call, Mute (the popup, the Calls page). Over Bluetooth the microphone
@@ -208,6 +274,17 @@ class PhoneHub extends EventEmitter {
         dir: m.dir === 'out' ? 'out' : 'in',
         since: same ? was.since : Date.now(), // this computer's clock: the timer counts from here
       };
+    }
+    // A call under way with the hands-free link up: its sound comes here (the phone may keep it
+    // on itself when the call started there), unless it was sent to the phone during this call.
+    if (st === 'offhook' && (!was || was.state !== 'offhook')) {
+      this.pulled = false;
+      setTimeout(() => {
+        const v = this.audio && this.audio.view;
+        if (!this.call || this.call.state !== 'offhook' || this.pulled || !v || v.state !== 'ready' || v.here || v.canMove === false) return;
+        this.pulled = true;
+        this.audio.transfer(true);
+      }, 1200);
     }
     this.emit('call', this.call, was);
     this.emit('change');
@@ -253,9 +330,12 @@ class PhoneHub extends EventEmitter {
 
   audioAct(a) {
     if (!this.audio) return;
-    if (a === 'here' || a === 'phone') this.audio.transfer(a === 'here');
+    if (a === 'here' || a === 'phone') { this.pulled = true; this.audio.transfer(a === 'here'); }
     else if (a === 'connect') this.audio.start(this.state ? this.state.bt.name : '');
-    else if (a === 'pair' && this.audio.view.address) {
+    else if (a === 'unpair') {
+      if (this.audio.unpair) this.audio.unpair();
+      if (this.phone) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', unpair: true });
+    } else if (a === 'pair' && this.audio.view.address) {
       this.audio.pair();
       this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address, bond: true });
     }
@@ -264,11 +344,12 @@ class PhoneHub extends EventEmitter {
   get view() {
     const s = this.settings;
     return {
-      calls: !!s.calls, messages: !!s.messages, media: !!s.media, callAudio: !!s.callAudio, btDevice: s.btDevice || '',
+      calls: !!s.calls, messages: !!s.messages, media: !!s.media, files: !!s.files, callAudio: !!s.callAudio, btDevice: s.btDevice || '',
       connected: !!this.phone, name: this.phone ? this.phone.name : '',
       supported: !!this.state, // the phone app answered (an older one doesn't know these)
       perm: this.state, call: this.call, ended: this.ended, unread: this.unread, muted: this.muted,
       audio: this.audio ? this.audio.view : null, canAudio: !!this.makeAudio,
+      share: this.share ? this.share.view : null,
     };
   }
 }

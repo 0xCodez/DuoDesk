@@ -27,3 +27,14 @@ set OLD=macshare-winhelper.old.exe
 if exist "%BIN%\%OLD%" set OLD=macshare-winhelper.old-%RANDOM%.exe
 if exist "%BIN%\macshare-winhelper.exe" ren "%BIN%\macshare-winhelper.exe" %OLD%
 ren "%BIN%\macshare-winhelper.new.exe" macshare-winhelper.exe
+rem The calls' sound on this PC (windows/callaudio.js): its own .exe with its own manifest (calls\),
+rem and the signed sparse package that gives it an identity (pack.ps1).
+"%CSC%" /nologo /optimize+ /platform:anycpu /target:exe /out:"%BIN%\macshare-calls.new.exe" ^
+  /win32manifest:"%~dp0calls\macshare-calls.manifest" /r:System.Web.Extensions.dll %WINRT% ^
+  "%~dp0calls\Calls.cs" "%~dp0src\Json.cs" || exit /b 1
+del /q "%BIN%\macshare-calls.old*.exe" 2>nul
+set OLD=macshare-calls.old.exe
+if exist "%BIN%\%OLD%" set OLD=macshare-calls.old-%RANDOM%.exe
+if exist "%BIN%\macshare-calls.exe" ren "%BIN%\macshare-calls.exe" %OLD%
+ren "%BIN%\macshare-calls.new.exe" macshare-calls.exe
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0calls\pack.ps1" -Bin "%BIN%" || exit /b 1

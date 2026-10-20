@@ -31,7 +31,8 @@ class Server extends EventEmitter {
     this.phoneGrace = null; // {id, until}: a phone's session just dropped, it may come back (P.PHONE_GRACE_MS)
     this.sockets = new Set();
     this.blePorts = new Map(); // local ports of our own connections that carry a Bluetooth pipe (blepipe.js) -> last bytes
-    this.https = https.createServer({ pfx, passphrase });
+    this.tls = { pfx, passphrase }; // also the shared folder's server (shared/foldershare.js)
+    this.https = https.createServer(this.tls);
     this.wss = new WebSocketServer({ server: this.https, maxPayload: P.MAX_PAYLOAD });
     this.wss.on('connection', (ws, req) => this._onConnection(ws, req));
     this.wss.on('error', () => {}); // ws repeats the server's errors here; listenError below reports them

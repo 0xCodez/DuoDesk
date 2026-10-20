@@ -34,7 +34,7 @@
       navLabel,
       stateEl,
     ]);
-    navBtn.onclick = () => !navBtn.classList.contains('needs-wifi') && show(def.id, true);
+    navBtn.onclick = () => show(def.id, true);
     nav.append(el('li', {}, [navBtn]));
     views.set(def.id, { def, ...buildPage(def), navBtn, stateEl, navLabel, gap });
   }
@@ -52,19 +52,19 @@
       master = UI.switch((v) => def.master.set(v), { label: def.title, disabled: !!def.master.disabled });
     }
     page.append(el('header', { class: 'page-head' }, [titles, master ? master.el : null]));
-    // Over Bluetooth, a page that needs Wi-Fi (and doesn't move the session onto it) says so.
-    const wifiNote = def.wifiOnly ? UI.note('warn', '') : null;
-    if (wifiNote) { wifiNote.classList.add('wifi-note'); wifiNote.hidden = true; page.append(wifiNote); }
+    // Over Bluetooth, a page that needs Wi-Fi (and doesn't move the session onto it) says so, with
+    // the button that moves it there.
+    const wifiNote = def.wifiOnly ? UI.wifiGate() : null;
+    if (wifiNote) page.append(wifiNote.el);
     const body = el('div', { class: 'page-body' }, limitNote ? [limitNote] : []);
     page.append(body);
     pages.append(page);
     const render = def.build(body, page) || (() => {});
-    return { page, master, render, headText, limitNote, wifiNote };
+    return { page, body, master, render, headText, limitNote, wifiNote };
   }
 
-  // The session is through Bluetooth (pages that need Wi-Fi are greyed out).
+  // The session is through Bluetooth (pages that need Wi-Fi say so).
   const onBle = (s) => !!(s && s.net && s.net.transport === 'ble');
-  const WIFI_TEXT = 'Needs Wi-Fi: off while connected over Bluetooth. Connect with Wi-Fi Direct on the Overview, or join the same network.';
 
   function show(id, user) {
     const v = views.get(id) || views.get('overview');
@@ -87,8 +87,8 @@
   function renderPage(v, s) {
     if (v.wifiNote) {
       const off = onBle(s);
-      v.wifiNote.set(off ? WIFI_TEXT : '');
-      v.page.classList.toggle('wifi-off', off);
+      v.wifiNote.render(s, off);
+      v.body.inert = off; // shown as it is; it works again on Wi-Fi
     }
     // macOnly: true = only with a Mac; 'linux' = everything but a Linux peer (Apps).
     const limited = !v.limitNote || !s.peer ? '' : v.def.macOnly === 'linux' ? (s.peer.os === 'linux' ? 'Not on Linux yet' : '') : UI.peer(s).limited;
@@ -132,10 +132,6 @@
       const b = v.def.badge ? v.def.badge(s) : v.def.phase ? 'P' + v.def.phase : '';
       v.stateEl.className = 'state' + (b === 'on' ? ' on' : b === 'warn' ? ' warn' : '');
       v.stateEl.textContent = b === 'on' || b === 'warn' ? '' : b || '';
-      if (!v.def.wifiOnly) continue;
-      const off = onBle(s);
-      v.navBtn.classList.toggle('needs-wifi', off);
-      v.navBtn.title = off ? 'Needs Wi-Fi: off while connected over Bluetooth' : '';
     }
   }
 

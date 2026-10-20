@@ -22,23 +22,24 @@ const run = (file, args, timeout = 30000) => new Promise((resolve) => {
 
 // The drive the volume on this port is mapped to ('Z:'), from `net use` (its words are in the
 // system's language; the drive and the \\127.0.0.1@port\ path aren't).
-async function mountedAt(port) {
+// (host: the phone's address, for its shared folder: shared/foldershare.js)
+async function mountedAt(port, host = '127.0.0.1') {
   if (!port) return '';
   const { out } = await run(NET, ['use'], 10000);
-  const m = new RegExp(`([A-Z]:)\\s+\\\\\\\\127\\.0\\.0\\.1@${port}\\\\`, 'i').exec(out);
+  const m = new RegExp(`([A-Z]:)\\s+\\\\\\\\${host.replace(/\./g, '\\.')}@${port}\\\\`, 'i').exec(out);
   return m ? m[1].toUpperCase() : '';
 }
 
 // The share as Explorer keys it: \\127.0.0.1@port\a\b -> ##127.0.0.1@port#a#b.
 const labelKey = (url) => {
   const u = new URL(url);
-  return `${LABELS}\\##127.0.0.1@${u.port}${decodeURIComponent(u.pathname).replace(/\//g, '#')}`;
+  return `${LABELS}\\##${u.hostname}@${u.port}${decodeURIComponent(u.pathname).replace(/\//g, '#')}`;
 };
 
-async function mount(url, { port, volume }) {
+async function mount(url, { port, volume, host }) {
   await run(REG, ['add', labelKey(url), '/v', '_LabelFromReg', '/t', 'REG_SZ', '/d', volume, '/f'], 5000);
   const r = await run(NET, ['use', '*', url, '/persistent:no'], 60000);
-  const at = await mountedAt(port);
+  const at = await mountedAt(port, host);
   if (at) return at;
   const why = `${r.errOut}\n${r.out}`.trim().split('\n').map((s) => s.trim()).filter(Boolean);
   // 67: the network name can't be found, which is what a stopped or disabled WebClient gives.
@@ -76,4 +77,4 @@ class PhoneDrive extends shared.PhoneDrive {
   }
 }
 
-module.exports = { PhoneDrive };
+module.exports = { PhoneDrive, mounter };

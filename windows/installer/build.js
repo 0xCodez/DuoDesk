@@ -66,6 +66,12 @@ async function main() {
   copy(path.join(ROOT, 'shared'), path.join(STAGE, 'shared'), (name) => /\.(js|css|html)$/.test(name));
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
+  // The calls' sound on this PC (callaudio.js): its .exe, its signed package and that certificate.
+  for (const f of ['macshare-calls.exe', 'twindesk-calls.msix', 'twindesk-calls.cer']) {
+    const from = path.join(ROOT, 'windows-helper', 'bin', f);
+    if (fs.existsSync(from)) copy(from, path.join(STAGE, 'windows-helper', 'bin', f));
+    else console.log('note: no windows-helper/bin/' + f + ' — calls won’t play on the PC (build the helper on Windows)');
+  }
   // A phone: its screen, apps and input go through adb and scrcpy-server (phone-bridge.js).
   if (!fs.existsSync(path.join(WIN, 'vendor', 'scrcpy-server'))) {
     copy(path.join(ROOT, 'mac', 'vendor', 'scrcpy-server'), path.join(STAGE, 'windows', 'vendor', 'scrcpy-server'));

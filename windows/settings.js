@@ -3,7 +3,7 @@
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
-const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
@@ -128,11 +128,13 @@ function normalize(s) {
     },
     net: { ble: bool(nt.ble, true) }, // Bluetooth for devices not on this network (blepipe.js, netlink.js)
     mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked
-    // Calls, Messages and Photos from a phone (shared/phonehub.js), each off until switched on.
+    // Calls, Messages, Photos and Files from a phone (shared/phonehub.js), each off until switched on.
     // callAudio: the calls' sound here over Bluetooth; btDevice: which paired phone, when several.
     hub: {
-      calls: bool(hub.calls, false), messages: bool(hub.messages, false), media: bool(hub.media, false),
-      callAudio: bool(hub.callAudio, true), btDevice: typeof hub.btDevice === 'string' ? hub.btDevice.slice(0, 64) : '',
+      calls: bool(hub.calls, false), messages: bool(hub.messages, false), media: bool(hub.media, false), files: bool(hub.files, false),
+      callAudio: bool(hub.callAudio, true), btDevice: typeof hub.btDevice === 'string' ? hub.btDevice.slice(0, 400) : '', // Windows' device ids are long
+      // Shared folders (shared/foldershare.js), both ways, off until switched on.
+      shareMount: bool(hub.shareMount, false), shareServe: bool(hub.shareServe, false), shareFolder: typeof hub.shareFolder === 'string' ? hub.shareFolder.slice(0, 1000) : '',
     },
     macApps: { on: bool(mca.on, true) }, // The other computer's apps open here (pair.sync 'apps' in) // The Mac may open this PC's apps (it shows them only if it accepts)
     // Setup screen: shown once. done: everything was ready, or 'Skip for now' was pressed; after that

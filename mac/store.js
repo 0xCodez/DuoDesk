@@ -87,9 +87,8 @@ const DEFAULT_SETTINGS = {
   // A phone as the peer: its screen window, apps and setup.
   phone: { sound: false, bitrateMbps: 8, maxSize: 0, wallpaper: true, input: 'adb' }, // input: 'adb' | 'phone' (phone-bridge.js ctl)
   mount: { on: false }, // the phone in Finder (phonedrive.js), only when Mount is clicked
-  // Calls, Messages and Photos from a phone (shared/phonehub.js), each off until switched on.
-  // callAudio: the calls' sound on this Mac over Bluetooth; btDevice: which paired phone, when several.
-  hub: { calls: false, messages: false, media: false, callAudio: true, btDevice: '' },
+  // Calls, Messages, Photos and Files from a phone (shared/phonehub.js), each off until switched on.
+  hub: { calls: false, messages: false, media: false, files: false, shareMount: false, shareServe: false, shareFolder: '' }, // share*: shared folders (foldershare.js)
   // Not on one network: Bluetooth for the session (blepipe.js), Wi-Fi for files and screens
   // (netlink.js). hotspots: {deviceId: {ssid, pass (safeStorage)}}, a phone's hotspot as typed once.
   net: { ble: true, hotspots: {} },

@@ -107,6 +107,14 @@ object Proto {
         const val MEDIA_THUMB = "media.thumb"
         const val MEDIA_VIEW = "media.view"
         const val MEDIA_SAVE = "media.save"
+        const val FS_LIST = "fs.list"
+        const val FS_DO = "fs.do"
+        const val FS_DONE = "fs.done"
+        const val FS_SAVE = "fs.save"
+        const val FS_EXPECT = "fs.expect"
+        const val SHARE_OFFER = "share.offer" // phone->computer {on, port, secret, name}: our shared folder over WebDAV (FolderShare.kt)
+        const val SHARE_HOST = "share.host" // computer->phone {on, port, token, name}: its shared folder, in the Files app (PcShareProvider.kt)
+        const val SHARE_SET = "share.set" // phone->computer {serve}: the computer's folder for this phone on or off (its setting)
     }
 
     object E {

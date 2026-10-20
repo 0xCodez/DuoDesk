@@ -65,7 +65,8 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val updates = Updates(this)
     val net = Netlink(this)
     val hub = Hub(this) // Calls, Messages and Photos on the computer: nothing runs until one is on
-    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, input, drive, screen, macSound, shortcuts, kvm, hub)
+    val share = FolderShare(this) // shared folders with the computer, both ways
+    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, input, drive, screen, macSound, shortcuts, kvm, hub, share)
 
     val host: Host? get() = if (link.connected) link.host else null
 
@@ -133,20 +134,12 @@ class Core private constructor(val ctx: Context) : Link.Events {
             h.port = seen.port
             store.putHost(h)
         }
-        // Not on this network but near: through Bluetooth.
-        if (seen == null && bleOn && ble.get(h.id) != null) {
+        // Not on this network but near: through Bluetooth (a PC's link to us first: blePipe).
+        if (seen == null && bleOn && (serve.get(h.id) != null || ble.get(h.id) != null)) {
             bg.execute {
-                val port = ble.open(h.id)
+                val port = blePipe(h.id)
                 if (port != null) link.connect(h, blePort = port)
                 else if (h.address != "127.0.0.1") link.connect(h)
-            }
-            return
-        }
-        // A PC connected to us over Bluetooth (BleServe): ask it for a pipe.
-        if (seen == null && bleOn && serve.get(h.id) != null) {
-            bg.execute {
-                val port = serve.open(h.id)
-                if (port != null) link.connect(h, blePort = port)
             }
             return
         }
@@ -203,22 +196,26 @@ class Core private constructor(val ctx: Context) : Link.Events {
     fun pair(f: Found) {
         invite = null
         discovery.clearInvite(f.id)
-        if (f.address.startsWith("blp:")) {
+        if (f.address.startsWith("blp:") || f.address.startsWith("ble:")) {
+            // Through Bluetooth: "Connecting…" at once (the pipe takes a few seconds), and why when it
+            // doesn't open (it used to say nothing, so Pair looked dead).
+            link.pairOpening(f.name)
             bg.execute {
-                val port = serve.open(f.id)
+                val port = blePipe(f.id)
+                if (link.pair?.phase != "connecting" || link.pair?.port != 0) return@execute // cancelled meanwhile
                 if (port != null) link.startPairing("127.0.0.1", port, f.name, viaBle = true)
-            }
-            return
-        }
-        if (f.address.startsWith("ble:")) {
-            bg.execute {
-                val port = ble.open(f.id)
-                if (port != null) link.startPairing("127.0.0.1", port, f.name, viaBle = true)
+                else link.pairUnreachable("${f.name} didn’t answer over Bluetooth. Open TwinDesk on it, or put both on the same Wi-Fi, then Pair again.")
             }
             return
         }
         link.startPairing(f.address, f.port, f.name)
     }
+
+    // A pipe to a computer near over Bluetooth: through the link a PC holds to us (BleServe) first,
+    // as it is up already, else to the computer's own advertising (Ble), which a PC's Bluetooth
+    // often can't keep up (it was tried first, and Pair failed in silence when it was stale).
+    private fun blePipe(id: String): Int? =
+        (if (serve.get(id) != null) serve.open(id) else null) ?: (if (ble.get(id) != null) ble.open(id) else null)
 
     fun pairAddress(address: String) = link.startPairing(address.trim(), Proto.PORT, address.trim())
 
@@ -254,7 +251,10 @@ class Core private constructor(val ctx: Context) : Link.Events {
 
     // ---- Link.Events ----
 
-    override fun onChange() = changed()
+    override fun onChange() {
+        runCatching { share.linkChanged() } // the session moved (Bluetooth <-> Wi-Fi): shared folders follow
+        changed()
+    }
 
     override fun onWelcome(host: Host) {
         Log.i("TwinDesk", "session with ${host.name}")

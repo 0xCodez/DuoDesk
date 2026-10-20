@@ -130,10 +130,13 @@ UI.tab({
     const audioRow = UI.row('Talk and listen on {me}', '', [audioSw]);
     const pairBtn = UI.button('Pair', () => api.hub({ do: 'audio', a: 'pair' }));
     const retryBtn = UI.button('Connect', () => api.hub({ do: 'audio', a: 'connect' }));
-    const statusRow = UI.row('Bluetooth', '', [pairBtn, retryBtn]);
-    const deviceSel = UI.select([], (v) => api.hub({ do: 'opt', btDevice: v }));
-    const deviceRow = UI.row('Which phone', 'Paired with this computer over Bluetooth', [deviceSel]);
-    const soundCard = UI.card('Sound', [audioRow, statusRow, deviceRow]);
+    // Unpair: forget each other (the phone that's connected is the one; Pair makes it again).
+    const unpairBtn = UI.button('Unpair', () => {
+      if (unpairBtn.dataset.sure !== '1') { unpairBtn.dataset.sure = '1'; unpairBtn.textContent = 'Unpair?'; unpairBtn.classList.add('danger'); return; }
+      api.hub({ do: 'audio', a: 'unpair' });
+    });
+    const statusRow = UI.row('Bluetooth', '', [pairBtn, retryBtn, unpairBtn]);
+    const soundCard = UI.card('Sound', [audioRow, statusRow]);
 
     // The call history.
     const recent = el('div', { class: 'hub-list hub-scroll' });
@@ -209,14 +212,23 @@ UI.tab({
       else if (!h.connected) status = `When ${UI.phoneName(s)} is connected`;
       else if (!a) status = 'Starting…';
       else status = a.message || '';
-      if (h.callAudio && h.connected && bt && bt.allowed === false) status = `${status}${status ? '. ' : ''}Allow Nearby devices in TwinDesk on ${UI.phoneName(s)} (General › Setup) to pair from there`;
+      const phone = UI.phoneName(s);
+      const needsPair = !!(a && ['needs-pair', 'choose'].includes(a.state));
+      if (h.callAudio && h.connected && needsPair && bt) {
+        // The phone's side of the pairing (Hub.kt): LE only can't carry a call, so it's paired again.
+        if (bt.bonding) status = `Pairing… Confirm the code on ${phone} and on {me}`;
+        else if (bt.le) status = `${phone} and {me} are paired over Bluetooth LE only, which can’t carry a call. Pair pairs them again for calls`;
+        else if (bt.forget) status = `${phone} keeps its old pairing with {me}: forget {me} in Bluetooth settings on ${phone} (they opened there), then Pair Again`;
+        else if (bt.failed) status = `Pairing didn’t finish. Pair again, then confirm the code on ${phone} and on {me}`;
+        else if (bt.radio === false) status = `Bluetooth is off on ${phone}`;
+        else if (bt.allowed === false) status = `${status}${status ? '. ' : ''}Pair asks ${phone} to allow Nearby devices first`;
+      }
       statusRow.setHint(status);
-      pairBtn.hidden = !(a && a.state === 'needs-pair' && a.address && bt && bt.allowed !== false);
+      pairBtn.hidden = !(needsPair && a.address && h.connected && !(bt && bt.bonding));
+      pairBtn.textContent = bt && (bt.le || bt.failed) ? 'Pair Again' : 'Pair';
       retryBtn.hidden = !(a && ['failed', 'off'].includes(a.state));
-      const devices = (a && a.devices) || [];
-      deviceRow.hidden = devices.length < 2;
-      deviceSel.options(devices.map((d) => ({ value: d.id, label: d.name })));
-      if (a && a.device) deviceSel.set(a.device);
+      unpairBtn.hidden = !(a && a.device && a.canUnpair && h.connected && !needsPair);
+      if (unpairBtn.hidden) { unpairBtn.dataset.sure = ''; unpairBtn.textContent = 'Unpair'; unpairBtn.classList.remove('danger'); }
     };
   },
 });
