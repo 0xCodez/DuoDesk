@@ -298,9 +298,11 @@ object Notify {
     }
 
     // Files on their way (progress) and when they are here (open / show).
-    fun files(ctx: Context, key: Int, title: String, text: String, progress: Int?, open: Intent?) {
+    // up: going to the computer (the upload arrow).
+    fun files(ctx: Context, key: Int, title: String, text: String, progress: Int?, open: Intent?, up: Boolean = false) {
         val b = Notification.Builder(ctx, CH_FILES)
-            .setSmallIcon(if (progress != null) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(if (up) (if (progress != null) android.R.drawable.stat_sys_upload else android.R.drawable.stat_sys_upload_done)
+                else if (progress != null) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_download_done)
             .setContentTitle(title)
             .setContentText(text)
             .setOnlyAlertOnce(true)

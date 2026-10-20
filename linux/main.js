@@ -55,6 +55,7 @@ const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
 const setupIpc = require('./ipc');
 const system = require('./system');
+const { LiveProgress } = require('./liveprogress');
 const { normalize, apply: applySettings } = require('./settings');
 
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
@@ -214,17 +215,30 @@ function start() {
     lastPopup = now;
     hud.show(kind, text);
   };
+  // …and in a notification with a live progress bar (liveprogress.js), one each way.
+  const live = new LiveProgress(path.join(__dirname, 'assets', 'icon.png'));
   fileRecv.onBatchProgress = (b) => {
     if (Date.now() - b.at < 400) return; // small batches: only the "Pasted" / "Received" popup
     const part = b.total ? pct(b.got, b.total) : pct(b.done, b.count);
-    progressPopup('driven', (b.kind === 'paste' ? 'Pasting ' : 'Receiving ') + plural(b.count, 'file') + ' from ' + peerName() + ' · ' + part + ' %');
+    const what = (b.kind === 'paste' ? 'Pasting ' : 'Receiving ') + plural(b.count, 'file');
+    progressPopup('driven', what + ' from ' + peerName() + ' · ' + part + ' %');
+    live.progress('recv', what, 'From ' + peerName(), part);
   };
   fileDrop.onBatchProgress = (b) => {
     if (!(b.bytes > 5 * 1024 * 1024)) return;
-    if (b.done) return progressPopup('away', b.ok ? 'Sent ' + b.name + ' to ' + peerName() : 'Not everything arrived on ' + peerName(), true);
+    if (b.done) {
+      live.done('send', b.ok ? 'Sent ' + b.name : 'Not everything arrived', 'On ' + peerName());
+      return progressPopup('away', b.ok ? 'Sent ' + b.name + ' to ' + peerName() : 'Not everything arrived on ' + peerName(), true);
+    }
     progressPopup('away', 'Sending ' + b.name + ' to ' + peerName() + ' · ' + pct(b.sent, b.bytes) + ' %');
+    live.progress('send', 'Sending ' + b.name, 'To ' + peerName(), pct(b.sent, b.bytes));
   };
+  link.on('closed', () => {
+    live.done('recv', 'Files stopped', peerName() + ' disconnected');
+    live.done('send', 'Files stopped', peerName() + ' disconnected');
+  });
   fileRecv.onBatch = (b) => {
+    live.done('recv', b.files ? 'Received ' + plural(b.files, 'file') : 'Nothing arrived', 'From ' + peerName());
     if (b.kind === 'paste') fileClip.pasted(b);
     else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
   };

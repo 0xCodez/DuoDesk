@@ -186,6 +186,12 @@ namespace MacShare
                         if (ev != null) injector.Apply(ev);
                         break;
                     case "releaseAll": injector.ReleaseAll(); break;
+                    case "toastProgress": // a live toast with a progress bar (Toast.cs)
+                        Toast.Progress(Json.Str(c, "aumid", ""), Json.Str(c, "tag", "files"), Json.Str(c, "title", ""), Json.Str(c, "status", ""), Json.Num(c, "value", -1), Json.Str(c, "label", ""));
+                        break;
+                    case "toastDone":
+                        Toast.Done(Json.Str(c, "aumid", ""), Json.Str(c, "tag", "files"), Json.Str(c, "title", ""), Json.Str(c, "text", ""));
+                        break;
                     case "moveTo": Injector.MoveTo((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0)); break; // The Mac's pointer on this PC's screen
                     case "displays": c["displays"] = Display.List(); break;
                     case "displayExtend": c["changed"] = Display.ExtendIfDuplicated(Json.Str(c, "monitor", "")); break;

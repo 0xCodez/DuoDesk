@@ -577,6 +577,19 @@ app.whenReady().then(() => {
   svc.drop.on('batch', (b) => {
     if (b.kind === 'send') hud.show('driven', `Received ${b.files} file${b.files === 1 ? '' : 's'} from ${peer.current ? peer.current.name : 'the other computer'}`);
   });
+  // Files on their way, live: the percentage beside the menu bar icon, ↓ coming in, ↑ going out
+  // (macOS notifications have no progress bar, and TwinDesk has no Dock icon to put one on).
+  let trayPct = '';
+  setInterval(() => {
+    const sum = (list, k) => list.reduce((a, f) => [a[0] + (f[k] || 0), a[1] + (f.size || 0)], [0, 0]);
+    const [got, gotOf] = sum(svc.drop.view.receiving, 'got');
+    const [sent, sentOf] = sum(svc.fileSend.view.sending, 'sent');
+    const pct = (n, of) => Math.min(99, Math.floor((100 * n) / of));
+    const t = (gotOf ? ` ↓${pct(got, gotOf)}%` : '') + (sentOf ? ` ↑${pct(sent, sentOf)}%` : '');
+    if (t === trayPct || !tray) return;
+    trayPct = t;
+    tray.setTitle(t, { fontType: 'monospacedDigit' });
+  }, 500).unref();
   createWindow();
   refreshPermissions();
   if (process.env.MACSHARE_DEV_TEST) require('./dev/m2m')({ role: process.env.MACSHARE_DEV_TEST, svc, actions, link, pairing, peer });

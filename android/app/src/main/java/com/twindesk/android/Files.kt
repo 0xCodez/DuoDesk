@@ -54,6 +54,8 @@ class Files(core: Core) : Feature(core) {
 
     class OutBatch(val id: String, val kind: String, val name: String, val files: Int, val bytes: Long) {
         var sent = 0L
+        val key = (id.hashCode() and 0x7fff) or 0x8000 // its notification (apart from the incoming ones')
+        var shown = false // big enough for one (the progress bar while it goes)
     }
 
     private val io = Executors.newSingleThreadExecutor { r -> Thread(r, "td-files-in").apply { isDaemon = true } }
@@ -324,7 +326,14 @@ class Files(core: Core) : Feature(core) {
                         core.send(msg(Proto.T.FILE_CHUNK, "id" to f.id, "seq" to seq++, "data" to Base64.getEncoder().encodeToString(buf.copyOf(n))))
                         f.sent += n
                         outBatches[f.batch]?.let { it.sent += n }
-                        if (seq % 32 == 0) core.changed()
+                        if (seq % 32 == 0) {
+                            core.changed()
+                            // Over 5 MB: a notification with a live progress bar, as for files coming in.
+                            outBatches[f.batch]?.takeIf { it.bytes > 5L * 1024 * 1024 }?.let { b ->
+                                b.shown = true
+                                Notify.files(core.ctx, b.key, "Sending ${b.name} to ${core.host?.name ?: "your computer"}", "${pct(b.sent, b.bytes)}%", pct(b.sent, b.bytes), null, up = true)
+                            }
+                        }
                     }
                 }
                 core.send(msg(Proto.T.FILE_END, "id" to f.id, "sha256" to md.digest().hex()))
@@ -344,6 +353,7 @@ class Files(core: Core) : Feature(core) {
         val b = outBatches.remove(m.optString("batch")) ?: return
         outgoing.removeIf { it.batch == b.id }
         val to = core.host?.name ?: "your computer"
+        if (b.shown) Notify.files(core.ctx, b.key, if (m.optBoolean("ok")) "Sent ${b.name}" else "Not everything arrived", "On $to", null, null, up = true)
         recent.add(0, if (m.optBoolean("ok")) "Sent ${b.name} to $to" else "${b.name} didn’t all arrive on $to")
         while (recent.size > 20) recent.removeAt(recent.size - 1)
         core.changed()
