@@ -147,7 +147,7 @@ class PhoneViews extends EventEmitter {
       // click never comes: without this its AudioContext stays suspended and silent).
       webPreferences: { preload: path.join(__dirname, 'preload-phoneview.js'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
     });
-    const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [] };
+    const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [], screenOff: false };
     this.views.set(id, v);
     win.loadFile(path.join(__dirname, 'phoneview.html'), { query: { kind, title } });
     if (kind === 'app') this._details(win, app, title);
@@ -159,6 +159,9 @@ class PhoneViews extends EventEmitter {
     win.on('focus', () => this.emit('focus'));
     win.on('blur', () => this.emit('focus'));
     win.on('closed', () => {
+      if (v.screenOff && v.session && !v.session.closed) {
+        try { v.session.setDisplayPower(true); } catch {}
+      }
       if (v.session) v.session.stop();
       this.views.delete(id);
       this.emit('change');
@@ -220,6 +223,11 @@ class PhoneViews extends EventEmitter {
         if (m.key === 'back') { s.backOrScreenOn(ACTION.DOWN); s.backOrScreenOn(ACTION.UP); } else if (k) s.tap(k);
         if (m.key === 'notifications') s.simple(TYPE.EXPAND_NOTIFICATIONS);
         if (m.key === 'rotate') s.simple(TYPE.ROTATE);
+        if (m.key === 'screenPower') {
+          v.screenOff = !v.screenOff;
+          s.setDisplayPower(!v.screenOff);
+          this._send(v, 'phoneview:screenPower', { off: v.screenOff });
+        }
         break;
       }
       case 'resetVideo': // the window skipped frames: a keyframe now

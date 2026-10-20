@@ -240,5 +240,23 @@
   for (const k of ['back', 'home', 'recents', 'notifs', 'rotate']) {
     document.getElementById(`b-${k}`).onclick = () => api.send({ t: 'nav', key: k === 'notifs' ? 'notifications' : k });
   }
+
+  const powerBtn = document.getElementById('b-power');
+  if (powerBtn) {
+    powerBtn.onclick = () => api.send({ t: 'nav', key: 'screenPower' });
+    powerBtn.oncontextmenu = (e) => {
+      e.preventDefault();
+      api.send({ t: 'nav', key: 'power' });
+    };
+  }
+
+  api.on('screenPower', (state) => {
+    if (!powerBtn) return;
+    const off = !!(state && state.off);
+    powerBtn.classList.toggle('active', off);
+    powerBtn.title = off
+      ? 'Phone display is OFF (saving battery). Click to turn back on.'
+      : 'Turn phone screen off (saves battery) · Right-click for power key';
+  });
   canvas.focus();
 })();
