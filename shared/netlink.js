@@ -102,6 +102,7 @@ class NetLink extends EventEmitter {
         if (this.o.cable && this.o.cable()) return; // the session moves onto the cable instead
         this.peerNeeds.add(String(m.why || 'files').slice(0, 20));
         clearTimeout(this.timers.linger);
+        if (m.keep && this.linked) return; // on the link already: only keep it up
         if (this.state === 'hosting' || this.state === 'joined') return this._joinMsg();
         if (this._plan() !== 'me') return this.o.send({ t: T.NET_JOIN, error: 'can’t host' });
         return this._startHost();
@@ -124,7 +125,18 @@ class NetLink extends EventEmitter {
 
   // Resolves true once the session is on Wi-Fi (or already was), false when it can't be.
   need(why, idleMs = 0) {
-    if (!this.onBle || (this.o.cable && this.o.cable())) return Promise.resolve(!this.onBle);
+    if (this.o.cable && this.o.cable()) return Promise.resolve(!this.onBle);
+    if (!this.onBle) {
+      // Already on a link made for something else: kept up for this too (on both sides), else
+      // it would come down under a transfer or a screen started on it.
+      if (this.linked) {
+        if (!this.needs.has(why)) this.o.send({ t: T.NET_NEED, why, keep: true });
+        this.needs.set(why, { idleMs, last: Date.now() });
+        clearTimeout(this.timers.linger);
+        this.emit('change');
+      }
+      return Promise.resolve(true);
+    }
     const n = this.needs.get(why);
     this.needs.set(why, { idleMs, last: Date.now() });
     clearTimeout(this.timers.linger);
@@ -184,6 +196,7 @@ class NetLink extends EventEmitter {
   holdOut(msg, sendRaw) {
     if (msg.t === T.FILE_CHUNK) this.touch('files');
     if (!HOLD.has(msg.t) && !(this.held.length && msg.t.startsWith('file.'))) return false;
+    if (!this.onBle && this.linked && HOLD.has(msg.t)) this.need('files', FILES_IDLE_MS); // on a link made here: keep it up for these
     if (!this.onBle || !this.possible) return false;
     this.held.push(msg);
     this.sendRaw = sendRaw;

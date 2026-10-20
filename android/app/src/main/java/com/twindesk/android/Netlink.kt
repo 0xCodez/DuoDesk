@@ -184,6 +184,7 @@ class Netlink(core: Core) : Feature(core) {
             Proto.T.NET_NEED -> {
                 synchronized(this) { peerNeeds.add(m.optString("why", "files").take(20)); linger?.cancel(false) }
                 when {
+                    m.optBoolean("keep") && linked -> Unit // on the link already: only keep it up
                     state == "hosting" || state == "joined" && iHost() -> sendJoin()
                     plan() != "me" -> core.link.send(msg(Proto.T.NET_JOIN, "error" to "can’t host"))
                     else -> core.bg.execute { startHost() }

@@ -482,7 +482,8 @@ function applyNet() {
 
 // fn once the session is on Wi-Fi (now, if it isn't on Bluetooth); a popup if it can't be.
 function waitWifi(why, fn, failed) {
-  if (!net || !net.onBle) return fn();
+  if (!net || (!net.onBle && !net.linked)) return fn();
+  if (!net.onBle) return void net.need(why).then(fn); // on a link made for something else: kept up for this too
   hud.show('home', 'Moving to Wi-Fi with {name}…');
   net.need(why).then((ok) => {
     if (ok) return fn();
