@@ -25,8 +25,10 @@ import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import org.json.JSONObject
+import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.concurrent.thread
 
 class Hub(core: Core) : Feature(core) {
     // What the computer has on (hub.policy). Nothing until a computer that knows these says so.
@@ -275,6 +277,12 @@ class Hub(core: Core) : Feature(core) {
         createBredr(d)
     }
 
+    // createBond(TRANSPORT_BREDR) isn't public (a system API from Android 12), and plain createBond()
+    // pairs over LE with a computer this phone has only seen over LE (TwinDesk's own link): a pairing
+    // that can't carry a call, and whose keys break TwinDesk's LE link once one side forgets them.
+    // So the computer is reached over classic Bluetooth first (an RFCOMM look-up, which only runs
+    // there; nothing has to answer it), after which Android knows it as classic and createBond()
+    // pairs there. Still LE only: not paired at all. Off the main thread (the look-up takes seconds).
     @SuppressLint("MissingPermission")
     private fun createBredr(d: BluetoothDevice) {
         bonding = true
@@ -286,10 +294,24 @@ class Hub(core: Core) : Feature(core) {
             sendState()
             true
         }
-        // createBond(TRANSPORT_BREDR) isn't public; without it, plain createBond (LE or not).
-        val ok = runCatching { BluetoothDevice::class.java.getMethod("createBond", Int::class.javaPrimitiveType).invoke(d, BluetoothDevice.TRANSPORT_BREDR) as Boolean }
-            .getOrElse { Log.i("TwinDesk", "bt: createBond(BR/EDR): ${it.message}"); d.createBond() }
-        if (!ok) { bonding = false; bondFailed = true; sendState() }
+        thread(name = "td-bond", isDaemon = true) {
+            val ok = runCatching { BluetoothDevice::class.java.getMethod("createBond", Int::class.javaPrimitiveType).invoke(d, BluetoothDevice.TRANSPORT_BREDR) as Boolean }
+                .getOrElse {
+                    Log.i("TwinDesk", "bt: createBond(BR/EDR): ${it.message}")
+                    if (classic(d)) d.createBond() else { Log.i("TwinDesk", "bt: ${d.address} not reachable over classic Bluetooth"); false }
+                }
+            if (!ok) { bonding = false; bondFailed = true; sendState() }
+        }
+    }
+
+    // True once Android knows the device over classic Bluetooth (BR/EDR).
+    @SuppressLint("MissingPermission")
+    private fun classic(d: BluetoothDevice): Boolean {
+        val known = { runCatching { d.type == BluetoothDevice.DEVICE_TYPE_CLASSIC || d.type == BluetoothDevice.DEVICE_TYPE_DUAL }.getOrDefault(false) }
+        if (known()) return true
+        runCatching { core.ctx.getSystemService(BluetoothManager::class.java)?.adapter?.cancelDiscovery() }
+        runCatching { d.createInsecureRfcommSocketToServiceRecord(PROBE).use { it.connect() } } // fails: no such service
+        return known()
     }
 
     // The computer's Unpair: this phone forgets it too (when Android lets us).
@@ -325,6 +347,9 @@ class Hub(core: Core) : Feature(core) {
     }
 
     companion object {
+        // Looked up over classic Bluetooth only to reach the computer there (classic()): no one serves it.
+        private val PROBE: UUID = UUID.fromString("b7f300ff-2c4e-4d1a-9a57-3e8c2f6d0a91")
+
         // Everything each one uses.
         fun wanted(what: String): List<String> = when (what) {
             "calls" -> listOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG, Manifest.permission.CALL_PHONE,

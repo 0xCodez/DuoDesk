@@ -69,6 +69,10 @@ class PhoneHub extends EventEmitter {
       const perm = (x) => (x && ['ok', 'partial', 'ask', 'none'].includes(x.perm) ? x.perm : 'ask');
       const missing = (x) => (x && Array.isArray(x.missing) ? x.missing.filter((s) => typeof s === 'string').slice(0, 8) : []);
       const bt = m.bt && typeof m.bt === 'object' ? m.bt : {};
+      // The phone couldn't drop its old pairing and asks its person to forget this computer: this
+      // computer forgets the phone too, or it keeps keys the phone no longer has and TwinDesk's own
+      // Bluetooth LE link to it fails on them.
+      if (bt.forget && !(this.state && this.state.bt.forget) && this.audio && this.audio.unpair) this.audio.unpair();
       this.state = {
         calls: { perm: perm(m.calls), missing: missing(m.calls) },
         messages: { perm: perm(m.messages), missing: missing(m.messages) },
@@ -346,6 +350,8 @@ class PhoneHub extends EventEmitter {
       if (this.audio.unpair) this.audio.unpair();
       if (this.phone) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', unpair: true });
     } else if (a === 'pair' && this.audio.view.address) {
+      // Paired over Bluetooth LE only: this computer's side goes first (the phone's next, Hub.kt).
+      if (this.state && this.state.bt.le && this.audio.unpair) this.audio.unpair();
       this.audio.pair();
       this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address, bond: true });
     }

@@ -7,7 +7,7 @@
 // its own, run by windows/callaudio.js only while Calls and its Bluetooth option are on with a phone
 // connected: macshare-winhelper never touches the phone line.
 //
-// JSON lines. In:  {"cmd": "info"} | {"cmd": "connect", "id"}
+// JSON lines. In:  {"cmd": "info"} | {"cmd": "connect", "id"} | {"cmd": "unpair", "name"} (then info)
 // Out: {"ev": "info", "identity", "address", "power", "devices": [{id, name}], "error"?}
 //      {"ev": "state", "state": "connecting"|"connected"|"disconnected", "access"?, "error"?}
 // stdin closed (TwinDesk gone, or the option off): the phone line is let go and this exits.
@@ -45,6 +45,7 @@ namespace MacShare
                 {
                     if (cmd == "info") Info().Wait();
                     else if (cmd == "connect") Connect(Json.Str(m, "id", "")).Wait();
+                    else if (cmd == "unpair") { Unpair(Json.Str(m, "name", "")).Wait(); Info().Wait(); }
                 }
                 catch (Exception e) { Console.Error.WriteLine(cmd + ": " + e.Message); }
             }
@@ -145,6 +146,24 @@ namespace MacShare
             if (line != null && line.DeviceId != d.DeviceId) Unregister(line);
             line = d;
             Emit(State("connected", null, null));
+        }
+
+        // The phone forgotten here: every paired Bluetooth device with its name, classic and LE (a
+        // pairing over LE also leaves keys Windows uses for the phone's LE link, TwinDesk's own).
+        static async Task Unpair(string name)
+        {
+            name = name.Trim();
+            if (name.Length == 0) return;
+            if (line != null) { Unregister(line); line = null; }
+            foreach (string sel in new[] { BluetoothDevice.GetDeviceSelectorFromPairingState(true), BluetoothLEDevice.GetDeviceSelectorFromPairingState(true) })
+            {
+                foreach (DeviceInformation d in await DeviceInformation.FindAllAsync(sel))
+                {
+                    if (!string.Equals((d.Name ?? "").Trim(), name, StringComparison.OrdinalIgnoreCase)) continue;
+                    DeviceUnpairingResult r = await d.Pairing.UnpairAsync();
+                    Console.Error.WriteLine("unpair " + d.Name + ": " + r.Status);
+                }
+            }
         }
 
         // Off means off: this app no longer the phone line's (Phone Link takes it again when it runs).

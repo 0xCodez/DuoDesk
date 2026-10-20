@@ -77,6 +77,18 @@ class CallAudio extends EventEmitter {
     if (this.proc && (['needs-pair', 'choose'].includes(this.state) || (renamed && this.state !== 'ready'))) this._send({ cmd: 'info' });
   }
 
+  // Forget the phone on this PC, its classic and LE pairings both (the phone forgets it too:
+  // phonehub.js), so neither side keeps keys the other dropped.
+  unpair() {
+    const d = this.devices.find((x) => x.id === this.id);
+    const name = (d && d.name) || this.phoneName;
+    if (!name || !this.proc) return;
+    this.save('');
+    this.id = '';
+    this._send({ cmd: 'unpair', name });
+    this._set('needs-pair');
+  }
+
   // Pair asks the phone to pair with this PC; Windows asks to let it on its own.
   pair() {}
   transfer() {} // the phone sends the sound where it likes
@@ -231,7 +243,7 @@ class CallAudio extends EventEmitter {
     };
     return {
       state: this.state, message: MESSAGES[this.state] || '', device: this.id,
-      devices: this.devices, here: this.state === 'ready', address: this.address, canMute: this.canMute, canMove: false,
+      devices: this.devices, here: this.state === 'ready', address: this.address, canMute: this.canMute, canMove: false, canUnpair: true,
     };
   }
 }
