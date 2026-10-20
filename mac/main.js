@@ -731,8 +731,7 @@ function loadHub() {
   const { PhoneHub } = require('../shared/phonehub.js');
   const hub = new PhoneHub({
     server: peer, getSettings: () => settings, save: () => store.saveSettings(settings),
-    // No audio: a Mac answers, ends and mutes calls, their sound stays on the phone (macOS won't open
-    // a hands-free's voice link for an app: kIOReturnUnsupported on Apple silicon).
+    audio: (opts) => require('./callaudio.js').create({ helper: svc.helper, ...opts }), // the calls' sound over Bluetooth
     send: (paths, batch) => !!(svc.fileSend && svc.fileSend.sendBatch(paths, 'send', batch)), // Files: into a folder on the phone
     choose: () => dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { properties: ['openFile', 'openDirectory', 'multiSelections'] })
       .then((r) => (r.canceled ? [] : r.filePaths)),

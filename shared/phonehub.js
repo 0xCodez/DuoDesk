@@ -47,9 +47,10 @@ const phonePath = (v) => {
 const fileName = (v) => (typeof v === 'string' && v.trim() && v.length <= 255 && !/[/\u0000-\u001f]/.test(v) && v.trim() !== '.' && v.trim() !== '..' ? v.trim() : '');
 
 class PhoneHub extends EventEmitter {
-  constructor({ server, getSettings, save, audio, send, choose, share }) {
+  // audioLimit: what this computer can't do with the calls' sound, said under its switch (Windows).
+  constructor({ server, getSettings, save, audio, audioLimit, send, choose, share }) {
     super();
-    Object.assign(this, { server, getSettings, save, makeAudio: audio || null, sendFiles: send || null, choose: choose || null });
+    Object.assign(this, { server, getSettings, save, makeAudio: audio || null, audioLimit: audioLimit || '', sendFiles: send || null, choose: choose || null });
     this.share = null;
     if (share) {
       this.share = new (require('./foldershare.js').FolderShare)(this, share);
@@ -364,7 +365,7 @@ class PhoneHub extends EventEmitter {
       connected: !!this.phone, name: this.phone ? this.phone.name : '',
       supported: !!this.state, // the phone app answered (an older one doesn't know these)
       perm: this.state, call: this.call, ended: this.ended, unread: this.unread, muted: this.muted,
-      audio: this.audio ? this.audio.view : null, canAudio: !!this.makeAudio,
+      audio: this.audio ? this.audio.view : null, canAudio: !!this.makeAudio, audioLimit: this.audioLimit,
       share: this.share ? this.share.view : null,
     };
   }

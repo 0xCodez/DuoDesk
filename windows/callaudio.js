@@ -2,7 +2,9 @@
 // The calls' sound on this PC over Bluetooth (shared/phonehub.js makes this only while Calls and
 // its Bluetooth option are on with a phone connected): windows-helper's macshare-calls connects to
 // the phone as its hands-free, like a headset, and Windows plays the call through the PC's speakers
-// and microphone. Windows lets only an app with a package identity do that (PhoneLineTransportDevice),
+// and microphone once asked to (each call is moved here as it starts), and not at all while a
+// Bluetooth headset is connected to the PC (whatever the default devices: its hands-free link and the
+// phone's can't both be up). Windows lets only an app with a package identity do that (PhoneLineTransportDevice),
 // so first its sparse package is registered for this user, pointing at where TwinDesk is (the
 // installer trusts its certificate). The phone has to be paired with this PC over Bluetooth once
 // (Pair asks the phone to). stop() ends it: the process lets the phone line go and exits.
@@ -23,7 +25,7 @@ const EXE = path.join(BIN, 'macshare-calls.exe');
 const MSIX = path.join(BIN, 'twindesk-calls.msix');
 const CER = path.join(BIN, 'twindesk-calls.cer');
 const PKG = 'TwinDesk.Calls';
-const PKG_VERSION = '1.0.0.0'; // as windows-helper/calls/AppxManifest.xml
+const PKG_VERSION = '1.0.1.0'; // as windows-helper/calls/AppxManifest.xml
 const RETRY_MS = [5000, 15000, 30000, 60000, 120000];
 const SYSTEM_ONLY = 'Windows keeps calls over Bluetooth for Phone Link on this PC. Calls still ring, answer and dial here; their sound stays on the phone';
 let refused = ''; // Windows said no: not asked again until the app restarts
@@ -52,9 +54,10 @@ class CallAudio extends EventEmitter {
     this.id = '';
     this.state = refused ? 'unavailable' : 'starting';
     this.error = refused;
-    this.canMute = false; // the phone mutes the call (Windows has no mute for it)
+    this.here = false; // a call under way with its sound on this PC (macshare-calls' call events)
+    this.local = true; // Windows can play calls here (false while this PC's call devices are Bluetooth)
     this.forced = false; // registered again once, when the exe came up without its identity
-    this.denied = false; // Windows' privacy settings said no: Connect after allowing it
+    this.denied = false; // Windows said no (its privacy settings, or another app has the line): Connect after fixing that
     this.tries = 0;
     this.timer = null;
     this.gen = 0;
@@ -91,9 +94,22 @@ class CallAudio extends EventEmitter {
 
   // Pair asks the phone to pair with this PC; Windows asks to let it on its own.
   pair() {}
-  transfer() {} // the phone sends the sound where it likes
-  mute() {}
-  idle() {}
+
+  // Where the call's sound goes, this call and the next ones: this PC, or back to the phone.
+  transfer(here) {
+    this._send({ cmd: 'audio', here: !!here });
+  }
+
+  // The microphone here, for the call.
+  mute(on) {
+    this._send({ cmd: 'mute', on: !!on });
+  }
+
+  // The call ended: the next one here again, not muted.
+  idle() {
+    this._send({ cmd: 'audio', here: true });
+    this._send({ cmd: 'mute', on: false });
+  }
 
   stop() {
     this.stopped = true;
@@ -174,14 +190,33 @@ class CallAudio extends EventEmitter {
       }
       return this._pick();
     }
+    if (m.ev === 'routing') {
+      this.local = m.local !== false;
+      return this.emit('change');
+    }
+    if (m.ev === 'call') {
+      const here = !!m.here && !['ended', 'lost'].includes(m.status);
+      if (here !== this.here) this._log(`call ${m.status}: sound ${here ? 'here' : 'on the phone'}`);
+      this.here = here;
+      return this.emit('change');
+    }
     if (m.ev === 'state') {
       this._log(`hands-free ${m.state}${m.access ? ` (access ${m.access})` : ''}${m.error ? ` (${m.error})` : ''}`);
       this.denied = false;
+      if (m.state !== 'connected') this.here = false;
       if (m.state === 'connected') { this.tries = 0; this.error = ''; return this._set('ready'); }
       if (m.state === 'connecting') return this._set('connecting');
       if (m.access === 'DeniedByUser') {
         this.denied = true;
         this.error = 'Windows’ privacy settings keep calls from TwinDesk: allow it in Settings › Privacy & security › Phone calls, then Connect';
+        this.tries = RETRY_MS.length + 1;
+        return this._set('failed');
+      }
+      // Windows gave this phone's line to another app (one registered for it before, Phone Link
+      // say): it's TwinDesk's once the phone is paired again.
+      if (m.error === 'unregistered') {
+        this.denied = true;
+        this.error = `Windows keeps ${this.phoneName || 'the phone'}’s calls for another app: remove it in Settings › Bluetooth & devices, pair it again (Pair), then Connect`;
         this.tries = RETRY_MS.length + 1;
         return this._set('failed');
       }
@@ -237,15 +272,19 @@ class CallAudio extends EventEmitter {
       'needs-pair': `Pair ${this.phoneName || 'the phone'} with this PC over Bluetooth once: Pair asks the phone, or use Settings › Bluetooth & devices`,
       choose: `Which one is ${this.phoneName || 'the phone'}? Pick it, or Pair if it isn’t there`,
       connecting: `Connecting to ${name}…`,
-      ready: `Connected to ${name} over Bluetooth: calls play on this PC`,
+      ready: this.local ? `Connected to ${name} over Bluetooth: calls play on this PC`
+        : `Connected to ${name}, but calls stay on the phone while a Bluetooth headset is connected to this PC: Windows plays calls only through wired or built-in speakers and a microphone, with no Bluetooth headset connected`,
       failed: this.denied ? this.error : `Couldn’t reach ${name} over Bluetooth${this.error && this.error !== 'stopped' ? ` (${this.error})` : ''}. ${this.tries > RETRY_MS.length ? 'Click Connect to try again' : 'Trying again soon'}`,
       off: 'Off',
     };
     return {
       state: this.state, message: MESSAGES[this.state] || '', device: this.id,
-      devices: this.devices, here: this.state === 'ready', address: this.address, canMute: this.canMute, canMove: false, canUnpair: true,
+      devices: this.devices, here: this.here, address: this.address, canMute: this.here, canMove: this.local, canUnpair: true,
     };
   }
 }
 
-module.exports = { create: (opts) => new CallAudio(opts) };
+// Said under Calls' switch: what no app can change (Windows decides it before any routing).
+const LIMIT = 'Through this PC’s wired or built-in speakers and microphone only. Windows keeps calls on the phone while a Bluetooth headset is connected to this PC, so no app can bring them to the headset';
+
+module.exports = { create: (opts) => new CallAudio(opts), LIMIT };

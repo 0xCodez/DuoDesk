@@ -7,9 +7,17 @@
 // its own, run by windows/callaudio.js only while Calls and its Bluetooth option are on with a phone
 // connected: macshare-winhelper never touches the phone line.
 //
+// A call's sound stays here only while Windows has it on this PC (PhoneCall.AudioDevice): it takes
+// back what the phone sends unless this app asked for it, so each call is moved here as it starts
+// (or to the phone, as asked), and muted here as asked.
+//
 // JSON lines. In:  {"cmd": "info"} | {"cmd": "connect", "id"} | {"cmd": "unpair", "name"} (then info)
+//                  {"cmd": "audio", "here"} (where calls' sound goes, this one and the next) | {"cmd": "mute", "on"}
 // Out: {"ev": "info", "identity", "address", "power", "devices": [{id, name}], "error"?}
 //      {"ev": "state", "state": "connecting"|"connected"|"disconnected", "access"?, "error"?}
+//      (error "unregistered": Windows didn't let this app have the phone's line)
+//      {"ev": "call", "status": "incoming"|"dialing"|"talking"|"held"|"ended"|"lost", "here", "muted"}
+//      {"ev": "routing", "local"} (false: Windows can't play calls here: a Bluetooth headset is connected, or no microphone)
 // stdin closed (TwinDesk gone, or the option off): the phone line is let go and this exits.
 using System;
 using System.Collections.Generic;
@@ -30,6 +38,13 @@ namespace MacShare
     {
         static readonly object gate = new object();
         static PhoneLineTransportDevice line; // the phone connected to, this app registered for it
+        static PhoneLineWatcher watcher; // Windows' phone lines: the one through `line` carries its calls
+        static readonly Dictionary<Guid, PhoneLine> lines = new Dictionary<Guid, PhoneLine>();
+        static readonly Dictionary<string, PhoneCall> calls = new Dictionary<string, PhoneCall>(); // under way, by id
+        static readonly HashSet<string> placed = new HashSet<string>(); // calls already moved where asked
+        static volatile bool wantHere = true;
+        static volatile bool wantMuted;
+        static System.Threading.Timer poll; // looks for calls each second too, in case CallStateChanged doesn't come
 
         static int Main()
         {
@@ -46,6 +61,8 @@ namespace MacShare
                     if (cmd == "info") Info().Wait();
                     else if (cmd == "connect") Connect(Json.Str(m, "id", "")).Wait();
                     else if (cmd == "unpair") { Unpair(Json.Str(m, "name", "")).Wait(); Info().Wait(); }
+                    else if (cmd == "audio") { wantHere = Json.Bool(m, "here", true); ApplyAll(); }
+                    else if (cmd == "mute") { wantMuted = Json.Bool(m, "on", false); ApplyAll(); }
                 }
                 catch (Exception e) { Console.Error.WriteLine(cmd + ": " + e.Message); }
             }
@@ -140,12 +157,162 @@ namespace MacShare
             try
             {
                 if (!d.IsRegistered()) d.RegisterApp();
+                // Not taken without a word (another app has this phone's calls, or the package lacks
+                // phoneCallActivation): Windows would drop the link at once, so not connected at all.
+                if (!d.IsRegistered()) { Emit(State("disconnected", "Allowed", "unregistered")); return; }
                 if (!await d.ConnectAsync()) { Emit(State("disconnected", "Allowed", "the phone didn't answer")); return; }
             }
             catch (Exception e) { Emit(State("disconnected", "Allowed", e.Message)); return; }
             if (line != null && line.DeviceId != d.DeviceId) Unregister(line);
             line = d;
             Emit(State("connected", null, null));
+            try
+            {
+                Routing(d);
+                d.AudioRoutingStatusChanged += (s, o) => Routing(s);
+            }
+            catch (Exception e) { Console.Error.WriteLine("audio routing: " + e.Message); }
+            await Watch();
+        }
+
+        // Whether Windows can play this phone's calls here: only with a microphone and speakers that
+        // aren't Bluetooth, and no Bluetooth headset connected at all (whatever the default devices).
+        static void Routing(PhoneLineTransportDevice d)
+        {
+            Dictionary<string, object> o = new Dictionary<string, object>();
+            o["ev"] = "routing";
+            o["local"] = d.AudioRoutingStatus != TransportDeviceAudioRoutingStatus.CannotRouteToLocalDevice;
+            Emit(o);
+        }
+
+        // ---- the calls through it ----
+
+        static async Task Watch()
+        {
+            if (watcher != null) { lock (gate) lines.Clear(); watcher.Stop(); watcher = null; } // another phone: its lines again
+            try
+            {
+                PhoneCallStore store = await PhoneCallManager.RequestStoreAsync();
+                PhoneLineWatcher w = store.RequestLineWatcher();
+                w.LineAdded += (s, e) => Line(e.LineId);
+                w.LineUpdated += (s, e) => Line(e.LineId);
+                w.LineRemoved += (s, e) => { lock (gate) lines.Remove(e.LineId); };
+                w.Start();
+                watcher = w;
+            }
+            catch (Exception e) { Console.Error.WriteLine("lines: " + e.Message); return; }
+            PhoneCallManager.CallStateChanged -= OnCallState;
+            PhoneCallManager.CallStateChanged += OnCallState;
+            if (poll == null) poll = new System.Threading.Timer(o => Refresh(), null, 1000, 1000);
+        }
+
+        static void OnCallState(object s, object e)
+        {
+            Refresh();
+        }
+
+        // Its Bluetooth address, from either kind of id ("...&384A8081BFCF_C00000000#..."), to match a line to it.
+        static string Addr(string id)
+        {
+            System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(id ?? "", "[&#_]([0-9A-Fa-f]{12})_");
+            return m.Success ? m.Groups[1].Value.ToUpperInvariant() : "";
+        }
+
+        static async void Line(Guid id)
+        {
+            try
+            {
+                PhoneLine l = await PhoneLine.FromIdAsync(id);
+                PhoneLineTransportDevice d = line;
+                bool ours = l != null && d != null && l.Transport == PhoneLineTransport.Bluetooth
+                    && (string.Equals(l.TransportDeviceId, d.DeviceId, StringComparison.OrdinalIgnoreCase)
+                        || (Addr(l.TransportDeviceId).Length > 0 && Addr(l.TransportDeviceId) == Addr(d.DeviceId)));
+                lock (gate) { if (ours) lines[id] = l; else lines.Remove(id); }
+                if (ours) Refresh(); // a call already under way
+            }
+            catch (Exception e) { Console.Error.WriteLine("line: " + e.Message); }
+        }
+
+        static async void Refresh()
+        {
+            try
+            {
+                List<PhoneLine> mine;
+                lock (gate) mine = new List<PhoneLine>(lines.Values);
+                foreach (PhoneLine l in mine)
+                {
+                    PhoneCallsResult r = await l.GetAllActivePhoneCallsAsync();
+                    if (r.OperationStatus != PhoneLineOperationStatus.Succeeded) continue;
+                    foreach (PhoneCall c in r.AllActivePhoneCalls)
+                        if (c.Status != PhoneCallStatus.Ended && c.Status != PhoneCallStatus.Lost) Track(c); // Windows lists the last one a while after
+                }
+            }
+            catch (Exception e) { Console.Error.WriteLine("calls: " + e.Message); }
+        }
+
+        static void Track(PhoneCall c)
+        {
+            lock (gate)
+            {
+                if (calls.ContainsKey(c.CallId)) return;
+                calls[c.CallId] = c;
+            }
+            c.StatusChanged += (s, o) => Changed(s);
+            c.AudioDeviceChanged += (s, o) => Changed(s);
+            c.IsMutedChanged += (s, o) => Changed(s);
+            Changed(c);
+        }
+
+        // Moved where asked once, as it starts (the phone's own switch is the person's after that).
+        static void Changed(PhoneCall c)
+        {
+            try
+            {
+                PhoneCallStatus st = c.Status;
+                bool live = st != PhoneCallStatus.Ended && st != PhoneCallStatus.Lost;
+                bool first = false;
+                lock (gate)
+                {
+                    if (!live) { calls.Remove(c.CallId); placed.Remove(c.CallId); }
+                    else if ((st == PhoneCallStatus.Dialing || st == PhoneCallStatus.Talking) && placed.Add(c.CallId)) first = true;
+                }
+                if (first) Apply(c);
+                Dictionary<string, object> o = new Dictionary<string, object>();
+                o["ev"] = "call";
+                o["status"] = st.ToString().ToLowerInvariant();
+                o["here"] = live && c.AudioDevice == PhoneCallAudioDevice.LocalDevice;
+                o["muted"] = live && c.IsMuted;
+                Emit(o);
+            }
+            catch (Exception e) { Console.Error.WriteLine("call: " + e.Message); }
+        }
+
+        static void ApplyAll()
+        {
+            List<PhoneCall> now;
+            lock (gate) now = new List<PhoneCall>(calls.Values);
+            foreach (PhoneCall c in now) Apply(c);
+        }
+
+        static void Apply(PhoneCall c)
+        {
+            try
+            {
+                PhoneCallStatus st = c.Status;
+                if (st != PhoneCallStatus.Dialing && st != PhoneCallStatus.Talking && st != PhoneCallStatus.Held) return;
+                PhoneCallAudioDevice want = wantHere ? PhoneCallAudioDevice.LocalDevice : PhoneCallAudioDevice.RemoteDevice;
+                if (c.AudioDevice != want)
+                {
+                    PhoneCallOperationStatus r = c.ChangeAudioDevice(want);
+                    if (r != PhoneCallOperationStatus.Succeeded) Console.Error.WriteLine("audio " + want + ": " + r);
+                }
+                if (c.IsMuted != wantMuted)
+                {
+                    PhoneCallOperationStatus r = wantMuted ? c.Mute() : c.Unmute();
+                    if (r != PhoneCallOperationStatus.Succeeded) Console.Error.WriteLine("mute: " + r);
+                }
+            }
+            catch (Exception e) { Console.Error.WriteLine("apply: " + e.Message); }
         }
 
         // The phone forgotten here: every paired Bluetooth device with its name, classic and LE (a
@@ -169,6 +336,7 @@ namespace MacShare
         // Off means off: this app no longer the phone line's (Phone Link takes it again when it runs).
         static void Release()
         {
+            try { if (watcher != null) watcher.Stop(); } catch (Exception) { }
             if (line != null) Unregister(line);
             line = null;
         }

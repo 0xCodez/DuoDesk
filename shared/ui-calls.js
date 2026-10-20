@@ -213,6 +213,7 @@ UI.tab({
       if (!noSound.hidden) noSound.textContent = `The call’s sound stays on ${UI.phoneName(s)}: macOS doesn’t let apps be a phone’s Bluetooth headset. Answer, end and mute calls here, and talk on the phone or its headphones.`;
       soundCard.hidden = !h.calls || !h.canAudio;
       audioSw.set(!!h.callAudio);
+      audioRow.setHint(h.audioLimit || '');
       const a = h.audio;
       const bt = h.perm && h.perm.bt;
       let status = '';
