@@ -93,7 +93,12 @@ UI.tab({
     // ---- found nearby (always visible) ----
     const discRow = UI.row('Can’t look for computers on this network.', '', [UI.button('Fix firewall', () => api.fixFirewall(), 'small')]);
     const foundList = el('div');
-    const refresh = UI.button('Refresh', () => api.refreshFound(), 'small');
+    const refresh = UI.button('Refresh', () => { // the list empties and fills again with whoever answers
+      api.refreshFound();
+      refresh.disabled = true;
+      refresh.textContent = 'Looking…';
+      setTimeout(() => { refresh.disabled = false; refresh.textContent = 'Refresh'; }, 1500);
+    }, 'small');
 
     // ---- a connected phone's wireless debugging, until it works (the Phone page has it too) ----
     const ADB = { needsPair: ['bad', 'Pair once'], waitingWifi: ['bad', 'Off'], connecting: ['muted', 'Looking…'], missing: ['bad', 'Missing'], error: ['bad', 'Problem'] };

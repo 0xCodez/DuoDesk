@@ -33,6 +33,7 @@ object Notify {
     const val ID_WIFI = 9
     const val ID_INPUT = 10
     const val ID_HUB_ASK = 11
+    const val ID_SOUND = 12 // the sound capture: asking for Start, then its service's own
     private const val ID_FILES_BASE = 1000
     private const val ID_COMPUTER_BASE = 100000
 
@@ -193,6 +194,35 @@ object Notify {
     }
 
     fun cancelInput(ctx: Context) = nm(ctx).cancel(ID_INPUT)
+
+    // The computer wants this phone's sound and adb can't carry it (Sound.kt): Start asks for the capture.
+    fun sound(ctx: Context, name: String) {
+        val start = PendingIntent.getActivity(ctx, 12, Intent(ctx, SoundActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val text = "Without wireless debugging, TwinDesk captures it: Start, then Android asks once more. Apps that don’t allow it stay silent."
+        runCatching {
+            nm(ctx).notify(ID_SOUND, Notification.Builder(ctx, CH_INVITE)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setContentTitle("Play this phone’s sound on $name")
+                .setContentText(text)
+                .setStyle(Notification.BigTextStyle().bigText(text))
+                .setContentIntent(start)
+                .addAction(Notification.Action.Builder(null, "Start", start).build())
+                .setOnlyAlertOnce(true)
+                .build())
+        }
+    }
+
+    fun cancelSound(ctx: Context) = runCatching { nm(ctx).cancel(ID_SOUND) }.let { }
+
+    // While it plays there (SoundService's own notification): Stop ends it.
+    fun soundOn(ctx: Context, name: String): Notification = Notification.Builder(ctx, CH_LINK)
+        .setSmallIcon(R.drawable.ic_stat)
+        .setContentTitle("This phone’s sound plays on $name")
+        .setContentIntent(openApp(ctx))
+        .setOngoing(true)
+        .addAction(Notification.Action.Builder(null, "Stop", action(ctx, ActionReceiver.SOUND_STOP, 13)).build())
+        .build()
 
     // The computer's Allow for Calls, Messages or Photos, when the prompt can't open by itself
     // (no "Display over other apps"): tap for Android's prompt. Its channel is made the first time.

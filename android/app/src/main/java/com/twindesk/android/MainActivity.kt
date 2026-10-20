@@ -503,7 +503,8 @@ private fun OverviewPage(core: Core, v: Int) {
         val p2m = @Composable { mod: Modifier ->
             MacCard(modifier = mod) {
                 DirHead(me, true, host.name, false)
-                SwitchRow("Sound", "Through wireless debugging", core.sync.get("audio", "out"), first = true) { core.sync.set("audio", "out", it) }
+                SwitchRow("Sound", soundHint(core), core.sync.get("audio", "out"), first = true) { core.sync.set("audio", "out", it) }
+                SoundStart(core)
                 SwitchRow("Clipboard", "", core.sync.get("clipboard", "out")) { core.sync.set("clipboard", "out", it) }
                 SwitchRow("Notifications", if (core.notifs.hasAccess) "" else if (!core.notifs.supported) "Needs TwinDesk with notifications (Notifications page)" else "Needs Notification access (General)", core.sync.get("notifs", "out")) { core.sync.set("notifs", "out", it) }
                 // Calls, Messages and Photos, when the computer has them: what each needs is asked for as it's switched on.
@@ -1063,9 +1064,25 @@ private fun SoundPage(core: Core, v: Int) {
     }
     MacCard {
         DirHead(me, true, name, false)
-        SwitchRow("Play this device’s sound on $name", "Through wireless debugging · Android 11 or later", core.sync.get("audio", "out"), first = true) { core.sync.set("audio", "out", it) }
+        SwitchRow("Play this device’s sound on $name", soundHint(core), core.sync.get("audio", "out"), first = true) { core.sync.set("audio", "out", it) }
+        SoundStart(core)
     }
     Note("Sound that comes with the screen plays in the screen view (Screen › Playback).")
+}
+
+// This device's sound there: through wireless debugging, else captured here (Sound.kt).
+private fun soundHint(core: Core) = when {
+    core.sound.on -> "Playing there (captured here: Stop in the notification)"
+    core.sound.error.isNotEmpty() -> core.sound.error
+    else -> "Through wireless debugging, else TwinDesk captures it (Start, each time)"
+}
+
+// The computer is waiting for the capture: Start here, as in the notification.
+@Composable
+private fun SoundStart(core: Core) {
+    val ctx = LocalContext.current
+    if (core.sound.wanted && !core.sound.on) MacRow("Start the sound", "Android asks to allow the capture") { Primary("Start") { core.sound.start(ctx) } }
+    else if (core.sound.on) MacRow("Captured sound", "Plays here too: only wireless debugging moves it off this phone") { Secondary("Stop") { core.sound.stop() } }
 }
 
 // ---- General ----

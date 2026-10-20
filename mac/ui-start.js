@@ -264,6 +264,7 @@
 
   $('pair-allow').onclick = () => (bannerMode === 'guest' ? api.confirmGuestCode() : api.pairRespond(true));
   $('pair-deny').onclick = () => (bannerMode === 'guest' ? api.cancelGuestPair() : api.pairRespond(false));
+  PairPop.attach($('banner'), $('pair-allow')); // the popup over the window, Allow there presses this one
   window.addEventListener('macshare-go', (e) => show(e.detail, true));
   if (api.onGo) api.onGo((tab) => typeof tab === 'string' && views.has(tab) && show(tab, true));
 

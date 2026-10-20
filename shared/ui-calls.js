@@ -135,7 +135,10 @@ UI.tab({
       if (unpairBtn.dataset.sure !== '1') { unpairBtn.dataset.sure = '1'; unpairBtn.textContent = 'Unpair?'; unpairBtn.classList.add('danger'); return; }
       api.hub({ do: 'audio', a: 'unpair' });
     });
-    const statusRow = UI.row('Bluetooth', '', [pairBtn, retryBtn, unpairBtn]);
+    // Which paired Bluetooth device the phone is, when its name didn't say (or to change it).
+    const which = UI.select([], (id) => id && api.hub({ do: 'opt', btDevice: id }));
+    which.el.setAttribute('aria-label', 'Which phone');
+    const statusRow = UI.row('Bluetooth', '', [which.el, pairBtn, retryBtn, unpairBtn]);
     const soundCard = UI.card('Sound', [audioRow, statusRow]);
 
     // The call history.
@@ -232,6 +235,12 @@ UI.tab({
       pairBtn.hidden = !(needsPair && a.address && h.connected && !(bt && bt.bonding));
       pairBtn.textContent = bt && (bt.le || bt.failed) ? 'Pair Again' : 'Pair';
       retryBtn.hidden = !(a && ['failed', 'off'].includes(a.state));
+      const devices = (a && h.connected && a.devices) || [];
+      which.el.hidden = !(a && (a.state === 'choose' || (devices.length > 1 && a.state !== 'ready')));
+      if (!which.el.hidden) {
+        which.options([{ value: '', label: `Which one is ${phone}?` }, ...devices.map((d) => ({ value: d.id, label: d.name }))]);
+        which.set(a.device || '');
+      }
       unpairBtn.hidden = !(a && a.device && a.canUnpair && h.connected && !needsPair);
       if (unpairBtn.hidden) { unpairBtn.dataset.sure = ''; unpairBtn.textContent = 'Unpair'; unpairBtn.classList.remove('danger'); }
     };

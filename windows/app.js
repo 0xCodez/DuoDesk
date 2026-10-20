@@ -253,6 +253,7 @@
 
   $('pair-match').onclick = () => (UI.state && UI.state.pairing && UI.state.pairing.role === 'host' ? api.respondPair(true) : api.confirmCode());
   $('pair-cancel').onclick = () => api.cancelPair();
+  PairPop.attach($('banner'), $('pair-match')); // the popup over the window, Allow there presses this one
   window.addEventListener('macshare-go', (e) => show(e.detail, true));
   api.onGo((tab) => typeof tab === 'string' && views.has(tab) && show(tab, true));
 

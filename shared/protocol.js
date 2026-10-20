@@ -181,6 +181,9 @@
       PHONE_INPUT_VIA: 'phone.input.via', // computer->phone {via: 'adb'|'phone'}: the input choice changed here (phone.input carries the phone's)
       PHONE_WAKE: 'phone.wake', // computer->phone: screen on and ask for the unlock (on the phone), e.g. to open an app from a notification clicked here
       PHONE_AWAKE: 'phone.awake', // phone->computer {unlocked, waiting?}: unlocked (now, or once the person unlocked it); waiting = it's asking for the unlock
+      PHONE_SOUND_WANT: 'phone.sound.want', // computer->phone {on}: its sound here without wireless debugging (playback capture, Start on the phone), while adb can't carry it
+      PHONE_SOUND: 'phone.sound', // phone->computer {codec: 'opus'|'pcm', p: [base64]}: 20 ms each (Opus packets, or 48 kHz stereo s16le)
+      PHONE_SOUND_STATE: 'phone.sound.state', // phone->computer {on, waiting (for Start on the phone), error, codec}
       // Wireless debugging (adb), which the Mac uses for the screen, touch, mouse and keyboard,
       // the clipboard in the background and apps in their own windows (scrcpy):
       ADB_STATE: 'adb.state', // phone->Mac {devOptions, wifi (wireless debugging on), canEnable (WRITE_SECURE_SETTINGS granted), address, full, port (its wireless debugging port from its own mDNS, 0 if not known yet), net (on a Wi-Fi network: wireless debugging can't be on without one)}

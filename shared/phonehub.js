@@ -150,7 +150,7 @@ class PhoneHub extends EventEmitter {
         return this.emit('change');
       case 'opt':
         if (typeof r.callAudio === 'boolean') s.callAudio = r.callAudio;
-        if (typeof r.btDevice === 'string') s.btDevice = r.btDevice.slice(0, 400); // Windows' device ids are long
+        if (typeof r.btDevice === 'string') this.btDevice(r.btDevice.slice(0, 400)); // Windows' device ids are long
         this.save();
         if (this.phone) this.policy();
         if (typeof r.btDevice === 'string' && this.audio) { this.audio.stop(); this.audio = null; }
@@ -302,6 +302,16 @@ class PhoneHub extends EventEmitter {
 
   // ---- call sound over Bluetooth ----
 
+  // The Bluetooth device the connected phone is (each phone its own: one paired before isn't this one), or set it.
+  btDevice(id) {
+    const s = this.settings;
+    const phone = this.phone && this.phone.deviceId;
+    if (id === undefined) return (phone && s.btDevices && s.btDevices[phone]) || '';
+    if (!phone) return;
+    s.btDevices = { ...(s.btDevices || {}), [phone]: id };
+    this.save();
+  }
+
   // Running only while Calls and its Bluetooth option are on, with a phone connected.
   applyAudio() {
     const s = this.settings;
@@ -316,7 +326,7 @@ class PhoneHub extends EventEmitter {
     }
     if (this.audio) return;
     try {
-      this.audio = this.makeAudio({ device: () => this.settings.btDevice, save: (id) => { this.settings.btDevice = id; this.save(); } });
+      this.audio = this.makeAudio({ device: () => this.btDevice(), save: (id) => this.btDevice(id) });
     } catch (e) {
       console.log(`[hub] call sound: ${e.message}`);
       this.audio = null;
@@ -344,7 +354,7 @@ class PhoneHub extends EventEmitter {
   get view() {
     const s = this.settings;
     return {
-      calls: !!s.calls, messages: !!s.messages, media: !!s.media, files: !!s.files, callAudio: !!s.callAudio, btDevice: s.btDevice || '',
+      calls: !!s.calls, messages: !!s.messages, media: !!s.media, files: !!s.files, callAudio: !!s.callAudio, btDevice: this.btDevice(),
       connected: !!this.phone, name: this.phone ? this.phone.name : '',
       supported: !!this.state, // the phone app answered (an older one doesn't know these)
       perm: this.state, call: this.call, ended: this.ended, unread: this.unread, muted: this.muted,

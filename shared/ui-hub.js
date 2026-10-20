@@ -58,6 +58,19 @@
   };
 
   UI.phoneName = (s) => (s && s.hub && s.hub.name) || 'your phone';
+  // How a connected phone's sound gets here (phone-bridge.js _sound), for the Audio page; null: no phone.
+  UI.phoneSound = (s) => {
+    const b = s && s.phone && s.phone.connected && s.phone.bridge;
+    if (!b) return null;
+    const ph = s.phone.connected.name;
+    const n = b.sound || {};
+    if (n.on) return `Playing. ${ph} captures it, so it plays there too (wireless debugging moves it off the phone)`;
+    if (n.error) return n.error;
+    if (n.waiting) return `Tap Start on ${ph} (its notification, or Sound in TwinDesk there)`;
+    if (n.net) return `Asking ${ph}…`;
+    if (b.state === 'ready') return 'Through wireless debugging';
+    return `Over Wi-Fi: through wireless debugging, or captured by ${ph}`;
+  };
 
   // page shown / hidden (the shells toggle `hidden`).
   UI.onShown = (page, fn) => {

@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- the sound capture without wireless debugging (Sound.kt): Android asks it for any capture -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -145,6 +147,19 @@
             android:name=".TwinService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- This phone's sound on the computer without wireless debugging (Sound.kt) -->
+        <service
+            android:name=".SoundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <activity
+            android:name=".SoundActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TwinDesk.Invisible"
+            android:excludeFromRecents="true"
+            android:taskAffinity="" />
 
         <service
             android:name=".ClipTile"

@@ -83,6 +83,19 @@ class PhoneBridge extends EventEmitter {
     server.on('closed', () => {
       if (!isPhone(server.current)) this._stopAll('');
     });
+    // The phone's sound without wireless debugging (Sound.kt there): asked for while adb can't carry
+    // it; what comes plays in a hidden window (phoneview.js netSound).
+    this.netSound = { asked: false, on: false, waiting: false, error: '' };
+    const soundReset = () => Object.assign(this.netSound, { asked: false, on: false, waiting: false, error: '' });
+    server.on(`t:${T.PHONE_SOUND_STATE}`, (m, ctx) => {
+      if (!isPhone(ctx)) return;
+      Object.assign(this.netSound, { on: m.on === true, waiting: m.waiting === true, error: typeof m.error === 'string' ? m.error.slice(0, 200) : '' });
+      this.emit('change');
+    });
+    server.on(`t:${T.PHONE_SOUND}`, (m, ctx) => isPhone(ctx) && this.netSound.asked && this.views && this.views.netAudio(m));
+    server.on('client', () => { soundReset(); this._sound(); });
+    server.on('closed', () => { if (!isPhone(server.current)) soundReset(); this._sound(); });
+    server.on('transport', () => this._sound());
     setInterval(() => this._poll(), POLL_MS);
   }
 
@@ -92,6 +105,8 @@ class PhoneBridge extends EventEmitter {
       via: this.via, // 'usb' | 'wifi' | null: how adb reaches the phone
       control: !!(this.control && !this.control.closed), driving: !!this.kvm,
       windows: this.views ? this.views.list() : [],
+      // the phone's sound without adb: asked for, playing, waiting for Start on the phone, or why not
+      sound: { net: this.netSound.asked, on: this.netSound.on, waiting: this.netSound.waiting, error: this.netSound.error },
     };
   }
 
@@ -147,11 +162,23 @@ class PhoneBridge extends EventEmitter {
     this.kickTimer = setTimeout(() => this._poll(), 50);
   }
 
-  // The phone's sound here on its own when Sound › receive is on (the screen window carries its own).
+  // The phone's sound here when Sound › receive is on (the screen window carries its own): through
+  // adb once it's ready, else captured by the phone (Start there), which then stays until it stops.
+  // Not through Bluetooth: too much for it.
   _sound() {
     if (!this.views) return;
-    const want = this.state === 'ready' && isPhone(this.server.current) && !!this.getSettings().audio.receive && !this.views.screenWithSound;
-    this.views.sound(want);
+    const c = this.server.current;
+    const want = isPhone(c) && !!this.getSettings().audio.receive && !this.views.screenWithSound;
+    const adb = this.state === 'ready';
+    const net = want && (!adb || this.netSound.on) && c.transport !== 'ble';
+    this.views.sound(want && adb && !net);
+    if (net !== this.netSound.asked) {
+      this.netSound.asked = net;
+      if (!net) Object.assign(this.netSound, { on: false, waiting: false, error: '' });
+      if (isPhone(c)) this.server.sendToClient({ t: T.PHONE_SOUND_WANT, on: net });
+      this.emit('change');
+    }
+    this.views.netSound(net);
   }
 
   async _poll() {

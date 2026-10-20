@@ -66,6 +66,7 @@ class ActionReceiver : BroadcastReceiver() {
             FCLIP_COPY -> core.fclip.fetch(arg, save = false)
             FCLIP_SAVE -> core.fclip.fetch(arg, save = true)
             ADB_ON -> core.adb.turnOn()
+            SOUND_STOP -> core.sound.stop()
             PAIR_CODE -> {
                 val code = android.app.RemoteInput.getResultsFromIntent(intent)?.getCharSequence("code")?.toString() ?: ""
                 core.adb.sendPairCode(code)
@@ -92,6 +93,7 @@ class ActionReceiver : BroadcastReceiver() {
         const val ADB_ON = "com.twindesk.android.ADB_ON"
         const val PAIR_CODE = "com.twindesk.android.PAIR_CODE"
         const val EXIT = "com.twindesk.android.EXIT"
+        const val SOUND_STOP = "com.twindesk.android.SOUND_STOP"
     }
 }
 

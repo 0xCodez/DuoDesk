@@ -49,7 +49,7 @@ function setupIpc(ctx) {
     const port = m[2] ? Number(m[2]) : P.PORT;
     if (port >= 1 && port <= 65535) link.startPairing({ address: m[1], port, macName: m[1] });
   });
-  handle('refreshFound', () => discovery.probe());
+  handle('refreshFound', () => discovery.refresh());
   handle('copyText', (text) => typeof text === 'string' && text.length < 1000 && clipboard.writeText(text));
   handle('confirmCode', () => link.confirmCode());
   handle('cancelPair', () => { ctx.cancelPhoneInvite(); link.cancelPair(); });

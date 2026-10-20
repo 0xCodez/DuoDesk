@@ -61,8 +61,9 @@ class CallAudio extends EventEmitter {
 
   // The phone's Bluetooth name (hub.state, also sent once it pairs): which paired device it is.
   phone(name) {
+    const renamed = !!name && name !== this.phoneName; // its Bluetooth name came: picked again by it
     if (name) this.phoneName = name;
-    if (!this.stopped && ['needs-pair', 'choose'].includes(this.state)) this._info(this.gen);
+    if (!this.stopped && (['needs-pair', 'choose'].includes(this.state) || (renamed && this.state !== 'ready'))) this._info(this.gen);
   }
 
   // Forget the phone on this computer (the phone forgets it too: phonehub.js).
@@ -176,16 +177,16 @@ class CallAudio extends EventEmitter {
     this._pick(gen);
   }
 
-  // Which paired device is the phone: the one chosen before, else the one with its Bluetooth
-  // name, else the only phone paired with this computer.
+  // Which paired device is the phone: the one picked for it before (each phone its own), else the
+  // one with its Bluetooth name. Not found: the user picks it ('choose'), never just the first one,
+  // which was another phone paired before.
   _pick(gen) {
     if (!this.power) { this.error = ''; return this._set('unavailable'); }
     const saved = this.saved();
     const name = this.phoneName.trim().toLowerCase();
     const d = this.devices.find((x) => x.id === saved)
-      || (name && this.devices.find((x) => x.name.trim().toLowerCase() === name))
-      || this.devices[0]; // the connected phone: by its name, else the paired one (no choosing)
-    if (!d) return this._set(this.devices.length ? 'choose' : 'needs-pair');
+      || (name && this.devices.find((x) => x.name.trim().toLowerCase() === name));
+    if (!d) { this.id = ''; return this._set(this.devices.length ? 'choose' : 'needs-pair'); }
     this.id = d.id;
     if (d.id !== saved) this.save(d.id);
     if (!this.parked) this._connect(d, gen);
@@ -258,7 +259,7 @@ class CallAudio extends EventEmitter {
       starting: 'Starting…',
       unavailable: this.error ? `Not available: ${this.error}` : 'Bluetooth is off on this computer',
       'needs-pair': `Pair ${this.phoneName || 'the phone'} with this computer over Bluetooth once: Pair asks the phone, or use Settings › Bluetooth`,
-      choose: 'Pair the phone that’s connected',
+      choose: `Which one is ${this.phoneName || 'the phone'}? Pick it, or Pair if it isn’t there`,
       connecting: `Connecting to ${name}…`,
       ready: this.parked ? `This call plays on ${name}` : `Connected to ${name} over Bluetooth: calls play on this computer`,
       failed: `Couldn’t reach ${name} over Bluetooth${this.error ? ` (${this.error})` : ''}. ${this.tries > RETRY_MS.length ? 'Click Connect to try again' : 'Trying again soon'}`,

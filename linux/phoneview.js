@@ -51,8 +51,21 @@ class PhoneViews extends EventEmitter {
     } else if (!on && open) this.close(open.id);
   }
 
+  // The phone's sound captured by the phone itself (no wireless debugging, phone-bridge.js): a
+  // hidden window with no adb session, fed what comes through the session.
+  netSound(on) {
+    const open = [...this.views.values()].find((v) => v.kind === 'netsound');
+    if (on && !open) this._open({ kind: 'netsound', title: 'Phone sound', width: 200, height: 100, hidden: true });
+    else if (!on && open) this.close(open.id);
+  }
+
+  netAudio(m) {
+    const v = [...this.views.values()].find((x) => x.kind === 'netsound');
+    if (v) this._send(v, 'phoneview:netaudio', { codec: m.codec === 'pcm' ? 'pcm' : 'opus', p: Array.isArray(m.p) ? m.p.filter((x) => typeof x === 'string').slice(0, 10) : [] });
+  }
+
   list() {
-    return [...this.views.values()].filter((v) => v.kind !== 'sound').map((v) => ({ id: v.id, kind: v.kind, app: v.app || null, title: v.title }));
+    return [...this.views.values()].filter((v) => v.kind !== 'sound' && v.kind !== 'netsound').map((v) => ({ id: v.id, kind: v.kind, app: v.app || null, title: v.title }));
   }
 
   get focused() {
@@ -134,7 +147,7 @@ class PhoneViews extends EventEmitter {
   }
 
   _open({ kind, app, title, width, height, opts, hidden = false }) {
-    if (!this.bridge.serial) return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
+    if (!this.bridge.serial && kind !== 'netsound') return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
     const id = nextId++;
     const win = new BrowserWindow({
       width, height, useContentSize: true, minWidth: 220, minHeight: 300, title, show: false, backgroundColor: '#000000',
@@ -159,7 +172,7 @@ class PhoneViews extends EventEmitter {
       this.emit('change');
     });
     this.emit('change');
-    this._start(v, opts).catch((e) => {
+    if (kind !== 'netsound') this._start(v, opts).catch((e) => {
       console.log(`[phone] ${kind} window: ${e.message}`);
       this._send(v, 'phoneview:status', { error: e.message });
     });

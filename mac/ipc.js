@@ -201,7 +201,7 @@ function setupIpc(ctx) {
       ctx.link.forget(String(hostId));
     },
     refreshDiscovery() {
-      ctx.discovery.probe();
+      ctx.discovery.refresh();
     },
     copyText(text) {
       if (typeof text === 'string' && text.length < 200) clipboard.writeText(text);

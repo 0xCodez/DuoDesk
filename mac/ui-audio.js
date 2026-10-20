@@ -40,7 +40,8 @@ UI.tab({
           : !a.peerAccepts ? `Turned off on ${pc}`
             : a.error ? `Can’t capture sound: ${a.error}`
               : live(a.sending) ? `Playing on ${pc}` : 'Connecting…');
-      recvRow.setHint(!a.receive || !s.client ? '' : live(a.receiving) ? `Playing ${pc}` : `Waiting for ${pc}`);
+      const phone = UI.phoneSound && UI.phoneSound(s);
+      recvRow.setHint(!a.receive ? '' : phone != null ? phone : !s.client ? '' : live(a.receiving) ? `Playing ${pc}` : `Waiting for ${pc}`);
     };
   },
 });

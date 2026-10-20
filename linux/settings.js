@@ -8,6 +8,9 @@ const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'mac-
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
 const bool = (v, d) => (typeof v === 'boolean' ? v : d);
+// Which Bluetooth device each phone is (shared/phonehub.js): {phone's id: device id}, a few.
+const btDevices = (v) => Object.fromEntries(Object.entries(v && typeof v === 'object' ? v : {})
+  .filter(([k, id]) => typeof k === 'string' && k.length <= 100 && typeof id === 'string' && id).slice(-20).map(([k, id]) => [k, id.slice(0, 400)])); // Windows' device ids are long
 // A global shortcut (Electron accelerator): Ctrl, Alt or the Windows key, plus one key.
 const KEY = /^(?:(?:Control|Alt|Shift|Super)\+){1,4}(?:[A-Z0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Space|Tab|Backspace|Delete|Enter|Up|Down|Left|Right)$/;
 const accel = (v, d) => (typeof v === 'string' && KEY.test(v) && /Control|Alt|Super/.test(v) ? v : d);
@@ -125,10 +128,11 @@ function normalize(s) {
     },
     mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked
     // Calls, Messages, Photos and Files from a phone (shared/phonehub.js), each off until switched on.
-    // callAudio: the calls' sound here over Bluetooth; btDevice: which paired phone, when several.
+    // callAudio: the calls' sound here over Bluetooth; btDevices: which paired Bluetooth device each
+    // phone is (its device id -> the Bluetooth device's id), found by its name or picked.
     hub: {
       calls: bool(hub.calls, false), messages: bool(hub.messages, false), media: bool(hub.media, false), files: bool(hub.files, false),
-      callAudio: bool(hub.callAudio, true), btDevice: typeof hub.btDevice === 'string' ? hub.btDevice.slice(0, 400) : '', // Windows' device ids are long
+      callAudio: bool(hub.callAudio, true), btDevices: btDevices(hub.btDevices),
       // Shared folders (shared/foldershare.js), both ways, off until switched on.
       shareMount: bool(hub.shareMount, false), shareServe: bool(hub.shareServe, false), shareFolder: typeof hub.shareFolder === 'string' ? hub.shareFolder.slice(0, 1000) : '',
     },

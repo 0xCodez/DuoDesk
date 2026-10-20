@@ -29,7 +29,12 @@ UI.tab({
     const discFix = UI.button('Allow', () => api.allowPermission('localNetwork'), 'small');
     discRow.querySelector('.controls').append(discFix);
     const foundList = el('div');
-    const refresh = UI.button('Refresh', () => api.refreshDiscovery(), 'small');
+    const refresh = UI.button('Refresh', () => { // the list empties and fills again with whoever answers
+      api.refreshDiscovery();
+      refresh.disabled = true;
+      refresh.textContent = 'Looking…';
+      setTimeout(() => { refresh.disabled = false; refresh.textContent = 'Refresh'; }, 1500);
+    }, 'small');
 
     // ---- hero ----
     const WHERE = { driving: 'You’re using {name}', driven: '{name} is using {me}' };

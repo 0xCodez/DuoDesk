@@ -85,6 +85,16 @@ class Discovery extends EventEmitter {
     else for (const target of this._targets()) this._send(msg, target);
   }
 
+  // Refresh: what was found is forgotten (an invite stays), and whoever is there answers again.
+  refresh() {
+    let changed = false;
+    for (const [id, d] of this.found) if (!d.invited) changed = this.found.delete(id);
+    if (changed) this.emit('change');
+    this._beacon();
+    this.probe();
+    setTimeout(() => this.probe(), 500); // UDP may drop one
+  }
+
   // Ask one address who is there; resolves to the device or null after PROBE_REPLY_MS.
   ask(address) {
     if (!isIPv4(address)) return Promise.resolve(null);

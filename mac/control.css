@@ -200,11 +200,13 @@ select { padding: 3px 24px 3px 8px; border-radius: 6px; border: 1px solid var(--
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* The pairing banner is a popup over the whole window: pairing needs an answer here or on the other device. */
-#banner { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 50; width: min(440px, calc(100vw - 32px)); box-sizing: border-box; margin: 0 !important; padding: 20px; border-radius: 14px; flex-direction: column; align-items: stretch; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35), 0 12px 40px rgba(0, 0, 0, 0.3); }
-#banner .banner-text strong { font-size: 16px; }
-#banner .banner-actions { justify-content: flex-end; }
-#banner:not([hidden]) { animation: pop-in 0.3s var(--spring) both; }
+/* The popup over the window while the banner waits for an answer here (shared/pairpop.js). */
+.pair-pop { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 50; width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 20px; border-radius: 14px; display: flex; flex-direction: column; gap: 16px; background: var(--card); border: 1px solid var(--warn); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35), 0 12px 40px rgba(0, 0, 0, 0.3); font-size: 14px; }
+.pair-pop[hidden] { display: none; }
+.pair-pop strong { font-size: 16px; }
+.pair-pop .hint { color: var(--muted); font-size: 12px; }
+.pair-pop .banner-actions { justify-content: flex-end; }
+.pair-pop:not([hidden]) { animation: pop-in 0.3s var(--spring) both; }
 @keyframes pop-in { from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); } to { opacity: 1; transform: translate(-50%, -50%); } }
 
 /* Wireless debugging over Bluetooth (UI.adbBle): greyed out, it says why. */
