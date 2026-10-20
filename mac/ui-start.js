@@ -106,7 +106,7 @@
     const c = s.client;
     $('peer-dot').className = `dot ${c ? 'good' : s.pairing ? 'warn' : ''}`;
     const gs = s.guest && s.guest.status && s.guest.status.state;
-    $('peer-text').textContent = c ? `${c.name}${c.transport === 'ble' ? ' · Bluetooth' : c.rttMs != null ? ` · ${c.rttMs} ms` : ''}`
+    $('peer-text').textContent = c ? `${c.name}${UI.via(s) !== 'Wi-Fi' ? ` · ${UI.via(s)}` : ''}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}`
       : s.pairing || (s.guest && s.guest.pairing) ? 'Pairing…' : gs === 'connecting' || gs === 'reconnecting' ? 'Connecting…' : 'Not connected';
     renderPhones(s);
     // Tabs that don't apply to the peer (a phone has no terminal or screen to share to it…).

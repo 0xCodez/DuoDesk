@@ -171,7 +171,7 @@ UI.tab({
       else peerDev.style.removeProperty('--phone-wall');
       linkLine.className = `hero-link ${c ? 'up' : ''}`;
       const connecting = ['connecting', 'reconnecting'].includes(g.status.state);
-      linkText.textContent = c ? (c.transport === 'ble' ? `Bluetooth${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}` : c.rttMs != null ? `${c.rttMs} ms` : 'Connected')
+      linkText.textContent = c ? `${c.rttMs != null ? `${c.rttMs} ms · ` : ''}${UI.via(s)}`
         : s.pairing || gp ? 'Pairing…' : connecting ? 'Connecting…' : 'Not connected';
       const inp = s.input || { where: 'home' };
       const bad = s.serverError || (g.status.state === 'identity_changed' && g.status.message);

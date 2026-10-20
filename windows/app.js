@@ -114,7 +114,7 @@
       : (s.pairing || l.state === 'connecting' || l.state === 'reconnecting') ? 'warn' : '';
     $('peer-dot').className = 'dot ' + dot;
     let text = 'Not paired';
-    if (l.state === 'connected') text = l.macName + (l.rtt != null ? ' · ' + l.rtt + ' ms' : '');
+    if (l.state === 'connected') text = l.macName + (UI.via(s) !== 'Wi-Fi' ? ' · ' + UI.via(s) : '') + (l.rtt != null ? ' · ' + l.rtt + ' ms' : '');
     else if (s.pairing) text = 'Pairing…';
     else if (l.state === 'connecting' || l.state === 'reconnecting') text = 'Reconnecting…';
     else if (l.state === 'identity_changed') text = 'Identity changed';

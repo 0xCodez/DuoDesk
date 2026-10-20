@@ -34,6 +34,17 @@
   // The session runs through Bluetooth (Mac: s.client; PC and Linux: s.net). USB, Wi-Fi and Wi-Fi
   // Direct aren't: Photos and Phone Files work on those, and load nothing over Bluetooth.
   UI.onBle = (s) => !!(s && ((s.client && s.client.transport === 'ble') || (s.net && s.net.transport === 'ble')));
+  // How the session runs, for the status lines: Bluetooth; a Wi-Fi Direct link (or a phone's
+  // hotspot) made for a file or a screen, which goes again by itself ("Temporary"), or asked for
+  // with Connect with Wi-Fi Direct on either side; else the same network.
+  UI.via = (s) => {
+    if (UI.onBle(s)) return 'Bluetooth';
+    const n = (s && s.net) || {};
+    if (!['hosting', 'joined'].includes(n.state)) return 'Wi-Fi';
+    const name = n.kind === 'hotspot' ? 'Hotspot' : 'Wi-Fi Direct';
+    const asked = (n.why || []).includes('user') || (n.peerWhy || []).includes('user');
+    return asked ? name : 'Temporary ' + name;
+  };
 
   UI.phoneName = (s) => (s && s.hub && s.hub.name) || 'your phone';
 
