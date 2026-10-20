@@ -27,14 +27,14 @@ const str = (v, n = 100) => (typeof v === 'string' ? v.slice(0, n) : '');
 
 // One pipe: a TCP socket on one side, the helper on the other, with flow control both ways.
 class Pipe {
-  constructor(helper, dev, sock) {
+  constructor(helper, dev, sock, cmd = 'bleSend') {
     this.helper = helper;
     this.dev = dev;
     this.sock = sock;
     this.inflight = 0;
     sock.setNoDelay(true);
     sock.on('data', (buf) => {
-      helper.send('bleSend', { dev, data: buf.toString('base64') });
+      helper.send(cmd, { dev, data: buf.toString('base64') });
       this.inflight += buf.length;
       if (this.inflight > HIGH_WATER) sock.pause();
     });
@@ -391,4 +391,166 @@ class BleLook extends EventEmitter {
   }
 }
 
-module.exports = { BleHost, BleGuest, BleLook };
+// Phones that advertise (P.BLE.PHONE_SERVICE), for a PC whose Bluetooth can't advertise reliably
+// (BleHost): we connect to each one found, say hello (the phone lists us), and keep the link. A
+// pipe opens when we want the session (invite: Pair or Connect here) or the phone asks for one
+// (its Pair or Connect); its TCP end connects to our own server, as BleHost's does, so the phone's
+// session comes in as any Bluetooth one.
+// Helper: blpScan {on}, blpLink {dev, hello}, blpOpen {dev}, blpEnd {dev}, blpSend, blpDrop {dev};
+// events blp.found {dev, info}, blp.linked, blp.want, blp.opened, blp.data, blp.sent, blp.close,
+// blp.gone. Events: 'change'.
+class BlePhones extends EventEmitter {
+  // hello() -> this PC's beacon {id, name, os, port, fp}; server: ours (server.blePorts, BleHost's).
+  constructor({ helper, server, hello }) {
+    super();
+    Object.assign(this, { helper, server, hello });
+    this.scanning = false;
+    this.found = new Map(); // phone id -> {dev, id, name, lastSeen}
+    this.links = new Map(); // dev -> 'linking' | 'up'
+    this.tried = new Map(); // dev -> when we last tried to link
+    this.wantOpen = new Set(); // devs to open a pipe to once linked
+    this.pipes = new Map(); // dev -> Pipe
+    if (!server.blePorts) server.blePorts = new Map();
+    helper.on('event', (name, m) => this._event(name, m));
+    helper.on('ready', () => {
+      this.links.clear();
+      if (this.scanning) this.helper.send('blpScan', { on: true });
+    });
+    setInterval(() => this._prune(), 5000).unref();
+  }
+
+  scan(on) {
+    if (this.scanning === !!on) return;
+    this.scanning = !!on;
+    this.helper.send('blpScan', { on: this.scanning });
+  }
+
+  list() {
+    return [...this.found.values()].map(({ id, name, dev }) => ({ id, name, os: P.OS.ANDROID, address: `ble:${dev}`, port: 0, fp: '', ble: true }));
+  }
+
+  // Pair or Connect here: a pipe to the phone (it pairs or connects through it, as for an invite).
+  invite(id) {
+    const f = this.found.get(id);
+    if (!f) return false;
+    if (this.links.get(f.dev) === 'up') this._open(f.dev);
+    else {
+      this.wantOpen.add(f.dev);
+      this._link(f.dev, true);
+    }
+    return true;
+  }
+
+  _link(dev, force) {
+    if (this.links.has(dev) || (!force && Date.now() - (this.tried.get(dev) || 0) < 15000)) return;
+    this.tried.set(dev, Date.now());
+    this.links.set(dev, 'linking');
+    this.helper.send('blpLink', { dev, hello: JSON.stringify(this.hello()) });
+  }
+
+  _open(dev) {
+    if (this.pipes.has(dev)) return;
+    this.helper.send('blpOpen', { dev });
+  }
+
+  _event(name, m) {
+    if (!name.startsWith('blp.')) return;
+    const dev = str(m.dev, 64);
+    switch (name) {
+      case 'blp.found': {
+        let info;
+        try { info = JSON.parse(m.info); } catch { return; }
+        if (!info || typeof info.id !== 'string' || !info.id) return;
+        const old = this.found.get(info.id);
+        if (old && old.dev !== dev) this._drop(old.dev); // a new address (Android changes it now and then)
+        this.found.set(info.id, { dev, id: info.id.slice(0, 64), name: str(info.name, 64) || 'Phone', lastSeen: Date.now() });
+        if (!old || old.dev !== dev || old.name !== info.name) this.emit('change');
+        this._link(dev, false);
+        return;
+      }
+      case 'blp.linked':
+        this.links.set(dev, 'up');
+        if (this.wantOpen.delete(dev)) this._open(dev);
+        return;
+      case 'blp.want': return this._open(dev);
+      case 'blp.opened': {
+        this._closePipe(dev);
+        const sock = net.connect({ host: '127.0.0.1', port: this.server.port });
+        const p = new Pipe(this.helper, dev, sock, 'blpSend');
+        this.pipes.set(dev, p);
+        sock.on('connect', () => {
+          p.localPort = sock.localPort;
+          this.server.blePorts.set(sock.localPort, Date.now());
+          const f = [...this.found.values()].find((x) => x.dev === dev);
+          console.log(`[ble] pipe open for the phone ${f ? f.name : dev}`);
+        });
+        sock.on('close', () => {
+          if (p.localPort) setTimeout(() => this.server.blePorts.delete(p.localPort), 1000);
+          if (this.pipes.get(dev) !== p) return;
+          this.pipes.delete(dev);
+          this.helper.send('blpEnd', { dev });
+        });
+        sock.on('error', () => {});
+        return;
+      }
+      case 'blp.data': {
+        const p = this.pipes.get(dev);
+        if (!p) return;
+        p.data(m.data);
+        if (p.localPort) this.server.blePorts.set(p.localPort, Date.now()); // a big message takes a while: its bytes count as alive
+        for (const f of this.found.values()) if (f.dev === dev) f.lastSeen = Date.now();
+        return;
+      }
+      case 'blp.sent': {
+        const p = this.pipes.get(dev);
+        if (p) p.sent(Number(m.bytes) || 0);
+        return;
+      }
+      case 'blp.close': // the pipe (the link stays), or a link that didn't come up
+        this._closePipe(dev);
+        if (this.links.get(dev) === 'linking') {
+          this.links.delete(dev);
+          this.wantOpen.delete(dev);
+        }
+        return;
+      case 'blp.gone':
+        this._closePipe(dev);
+        this.links.delete(dev);
+        this.wantOpen.delete(dev);
+        return;
+    }
+  }
+
+  _closePipe(dev) {
+    const p = this.pipes.get(dev);
+    if (!p) return;
+    this.pipes.delete(dev);
+    p.close();
+  }
+
+  _drop(dev) {
+    this._closePipe(dev);
+    if (this.links.delete(dev)) this.helper.send('blpDrop', { dev });
+    this.wantOpen.delete(dev);
+  }
+
+  _prune() {
+    const now = Date.now();
+    let changed = false;
+    for (const [id, f] of this.found) {
+      if (now - f.lastSeen > FOUND_STALE_MS && !this.pipes.has(f.dev) && this.links.get(f.dev) !== 'up') {
+        this.found.delete(id);
+        this._drop(f.dev);
+        changed = true;
+      }
+    }
+    if (changed) this.emit('change');
+  }
+
+  stop() {
+    this.scan(false);
+    for (const dev of [...this.links.keys()]) this._drop(dev);
+  }
+}
+
+module.exports = { BleHost, BleGuest, BleLook, BlePhones };

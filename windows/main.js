@@ -46,7 +46,7 @@ const { PhoneDrive } = require('./phonedrive');
 const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
-const { BleHost, BleGuest } = require('../shared/blepipe.js');
+const { BleHost, BleGuest, BlePhones } = require('../shared/blepipe.js');
 const { NetLink } = require('../shared/netlink.js');
 const { Wifi } = require('./wifi');
 const { normalize, apply: applySettings } = require('./settings');
@@ -117,6 +117,7 @@ let phoneViews = null; // its screen and apps in windows here (phoneview.js)
 let phoneDrive = null; // its storage as a drive here (phonedrive.js)
 let bleHost = null; // Bluetooth, for devices not on this network: we host (blepipe.js)
 let bleGuest = null; // … we connect to a host
+let blePhones = null; // phones that advertise: we connect to them (a PC's Bluetooth often can't advertise)
 let net = null; // Wi-Fi for a session through Bluetooth (netlink.js)
 let wifi = null; // this PC's Wi-Fi for it: hosting, joining (wifi.js)
 let lastMode = 'home';
@@ -304,6 +305,9 @@ async function startHost(guest) {
     });
     bleHost.on('change', pushState);
     discovery.extras.unshift(bleHost);
+    blePhones = new BlePhones({ helper, server, hello: bleHost.info });
+    blePhones.on('change', pushState);
+    discovery.extras.push(blePhones);
     server.on('phoneFree', () => { guest.poke(); pushState(); });
     startPhone(server, pairing);
   } catch (e) {
@@ -419,6 +423,7 @@ function setupNet(guest) {
     if (phoneViews && !phoneViews.list().length) net.release('phone');
     const near = settings.net.ble && link.snapshot().link.state !== 'connected' && !link.hosting;
     bleGuest.scan(near); // looking for a host only while there's no session
+    if (blePhones) blePhones.scan(near); // … and for phones
   }, 2000);
 }
 
@@ -426,6 +431,7 @@ function setupNet(guest) {
 function applyNet() {
   if (bleHost) bleHost.apply();
   if (bleGuest && !settings.net.ble) bleGuest.scan(false);
+  if (blePhones && !settings.net.ble) blePhones.stop();
   pushState();
 }
 
@@ -449,6 +455,7 @@ function viaWifi(obj, method, why) {
 // A phone found nearby: a paired one is asked to connect, any other to pair with this PC.
 function connectPhoneDev(d) {
   discovery.clearInvite(d.id);
+  if (String(d.address).startsWith('ble:')) return discovery.invite(d.address); // near over Bluetooth only (BlePhones)
   if (phone && link.pairing && link.pairing.list().some((p) => p.id === d.id)) phone.connect(d.id);
   else discovery.invite(d.address);
 }

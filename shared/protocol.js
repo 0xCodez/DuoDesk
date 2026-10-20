@@ -211,6 +211,10 @@
       CTRL: 'b7f30003-2c4e-4d1a-9a57-3e8c2f6d0a91',
       UP: 'b7f30004-2c4e-4d1a-9a57-3e8c2f6d0a91',
       DOWN: 'b7f30005-2c4e-4d1a-9a57-3e8c2f6d0a91',
+      // A phone advertises this one with the same characteristics (its GATT server; the session is
+      // still ours): a PC's Bluetooth often can't advertise reliably. The PC connects, says hello,
+      // and opens a pipe when it wants the session or the phone asks (CTRL {op: 'want'}).
+      PHONE_SERVICE: 'b7f30006-2c4e-4d1a-9a57-3e8c2f6d0a91',
     },
 
     // Error codes (field `code` of an `error` message)

@@ -36,7 +36,9 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val ble = Ble(ctx, { JSONObject().put("id", store.deviceId).put("name", store.deviceName).put("os", Proto.OS) },
         { id -> store.hosts().any { it.id == id } }, ::changed, ::onInvite)
     val bleOn get() = store.flag("ble", true)
-    init { link.bleRx = { ble.lastDown } }
+    // … and PCs that connect to us: this phone advertises (BleServe.kt), as a PC's Bluetooth often can't.
+    val serve = BleServe(ctx, { JSONObject().put("id", store.deviceId).put("name", store.deviceName).put("os", Proto.OS) }, ::changed, ::onServeOpen)
+    init { link.bleRx = { maxOf(ble.lastDown, serve.lastRx) } }
 
     // An unpaired computer asked us to pair (shown until acted on).
     @Volatile var invite: Found? = null; private set
@@ -82,6 +84,8 @@ class Core private constructor(val ctx: Context) : Link.Events {
         val want = bleOn && ble.allowed() && ble.radioOn && (!link.connected || link.ble)
         ble.scan(want)
         if (!bleOn && ble.found.isNotEmpty()) ble.stop()
+        serve.advertise(bleOn && serve.allowed() && ble.radioOn && !link.connected)
+        if (!bleOn && serve.found.isNotEmpty()) serve.stop()
         val h = link.host
         if (link.connected && !link.ble) screen.onWifi()
         if (h == null || !link.connected || !link.ble || link.resuming) return
@@ -96,10 +100,11 @@ class Core private constructor(val ctx: Context) : Link.Events {
     // Computers near: on the network, then the ones only Bluetooth sees.
     fun nearby(): List<Found> {
         val net = discovery.list()
-        return net + ble.found.values.filter { b -> bleOn && net.none { it.id == b.id } }.sortedBy { it.name }
+        val near = net + ble.found.values.filter { b -> bleOn && net.none { it.id == b.id } }.sortedBy { it.name }
+        return near + serve.found.values.filter { b -> bleOn && near.none { it.id == b.id } }.sortedBy { it.name }
     }
 
-    fun isNear(id: String) = discovery.found.containsKey(id) || (bleOn && ble.found.containsKey(id))
+    fun isNear(id: String) = discovery.found.containsKey(id) || (bleOn && (ble.found.containsKey(id) || serve.found.containsKey(id)))
 
     // Wi-Fi out of power save while a screen streams either way (power save adds 50–200 ms bursts).
     private val wifiFast by lazy { WifiFast(ctx) }
@@ -136,7 +141,29 @@ class Core private constructor(val ctx: Context) : Link.Events {
             }
             return
         }
+        // A PC connected to us over Bluetooth (BleServe): ask it for a pipe.
+        if (seen == null && bleOn && serve.get(h.id) != null) {
+            bg.execute {
+                val port = serve.open(h.id)
+                if (port != null) link.connect(h, blePort = port)
+            }
+            return
+        }
         link.connect(h)
+    }
+
+    // A PC opened a pipe on its own (its Pair or Connect, an invite): a paired one connects through
+    // it now, an unpaired one is shown as an invite (Pair asks it for a pipe again).
+    private fun onServeOpen(f: Found, port: Int): Boolean {
+        val h = store.hosts().find { it.id == f.id }
+        if (h == null || link.connected || link.state == "connecting" || link.pair != null) {
+            if (h == null) onInvite(f.copy(invited = true))
+            return false
+        }
+        Log.i("TwinDesk", "${f.name} opened a Bluetooth pipe: connecting")
+        resumeUntil = 0
+        link.connect(h, blePort = port)
+        return true
     }
 
     // The computer found this device on a USB cable (adb reverse to its port, then a broadcast:
@@ -175,6 +202,13 @@ class Core private constructor(val ctx: Context) : Link.Events {
     fun pair(f: Found) {
         invite = null
         discovery.clearInvite(f.id)
+        if (f.address.startsWith("blp:")) {
+            bg.execute {
+                val port = serve.open(f.id)
+                if (port != null) link.startPairing("127.0.0.1", port, f.name, viaBle = true)
+            }
+            return
+        }
         if (f.address.startsWith("ble:")) {
             bg.execute {
                 val port = ble.open(f.id)
@@ -204,7 +238,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
         if (h != null) {
             Log.i("TwinDesk", "invite from ${f.name}: connecting")
             if (link.host?.id == h.id && (link.state == "connected" || link.state == "connecting")) return
-            if (!f.address.startsWith("ble:")) {
+            if (!f.address.startsWith("ble:") && !f.address.startsWith("blp:")) {
                 h.address = f.address
                 h.port = f.port
             }

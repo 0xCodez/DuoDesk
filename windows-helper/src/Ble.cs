@@ -25,6 +25,9 @@ namespace MacShare
         public static readonly Guid Ctrl = new Guid("b7f30003-2c4e-4d1a-9a57-3e8c2f6d0a91");
         public static readonly Guid Up = new Guid("b7f30004-2c4e-4d1a-9a57-3e8c2f6d0a91");
         public static readonly Guid Down = new Guid("b7f30005-2c4e-4d1a-9a57-3e8c2f6d0a91");
+        // A phone advertises this one (the same characteristics; its GATT server, our session):
+        // a PC's Bluetooth often can't advertise reliably, a phone's can.
+        public static readonly Guid PhoneService = new Guid("b7f30006-2c4e-4d1a-9a57-3e8c2f6d0a91");
 
         public static string Text(byte[] b)
         {
@@ -276,8 +279,20 @@ namespace MacShare
         }
     }
 
+    // One per service: hosts (BleIds.Service, events "ble.*") and phones (BleIds.PhoneService,
+    // events "blp.*"). A phone's link stays up between pipes: Open(dev, hello, false) only says
+    // hello, OpenPipe / EndPipe start and end a pipe on it, and the phone asks for one ({op: want}).
     class BleGuest
     {
+        readonly Guid service;
+        readonly string ev;
+
+        public BleGuest(Guid service, string ev)
+        {
+            this.service = service;
+            this.ev = ev;
+        }
+
         BluetoothLEAdvertisementWatcher watcher;
         readonly ConcurrentDictionary<string, string> infos = new ConcurrentDictionary<string, string>(); // dev -> INFO JSON
         readonly ConcurrentDictionary<string, DateTime> told = new ConcurrentDictionary<string, DateTime>(); // dev -> last ble.found
@@ -290,17 +305,17 @@ namespace MacShare
             {
                 BluetoothLEAdvertisementWatcher w = new BluetoothLEAdvertisementWatcher();
                 w.ScanningMode = BluetoothLEScanningMode.Active;
-                w.AdvertisementFilter.Advertisement.ServiceUuids.Add(BleIds.Service);
+                w.AdvertisementFilter.Advertisement.ServiceUuids.Add(service);
                 w.Received += OnAdvertisement;
                 w.Stopped += (s, e) =>
                 {
-                    if (e.Error != BluetoothError.Success) Net.Event("ble.state", null, "state", e.Error == BluetoothError.RadioNotAvailable ? "off" : "unsupported");
+                    if (e.Error != BluetoothError.Success) Net.Event(ev + "state", null, "state", e.Error == BluetoothError.RadioNotAvailable ? "off" : "unsupported");
                 };
                 watcher = w;
                 try
                 {
                     w.Start();
-                    Net.Event("ble.state", null, "state", "on");
+                    Net.Event(ev + "state", null, "state", "on");
                 }
                 catch (Exception e) { Net.Log("scan: " + e.Message); watcher = null; }
             }
@@ -321,7 +336,7 @@ namespace MacShare
                 DateTime last;
                 if (told.TryGetValue(dev, out last) && (DateTime.UtcNow - last).TotalSeconds < 3) return;
                 told[dev] = DateTime.UtcNow;
-                Net.Event("ble.found", dev, "info", info);
+                Net.Event(ev + "found", dev, "info", info);
                 return;
             }
             DateTime started;
@@ -337,7 +352,7 @@ namespace MacShare
             {
                 d = await BluetoothLEDevice.FromBluetoothAddressAsync(addr);
                 if (d == null) return;
-                GattDeviceServicesResult sr = await d.GetGattServicesForUuidAsync(BleIds.Service, BluetoothCacheMode.Uncached);
+                GattDeviceServicesResult sr = await d.GetGattServicesForUuidAsync(service, BluetoothCacheMode.Uncached);
                 if (sr.Status != GattCommunicationStatus.Success || sr.Services.Count == 0) return;
                 GattDeviceService svc = sr.Services[0];
                 GattCharacteristicsResult cr = await svc.GetCharacteristicsForUuidAsync(BleIds.Info, BluetoothCacheMode.Uncached);
@@ -349,7 +364,7 @@ namespace MacShare
                         string info = BleIds.Text(rr.Value.ToArray());
                         infos[dev] = info;
                         told[dev] = DateTime.UtcNow;
-                        Net.Event("ble.found", dev, "info", info);
+                        Net.Event(ev + "found", dev, "info", info);
                     }
                 }
                 svc.Dispose();
@@ -358,21 +373,21 @@ namespace MacShare
             finally { if (d != null) d.Dispose(); }
         }
 
-        public void Open(string dev, string hello)
+        public void Open(string dev, string hello, bool open = true)
         {
             Close(dev);
-            Pipe p = new Pipe(dev);
+            Pipe p = new Pipe(dev, service, ev);
             pipes[dev] = p;
             Task.Run(async () =>
             {
-                try { await p.Open(hello); }
+                try { await p.Open(hello, open); }
                 catch (Exception e)
                 {
                     Net.Log("open " + dev + ": " + e.Message);
                     Pipe x;
                     if (pipes.TryGetValue(dev, out x) && x == p) pipes.TryRemove(dev, out x);
                     p.Dispose();
-                    Net.Event("ble.close", dev, "error", e.Message);
+                    Net.Event(ev + "close", dev, "error", e.Message);
                 }
             });
         }
@@ -389,6 +404,24 @@ namespace MacShare
             if (pipes.TryRemove(dev, out p)) p.Dispose();
         }
 
+        // A pipe on a link that is up (a phone's): start one, or end it and keep the link.
+        public void OpenPipe(string dev)
+        {
+            Pipe p;
+            if (!pipes.TryGetValue(dev, out p)) { Net.Event(ev + "close", dev, "error", "not linked"); return; }
+            Task.Run(async () =>
+            {
+                try { await p.WriteCtrl("{\"op\":\"open\"}"); Net.Event(ev + "opened", dev, null, null); }
+                catch (Exception e) { Net.Event(ev + "close", dev, "error", e.Message); }
+            });
+        }
+
+        public void EndPipe(string dev)
+        {
+            Pipe p;
+            if (pipes.TryGetValue(dev, out p)) Task.Run(async () => { try { await p.WriteCtrl("{\"op\":\"close\"}"); } catch (Exception) { } });
+        }
+
         public void StopAll()
         {
             Scan(false);
@@ -399,6 +432,8 @@ namespace MacShare
         class Pipe
         {
             readonly string dev;
+            readonly Guid service;
+            readonly string ev;
             BluetoothLEDevice device;
             GattSession session;
             GattDeviceService svc;
@@ -406,18 +441,25 @@ namespace MacShare
             readonly BlockingCollection<byte[]> q = new BlockingCollection<byte[]>();
             volatile bool alive = true;
 
-            public Pipe(string dev)
+            public Pipe(string dev, Guid service, string ev)
             {
                 this.dev = dev;
+                this.service = service;
+                this.ev = ev;
             }
 
-            public async Task Open(string hello)
+            public Task WriteCtrl(string text)
+            {
+                return Write(ctrl, text);
+            }
+
+            public async Task Open(string hello, bool open)
             {
                 device = await BluetoothLEDevice.FromBluetoothAddressAsync(Convert.ToUInt64(dev, 16));
                 if (device == null) throw new Exception("not found");
                 session = await GattSession.FromDeviceIdAsync(device.BluetoothDeviceId);
                 session.MaintainConnection = true;
-                GattDeviceServicesResult sr = await device.GetGattServicesForUuidAsync(BleIds.Service, BluetoothCacheMode.Uncached);
+                GattDeviceServicesResult sr = await device.GetGattServicesForUuidAsync(service, BluetoothCacheMode.Uncached);
                 if (sr.Status != GattCommunicationStatus.Success || sr.Services.Count == 0) throw new Exception("no TwinDesk service (" + sr.Status + ")");
                 svc = sr.Services[0];
                 ctrl = await Chr(BleIds.Ctrl);
@@ -432,18 +474,18 @@ namespace MacShare
                 }
                 device.ConnectionStatusChanged += (s, e) =>
                 {
-                    if (s.ConnectionStatus == BluetoothConnectionStatus.Disconnected && alive) Net.Event("ble.gone", dev, null, null);
+                    if (s.ConnectionStatus == BluetoothConnectionStatus.Disconnected && alive) Net.Event(ev + "gone", dev, null, null);
                 };
                 Dictionary<string, object> h = null;
                 try { h = Json.Parse(hello); } catch (Exception) { }
                 if (h == null) h = new Dictionary<string, object>();
                 h["op"] = "hello";
                 await Write(ctrl, Json.Write(h));
-                await Write(ctrl, "{\"op\":\"open\"}");
+                if (open) await Write(ctrl, "{\"op\":\"open\"}");
                 Thread t = new Thread(Loop);
                 t.IsBackground = true;
                 t.Start();
-                Net.Event("ble.opened", dev, null, null);
+                Net.Event(ev + (open ? "opened" : "linked"), dev, null, null);
             }
 
             async Task<GattCharacteristic> Chr(Guid id)
@@ -463,7 +505,7 @@ namespace MacShare
 
             void OnDown(GattCharacteristic c, GattValueChangedEventArgs args)
             {
-                lock (downGate) Net.Event("ble.data", dev, "data", Convert.ToBase64String(args.CharacteristicValue.ToArray()));
+                lock (downGate) Net.Event(ev + "data", dev, "data", Convert.ToBase64String(args.CharacteristicValue.ToArray()));
             }
 
             void OnCtrl(GattCharacteristic c, GattValueChangedEventArgs args)
@@ -471,8 +513,9 @@ namespace MacShare
                 Dictionary<string, object> o = null;
                 try { o = Json.Parse(BleIds.Text(args.CharacteristicValue.ToArray())); } catch (Exception) { }
                 string op = Json.Str(o, "op", "");
-                if (op == "invite") Net.Event("ble.invite", dev, null, null);
-                else if (op == "closed") Net.Event("ble.close", dev, null, null);
+                if (op == "invite") Net.Event(ev + "invite", dev, null, null);
+                else if (op == "closed") Net.Event(ev + "close", dev, null, null);
+                else if (op == "want") Net.Event(ev + "want", dev, null, null); // a phone: open a pipe
             }
 
             public void Add(byte[] data)
@@ -501,12 +544,12 @@ namespace MacShare
                         }
                         if (!ok) // a lost chunk breaks the session's TLS: end this pipe, main opens another
                         {
-                            if (alive) Net.Event("ble.close", dev, "error", "write failed");
+                            if (alive) Net.Event(ev + "close", dev, "error", "write failed");
                             Dispose();
                             return;
                         }
                     }
-                    Net.Event("ble.sent", dev, "bytes", data.Length);
+                    Net.Event(ev + "sent", dev, "bytes", data.Length);
                 }
             }
 

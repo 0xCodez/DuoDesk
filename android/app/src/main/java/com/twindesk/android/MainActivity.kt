@@ -459,7 +459,7 @@ private fun OverviewPage(core: Core, v: Int) {
             first = false
         }
         for (f in core.nearby().filter { f -> hosts.none { it.id == f.id } }) {
-            MacRow(f.name, "${if (f.os == "mac") "Mac" else if (f.os == "linux") "Linux" else "PC"} · ${if (f.address.startsWith("ble:")) "Bluetooth" else f.address}", first) { Secondary("Pair") { core.pair(f) } }
+            MacRow(f.name, "${if (f.os == "mac") "Mac" else if (f.os == "linux") "Linux" else "PC"} · ${if (f.address.startsWith("ble:") || f.address.startsWith("blp:")) "Bluetooth" else f.address}", first) { Secondary("Pair") { core.pair(f) } }
             first = false
         }
         if (first) MacRow("Looking for computers…", if (core.bleOn && core.ble.allowed()) "Open TwinDesk on your computer (same Wi-Fi, or Bluetooth on)" else "Open TwinDesk on your Mac (same Wi-Fi)", true)
@@ -816,7 +816,7 @@ private fun GeneralPage(core: Core, v: Int) {
     fun Setup(label: String, hint: String, done: Boolean, action: String, first: Boolean = false, onClick: () -> Unit) =
         MacRow(label, hint, first) { if (done) Pill("Allowed", "good") else Primary(action, onClick) }
     // Bluetooth and Wi-Fi Direct, for a computer not on this network.
-    val nearbyPerms = (Ble.permissions() + Direct.permission()).distinct().toTypedArray()
+    val nearbyPerms = (Ble.permissions() + BleServe.permissions() + Direct.permission()).distinct().toTypedArray()
     val nearbyAllowed = nearbyPerms.all { ctx.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
     val askNearby = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),

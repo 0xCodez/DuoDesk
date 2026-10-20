@@ -6,6 +6,9 @@
 //     events ble.state, ble.guest, ble.open, ble.data, ble.close, ble.gone, ble.sent
 //   Guest (this PC connects to a host): bleScan {on}, bleOpen {dev, hello}, bleSend, bleClose {dev}
 //     events ble.state, ble.found {dev, info}, ble.invite, ble.opened, ble.data, ble.close, ble.gone, ble.sent
+//   Phones (they advertise, we connect; the link stays up between pipes): blpScan {on},
+//     blpLink {dev, hello}, blpOpen {dev}, blpEnd {dev}, blpSend {dev, data}, blpDrop {dev}
+//     events blp.found {dev, info}, blp.linked, blp.want, blp.opened, blp.data, blp.close, blp.gone, blp.sent
 //   Wi-Fi Direct (a network the other side joins while this PC stays on its own Wi-Fi):
 //     wfdCaps -> {host, wifi}; wfdHost {ssid, pass}; wfdStop; and for joining (wifi.js) too:
 //     wfdRadio {on} -> {was} (Wi-Fi on/off); wfdSsid -> {ssid}; wfdLocation -> {status}
@@ -20,6 +23,7 @@ namespace MacShare
     {
         static BleHost host;
         static BleGuest guest;
+        static BleGuest phones;
         static WfdHost wfd;
 
         public static void Event(string name, string dev, string key, object value)
@@ -68,7 +72,7 @@ namespace MacShare
         // True when the line was one of ours.
         public static bool Handle(string line)
         {
-            if (line.IndexOf("\"cmd\":\"ble", StringComparison.Ordinal) < 0 && line.IndexOf("\"cmd\":\"wfd", StringComparison.Ordinal) < 0) return false;
+            if (line.IndexOf("\"cmd\":\"ble", StringComparison.Ordinal) < 0 && line.IndexOf("\"cmd\":\"blp", StringComparison.Ordinal) < 0 && line.IndexOf("\"cmd\":\"wfd", StringComparison.Ordinal) < 0) return false;
             Dictionary<string, object> m;
             try { m = Json.Parse(line); }
             catch (Exception) { return true; }
@@ -78,7 +82,7 @@ namespace MacShare
             string dev = Json.Str(m, "dev", "");
             try
             {
-                if (host == null) { host = new BleHost(); guest = new BleGuest(); wfd = new WfdHost(); }
+                if (host == null) { host = new BleHost(); guest = new BleGuest(BleIds.Service, "ble."); phones = new BleGuest(BleIds.PhoneService, "blp."); wfd = new WfdHost(); }
                 switch (cmd)
                 {
                     case "bleStart":
@@ -94,6 +98,12 @@ namespace MacShare
                     case "bleScan": guest.Scan(Json.Bool(m, "on", false)); Reply(id, null); break;
                     case "bleOpen": guest.Open(dev, Json.Str(m, "hello", "{}")); Reply(id, null); break;
                     case "bleClose": guest.Close(dev); Reply(id, null); break;
+                    case "blpScan": phones.Scan(Json.Bool(m, "on", false)); Reply(id, null); break;
+                    case "blpLink": phones.Open(dev, Json.Str(m, "hello", "{}"), false); Reply(id, null); break;
+                    case "blpOpen": phones.OpenPipe(dev); Reply(id, null); break;
+                    case "blpEnd": phones.EndPipe(dev); Reply(id, null); break;
+                    case "blpDrop": phones.Close(dev); Reply(id, null); break;
+                    case "blpSend": phones.Send(dev, Convert.FromBase64String(Json.Str(m, "data", ""))); break;
                     case "wfdCaps": Async(id, () => wfd.Caps()); break;
                     case "wfdRadio":
                         bool on = Json.Bool(m, "on", true);
@@ -134,6 +144,7 @@ namespace MacShare
         {
             try { if (host != null) host.Stop(); } catch (Exception) { }
             try { if (guest != null) guest.StopAll(); } catch (Exception) { }
+            try { if (phones != null) phones.StopAll(); } catch (Exception) { }
             try { if (wfd != null) wfd.Stop(); } catch (Exception) { }
         }
     }
