@@ -396,7 +396,9 @@ function updateTray() {
   const found = (state.found || []).filter((d) => !c || d.id !== c.id);
   const phoneView = !!(phone && svc && svc.phoneViews.list().some((v) => v.kind === 'screen'));
   const OS = { mac: 'Mac', linux: 'Linux', android: 'Phone' };
-  const key = JSON.stringify([c && c.name, c && c.transport, phone, where, k.linked, k.driveOther, k.beDriven, settings.sharing.on,
+  const g = (svc && link && link.view()) || { status: {}, hosts: [] };
+  const again = !c && g.hosts.length && (g.status.state === 'stopped' || !!g.status.busy);
+  const key = JSON.stringify([c && c.name, c && c.transport, phone, again, where, k.linked, k.driveOther, k.beDriven, settings.sharing.on,
     !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud,
     found.map((d) => [d.id, d.name, d.os]), updates && updates.status.available && updates.status.latest]);
   if (key === trayKey) return;
@@ -429,7 +431,8 @@ function updateTray() {
           { label: 'Look Again', click: () => actions.refreshDiscovery() },
         ],
       },
-      ...(phone ? [{ label: 'Disconnect Phone', click: () => actions.disconnectPhone() }] : []),
+      ...(c ? [{ label: phone ? 'Disconnect Phone' : `Disconnect ${name}`, click: () => actions.disconnect() }] : []),
+      ...(again ? [{ label: `${g.status.busy ? 'Take Over' : 'Connect to'} ${g.hosts[0].name}`, click: () => actions.connectAgain() }] : []),
       check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
       { type: 'separator' },
       ...(updates && updates.status.available ? [{ label: `Download TwinDesk ${updates.status.latest}…`, click: () => updates.open() }] : []),

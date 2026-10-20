@@ -107,6 +107,7 @@ class Link(
     val resuming get() = pending != null
 
     fun disconnect() = run {
+        if (state == "connected") raw(msg(Proto.T.BYE))
         closeSocket()
         setState("idle", "")
     }
@@ -367,7 +368,7 @@ class Link(
         message = when (code) {
             Proto.E.BAD_TOKEN -> "${host?.name ?: "The computer"} forgot this phone. Pair again."
             Proto.E.BUSY -> m.optString("message").ifEmpty { "Busy with another device" }
-            Proto.E.REPLACED -> "Another phone connected"
+            Proto.E.REPLACED -> m.optString("message").ifEmpty { "Another device connected" }
             Proto.E.RELEASED -> "Disconnected from ${host?.name ?: "the computer"}"
             else -> "Closed ($code)"
         }

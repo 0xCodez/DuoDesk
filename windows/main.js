@@ -141,7 +141,12 @@ function start() {
 
   discovery = new Discovery(device);
   discovery.on('change', pushState);
-  discovery.on('invite', () => { pushState(); showMain(); }); // a Mac wants to connect: Pair is focused
+  discovery.on('invite', (d) => {
+    // Connect on this computer in our host's list: back to it, taking the session over.
+    if (guest.pairing && d && d.id === guest.pairing.macId) return void (discovery.clearInvite(d.id), guest.connect(true));
+    pushState();
+    showMain();
+  }); // a Mac wants to connect: Pair is focused
   discovery.start();
 
   // link = the peer layer (peer.js): guest of a Mac or another computer, or host of a PC/Linux.
@@ -659,7 +664,8 @@ function statusLine(s) {
   switch (s.link.state) {
     case 'connected': return 'Connected to ' + s.link.macName;
     case 'connecting': return 'Connecting…';
-    case 'reconnecting': return 'Reconnecting…';
+    case 'reconnecting': return s.link.busy || 'Reconnecting…';
+    case 'stopped': return 'Disconnected';
     case 'identity_changed': return 'Pair again';
     default: return 'Not paired';
   }
@@ -758,7 +764,9 @@ function updateTray(s = buildState()) {
   tray.setToolTip('TwinDesk: ' + statusLine(s));
   // Rebuild only when something in the menu changed (state pushes are frequent).
   const watching = screen.sentAccept === true;
-  const key = JSON.stringify([name, rtt, away, kvm.linked, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
+  const host = s.paired && s.paired.macName;
+  const again = !connected && host && (s.link.state === 'stopped' || !!s.link.busy);
+  const key = JSON.stringify([name, rtt, again, away, kvm.linked, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
     settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
   if (key === trayKey) return;
   trayKey = key;
@@ -795,6 +803,8 @@ function updateTray(s = buildState()) {
       { label: 'Connect by Address…', click: () => goTab('overview') },
       { label: 'Look Again', click: () => discovery.probe() },
     ] },
+    ...(connected ? [{ label: 'Disconnect ' + name, click: () => link.disconnect() }] : []),
+    ...(again ? [{ label: (s.link.busy ? 'Take Over ' : 'Connect to ') + host, click: () => link.connect(true) }] : []),
     check('Show a Popup When Switching', settings.app.hud, (i) => set('app', { hud: i.checked })),
     { type: 'separator' },
     ...(s.updates && s.updates.available ? [{ label: 'Download TwinDesk ' + s.updates.latest + '…', click: () => updates.open() }] : []),

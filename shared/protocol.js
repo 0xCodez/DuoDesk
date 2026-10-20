@@ -67,6 +67,7 @@
       ERROR: 'error',
       PING: 'ping',
       PONG: 'pong',
+      BYE: 'bye', // guest->host: Disconnect on purpose (a phone gets no grace to resume; computers may connect at once)
       // screen sharing
       STREAM_INFO: 'stream.info',
       STREAM_STOP: 'stream.stop',

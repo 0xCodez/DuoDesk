@@ -410,6 +410,19 @@ private fun OverviewPage(core: Core, v: Int) {
     }
 
 
+    // The other paired computers, while connected: Switch lets this one go and connects that one.
+    if (host != null) {
+        val others = core.hosts().filter { it.id != host.id }
+        if (others.isNotEmpty()) MacCard("Switch to") {
+            others.forEachIndexed { i, h ->
+                val near = core.isNear(h.id)
+                MacRow(h.name, if (near && !core.discovery.found.containsKey(h.id)) "Nearby over Bluetooth · paired" else if (near) "Nearby · paired" else "Paired · not nearby", i == 0) {
+                    Secondary("Switch") { core.switchTo(h) }
+                }
+            }
+        }
+    }
+
     if (host != null) {
         val wide = LocalConfiguration.current.screenWidthDp >= 840
         val m2p = @Composable { mod: Modifier ->

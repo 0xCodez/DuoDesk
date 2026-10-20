@@ -52,6 +52,13 @@ class Peer extends EventEmitter {
     return this.server.current || this.link.ctx || null;
   }
 
+  // Disconnect, whichever side opened the session: a device connected to us doesn't come back by
+  // itself (released); as a guest we don't reconnect until Connect.
+  disconnect() {
+    if (this.server.current) return this.server.release();
+    this.link.disconnect();
+  }
+
   get sameOs() {
     const c = this.current;
     return !!c && c.os === P.OS.MAC;

@@ -82,13 +82,22 @@ function setupIpc(ctx) {
       return ctx.phone.connect(dev.id);
     }
     if (dev && dev.os !== 'mac') {
-      if (pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired. Open TwinDesk on it to connect.`);
+      // Paired: invited, and its hello takes the session over from whoever has it (Connect / Switch).
+      if (pairing.list().some((p) => p.id === dev.id)) {
+        pairing.expect(dev.id);
+        discovery.invite(dev.address);
+        return report(`Connecting to ${dev.name}…`);
+      }
       discovery.invite(dev.address);
       return report(`Asked ${dev.name} to connect. Confirm on ${dev.name}.`);
     }
     if (dev && pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired and connects to this Mac by itself.`);
     if (dev && link.hosts.some((h) => h.id === dev.id)) {
-      link.poke();
+      // Switching from a device connected to us: it goes first (this Mac stands by while it hosts).
+      if (ctx.server.server.current) {
+        ctx.server.server.release();
+        setTimeout(() => link.connect(true), 800);
+      } else link.connect(true);
       return report(`Connecting to ${dev.name}…`);
     }
     report('');
@@ -110,6 +119,14 @@ function setupIpc(ctx) {
     },
     disconnectPhone() {
       ctx.phone.disconnect();
+    },
+    // Disconnect the session (phone or computer); Connect again / Take over the Mac we're a guest of.
+    disconnect() {
+      if (ctx.server.current && ctx.server.current.os === P.OS.ANDROID) return ctx.phone.disconnect();
+      ctx.server.disconnect();
+    },
+    connectAgain() {
+      ctx.link.connect(true);
     },
     setPhone(partial) {
       setGroup('phone', partial);

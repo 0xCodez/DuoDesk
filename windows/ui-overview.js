@@ -21,6 +21,10 @@ UI.tab({
     const pcName = el('div', { class: 'hero-name' });
     const macName = el('div', { class: 'hero-name' });
     const status = el('div', { class: 'hero-status' });
+    // The session: Disconnect it; Connect again after one (or Take over while another device has it).
+    const discBtn = UI.button('Disconnect', () => api.disconnect(), 'small');
+    const againBtn = UI.button('Connect', () => api.connectAgain(), 'small primary');
+    const sessionBtns = el('div', { class: 'hero-actions' }, [againBtn, discBtn]);
     const netCancel = UI.button('Cancel', () => api.netCancel(), 'small');
     netCancel.hidden = true;
     const netLocation = UI.button('Location settings', () => api.netLocation(), 'small'); // joining needed Windows' Location
@@ -37,6 +41,7 @@ UI.tab({
         el('div', { class: 'hero-device' }, [peerDev, macName]),
       ]),
       status,
+      sessionBtns,
       netCancel,
       netLocation,
       wifiBtn,
@@ -146,6 +151,16 @@ UI.tab({
           : s.peer ? 'Open TwinDesk on ' + s.peer.name + '.'
             : 'Pick a computer below, or connect by address.';
       status.classList.toggle('bad', bad);
+      // Disconnected here or by the other side, taken over, or in use by another device.
+      const stopped = l.state === 'stopped';
+      const busyBy = !connected && !stopped && l.busy;
+      if (s.paired && !connected && (stopped || busyBy)) {
+        status.textContent = stopped ? (l.message || 'Disconnected').replace(/\{Name\}/g, s.paired.macName) + '.' : busyBy + '.';
+      }
+      discBtn.hidden = !connected;
+      againBtn.hidden = connected || !s.paired || !(stopped || busyBy);
+      againBtn.textContent = busyBy || (stopped && l.message) ? 'Take over' : 'Connect';
+      sessionBtns.hidden = discBtn.hidden && againBtn.hidden;
       // Moving the session to Wi-Fi (files, screens through Bluetooth: netlink.js)
       const n = s.net || {};
       const moving = { asking: 'Asking {name} for Wi-Fi…', hosting: 'Starting Wi-Fi Direct for {name}…', joining: 'Joining ' + (n.ssid || 'Wi-Fi') + '…', joined: 'On Wi-Fi with {name}' }[n.state];
@@ -216,12 +231,14 @@ UI.tab({
 
       // paired
       const wk = s.wake || { peers: {} };
-      const pk = JSON.stringify([s.paired, s.guests, live, Object.keys(wk.peers), wk.waking]);
+      const near = new Set(s.found.map((dev) => dev.id));
+      const pk = JSON.stringify([s.paired, s.guests, live, [...near], l.state, Object.keys(wk.peers), wk.waking]);
       if (pk === pairedKey) return;
       pairedKey = pk;
       const all = [
-        ...(s.paired ? [{ id: s.paired.macId, name: s.paired.macName, os: s.paired.os, hint: s.paired.address, forget: () => api.forget() }] : []),
-        ...s.guests.map((g) => ({ id: g.id, name: g.name, os: g.os, hint: g.lastSeen ? 'Last seen ' + UI.ago(g.lastSeen) : '', forget: () => api.forgetGuest(g.id) })),
+        ...(s.paired ? [{ id: s.paired.macId, name: s.paired.macName, os: s.paired.os, hint: s.paired.address, forget: () => api.forget(), connect: () => api.connectAgain() }] : []),
+        ...s.guests.map((g) => ({ id: g.id, name: g.name, os: g.os, hint: g.lastSeen ? 'Last seen ' + UI.ago(g.lastSeen) : '', forget: () => api.forgetGuest(g.id),
+          connect: near.has(g.id) ? () => api.connectGuest(g.id) : null })),
       ];
       pairedList.replaceChildren(...(all.length ? all.map((x) => {
         const online = x.id === live;
@@ -232,6 +249,8 @@ UI.tab({
         const r = UI.row(x.name, online ? 'Connected' : waking ? 'Waking ' + x.name + '…' : x.hint, [
           online ? el('span', { class: 'pill good', text: 'Online' }) : null,
           wakeBtn,
+          // Switch to it: whatever the session is now, it ends (paired, and nearby to be reached).
+          !online && x.connect ? UI.button(live ? 'Switch' : 'Connect', x.connect, 'small') : null,
           UI.button('Forget', x.forget, 'small'),
         ]);
         r.querySelector('.text').prepend(UI.osIcon(x.os));

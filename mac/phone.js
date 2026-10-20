@@ -115,7 +115,8 @@ class Phone extends EventEmitter {
 
   // Let the phone go: it won't resume, and the computer reconnects by itself.
   disconnect() {
-    this.raw.releasePhone();
+    if (this.raw.current && this.raw.current.os === P.OS.ANDROID) this.raw.release();
+    else this.raw.endPhoneGrace(); // dropped and waiting to resume: let it go too
   }
 
   _fail(message) {

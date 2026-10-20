@@ -128,6 +128,16 @@ class Server extends EventEmitter {
     }
 
     if (msg.t === P.T.PING) return this.send(ctx, { t: P.T.PONG, ts: msg.ts });
+    if (msg.t === P.T.BYE) { // Disconnect there: nothing to wait for
+      ctx.released = true;
+      if (ctx.alt) { // the whole session goes, its fallback path too
+        const alt = ctx.alt;
+        ctx.alt = null;
+        alt.detached = true;
+        alt.close();
+      }
+      return ctx.ws.close();
+    }
     if (msg.t === P.T.PONG) {
       if (typeof msg.ts === 'number') {
         ctx.rttMs = Math.max(0, Date.now() - msg.ts);
@@ -189,7 +199,11 @@ class Server extends EventEmitter {
     if (this.current && this.current !== ctx) {
       const old = this.current;
       this.current = null;
-      this.fail(old, P.E.REPLACED, 'Another connection from a paired device replaced this one');
+      old.released = true; // taken over: a phone gets no grace
+      // A computer a phone took over from waits and comes back when the phone lets go (busy);
+      // one a computer took over from stays away until someone connects it again (replaced).
+      if (os === P.OS.ANDROID && old.os !== P.OS.ANDROID) this.fail(old, P.E.BUSY, `In use by ${name}`);
+      else this.fail(old, P.E.REPLACED, old.deviceId === deviceId ? 'Another connection from this device replaced this one' : `${name} took over`);
     }
     ctx.authed = true;
     ctx.deviceId = deviceId;
@@ -222,13 +236,14 @@ class Server extends EventEmitter {
     this.emit('phoneFree');
   }
 
-  // Disconnect the phone on purpose: it won't resume, and the computers may connect at once.
-  releasePhone() {
+  // Disconnect on purpose (a phone or a computer): it doesn't resume or reconnect by itself, and
+  // a computer may connect at once.
+  release() {
     const c = this.current;
-    if (c && c.os === P.OS.ANDROID) {
+    if (c) {
       c.released = true;
-      this.fail(c, P.E.RELEASED, 'The PC disconnected the phone');
-      setTimeout(() => c.ws.terminate(), 1000); // an older phone app never answers the close
+      this.fail(c, P.E.RELEASED, 'The PC disconnected');
+      setTimeout(() => c.ws.terminate(), 1000); // an older app never answers the close
     }
     this.endPhoneGrace();
   }

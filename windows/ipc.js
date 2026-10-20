@@ -51,6 +51,19 @@ function setupIpc(ctx) {
   handle('confirmCode', () => link.confirmCode());
   handle('cancelPair', () => link.cancelPair());
   handle('forget', () => link.forget());
+  // Disconnect (either side of the session); Connect again / Take over the computer we're a guest of.
+  handle('disconnect', () => link.disconnect());
+  handle('connectAgain', () => link.connect(true));
+  // Connect on a paired device in our list that connects to us: a phone is asked as usual, a
+  // computer is invited and its hello takes the session over.
+  handle('connectGuest', (id) => {
+    if (typeof id !== 'string') return;
+    const d = discovery.get(id) || discovery.near(id);
+    if (!d) return;
+    if (d.os === P.OS.ANDROID) return ctx.connectPhoneDev(d);
+    link.expect(id);
+    discovery.invite(d.address);
+  });
   handle('respondPair', (allow) => link.respondPair(allow === true)); // host: Allow / Deny
   handle('forgetGuest', (id) => typeof id === 'string' && link.forgetGuest(id));
   handle('wakePeer', (id) => typeof id === 'string' && wake.wake(id));

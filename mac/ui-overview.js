@@ -39,6 +39,11 @@ UI.tab({
     const macName = el('div', { class: 'hero-name' });
     const peerDev = el('div', { class: 'device pc' });
     const status = el('div', { class: 'hero-status' });
+    // The session: Disconnect it (a phone or a computer); Connect again to the Mac we're a guest of
+    // after one, or Take over while another device has it.
+    const discBtn = UI.button('Disconnect', () => api.disconnect(), 'small');
+    const againBtn = UI.button('Connect', () => api.connectAgain(), 'small primary');
+    const sessionBtns = el('div', { class: 'hero-actions' }, [againBtn, discBtn]);
     // A session on Bluetooth: onto a direct Wi-Fi link on request, until Back to Bluetooth.
     const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn), 'small');
     let wifiOn = false;
@@ -50,6 +55,7 @@ UI.tab({
         el('div', { class: 'hero-device' }, [peerDev, peerName]),
       ]),
       status,
+      sessionBtns,
       wifiBtn,
     ]);
 
@@ -145,7 +151,7 @@ UI.tab({
         const rows = s.found.map((dev) => {
           const online = c && c.id === dev.id;
           const known = pairedIds.has(dev.id);
-          const label = online ? null : known ? 'Connect' : dev.os === 'mac' ? 'Pair' : 'Connect';
+          const label = online ? null : known ? (c ? 'Switch' : 'Connect') : dev.os === 'mac' ? 'Pair' : 'Connect';
           const btn = label && UI.button(label, () => api.pairWith(dev.id), `small${dev.invited ? ' primary' : ''}`);
           const r = UI.row(dev.name, `${dev.address}${dev.invited ? ' · wants to connect' : ''}`,
             [online ? el('span', { class: 'pill good', text: 'Connected' }) : known ? el('span', { class: 'pill muted', text: 'Paired' }) : null, btn]);
@@ -173,6 +179,14 @@ UI.tab({
         || (c ? UI.fill(WHERE[inp.where] || 'Connected')
           : pairedIds.size ? 'Open TwinDesk on the other computer to connect.'
             : 'Pick a computer above, or connect by address.');
+      // Disconnected (here or by the other side), taken over, or the Mac we connect to is in use.
+      const gStopped = !c && g.hosts.length && g.status.state === 'stopped';
+      const gBusy = !c && g.hosts.length && !gStopped && g.status.busy;
+      if (!bad && (gStopped || gBusy)) status.textContent = `${gStopped ? g.status.message || 'Disconnected' : gBusy}.`;
+      discBtn.hidden = !c;
+      againBtn.hidden = !(gStopped || gBusy);
+      againBtn.textContent = gBusy || (gStopped && g.status.message) ? 'Take over' : 'Connect';
+      sessionBtns.hidden = discBtn.hidden && againBtn.hidden;
       status.classList.toggle('bad', !!bad);
       const n = s.net || {};
       wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
@@ -199,7 +213,8 @@ UI.tab({
 
       // paired: guests (they connect to us) and hosts (we connect to them)
       const wk = (s.wake && s.wake.peers) || {};
-      const pk = JSON.stringify([s.paired, g.hosts, c && c.id, Object.keys(wk), s.wake && s.wake.last]);
+      const near = new Set(s.found.map((dev) => dev.id));
+      const pk = JSON.stringify([s.paired, g.hosts, c && c.id, Object.keys(wk), s.wake && s.wake.last, [...near]]);
       if (pk === pairedKey) return;
       pairedKey = pk;
       const all = [...s.paired, ...g.hosts.map((h) => ({ ...h, host: true }))];
@@ -210,6 +225,8 @@ UI.tab({
             [online ? el('span', { class: 'pill good', text: 'Online' }) : null,
               // Wake it over the network (it told us how while connected).
               !online && wk[x.id] ? UI.button(s.wake.last && s.wake.last.id === x.id && Date.now() - s.wake.last.at < 20000 ? 'Waking…' : 'Wake', () => api.wakePeer(x.id), 'small') : null,
+              // Switch to it (nearby): whatever the session is now, it ends.
+              !online && near.has(x.id) ? UI.button(c ? 'Switch' : 'Connect', () => api.pairWith(x.id), 'small') : null,
               UI.button('Forget', () => api.forget(x.id), 'small')]);
           r.querySelector('.text').prepend(UI.osIcon(x.os));
           r.classList.add('with-ico');

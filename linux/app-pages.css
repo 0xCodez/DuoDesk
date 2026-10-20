@@ -28,6 +28,8 @@
 .hero-link-text { color: var(--muted); font-size: 12px; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .hero-status { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--row-line); text-align: center; color: var(--muted); }
 .hero-status.bad { color: var(--bad); }
+.hero-actions { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+.hero-actions[hidden] { display: none; }
 
 /* Cursor: layout picker */
 .layout { display: flex; align-items: center; gap: 24px; padding: 18px; }

@@ -41,6 +41,7 @@ object Proto {
         const val ERROR = "error"
         const val PING = "ping"
         const val PONG = "pong"
+        const val BYE = "bye" // Disconnect on purpose: the computer doesn't wait for us to come back
         const val CLIP = "clip"
         const val CLIP_POLICY = "clip.policy"
         const val NOTIF = "notif"

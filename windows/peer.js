@@ -163,6 +163,21 @@ class Peer {
     else this.link.cancelPair();
   }
   forget() { this.link.forget(); }
+  // Connect again or Take over the computer we're a guest of.
+  connect(takeover) {
+    if (this.hosting) this.server.release(); // switching from a guest of ours to our host
+    this.link.connect(takeover);
+  }
+
+  // Disconnect, whichever side opened the session: a guest of ours doesn't come back by itself
+  // (released), and as a guest we don't reconnect until Connect.
+  disconnect() {
+    if (this.hosting) this.server.release();
+    else this.link.disconnect();
+  }
+
+  // Connect on a computer that connects to us: it was invited, and its hello takes the session over.
+  expect(id) { if (this.pairing) this.pairing.expect(id); }
 
   // ---- host side ----
   respondPair(allow) { if (this.pairing) this.pairing.respond(allow); }

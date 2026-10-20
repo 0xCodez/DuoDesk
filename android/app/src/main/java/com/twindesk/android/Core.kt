@@ -166,6 +166,12 @@ class Core private constructor(val ctx: Context) : Link.Events {
         link.disconnect()
     }
 
+    // Another paired computer, while connected: this one is let go (bye), then that one.
+    fun switchTo(h: Host) {
+        disconnect()
+        connect(h)
+    }
+
     fun pair(f: Found) {
         invite = null
         discovery.clearInvite(f.id)
