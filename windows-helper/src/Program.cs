@@ -40,6 +40,8 @@ namespace MacShare
             invoker.CreateControl();
             IntPtr force = invoker.Handle; // the handle must exist before BeginInvoke from other threads
 
+            Native.NoThrottling(); // edge pushes and hooks keep their pace with the window hidden in the tray
+            AppDomain.CurrentDomain.UnhandledException += delegate { HideCursor.Restore(); };
             capture = new Capture(Emit);
             injector = new Injector();
             injector.Moved = capture.FeedReturn;

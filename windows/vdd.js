@@ -56,11 +56,13 @@ class Vdd {
     if (this.state.busy) return;
     this._set({ busy: 'install', message: '' });
     const log = path.join(app.getPath('userData'), 'vdd-result.txt');
+    let cpu = '';
     try {
       try { fs.unlinkSync(log); } catch (_) { /* none */ }
       // The driver must match Windows, not this app (the x64 app also runs on ARM, emulated), so
       // ask WMI: Win32_Processor.Architecture 12 = ARM64.
-      const [sid, cpu] = (await script('vdd-whoami')).trim().split(/\s+/);
+      let sid;
+      [sid, cpu] = (await script('vdd-whoami')).trim().split(/\s+/);
       if (!/^S-1-[\d-]+$/.test(sid)) throw new Error('couldn’t read this account’s id');
       const driver = DRIVERS[cpu === '12' ? 'arm64' : 'x64'];
       await scriptElevated('vdd-install', { Helper: Helper.EXE, UserSid: sid, Log: log, Url: driver.url, Sha256: driver.sha256 }, 300000);
@@ -68,7 +70,11 @@ class Vdd {
       if (r !== 'ok') throw new Error(r.replace(/^error: /, ''));
       this.state.message = '';
     } catch (e) {
-      this.state.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined' : 'Installing the display driver failed: ' + e.message;
+      if (/cancel/i.test(e.message)) this.state.message = 'The administrator prompt was declined';
+      // Windows on ARM takes only Microsoft-signed drivers; the ARM64 build is signed by SignPath
+      // only (VirtualDrivers/Virtual-Display-Driver#465). Install works again once a signed one is pinned.
+      else if (cpu === '12' && /800B0109/.test(e.message)) this.state.message = 'Extend isn’t available on Windows on ARM yet: Windows there accepts only Microsoft-signed display drivers, and the virtual display driver’s ARM64 build isn’t one (Virtual-Display-Driver#465)';
+      else this.state.message = 'Installing the display driver failed: ' + e.message;
     } finally {
       try { fs.unlinkSync(log); } catch (_) { /* none */ }
       this.state.busy = '';

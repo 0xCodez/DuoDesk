@@ -284,7 +284,12 @@ class Kvm {
         }
         break;
       case 'captureEnded': // dead-man or a local stop: input is back here
-        if (this.mode === 'driving') this._release(msg.reason === 'deadman' ? '' : '');
+        if (this.mode === 'driving') this._release(msg.reason === 'secureDesktop' ? 'Back here for the administrator prompt or lock screen' : '');
+        break;
+      // A UAC prompt or the lock screen here: the other computer's input can't reach it, so it
+      // goes home (else its pointer stays hidden there while nothing moves here).
+      case 'secureDesktop':
+        if (msg.on && this.mode === 'driven') this._sendHome(undefined, 'Use this PC’s own mouse for the administrator prompt or lock screen');
         break;
     }
   }
@@ -440,9 +445,9 @@ class Kvm {
   }
 
   // Row 8c: we send the input home (return edge or hotkey).
-  _sendHome(offset) {
+  _sendHome(offset, message = '') {
     this.link.send(typeof offset === 'number' ? { t: T.KVM_HOME, route: this.peerRoute, offset } : { t: T.KVM_HOME, route: this.peerRoute });
-    this._drivenHome('', true);
+    this._drivenHome(message, true);
   }
 
   // Rows 8b, 8c, 9b.
