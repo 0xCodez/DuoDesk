@@ -269,7 +269,7 @@ function start() {
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, terminal, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, updates, settings, save: saveSettings, push: pushState, buildState,
     get phone() { return phone; }, get phoneViews() { return phoneViews; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev, hub: loadHub,
-    get net() { return net; }, applyNet,
+    get net() { return net; }, applyNet, joinHotspot,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
@@ -432,7 +432,9 @@ function setupNet(guest) {
     current: () => link.current,
     host: { can: () => wifi.canHost(), start: (ssid, pass) => wifi.host(ssid, pass), stop: () => wifi.unhost() },
     join: { can: () => wifi.can(), start: (ssid, pass) => wifi.join(ssid, pass), stop: () => wifi.leave() },
-    hotspot: null,
+    // Connect with hotspot (a phone): it switches its hotspot on, this PC joins it (the Overview asks
+    // for its name and password once; joinHotspot).
+    hotspot: (why, peerOs) => peerOs === P.OS.ANDROID && why === 'hotspot',
     cable: () => {
       const c = link.current;
       return !!c && c.os === P.OS.ANDROID && !!wired && wired.toCable(c.deviceId);
@@ -478,6 +480,30 @@ function applyNet() {
   if (bleGuest && !settings.net.ble) bleGuest.scan(false);
   if (blePhones && !settings.net.ble) blePhones.stop();
   pushState();
+}
+
+// The phone's saved hotspot, for the Overview's form.
+function hotspotView() {
+  const c = link.current;
+  const h = c && settings.net.hotspots[c.deviceId];
+  return { hotspotSsid: h ? h.ssid : '', hotspotSaved: !!(h && h.pass) };
+}
+
+// The phone's hotspot is on: join it, remembered for that phone (the password field empty = the saved one).
+function joinHotspot(arg) {
+  const { safeStorage } = require('electron');
+  const c = link.current;
+  const ssid = String((arg && arg.ssid) || '').trim().slice(0, 32);
+  let pass = String((arg && arg.pass) || '').slice(0, 63);
+  if (!ssid || !c || !net) return;
+  const saved = settings.net.hotspots[c.deviceId];
+  if (!pass && saved && saved.ssid === ssid && saved.pass) {
+    try { pass = safeStorage.decryptString(Buffer.from(saved.pass, 'base64')); } catch (_) { /* another user's, or DPAPI gone */ }
+  }
+  const sealed = pass && safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(pass).toString('base64') : '';
+  settings.net.hotspots[c.deviceId] = { ssid, pass: sealed };
+  saveSettings();
+  net.joinHotspot(ssid, pass);
 }
 
 // fn once the session is on Wi-Fi (now, if it isn't on Bluetooth); a popup if it can't be.
@@ -658,7 +684,7 @@ function buildState() {
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
     // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
     hub: hub ? hub.view : { ...settings.hub, connected: false },
-    net: { ...(net ? net.view : {}), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
+    net: { ...(net ? net.view : {}), ...hotspotView(), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
   };
 }
 

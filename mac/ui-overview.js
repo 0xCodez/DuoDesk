@@ -48,6 +48,8 @@ UI.tab({
     const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn), 'small');
     let wifiOn = false;
     wifiBtn.hidden = true;
+    const hotspotBtn = UI.button('Connect with hotspot', () => api.netWifi('hotspot'), 'small'); // a phone's, this Mac joins
+    hotspotBtn.hidden = true;
     const hero = el('div', { class: 'card hero' }, [
       el('div', { class: 'hero-devices' }, [
         el('div', { class: 'hero-device' }, [el('div', { class: 'device mac' }), macName]),
@@ -56,7 +58,7 @@ UI.tab({
       ]),
       status,
       sessionBtns,
-      wifiBtn,
+      el('div', { class: 'hero-actions' }, [wifiBtn, hotspotBtn]),
     ]);
 
     // ---- feature switches ----
@@ -192,6 +194,7 @@ UI.tab({
       wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
       wifiBtn.hidden = !c || !(wifiOn || c.transport === 'ble');
+      hotspotBtn.hidden = !c || wifiOn || n.state === 'hotspot' || c.transport !== 'ble' || !UI.isPhone(s);
 
       // the phone's wireless debugging: only while it needs something
       const ph = s.phone || {};

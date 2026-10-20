@@ -8,6 +8,15 @@ const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'mac-
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
 const bool = (v, d) => (typeof v === 'boolean' ? v : d);
+// A phone's hotspot as typed once, per phone: {deviceId: {ssid, pass (safeStorage, base64)}}.
+const hotspots = (v) => {
+  const out = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const [id, h] of Object.entries(v).slice(0, 20)) {
+    if (h && typeof h.ssid === 'string' && typeof h.pass === 'string') out[id.slice(0, 64)] = { ssid: h.ssid.slice(0, 32), pass: h.pass.slice(0, 2000) };
+  }
+  return out;
+};
 // A global shortcut (Electron accelerator): Ctrl, Alt or the Windows key, plus one key.
 const KEY = /^(?:(?:Control|Alt|Shift|Super)\+){1,4}(?:[A-Z0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Space|Tab|Backspace|Delete|Enter|Up|Down|Left|Right)$/;
 const accel = (v, d) => (typeof v === 'string' && KEY.test(v) && /Control|Alt|Super/.test(v) ? v : d);
@@ -126,7 +135,7 @@ function normalize(s) {
       wallpaper: bool(ph.wallpaper, true),
       input: ph.input === 'phone' ? 'phone' : 'adb', // the mouse and keyboard through adb, or the phone's Accessibility service
     },
-    net: { ble: bool(nt.ble, true) }, // Bluetooth for devices not on this network (blepipe.js, netlink.js)
+    net: { ble: bool(nt.ble, true), hotspots: hotspots(nt.hotspots) }, // Bluetooth for devices not on this network (blepipe.js, netlink.js)
     mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked
     // Calls, Messages, Photos and Files from a phone (shared/phonehub.js), each off until switched on.
     // callAudio: the calls' sound here over Bluetooth; btDevice: which paired phone, when several.

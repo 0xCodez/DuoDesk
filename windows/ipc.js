@@ -184,11 +184,13 @@ function setupIpc(ctx) {
   // Not on the same network: Bluetooth on/off, and giving up on moving to Wi-Fi (netlink.js).
   handle('setNet', (partial) => change('net', partial, () => ctx.applyNet()));
   handle('netCancel', () => ctx.net && ctx.net.cancel());
+  handle('netJoinHotspot', (arg) => ctx.joinHotspot(arg));
   handle('netLocation', () => shell.openExternal('ms-settings:privacy-location')); // netsh's Wi-Fi commands need it (wifi.js)
   // Connect with Wi-Fi Direct (a session on Bluetooth), or back to Bluetooth (the link ends, whatever it was made for).
+  // on = 'hotspot': Connect with hotspot (a phone's; the Overview asks for its name and password).
   handle('netWifi', (on) => {
     if (!ctx.net) return;
-    if (on) return void ctx.net.need('user');
+    if (on) return void ctx.net.need(on === 'hotspot' ? 'hotspot' : 'user');
     ctx.net.drop();
     if (ctx.pcScreen.mode !== 'off') ctx.pcScreen.setMode('off'); // Bluetooth can't carry the screen
   });

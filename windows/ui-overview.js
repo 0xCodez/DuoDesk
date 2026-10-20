@@ -33,6 +33,16 @@ UI.tab({
     let wifiOn = false;
     const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn), 'small');
     wifiBtn.hidden = true;
+    // A phone: its hotspot instead. It switches it on; its name and password here once (saved for it).
+    const hotspotBtn = UI.button('Connect with hotspot', () => api.netWifi('hotspot'), 'small');
+    hotspotBtn.hidden = true;
+    const hsSsid = el('input', { type: 'text', placeholder: 'Hotspot name', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Hotspot name' } });
+    const hsPass = el('input', { type: 'password', placeholder: 'Password', autocomplete: 'off', attrs: { 'aria-label': 'Hotspot password' } });
+    const hsJoin = UI.button('Join', () => api.netJoinHotspot({ ssid: hsSsid.value, pass: hsPass.value }), 'small primary');
+    hsSsid.onkeydown = hsPass.onkeydown = (e) => { if (e.key === 'Enter') hsJoin.click(); };
+    const hsForm = el('div', { class: 'hero-actions' }, [hsSsid, hsPass, hsJoin]);
+    hsForm.hidden = true;
+    let hsShown = false;
     const peerDev = el('div', { class: 'device mac' });
     const hero = el('div', { class: 'card hero' }, [
       el('div', { class: 'hero-devices' }, [
@@ -42,9 +52,10 @@ UI.tab({
       ]),
       status,
       sessionBtns,
+      hsForm,
       netCancel,
       netLocation,
-      wifiBtn,
+      el('div', { class: 'hero-actions' }, [wifiBtn, hotspotBtn]),
     ]);
 
     // One switch per feature and direction, labels only; the row opens the tab.
@@ -163,16 +174,25 @@ UI.tab({
       sessionBtns.hidden = discBtn.hidden && againBtn.hidden;
       // Moving the session to Wi-Fi (files, screens through Bluetooth: netlink.js)
       const n = s.net || {};
-      const moving = { asking: 'Asking {name} for Wi-Fi…', hosting: 'Starting Wi-Fi Direct for {name}…', joining: 'Joining ' + (n.ssid || 'Wi-Fi') + '…', joined: 'On Wi-Fi with {name}' }[n.state];
+      const moving = { hotspot: 'Switch on {name}’s hotspot, then type its name and password here.', asking: 'Asking {name} for Wi-Fi…', hosting: 'Starting Wi-Fi Direct for {name}…', joining: 'Joining ' + (n.ssid || 'Wi-Fi') + '…', joined: 'On Wi-Fi with {name}' }[n.state];
       if (connected && !bad && (moving || n.state === 'failed')) {
         status.textContent = n.state === 'failed' ? n.error || 'Wi-Fi didn’t come up' : moving;
         status.classList.toggle('bad', n.state === 'failed');
       }
-      netCancel.hidden = !(connected && ['asking', 'hosting', 'joining'].includes(n.state));
+      netCancel.hidden = !(connected && ['asking', 'hosting', 'joining', 'hotspot'].includes(n.state));
+      hsForm.hidden = !(connected && n.state === 'hotspot');
+      if (!hsForm.hidden && !hsShown) { // filled in once, not while typing
+        hsSsid.value = n.hotspotSsid || '';
+        hsPass.value = '';
+        hsPass.placeholder = n.hotspotSaved ? 'Password (saved)' : 'Password';
+        setTimeout(() => (n.hotspotSsid ? hsPass : hsSsid).focus(), 0);
+      }
+      hsShown = !hsForm.hidden;
       netLocation.hidden = !(connected && n.state === 'failed' && n.location);
       wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
       wifiBtn.hidden = !connected || !netCancel.hidden || !(wifiOn || ble);
+      hotspotBtn.hidden = !connected || !netCancel.hidden || wifiOn || !ble || !UI.isPhone(s);
 
       for (const r of m2p.concat(p2m)) r.update(s);
 

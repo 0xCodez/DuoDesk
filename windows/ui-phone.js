@@ -26,6 +26,7 @@ UI.tab({
     // On Bluetooth: onto a direct Wi-Fi link on request, until Back to Bluetooth (netlink.js 'user').
     let wifiOn = false;
     const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn));
+    const hotspotBtn = UI.button('Connect with hotspot', () => { api.netWifi('hotspot'); UI.go('overview'); }); // its name and password there
     // How the mouse and keyboard reach the phone (settings.phone.input; the phone's own toggle too).
     const via = UI.segmented([
       { value: 'adb', label: 'ADB', title: 'Wireless debugging: full control' },
@@ -35,7 +36,7 @@ UI.tab({
       dev,
       el('div', { class: 'phone-hero-text' }, [
         name, sub,
-        el('div', { class: 'phone-hero-actions' }, [showBtn, wifiBtn, discBtn]),
+        el('div', { class: 'phone-hero-actions' }, [showBtn, wifiBtn, hotspotBtn, discBtn]),
         el('div', { class: 'phone-hero-via' }, [el('span', { text: 'Mouse and keyboard' }), via.el]),
       ]),
     ]);
@@ -124,6 +125,7 @@ UI.tab({
       wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
       wifiBtn.hidden = !(wifiOn || !!(s.net && s.net.transport === 'ble'));
+      hotspotBtn.hidden = wifiOn || n.state === 'hotspot' || !(s.net && s.net.transport === 'ble');
       const off = br.state === 'waitingWifi';
       howBtn.hidden = !off;
       howBtn.textContent = howOpen ? 'Hide' : 'Show me how';

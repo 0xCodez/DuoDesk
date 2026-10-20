@@ -42,7 +42,7 @@
     const n = (s && s.net) || {};
     if (!['hosting', 'joined'].includes(n.state)) return 'Wi-Fi';
     const name = n.kind === 'hotspot' ? 'Hotspot' : 'Wi-Fi Direct';
-    const asked = (n.why || []).includes('user') || (n.peerWhy || []).includes('user');
+    const asked = ['user', 'hotspot'].some((w) => (n.why || []).includes(w) || (n.peerWhy || []).includes(w));
     return asked ? name : 'Temporary ' + name;
   };
 
