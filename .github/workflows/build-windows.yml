@@ -34,6 +34,18 @@ jobs:
         with:
           keystore: ${{ secrets.ANDROID_KEYSTORE }}
 
+      # The app's PowerShell scripts (ps.js runs only these): each one parses in Windows PowerShell.
+      - name: Check the PowerShell scripts
+        shell: powershell
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem windows/scripts/*.ps1, windows-helper/calls/*.ps1) {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errs)
+            foreach ($e in $errs) { Write-Output "$($f.Name):$($e.Extent.StartLineNumber): $($e.Message)"; $bad++ }
+          }
+          if ($bad) { exit 1 }
+
       - name: Install dependencies
         working-directory: windows
         run: npm install
