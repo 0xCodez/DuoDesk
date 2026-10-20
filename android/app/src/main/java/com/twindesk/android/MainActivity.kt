@@ -444,14 +444,14 @@ private fun OverviewPage(core: Core, v: Int) {
     }
 
 
-    // The other paired computers, while connected: Switch lets this one go and connects that one.
+    // The other paired computers, while connected: Switch (Take over when nearby) lets this one go and connects that one.
     if (host != null) {
         val others = core.hosts().filter { it.id != host.id }
         if (others.isNotEmpty()) MacCard("Switch to") {
             others.forEachIndexed { i, h ->
                 val near = core.isNear(h.id)
                 MacRow(h.name, if (near && !core.discovery.found.containsKey(h.id)) "Nearby over Bluetooth · paired" else if (near) "Nearby · paired" else "Paired · not nearby", i == 0) {
-                    Secondary("Switch") { core.switchTo(h) }
+                    Secondary(if (near) "Take over" else "Switch") { core.switchTo(h) }
                 }
             }
         }
@@ -512,7 +512,8 @@ private fun OverviewPage(core: Core, v: Int) {
             val near = core.isNear(h.id)
             MacRow(h.name, if (link.state == "connecting" && link.host?.id == h.id) "Connecting…" else if (near && !core.discovery.found.containsKey(h.id)) "Nearby over Bluetooth · paired" else if (near) "Nearby · paired" else "Paired · not nearby", first) {
                 TextButton(onClick = { core.forget(h.id) }) { Text("Forget", color = pal.bad) }
-                Primary("Connect") { core.connect(h) }
+                // Nearby: Take over (a phone's hello takes the computer from whoever has it).
+                Primary(if (near) "Take over" else "Connect") { core.connect(h) }
             }
             first = false
         }

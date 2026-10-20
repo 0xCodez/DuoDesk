@@ -153,7 +153,7 @@ UI.tab({
         const rows = s.found.map((dev) => {
           const online = c && c.id === dev.id;
           const known = pairedIds.has(dev.id);
-          const label = online ? null : known ? (c ? 'Switch' : 'Connect') : dev.os === 'mac' ? 'Pair' : 'Connect';
+          const label = online ? null : known ? 'Take over' : dev.os === 'mac' ? 'Pair' : 'Connect';
           const btn = label && UI.button(label, () => api.pairWith(dev.id), `small${dev.invited ? ' primary' : ''}`);
           const r = UI.row(dev.name, `${dev.address}${dev.invited ? ' · wants to connect' : ''}`,
             [online ? el('span', { class: 'pill good', text: 'Connected' }) : known ? el('span', { class: 'pill muted', text: 'Paired' }) : null, btn]);

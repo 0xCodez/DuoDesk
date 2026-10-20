@@ -483,6 +483,15 @@ app.whenReady().then(() => {
   });
   link.on('change', pushState);
   link.on('request', showWindow);
+  // Take over on a Mac we're a guest of: back to it, taking the session over (a device connected
+  // to us goes first, as Take over here does).
+  discovery.on('invite', (d) => {
+    if (!d || !link.hosts.some((h) => h.id === d.id)) return;
+    if (server.current) {
+      server.release();
+      setTimeout(() => link.connect(true), 800);
+    } else link.connect(true);
+  });
   pairing = new Pairing(server, id, { busy: () => !!link.ctx, yieldTo: () => link.stop() });
   server.on('phoneFree', () => { link.poke(); pushState(); });
   pairing.on('change', pushState);

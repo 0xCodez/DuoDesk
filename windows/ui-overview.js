@@ -237,9 +237,13 @@ UI.tab({
           // A Mac hosts; with a PC or Linux the one who clicks is the guest. A phone is asked to pair.
           const btn = online || isKnown ? null : UI.button(dev.os === 'mac' || dev.os === 'android' ? 'Pair' : 'Connect', () => api.pair(dev.id), 'small' + (dev.invited ? ' primary' : ''));
           if (btn) btn.disabled = busy || connected;
+          // Paired: Take over (the computer we're a guest of: a takeover hello; one that connects to us:
+          // invited, and its hello takes the session from whoever has it).
+          const take = !online && isKnown ? UI.button('Take over', () => (s.paired && dev.id === s.paired.macId ? api.connectAgain() : api.connectGuest(dev.id)), 'small') : null;
+          if (take) take.disabled = busy;
           if (btn && dev.invited && !busy) focus = btn;
           const r = UI.row(dev.name, dev.address + (dev.invited ? ' · wants to connect' : ''), [
-            online ? el('span', { class: 'pill good', text: 'Connected' }) : isKnown ? el('span', { class: 'pill muted', text: 'Paired' }) : null, btn]);
+            online ? el('span', { class: 'pill good', text: 'Connected' }) : isKnown ? el('span', { class: 'pill muted', text: 'Paired' }) : null, btn, take]);
           r.querySelector('.text').prepend(UI.osIcon(dev.os));
           r.classList.add('with-ico');
           return r;

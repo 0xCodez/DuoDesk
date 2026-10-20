@@ -91,7 +91,12 @@ function setupIpc(ctx) {
       discovery.invite(dev.address);
       return report(`Asked ${dev.name} to connect. Confirm on ${dev.name}.`);
     }
-    if (dev && pairing.list().some((p) => p.id === dev.id)) return report(`${dev.name} is paired and connects to this Mac by itself.`);
+    if (dev && pairing.list().some((p) => p.id === dev.id)) {
+      // A Mac that connects to us: invited, and its hello takes the session over (Take over).
+      pairing.expect(dev.id);
+      discovery.invite(dev.address);
+      return report(`Connecting to ${dev.name}…`);
+    }
     if (dev && link.hosts.some((h) => h.id === dev.id)) {
       // Switching from a device connected to us: it goes first (this Mac stands by while it hosts).
       if (ctx.server.server.current) {
