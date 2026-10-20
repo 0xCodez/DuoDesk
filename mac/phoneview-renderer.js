@@ -204,6 +204,7 @@
   });
 
   const up = (e) => {
+    try { if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch {}
     if (e.button === 2 && rightDown) {
       if (rightDragging) {
         api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, ...at(e) });
@@ -222,13 +223,17 @@
   };
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', (e) => {
+    try { if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch {}
     if (rightDown) {
       if (rightDragging) api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, ...at(e) });
       rightDown = false;
       rightDragging = false;
       rightStart = null;
     }
-    up(e);
+    if (down) {
+      down = false;
+      api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, ...at(e) });
+    }
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -278,6 +283,16 @@
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKey);
   window.addEventListener('blur', () => {
+    if (rightDown) {
+      if (rightDragging) api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, x: 0, y: 0 });
+      rightDown = false;
+      rightDragging = false;
+      rightStart = null;
+    }
+    if (down) {
+      down = false;
+      api.send({ t: 'touch', action: ACTION.UP, pointer: FINGER, x: 0, y: 0 });
+    }
     for (const code of ['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight']) api.send({ t: 'key', code, down: false });
   });
 

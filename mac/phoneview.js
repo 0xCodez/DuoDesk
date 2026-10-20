@@ -244,7 +244,12 @@ class PhoneViews extends EventEmitter {
   _swipe(v, dir) {
     const s = v.session;
     const size = v.size;
-    if (!s || s.closed || !size || v.swiping) return;
+    if (!s || s.closed || !size) return;
+    if (v.swiping) {
+      // Buffer at most 1 subsequent swipe so rapid taps are never dropped
+      v.pendingSwipe = dir;
+      return;
+    }
     v.swiping = true;
 
     const w = size.width;
@@ -299,26 +304,34 @@ class PhoneViews extends EventEmitter {
         clearInterval(timer);
         v.swiping = false;
         v.swipeTimer = null;
+        v.pendingSwipe = null;
         return;
       }
 
       const elapsed = Date.now() - startTime;
       const progress = Math.min(1, elapsed / duration);
 
-      // Mild ease-in curve (t^1.15): starts cleanly without jerk and maintains brisk velocity
-      // right through release (ACTION.UP), ensuring Android's VelocityTracker detects a
-      // natural fling and triggers a smooth inertia scroll.
-      const ease = Math.pow(progress, 1.15);
-      const curX = Math.round(startX + dx * ease);
-      const curY = Math.round(startY + dy * ease);
-
-      s.touch(ACTION.MOVE, -2, curX, curY, w, h, 1, 0, 0);
-
-      if (progress >= 1) {
+      if (progress < 1) {
+        // Mild ease-in curve (t^1.15): starts cleanly without jerk and maintains brisk velocity
+        // right through release (ACTION.UP), ensuring Android's VelocityTracker detects a
+        // natural fling and triggers a smooth inertia scroll.
+        const ease = Math.pow(progress, 1.15);
+        const curX = Math.round(startX + dx * ease);
+        const curY = Math.round(startY + dy * ease);
+        s.touch(ACTION.MOVE, -2, curX, curY, w, h, 1, 0, 0);
+      } else {
         clearInterval(timer);
         v.swipeTimer = null;
+        // Liftoff at terminal position with authentic release velocity
         s.touch(ACTION.UP, -2, endX, endY, w, h, 0, 0, 0);
-        setTimeout(() => { v.swiping = false; }, 50);
+        setTimeout(() => {
+          v.swiping = false;
+          if (v.pendingSwipe) {
+            const next = v.pendingSwipe;
+            v.pendingSwipe = null;
+            this._swipe(v, next);
+          }
+        }, 30);
       }
     }, 10);
     v.swipeTimer = timer;
