@@ -134,18 +134,23 @@ class Core private constructor(val ctx: Context) : Link.Events {
     fun hosts(): List<Host> = store.hosts()
 
     // The UI's Connect, or the Mac's invite: take the session.
-    fun connect(h: Host) {
+    fun connect(h: Host) = connect(h, false)
+
+    // skipNet: the network just failed to reach it (a stale address after the Wi-Fi went): Bluetooth first.
+    private fun connect(h: Host, skipNet: Boolean) {
         resumeUntil = 0
         // The Mac's screen, input and sound need wireless debugging: switch it on as we connect.
         if (adb.canEnable && !adb.wifiDebugging) adb.enable(true)
-        val seen = discovery.found[h.id]
+        val seen = if (skipNet) null else discovery.found[h.id]
         if (seen != null && (seen.address != h.address || seen.port != h.port)) {
             h.address = seen.address
             h.port = seen.port
             store.putHost(h)
         }
         // Not on this network but near: through Bluetooth (a PC's link to us first: blePipe).
-        if (seen == null && bleOn && (serve.get(h.id) != null || ble.get(h.id) != null)) {
+        val viaBle = seen == null && bleOn && (serve.get(h.id) != null || ble.get(h.id) != null)
+        triedNet = !viaBle
+        if (viaBle) {
             bg.execute {
                 val port = blePipe(h.id)
                 if (port != null) link.connect(h, blePort = port)
@@ -306,12 +311,14 @@ class Core private constructor(val ctx: Context) : Link.Events {
         bg.schedule({ resume() }, 1500, TimeUnit.MILLISECONDS)
     }
 
+    @Volatile private var triedNet = false
+
     private fun resume() {
         val h = resumeHost ?: return
         if (System.currentTimeMillis() > resumeUntil || link.connected || link.state == "connecting" || link.pair != null) return
         Log.i("TwinDesk", "resuming the session with ${h.name}")
         val until = resumeUntil
-        connect(store.hosts().find { it.id == h.id } ?: return)
+        connect(store.hosts().find { it.id == h.id } ?: return, triedNet)
         resumeUntil = until // connect() clears it; keep the window open for the next drop
     }
 
