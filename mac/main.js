@@ -72,6 +72,7 @@ const { PhoneViews } = require('./phoneview');
 const { PhoneDrive } = require('./phonedrive');
 const { Updates } = require('../shared/updates.js');
 const { BleHost, BleLook } = require('../shared/blepipe.js');
+const { wifiQuiet } = require('../shared/blepolicy.js');
 const { NetLink } = require('../shared/netlink.js');
 const { aboutInfo } = require('../shared/about.js');
 
@@ -178,7 +179,7 @@ function pushState() {
     state.client = c ? { id: c.deviceId, name: c.name, os: c.os, role: c.role, address: c.address, rttMs: c.rttMs, transport: c.transport || 'ip' } : null;
     if (svc && svc.net) {
       const hs = c && settings.net.hotspots[c.deviceId];
-      state.net = { ...svc.net.view, ble: settings.net.ble !== false, blePc: settings.net.blePc === true, radio: svc.ble.state, hotspotSsid: hs ? hs.ssid : '', hotspotSaved: !!(hs && hs.pass) };
+      state.net = { ...svc.net.view, ble: settings.net.ble !== false, blePc: settings.net.blePc === true, bleWifiOff: settings.net.bleWifiOff !== false, bleOff, radio: svc.ble.state, hotspotSsid: hs ? hs.ssid : '', hotspotSaved: !!(hs && hs.pass) };
     }
     const { helper, displays, stream, clipboard: clip, kvm } = svc || {};
     state.helper.running = !!(helper && helper.running);
@@ -618,12 +619,15 @@ app.whenReady().then(() => {
 // Not on one network: the session through Bluetooth (this Mac advertises; phones and PCs connect),
 // and Wi-Fi for files and screens (netlink.js): this Mac joins the other side's Wi-Fi Direct group or
 // access point for a while, or, for a phone's screen, its hotspot (the banner asks for it).
+let bleOff = false; // General's Turn off Bluetooth on Wi-Fi connections, in effect (bleQuiet)
+const bleQuiet = wifiQuiet();
+
 function setupNet() {
   const { safeStorage } = require('electron');
   svc.ble = new BleHost({
     helper: svc.helper, server,
     info: () => ({ id: id.macId, name: id.macName.slice(0, 40), os: P.OS.MAC, port: server.port, fp: id.fp }),
-    enabled: () => settings.net.ble !== false || settings.net.blePc === true,
+    enabled: () => !bleOff && (settings.net.ble !== false || settings.net.blePc === true),
     accept: (g) => (g.os === P.OS.ANDROID ? settings.net.ble !== false : settings.net.blePc === true), // General's two Bluetooth switches
   });
   svc.ble.on('change', pushState);
@@ -631,7 +635,19 @@ function setupNet() {
   // Looked for only while there's no session; Invite asks one to connect.
   svc.bleLook = new BleLook({ helper: svc.helper, self: () => ({ id: id.macId, name: id.macName.slice(0, 40), os: P.OS.MAC }) });
   svc.bleLook.on('change', pushState);
-  setInterval(() => svc.bleLook.look(settings.net.blePc === true && !peer.current), 3000).unref();
+  setInterval(() => {
+    // The session on the same Wi-Fi a while (General's Turn off Bluetooth on Wi-Fi connections,
+    // blepolicy.js wifiQuiet): no advertising, its pipes and the session's Bluetooth fallback closed;
+    // back as it was when the session ends.
+    const off = bleQuiet({ on: settings.net.bleWifiOff !== false, current: () => peer.current, onGroup: () => !!svc.net && svc.net.onGroup });
+    if (off !== bleOff) {
+      bleOff = off;
+      console.log(`[ble] ${off ? 'off: the session is on the same Wi-Fi' : 'on again'}`);
+      svc.ble.apply();
+      pushState();
+    }
+    svc.bleLook.look(settings.net.blePc === true && !peer.current);
+  }, 3000).unref();
   discovery.extra = {
     list: () => {
       const out = svc.ble.list();

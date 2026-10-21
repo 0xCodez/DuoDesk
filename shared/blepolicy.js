@@ -38,4 +38,25 @@ function provenPath(movedAt, lastRx) {
   return now - (movedAt || 0) >= FALLBACK_MS && now - (lastRx || 0) < ANSWERING_MS;
 }
 
-module.exports = { blePolicy, provenPath, RECONNECT_MS, SETTLE_MS, FALLBACK_MS };
+// General's "Turn off Bluetooth on Wi-Fi connections" (on unless switched off), every computer: once
+// the session has run FALLBACK_MS on the same Wi-Fi network as the other device, phone or computer,
+// Bluetooth goes altogether here: no advertising (a phone can't find this computer meanwhile), no
+// scanning, no links, the session's Bluetooth fallback closed with them. It comes back when the
+// session ends. Not on Bluetooth, a USB cable (the session on 127.0.0.1 through adb), or a Wi-Fi
+// Direct group or hotspot netlink.js made (onGroup): those keep Bluetooth as the way back.
+// Returns check({on, current, onGroup}) -> true while Bluetooth stays off; called every few seconds.
+function wifiQuiet() {
+  let since = 0;
+  return ({ on, current, onGroup }) => {
+    const c = on ? current() : null;
+    const wifi = !!c && c.transport !== 'ble' && !onGroup() && !/^(127\.|::1$|::ffff:127\.)/.test(String(c.address || ''));
+    if (!wifi) {
+      since = 0;
+      return false;
+    }
+    if (!since) since = Date.now();
+    return Date.now() - since >= FALLBACK_MS;
+  };
+}
+
+module.exports = { blePolicy, provenPath, wifiQuiet, RECONNECT_MS, SETTLE_MS, FALLBACK_MS };

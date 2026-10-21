@@ -37,6 +37,9 @@ UI.tab({
     const bleRow = UI.row('Bluetooth with phones', '', [bleSw]);
     const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
     const blePcRow = UI.row('Bluetooth with computers', '', [blePcSw]);
+    // Bluetooth off altogether while the session is on the same Wi-Fi (blepolicy.js wifiQuiet).
+    const bleWifiSw = UI.switch((v) => api.setNet({ bleWifiOff: v }), { label: 'Turn off Bluetooth on Wi-Fi connections' });
+    const bleWifiRow = UI.row('Turn off Bluetooth on Wi-Fi connections', '', [bleWifiSw]);
     // Hosting Wi-Fi Direct beside this computer's own Wi-Fi network (wifi.js: a second interface, set up as root once).
     const keepSw = UI.switch((v) => api.setNet({ keepWifi: v }), { label: 'Keep Wi-Fi while hosting Wi-Fi Direct' });
     const keepSetup = UI.button('Set up', () => api.wifiSetup(), 'small');
@@ -53,7 +56,7 @@ UI.tab({
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
       UI.card('Permissions', [fwRow, btRow, steadyRow]),
-      UI.card('Network and sharing', [wakeRow, bleRow, blePcRow, keepRow]),
+      UI.card('Network and sharing', [wakeRow, bleRow, blePcRow, bleWifiRow, keepRow]),
       UI.card('This computer', [deviceRow, sessRow, inRow, helperRow]),
       UI.card('Quit', [
         UI.row('Quit TwinDesk', 'Stops sharing until you open it again', [UI.button('Quit', () => api.quit(), 'small')]),
@@ -103,6 +106,10 @@ UI.tab({
       bleRow.setHint(n.ble === false ? 'Only phones on this network or a USB cable connect'
         : radio || 'A phone nearby connects through Bluetooth; files and screens switch to Wi-Fi for a moment');
       blePcSw.set(n.blePc === true);
+      bleWifiSw.set(n.bleWifiOff !== false);
+      bleWifiRow.setHint(n.bleWifiOff === false ? 'Bluetooth stays on beside the Wi-Fi, the way back if it drops'
+        : n.bleOff ? 'Off now: the session is on the same Wi-Fi. Bluetooth comes back when it ends'
+          : 'On the same Wi-Fi network (not Wi-Fi Direct), Bluetooth goes off until the session ends. With a computer, phones can’t find this one meanwhile');
       blePcRow.setHint(n.blePc !== true ? 'Only computers on this network connect'
         : radio || 'A computer nearby connects through Bluetooth; files and screens switch to Wi-Fi for a moment');
       const sd = n.side || {};

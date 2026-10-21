@@ -33,6 +33,9 @@ UI.tab({
     const bleRow = UI.row('Bluetooth with phones', '', [bleSw]);
     const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
     const blePcRow = UI.row('Bluetooth with computers', '', [blePcSw]);
+    // Bluetooth off altogether while the session is on the same Wi-Fi (blepolicy.js wifiQuiet).
+    const bleWifiSw = UI.switch((v) => api.setNet({ bleWifiOff: v }), { label: 'Turn off Bluetooth on Wi-Fi connections' });
+    const bleWifiRow = UI.row('Turn off Bluetooth on Wi-Fi connections', '', [bleWifiSw]);
     // What Windows has to allow, in one place (each is also asked for where a feature needs it).
     const btPill = el('span', { class: 'pill' });
     const btRow = UI.row('Bluetooth', 'For a phone or computer that isn’t on this network', [btPill, UI.button('Open', () => api.openBluetoothSettings(), 'small')]);
@@ -46,7 +49,7 @@ UI.tab({
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
       UI.card('Permissions', [fwRow, btRow, locRow]),
-      UI.card('Network and sharing', [wakeRow, sendToRow, bleRow, blePcRow]),
+      UI.card('Network and sharing', [wakeRow, sendToRow, bleRow, blePcRow, bleWifiRow]),
       UI.card('This computer', [deviceRow, helperRow, vddRow]),
     );
 
@@ -84,6 +87,10 @@ UI.tab({
       bleRow.setHint(n.ble === false ? 'Only phones on this network or a USB cable connect'
         : radio || 'A phone nearby connects through Bluetooth; files and screens switch to Wi-Fi Direct for a moment');
       blePcSw.set(n.blePc === true);
+      bleWifiSw.set(n.bleWifiOff !== false);
+      bleWifiRow.setHint(n.bleWifiOff === false ? 'Bluetooth stays on beside the Wi-Fi, the way back if it drops'
+        : n.bleOff ? 'Off now: the session is on the same Wi-Fi. Bluetooth comes back when it ends'
+          : 'On the same Wi-Fi network (not Wi-Fi Direct), Bluetooth goes off until the session ends. With a computer, phones can’t find this one meanwhile');
       blePcRow.setHint(n.blePc !== true ? 'Only computers on this network connect'
         : radio || 'A computer nearby connects through Bluetooth; files and screens switch to Wi-Fi Direct for a moment');
       btPill.textContent = n.radio === 'off' ? 'Off' : n.radio === 'unsupported' ? 'Not supported' : n.radio ? 'On' : 'Unknown';

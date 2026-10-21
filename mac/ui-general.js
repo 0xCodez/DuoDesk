@@ -47,6 +47,9 @@ UI.tab({
     const bleRow = UI.row('Bluetooth with phones', '', [bleSw]);
     const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
     const blePcRow = UI.row('Bluetooth with computers', '', [blePcSw]);
+    // Bluetooth off altogether while the session is on the same Wi-Fi (blepolicy.js wifiQuiet).
+    const bleWifiSw = UI.switch((v) => api.setNet({ bleWifiOff: v }), { label: 'Turn off Bluetooth on Wi-Fi connections' });
+    const bleWifiRow = UI.row('Turn off Bluetooth on Wi-Fi connections', '', [bleWifiSw]);
     const shareRow = UI.row('TwinDesk in the Share menu', 'Share › TwinDesk sends files to the other computer',
       [UI.button('Extensions…', () => api.openSettings('extensions'), 'small')]);
 
@@ -60,7 +63,7 @@ UI.tab({
         UI.row('Keep the display awake', 'While connected', [awakeSw]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Network and sharing', [bleRow, blePcRow, wakeRow, shareRow]),
+      UI.card('Network and sharing', [bleRow, blePcRow, bleWifiRow, wakeRow, shareRow]),
       UI.card('This computer', [deviceRow, helperRow]),
     );
 
@@ -88,6 +91,10 @@ UI.tab({
       if (s.net) {
         bleSw.set(s.net.ble);
         blePcSw.set(s.net.blePc === true);
+        bleWifiSw.set(s.net.bleWifiOff !== false);
+        bleWifiRow.setHint(s.net.bleWifiOff === false ? 'Bluetooth stays on beside the Wi-Fi, the way back if it drops'
+          : s.net.bleOff ? 'Off now: the session is on the same Wi-Fi. Bluetooth comes back when it ends'
+            : 'On the same Wi-Fi network (not Wi-Fi Direct), Bluetooth goes off until the session ends. With a computer, phones can’t find this one meanwhile');
         const RADIO = { off: 'Bluetooth is off', unauthorized: 'Allow TwinDesk in System Settings › Privacy & Security › Bluetooth', unsupported: 'This Mac can’t advertise over Bluetooth' };
         bleRow.setHint(!s.net.ble ? 'Only phones on this network or a USB cable connect'
           : RADIO[s.net.radio] || 'Phones nearby connect over Bluetooth. Files and screens move to a direct Wi-Fi link for a while');

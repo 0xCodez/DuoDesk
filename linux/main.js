@@ -59,7 +59,7 @@ const setupIpc = require('./ipc');
 const system = require('./system');
 const { LiveProgress } = require('./liveprogress');
 const { BleHost, BleGuest, BlePhones } = require('../shared/blepipe.js');
-const { blePolicy } = require('../shared/blepolicy.js');
+const { blePolicy, wifiQuiet } = require('../shared/blepolicy.js');
 const { NetLink } = require('../shared/netlink.js');
 const { Wifi } = require('./wifi');
 const { normalize, apply: applySettings } = require('./settings');
@@ -126,6 +126,8 @@ let phoneDrive = null; // its storage as a drive here (phonedrive.js)
 let bleHost = null; // Bluetooth, for devices not on this network: we host (blepipe.js, the helper's ble.c)
 let bleGuest = null; // … we connect to a host
 let blePhones = null; // phones that advertise: we connect to them
+let bleOff = false; // General's Turn off Bluetooth on Wi-Fi connections, in effect (bleQuiet)
+const bleQuiet = wifiQuiet();
 let net = null; // Wi-Fi for a session through Bluetooth (netlink.js)
 let wifi = null; // this computer's Wi-Fi for it: hosting, joining (wifi.js, NetworkManager)
 let pendingView = null; // a phone window waiting for wireless debugging (phoneViews.onNoAdb)
@@ -580,12 +582,18 @@ function bleAccepts(os) {
 }
 
 function bleHostOn() {
-  return blePhonesOn() || blePcsOn();
+  return !bleOff && (blePhonesOn() || blePcsOn());
 }
 
 function applyBle() {
+  applyQuiet(bleQuiet({ on: settings.net.bleWifiOff, current: () => link.current, onGroup: () => !!net && net.onGroup }));
   const p = bleNow();
   if (bleHost) bleHost.apply();
+  if (bleOff) {
+    if (bleGuest) bleGuest.drop();
+    if (blePhones) blePhones.stop();
+    return;
+  }
   if (bleGuest) bleGuest.scan(p.look && blePcsOn());
   if (blePhones) {
     if (!blePhonesOn()) return blePhones.stop();
@@ -595,13 +603,23 @@ function applyBle() {
   }
 }
 
+// The session on the same Wi-Fi a while (General's Turn off Bluetooth on Wi-Fi connections,
+// blepolicy.js wifiQuiet): no advertising, scanning or links, its Bluetooth fallback closed with
+// them; back as it was when the session ends.
+function applyQuiet(off) {
+  if (off === bleOff) return;
+  bleOff = off;
+  console.log(`[ble] ${off ? 'off: the session is on the same Wi-Fi' : 'on again'}`);
+  pushState();
+}
+
 // Phones advertise while they're open and not connected: with this window open we look for them
 // now and then (PHONE_LOOK_MS) and on Refresh, in a session too (listed under Found nearby, nothing
 // linked until Pair or Connect). Not while the window is closed.
 const PHONE_LOOK_MS = 5000;
 const PHONE_BURST_MS = 2000;
 function lookForPhones() {
-  if (!blePhones || !blePhonesOn() || !mainWin || mainWin.isDestroyed() || !mainWin.isVisible()) return;
+  if (!blePhones || !blePhonesOn() || bleOff || !mainWin || mainWin.isDestroyed() || !mainWin.isVisible()) return;
   blePhones.burst(PHONE_BURST_MS);
 }
 
@@ -818,7 +836,7 @@ function buildState() {
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
     // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
     hub: hub ? hub.view : { ...settings.hub, connected: false },
-    net: { ...(net ? net.view : {}), ...hotspotView(), side: wifi ? wifi.side : null, location: false, ble: settings.net.ble, blePc: settings.net.blePc, radio: bleHost ? bleHost.radio : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
+    net: { ...(net ? net.view : {}), ...hotspotView(), side: wifi ? wifi.side : null, location: false, ble: settings.net.ble, blePc: settings.net.blePc, bleWifiOff: settings.net.bleWifiOff, bleOff, radio: bleHost ? bleHost.radio : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
   };
 }
 

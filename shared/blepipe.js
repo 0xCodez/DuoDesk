@@ -383,10 +383,15 @@ class BleGuest extends EventEmitter {
     if (changed) this.emit('change');
   }
 
-  stop() {
-    clearInterval(this.timer);
+  // Bluetooth off for now (blepolicy.js wifiQuiet): no scanning, every pipe closed (each closes its link).
+  drop() {
     this.scan(false);
     for (const dev of [...this.pipes.keys()]) this._closePipe(dev);
+  }
+
+  stop() {
+    clearInterval(this.timer);
+    this.drop();
   }
 }
 

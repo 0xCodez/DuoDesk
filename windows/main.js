@@ -47,6 +47,7 @@ const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
 const { BleHost, BleGuest, BlePhones } = require('../shared/blepipe.js');
+const { wifiQuiet } = require('../shared/blepolicy.js');
 const { NetLink } = require('../shared/netlink.js');
 const { Wifi } = require('./wifi');
 const { normalize, apply: applySettings } = require('./settings');
@@ -118,6 +119,8 @@ let phoneDrive = null; // its storage as a drive here (phonedrive.js)
 let bleHost = null; // Bluetooth, for devices not on this network: we host (blepipe.js)
 let bleGuest = null; // … we connect to a host
 let blePhones = null; // phones that advertise: we connect to them (a PC's Bluetooth often can't advertise)
+let bleOff = false; // General's Turn off Bluetooth on Wi-Fi connections, in effect (bleQuiet)
+const bleQuiet = wifiQuiet();
 let net = null; // Wi-Fi for a session through Bluetooth (netlink.js)
 let wifi = null; // this PC's Wi-Fi for it: hosting, joining (wifi.js)
 let lastMode = 'home';
@@ -324,7 +327,7 @@ async function startHost(guest) {
     bleHost = new BleHost({
       helper, server,
       info: () => ({ id: device.id, name: device.name.slice(0, 40), os: P.OS.WIN, port: server.port, fp: id.fp }),
-      enabled: () => settings.net.ble || settings.net.blePc,
+      enabled: () => !bleOff && (settings.net.ble || settings.net.blePc),
       accept: (g) => (g.os === P.OS.ANDROID ? settings.net.ble : settings.net.blePc), // General's two Bluetooth switches
     });
     bleHost.on('change', pushState);
@@ -533,14 +536,31 @@ function setupNet(guest) {
     if (!peerApps.view().open && !screen.watching()) net.release('apps');
     if (phoneViews && !phoneViews.list().length && !pendingView) net.release('phone');
     if (!smb.drive && !smbWait) net.release('smb');
-    const near = link.snapshot().link.state !== 'connected' && !link.hosting;
+    applyQuiet(bleQuiet({ on: settings.net.bleWifiOff, current: () => link.current, onGroup: () => net.onGroup }));
+    const near = link.snapshot().link.state !== 'connected' && !link.hosting && !bleOff;
     bleGuest.scan(near && settings.net.blePc); // looking for a host only while there's no session
     if (blePhones) blePhones.scan(near && settings.net.ble); // … and for phones
   }, 2000);
 }
 
+// The session on the same Wi-Fi a while (General's Turn off Bluetooth on Wi-Fi connections,
+// blepolicy.js wifiQuiet): no advertising, scanning or links, its Bluetooth fallback closed with
+// them; back as it was when the session ends.
+function applyQuiet(off) {
+  if (off !== bleOff) {
+    bleOff = off;
+    console.log(`[ble] ${off ? 'off: the session is on the same Wi-Fi' : 'on again'}`);
+    if (bleHost) bleHost.apply();
+    pushState();
+  }
+  if (!off) return;
+  if (bleGuest) bleGuest.drop();
+  if (blePhones) blePhones.stop();
+}
+
 // Bluetooth on or off (General), or the helper restarted.
 function applyNet() {
+  if (!settings.net.bleWifiOff) applyQuiet(false);
   if (bleHost) bleHost.apply();
   if (bleGuest && !settings.net.blePc) bleGuest.scan(false);
   if (blePhones && !settings.net.ble) blePhones.stop();
@@ -767,7 +787,7 @@ function buildState() {
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
     // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
     hub: hub ? hub.view : { ...settings.hub, connected: false },
-    net: { ...(net ? net.view : {}), ...hotspotView(), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, blePc: settings.net.blePc, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
+    net: { ...(net ? net.view : {}), ...hotspotView(), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, blePc: settings.net.blePc, bleWifiOff: settings.net.bleWifiOff, bleOff, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
   };
 }
 
