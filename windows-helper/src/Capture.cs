@@ -50,6 +50,7 @@ namespace MacShare
         RawWindow raw;
         readonly Timer timer = new Timer();
         public Flash Flash; // crossing animation (set by Program)
+        ParkPad parkPad; // our own window under the parked pointer, for the wheel (ParkPad.cs)
         DateTime rawSinceHook = DateTime.MinValue, lastReinstall = DateTime.MinValue; // first raw motion no hook call followed
         bool secure; // a UAC prompt or the lock screen is the input desktop (Native.SecureDesktop)
 
@@ -63,6 +64,7 @@ namespace MacShare
             mouseProc = MouseHook;
             keyProc = KeyHook;
             Hook();
+            parkPad = new ParkPad();
             pad = new Touchpad(OnGesture);
             raw = new RawWindow(OnRawMove, (buf, header) =>
             {
@@ -161,6 +163,7 @@ namespace MacShare
                 HideCursor.Hide();
                 // Park in the middle so outward motion isn't clamped by the screen edge.
                 parked = Screens.Center();
+                parkPad.Cover(parked);
                 Native.SetCursorPos(parked.X, parked.Y);
             }
             push = 0;
@@ -179,6 +182,7 @@ namespace MacShare
             if (capMouse)
             {
                 Point p = side != null ? Screens.EdgePoint(side, offset) : saved;
+                parkPad.Uncover();
                 Native.SetCursorPos(p.X, p.Y);
                 HideCursor.Show();
                 if (Flash != null) Flash.Play(p, side ?? (Side != null && Screens.OnOuterEdge(p.X, p.Y, Side) ? Side : null), false); // arriving
