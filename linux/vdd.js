@@ -19,8 +19,8 @@
 //     DisplayPort output forced connected (ConnectedMonitor, which replaces its detection, so the
 //     ports in use are listed too) with a TwinDesk EDID of common sizes (CustomEDID), read when X
 //     starts (log out and back in once). Extend then switches that output on at the size nearest
-//     the other screen's shape, and off after; off too when we start (the desktop turns every
-//     connected screen on at login).
+//     the other screen's shape, and off after; off at start too once the person says so (the
+//     desktop turns every connected screen on at login, and switching it off blanks every monitor).
 // It is on only while Extend is on, like the Mac's TwinDesk display.
 const fs = require('fs');
 const path = require('path');
@@ -413,7 +413,7 @@ class Vdd {
         this.gnome = await run('python3', ['-c', CHECK]).then((t) => JSON.parse(t).displayconfig === true).catch(() => false);
         if (!this.state.on) await this._xLeftover();
         const outs = await outputs(false); // at start: no probe (X saw the ports at login)
-        for (const o of outs) if (o.active && !o.connected) await run('xrandr', ['--output', o.name, '--off']).catch(() => {}); // older versions' mode on a spare output
+        this._offAsked(outs.filter((o) => o.active && !o.connected).map((o) => o.name)); // older versions' mode on a spare output
         const spare = spareOf(outs).length > 0 || (this.state.on && !!this.output);
         if (!spare && NVIDIA() && !outs.some((o) => o.id)) return this._nvCheck(outs);
         const ready = helperReady();
@@ -425,6 +425,32 @@ class Vdd {
       }
     } catch (e) {
       this._set({ checked: true, installed: false, message: WAYLAND ? 'Extend needs Python 3 with GObject (python3-gi)' : 'Couldn’t check the monitors: ' + e.message });
+    }
+  }
+
+  // Our screens found on at start (the desktop's login layout, an older version's mode), to switch
+  // off: asked first, not done by itself (each is a mode change, and on NVIDIA that blanks every
+  // monitor for a moment). Leave it on: not asked again until TwinDesk starts again. Off only if
+  // Extend didn't take it meanwhile.
+  async _offAsked(names) {
+    this.declined = this.declined || new Set();
+    names = names.filter((n) => !this.declined.has(n));
+    if (!names.length || this.asking) return;
+    this.asking = true;
+    try {
+      const { dialog } = require('electron');
+      const r = await dialog.showMessageBox({
+        type: 'question', title: 'TwinDesk', buttons: ['Switch it off', 'Leave it on'], defaultId: 0, cancelId: 1,
+        message: 'Switch off TwinDesk’s extra screen?',
+        detail: 'TwinDesk’s extra screen for Extend is on (' + names.join(', ') + '), so windows can end up on a screen nobody sees until Extend is on. '
+          + 'Switching it off makes your monitors go black for a moment.',
+      });
+      if (r.response !== 0) { for (const n of names) this.declined.add(n); return; }
+      for (const n of names) if (!(this.state.on && n === this.output)) await run('xrandr', ['--output', n, '--off']).catch(() => {});
+    } catch (e) {
+      console.warn('[vdd] off', e.message);
+    } finally {
+      this.asking = false;
     }
   }
 
@@ -440,7 +466,7 @@ class Vdd {
   async _nvCheck(outs) {
     const ours = nvOurs(outs);
     const conf = fs.existsSync(NV_CONF);
-    if (ours && ours.active && !this.state.on) await run('xrandr', ['--output', ours.name, '--off']).catch(() => {}); // the desktop's login layout
+    if (ours && ours.active && !this.state.on) this._offAsked([ours.name]); // the desktop's login layout
     const ports = conf || ours ? null : nvPorts();
     this._set({
       checked: true, kind: 'nvidia', installed: !!ours, setup: !conf && !ours && !!(ports && ports.pick), removable: conf,
