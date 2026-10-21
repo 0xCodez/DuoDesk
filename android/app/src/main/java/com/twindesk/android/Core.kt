@@ -36,6 +36,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val ble = Ble(ctx, { JSONObject().put("id", store.deviceId).put("name", store.deviceName).put("os", Proto.OS) },
         { id -> store.hosts().any { it.id == id } }, ::changed, ::onInvite)
     val bleOn get() = store.flag("ble", true)
+    val bleWifiOff get() = store.flag("bleWifiOff", true) // General's Turn off Bluetooth on Wi-Fi connections (bleTick)
     // … and PCs that connect to us: this phone advertises (BleServe.kt), as a PC's Bluetooth often can't.
     val serve = BleServe(ctx, { JSONObject().put("id", store.deviceId).put("name", store.deviceName).put("os", Proto.OS) }, ::changed, ::onServeOpen)
     init { link.bleRx = { maxOf(ble.lastDown, serve.lastRx) } }
@@ -80,13 +81,14 @@ class Core private constructor(val ctx: Context) : Link.Events {
 
     // Every 2 s: Bluetooth scans while it may be needed (not connected, or connected through it),
     // and a session through Bluetooth moves onto the network as soon as the computer is seen there
-    // (the same Wi-Fi, or a group Netlink made). On the same Wi-Fi, Bluetooth goes altogether (its
-    // fallback, then its links): the Wi-Fi dropping ends the session, which comes back over
-    // Bluetooth (resume). On a group Netlink made, or a USB cable, it stays as the fallback.
+    // (the same Wi-Fi, or a group Netlink made). On the same Wi-Fi, with General's Turn off Bluetooth
+    // on Wi-Fi connections on, Bluetooth goes altogether (its fallback, then its links): the Wi-Fi
+    // dropping ends the session, which comes back over Bluetooth (resume). On a group Netlink made,
+    // or a USB cable, it stays as the fallback.
     private val resumeTried = HashMap<String, Long>()
     private fun bleTick() {
         ble.prune()
-        if (link.connected && net.via == "Wi-Fi") {
+        if (bleWifiOff && link.connected && net.via == "Wi-Fi") {
             link.dropAlt()
             ble.trim()
             serve.trim()

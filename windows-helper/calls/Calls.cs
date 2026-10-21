@@ -21,6 +21,7 @@
 // stdin closed (TwinDesk gone, or the option off): the phone line is let go and this exits.
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -48,10 +49,15 @@ namespace MacShare
 
         static int Main()
         {
-            Console.InputEncoding = new UTF8Encoding(false);
-            Console.OutputEncoding = new UTF8Encoding(false);
+            // A Windows app (build.cmd /target:winexe), with no console to set code pages on: its
+            // pipes are TwinDesk's (windows/callaudio.js). Started by Windows itself for a call
+            // (phoneCallActivation) it has none, reads nothing and goes at once, with no window.
+            UTF8Encoding utf8 = new UTF8Encoding(false);
+            TextReader input = new StreamReader(Console.OpenStandardInput(), utf8);
+            Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), utf8));
+            Console.SetError(new StreamWriter(Console.OpenStandardError(), utf8) { AutoFlush = true });
             string l;
-            while ((l = Console.In.ReadLine()) != null)
+            while ((l = input.ReadLine()) != null)
             {
                 Dictionary<string, object> m;
                 try { m = Json.Parse(l); } catch (Exception) { continue; }

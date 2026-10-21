@@ -146,7 +146,7 @@ class PhoneHub extends EventEmitter {
   // ---- from the window ----
 
   // {do: 'set', what, on} | {do: 'opt', callAudio?, btDevice?} | {do: 'ask', what} | {do: 'seen'}
-  // | {do: 'send', msg} | {do: 'audio', a: 'here'|'phone'|'connect'|'check'|'settings'|'visible'|'forget'} | {do: 'call', a, number?, on?}
+  // | {do: 'send', msg} | {do: 'audio', a: 'here'|'phone'|'connect'|'check'|'settings'|'forget'} | {do: 'call', a, number?, on?}
   // | {do: 'upload', path, paths? (none: chosen here first)} | {do: 'share', a: 'mount'|'unmount'|'auto'|'serve'|'choose'|'default', on?}
   act(r) {
     if (!r || typeof r !== 'object') return;
@@ -356,29 +356,22 @@ class PhoneHub extends EventEmitter {
     else if (a === 'connect') this.audio.start(this.state ? this.state.bt.name : '');
     else if (a === 'check') { if (this.audio.check) this.audio.check(); } // back in the window: paired meanwhile?
     else if (a === 'settings') this.pairHere();
-    else if (a === 'visible') this.visible();
     else if (a === 'forget') this.forget(false);
   }
 
-  // The phone asked to let itself be found, for pairing in this computer's Bluetooth settings.
-  visible() {
-    if (this.phone && this.audio) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', visible: true });
-  }
-
-  // This computer's Bluetooth settings, where the phone is paired over classic Bluetooth (the kind
-  // a call goes through); the phone is looked for until it's there.
+  // This computer's Bluetooth settings, where the person pairs the phone over classic Bluetooth (the
+  // kind a call goes through; TwinDesk doesn't pair them itself); the phone is looked for until it's there.
   pairHere() {
     if (this.btSettings) this.btSettings();
     this.watchPair();
   }
 
   // Forget: both forget each other, over classic Bluetooth and LE, so neither keeps keys the other
-  // dropped (TwinDesk's own LE link fails on those), then they pair again: this computer's
-  // Bluetooth settings open and the phone is asked to be visible (it asks itself when Forget was
-  // pressed there). The phone hears first: over Bluetooth LE the session may go with the pairing.
+  // dropped (TwinDesk's own LE link fails on those), and this computer's Bluetooth settings open to
+  // pair them again. The phone hears first: over Bluetooth LE the session may go with the pairing.
   forget(fromPhone) {
     if (!this.audio) return;
-    if (!fromPhone && this.phone) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', unpair: true, visible: true });
+    if (!fromPhone && this.phone) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', unpair: true });
     if (this.audio.unpair) this.audio.unpair();
     this.pairHere();
   }

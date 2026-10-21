@@ -10,7 +10,6 @@ package com.twindesk.android
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
@@ -89,9 +88,7 @@ class Hub(core: Core) : Feature(core) {
             Proto.T.HUB_ASK -> ask(m.str("what", 20))
             Proto.T.HUB_BT -> {
                 m.str("address", 17).uppercase().let { if (it.isNotEmpty()) btAddress = it }
-                val visible = m.optBoolean("visible") // the computer's Forget, or its setup's Ask the phone
-                if (m.optBoolean("unpair")) core.bg.execute { if (unpairBt() && visible) ask("visible") }
-                else if (visible) ask("visible")
+                if (m.optBoolean("unpair")) core.bg.execute { unpairBt() } // the computer's Forget
                 sendState()
             }
             Proto.T.CALL_DO -> calls?.act(m) ?: core.send(msg(Proto.T.CALL_DONE, "a" to m.str("a", 20), "ok" to false, "error" to "off"))
@@ -207,33 +204,32 @@ class Hub(core: Core) : Feature(core) {
     // The person on the phone is asked (the computer's Allow): the prompt opens straight away when
     // Android lets us (display over other apps, or TwinDesk on screen), else a notification.
     private fun ask(what: String) {
-        if (what !in listOf("calls", "messages", "media", "files", "bt", "visible")) return
+        if (what !in listOf("calls", "messages", "media", "files", "bt")) return
         val i = Intent(core.ctx, PermActivity::class.java).putExtra("what", what).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Settings.canDrawOverlays(core.ctx) || MainActivity.shown) runCatching { core.ctx.startActivity(i) }
         else Notify.hubAsk(core.ctx, what, core.host?.name ?: "Your computer")
     }
 
     // ---- Bluetooth: calls' sound on the computer needs this phone paired with it ----
-    // Over classic Bluetooth (BR/EDR): hands-free runs only there. Paired in the computer's own
-    // Bluetooth settings (its Calls page's setup), with this phone visible meanwhile. A pairing over
-    // Bluetooth LE only (le below) can't carry a call: Forget, on either side, starts over.
+    // Over classic Bluetooth (BR/EDR): hands-free runs only there. The person pairs them in Bluetooth
+    // settings (the Calls pages say how): TwinDesk doesn't pair them itself. A pairing over Bluetooth
+    // LE only (le below) can't carry a call: Forget, on either side, starts over.
 
     @Volatile private var bonding = false // pairing with the computer right now
     @Volatile private var forget = false // the old pairing has to be forgotten in Settings first
     private var bondWatch: BroadcastReceiver? = null
 
-    // For the app's Calls page: the pairing as the computer sees it (bt()), Make visible and Forget from here.
+    // For the app's Calls page: the pairing as the computer sees it (bt()), Bluetooth settings and Forget from here.
     val btKnown get() = btAddress.isNotEmpty()
     fun btState(): JSONObject = bt()
-    fun visibleBt() { askHere("visible") }
+    fun btSettings() = runCatching { core.ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 
     // Forget from here: both forget each other (this phone, then the computer: phonehub.js, which
-    // opens its Bluetooth settings), and this phone is made visible to be paired again there.
+    // opens its Bluetooth settings), and Bluetooth settings open here, to pair them again.
     fun forgetBt() {
         core.bg.execute {
-            val gone = unpairBt()
+            if (unpairBt()) btSettings() // else they opened already, to forget it there
             core.send(msg(Proto.T.HUB_BT, "unpair" to true))
-            if (gone) askHere("visible")
             core.changed()
         }
     }
@@ -293,7 +289,7 @@ class Hub(core: Core) : Feature(core) {
         forget = false
         if (d.bondState != BluetoothDevice.BOND_NONE && !unbond(d)) {
             Log.i("TwinDesk", "bt: can't forget $btAddress here")
-            runCatching { core.ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            btSettings()
             forget = true
             sendState()
             return false
@@ -329,19 +325,14 @@ class Hub(core: Core) : Feature(core) {
             else -> wanted(what).first()
         }
 
-        fun label(what: String) = when (what) { "calls" -> "Calls"; "messages" -> "Messages"; "files" -> "Files"; "bt" -> "Calls on the computer"; "visible" -> "Bluetooth pairing for calls"; else -> "Photos and videos" }
+        fun label(what: String) = when (what) { "calls" -> "Calls"; "messages" -> "Messages"; "files" -> "Files"; "bt" -> "Calls on the computer"; else -> "Photos and videos" }
     }
 }
 
 // Invisible: Android's own prompt for what Calls, Messages or Photos need (or Nearby devices, to
-// see the pairing for calls' sound; visible: found for that pairing; Files: All files access in Settings). Refused for good
+// see the pairing for calls' sound; Files: All files access in Settings). Refused for good
 // before (Android won't ask again): TwinDesk's page in Settings instead.
 class PermActivity : Activity() {
-    private companion object {
-        const val VISIBLE_PERM = 2 // Nearby devices, for the discoverable prompt
-        const val VISIBLE = 3 // the discoverable prompt
-    }
-
     private var what = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -358,8 +349,6 @@ class PermActivity : Activity() {
             finish()
             return
         }
-        // Calls' sound: visible a few minutes, to be paired from the computer's Bluetooth settings.
-        if (what == "visible") { visible(); return }
         val want = Hub.request(what).filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (what.isEmpty() || want.isEmpty() || core.hub.perm(what) == "none") { core.hub.permsChanged(); finish(); return }
         if (core.store.flag("hub.refused.$what", false) && want.none { shouldShowRequestPermissionRationale(it) }) {
@@ -372,34 +361,8 @@ class PermActivity : Activity() {
         requestPermissions(want.toTypedArray(), 1)
     }
 
-    // Android's own prompt to let this phone be found (from Android 12 it needs Nearby devices first).
-    // No prompt: Bluetooth settings instead, where the phone is visible too.
-    @SuppressLint("MissingPermission") // BLUETOOTH_ADVERTISE: asked for just above
-    private fun visible() {
-        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_ADVERTISE), VISIBLE_PERM)
-            return
-        }
-        val i = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-        if (runCatching { startActivityForResult(i, VISIBLE) }.isFailure) {
-            runCatching { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
-            finish()
-        }
-    }
-
-    // The discoverable prompt answered, either way.
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        finish()
-    }
-
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == VISIBLE_PERM) {
-            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) visible()
-            else { runCatching { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }; finish() }
-            return
-        }
         val core = Core.get(this)
         val refused = permissions.filterIndexed { i, _ -> grantResults.getOrNull(i) != PackageManager.PERMISSION_GRANTED }
         // Only some photos chosen: Android asks again next time (the person may want more).

@@ -135,12 +135,11 @@ UI.tab({
     const statusRow = UI.row('Bluetooth', '', [which.el, retryBtn]);
     const soundCard = UI.card('Sound', [audioRow, statusRow]);
 
-    // Setting it up: the two paired in this computer's own Bluetooth settings, over classic Bluetooth
-    // (what a call goes through), the phone visible meanwhile; TwinDesk connects once they are.
-    // Forget at the bottom: both forget each other, classic and LE, and it starts over.
-    const visibleBtn = UI.button('Ask the phone', () => api.hub({ do: 'audio', a: 'visible' }), 'small');
+    // Setting it up: the person pairs the two in the systems' own Bluetooth settings, over classic
+    // Bluetooth (what a call goes through); TwinDesk doesn't pair them itself, only says how, and
+    // connects once they are. Forget at the bottom: both forget each other, classic and LE.
     const settingsBtn = UI.button('Open Bluetooth settings', () => api.hub({ do: 'audio', a: 'settings' }), 'small primary');
-    const step1 = UI.row('', '', [visibleBtn]);
+    const step1 = UI.row('', '');
     const step2 = UI.row('', '', [settingsBtn]);
     const step3 = UI.row('3. Confirm the code on both', '');
     const pairedRow = UI.row('', '');
@@ -238,9 +237,10 @@ UI.tab({
       if (h.callAudio && h.connected && needsPair && bt) {
         // The phone's side of the pairing (Hub.kt): LE only can't carry a call.
         if (bt.bonding) status = `Pairing… Confirm the code on ${phone} and on {me}`;
-        else if (bt.le) status = `${phone} and {me} are paired over Bluetooth LE only, which can’t carry a call: Forget below, then pair them again`;
-        else if (bt.forget) status = `${phone} keeps its old pairing with {me}: forget {me} in Bluetooth settings on ${phone} (they opened there), then pair them again below`;
+        else if (bt.le) status = `${phone} and {me} are paired over Bluetooth LE only, which can’t carry a call: Forget below, then pair them again in Bluetooth settings`;
+        else if (bt.forget) status = `${phone} keeps its old pairing with {me}: forget {me} in Bluetooth settings on ${phone} (they opened there), then pair them again in Bluetooth settings`;
         else if (bt.radio === false) status = `Bluetooth is off on ${phone}`;
+        else if (a.state === 'needs-pair') status = `Not paired with ${phone} over classic Bluetooth: pair them in Bluetooth settings, as below. TwinDesk connects once they are`;
       }
       statusRow.setHint(status);
       retryBtn.hidden = !(a && ['failed', 'off'].includes(a.state));
@@ -262,8 +262,8 @@ UI.tab({
         pairedRow.label.textContent = `Paired with ${phone}`;
         pairedRow.setHint('Over classic Bluetooth, which carries the calls’ sound');
       } else {
-        step1.label.textContent = `1. Make ${phone} visible`;
-        step1.setHint(`${phone} asks to be found for a few minutes: allow it there. Or open Bluetooth settings on ${phone}`);
+        step1.label.textContent = `1. On ${phone}: Settings › Bluetooth › Pair new device`;
+        step1.setHint(`${phone} can be found while that screen is open`);
         step2.label.textContent = UI.fill('2. Pair from {me}');
         step2.setHint((a && a.pairHow) || `In {me}’s Bluetooth settings, add a device and pick ${phone}`);
         settingsBtn.hidden = !h.btSettings;

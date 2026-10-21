@@ -159,7 +159,7 @@ class CallAudio extends EventEmitter {
     const MESSAGES = {
       starting: 'Starting…',
       unavailable: this.error ? `Not available: ${this.error}` : 'Bluetooth is off on this Mac',
-      'needs-pair': `Not paired with ${this.phoneName || 'the phone'} yet: set it up below`,
+      'needs-pair': `Not paired with ${this.phoneName || 'the phone'} over classic Bluetooth: pair them in Bluetooth settings, as below`,
       choose: 'Choose the phone below',
       connecting: `Connecting to ${name}…`,
       ready: `Connected to ${name} over Bluetooth: calls play on this Mac`,

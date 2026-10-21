@@ -28,8 +28,9 @@ if exist "%BIN%\%OLD%" set OLD=macshare-winhelper.old-%RANDOM%.exe
 if exist "%BIN%\macshare-winhelper.exe" ren "%BIN%\macshare-winhelper.exe" %OLD%
 ren "%BIN%\macshare-winhelper.new.exe" macshare-winhelper.exe
 rem The calls' sound on this PC (windows/callaudio.js): its own .exe with its own manifest (calls\),
-rem and the signed sparse package that gives it an identity (pack.ps1).
-"%CSC%" /nologo /optimize+ /platform:anycpu /target:exe /out:"%BIN%\macshare-calls.new.exe" ^
+rem and the signed sparse package that gives it an identity (pack.ps1). A Windows app, not a console
+rem one: Windows starts it by itself on a call (phoneCallActivation), and a console app opened a terminal.
+"%CSC%" /nologo /optimize+ /platform:anycpu /target:winexe /out:"%BIN%\macshare-calls.new.exe" ^
   /win32manifest:"%~dp0calls\macshare-calls.manifest" /r:System.Web.Extensions.dll %WINRT% ^
   "%~dp0calls\Calls.cs" "%~dp0src\Json.cs" || exit /b 1
 del /q "%BIN%\macshare-calls.old*.exe" 2>nul
