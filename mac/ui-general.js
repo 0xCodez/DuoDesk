@@ -42,8 +42,11 @@ UI.tab({
     // Wake this Mac from the other computer; the Share menu entry.
     const wakeSw = UI.switch((v) => api.setWakeOnLan(v), { label: 'Wake from the network' });
     const wakeRow = UI.row('Let {name} wake {me}', '', [wakeSw]);
-    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth' });
-    const bleRow = UI.row('Bluetooth when not on the same network', '', [bleSw]);
+    // Bluetooth when not on the same network: with phones (on unless switched off), with computers (off unless switched on).
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth with phones' });
+    const bleRow = UI.row('Bluetooth with phones', '', [bleSw]);
+    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
+    const blePcRow = UI.row('Bluetooth with computers', '', [blePcSw]);
     const shareRow = UI.row('TwinDesk in the Share menu', 'Share › TwinDesk sends files to the other computer',
       [UI.button('Extensions…', () => api.openSettings('extensions'), 'small')]);
 
@@ -57,7 +60,7 @@ UI.tab({
         UI.row('Keep the display awake', 'While connected', [awakeSw]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Network and sharing', [bleRow, wakeRow, shareRow]),
+      UI.card('Network and sharing', [bleRow, blePcRow, wakeRow, shareRow]),
       UI.card('This computer', [deviceRow, helperRow]),
     );
 
@@ -84,9 +87,12 @@ UI.tab({
       wakeRow.setHint(w.womp == null ? 'Checking…' : 'Wake for network access. Asks for your password to change it');
       if (s.net) {
         bleSw.set(s.net.ble);
+        blePcSw.set(s.net.blePc === true);
         const RADIO = { off: 'Bluetooth is off', unauthorized: 'Allow TwinDesk in System Settings › Privacy & Security › Bluetooth', unsupported: 'This Mac can’t advertise over Bluetooth' };
-        bleRow.setHint(s.net.ble && RADIO[s.net.radio] ? RADIO[s.net.radio]
-          : 'Phones and PCs nearby connect over Bluetooth. Files and screens move to a direct Wi-Fi link for a while');
+        bleRow.setHint(!s.net.ble ? 'Only phones on this network or a USB cable connect'
+          : RADIO[s.net.radio] || 'Phones nearby connect over Bluetooth. Files and screens move to a direct Wi-Fi link for a while');
+        blePcRow.setHint(s.net.blePc !== true ? 'Only computers on this network connect'
+          : RADIO[s.net.radio] || 'PCs nearby connect over Bluetooth. Files and screens move to a direct Wi-Fi link for a while');
       }
       helperVal.textContent = s.helper && s.helper.running ? 'Running' : 'Not running';
       deviceName.textContent = s.macName || '';

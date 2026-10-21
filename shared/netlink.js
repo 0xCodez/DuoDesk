@@ -35,6 +35,7 @@ class NetLink extends EventEmitter {
   // opts: os; send(msg); current() -> {deviceId, os, role, transport: 'ble'|'ip'} | null;
   //   host: {can(), start(ssid, pass), stop()} | null — this side hosts a network (promises);
   //   join: {can(), start(ssid, pass), stop()} | null — this side joins one;
+  //   band5() -> false: this side's Wi-Fi is 2.4 GHz only (a phone's group goes there for us);
   //   hotspot(why, peerOs) -> true: ask the person for the peer's hotspot instead (the Mac with a phone, screen);
 //   cable() -> true: the peer (a phone) is on a USB cable here and was asked onto it: no Wi-Fi link.
   constructor(opts) {
@@ -75,7 +76,8 @@ class NetLink extends EventEmitter {
   // What we can do, again (it changed).
   caps() {
     if (!this.onBle) return;
-    this.o.send({ t: T.NET_CAPS, host: this._canHost(), join: this._canJoin(), hotspot: false });
+    const band5 = this.o.band5 ? this.o.band5() : true;
+    this.o.send({ t: T.NET_CAPS, host: this._canHost(), join: this._canJoin(), hotspot: false, ...(band5 === false ? { band5: false } : {}) });
   }
 
   ended() {

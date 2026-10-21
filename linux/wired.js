@@ -28,6 +28,7 @@ const APP_ID = 'com.twindesk.android';
 const TURN_PORT = 47802;
 const POLL_MS = 2000;
 const RETRY_MS = 15000; // a phone without TwinDesk (or not answering yet) is looked at again after this
+const TCPIP_PORT = 5555; // adb's TCP mode, where phone-bridge.js reaches the phone on a direct Wi-Fi link
 
 const isUsb = (serial) => !/[:]/.test(serial) && !serial.startsWith('emulator-') && !serial.includes('._adb-tls');
 const isLoopback = (a) => a === '127.0.0.1' || a === '::1';
@@ -39,6 +40,7 @@ class Wired extends EventEmitter {
     Object.assign(this, { adb, raw, peer, getId, getName });
     this.plugged = new Map(); // USB serial -> {nonce, at, linked}
     this.byDevice = new Map(); // phone deviceId -> USB serial (from phone.wired)
+    this.asked = new WeakSet(); // sessions (ctx) not on the cable that were asked onto it once
     this.turn = new TurnThread({ port: TURN_PORT });
     this.turnOk = false;
     this.phoneTurn = TURN_PORT; // the relay's port on the phone's side of adb reverse
@@ -72,6 +74,26 @@ class Wired extends EventEmitter {
     return typeof nonce === 'string' && nonce.length > 0 && [...this.plugged.values()].some((p) => p.nonce === nonce);
   }
 
+  // The USB serial this phone is on, or null: known from phone.wired, else the only phone on a
+  // cable here that isn't known as another.
+  _serialFor(deviceId) {
+    const known = this.byDevice.get(deviceId);
+    if (known) return this.plugged.has(known) ? known : null;
+    const taken = new Set(this.byDevice.values());
+    const free = [...this.plugged.keys()].filter((s) => !taken.has(s));
+    return free.length === 1 ? free[0] : null;
+  }
+
+  // The session with this phone is on Bluetooth or Wi-Fi while it's on a cable here: ask it onto
+  // the cable (netlink.js asks this before making a direct Wi-Fi link). False: no cable for it.
+  toCable(deviceId) {
+    const s = this._serialFor(deviceId);
+    if (!s) return false;
+    const p = this.plugged.get(s);
+    if (!p || Date.now() - p.at > 5000) this._invite(s).catch((e) => console.log(`[wired] ${e.message}`));
+    return true;
+  }
+
   // The tile was clicked with the phone on the cable: ask it through the cable again.
   connect(deviceId) {
     const s = this.byDevice.get(deviceId);
@@ -97,8 +119,18 @@ class Wired extends EventEmitter {
         this.emit('change');
       }
       if (usb.length) await this._relay(); // started for the first phone on the cable, kept from then on
+      // A session with a phone that's on a cable here but not through it (it came back over
+      // Bluetooth or Wi-Fi after its app restarted, say): asked onto the cable, once per session.
+      const c = this.raw.current;
+      const offCable = c && c.os === P.OS.ANDROID && !(isLoopback(c.address) && c.transport !== 'ble') && !this.asked.has(c);
       for (const s of usb) {
         const p = this.plugged.get(s);
+        if (p && p.linked && offCable && this._serialFor(c.deviceId) === s && Date.now() - p.at > RETRY_MS) {
+          this.asked.add(c);
+          console.log(`[wired] ${c.name} is on the cable but not through it`);
+          await this._invite(s);
+          continue;
+        }
         if (p && (p.linked || Date.now() - p.at < RETRY_MS)) continue;
         this.plugged.set(s, { nonce: p ? p.nonce : '', at: Date.now(), linked: false });
         await this._invite(s);
@@ -141,9 +173,22 @@ class Wired extends EventEmitter {
     throw new Error(`adb reverse ${port}: ${(r.err || r.out).trim()}`);
   }
 
+  // TCP mode on, for a direct Wi-Fi link later (Android keeps wireless debugging off there): it
+  // stays on until the phone restarts. Switching it on restarts adbd, which ends every adb reverse,
+  // so it's done before the session comes onto the cable, not under it.
+  async _tcpip(serial) {
+    const prop = await this.adb.shell(serial, 'getprop service.adb.tcp.port', { timeout: 4000 });
+    if (prop.code || prop.out.trim() === String(TCPIP_PORT)) return;
+    console.log(`[wired] ${serial}: adb's TCP mode on (${TCPIP_PORT})`);
+    await this.adb.run(['-s', serial, 'tcpip', String(TCPIP_PORT)], { timeout: 8000 });
+    await new Promise((r) => setTimeout(r, 1500)); // adbd goes away, then comes back on the cable
+    await this.adb.run(['-s', serial, 'wait-for-device'], { timeout: 15000 });
+  }
+
   async _invite(serial) {
     const has = await this.adb.shell(serial, `pm path ${APP_ID}`, { timeout: 5000 });
     if (!/package:/.test(has.out)) return;
+    await this._tcpip(serial);
     const port = await this._reverse(serial, this.raw.port);
     this.phoneTurn = await this._reverse(serial, TURN_PORT);
     // One per plug-in: a phone still pairing with the last broadcast's nonce keeps it valid.

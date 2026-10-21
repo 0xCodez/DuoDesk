@@ -29,6 +29,10 @@ UI.tab({
     const discFix = UI.button('Allow', () => api.allowPermission('localNetwork'), 'small');
     discRow.querySelector('.controls').append(discFix);
     const foundList = el('div');
+    // General's two Bluetooth switches, here too: who can turn up through Bluetooth.
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth with phones' });
+    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
+    const bleRows = [UI.row('Bluetooth with phones', '', [bleSw]), UI.row('Bluetooth with computers', '', [blePcSw])];
     const refresh = UI.button('Refresh', () => { // the list empties and fills again with whoever answers
       api.refreshDiscovery();
       refresh.disabled = true;
@@ -115,7 +119,7 @@ UI.tab({
     body.append(
       permCard,
       UI.card('', [addrRow, ipRow]),
-      UI.card('Nearby', [discRow, foundList], { actions: [refresh] }),
+      UI.card('Nearby', [discRow, foundList, ...bleRows], { actions: [refresh] }),
       hero,
       adbCard,
       UI.pair(UI.dir('m2w', m2w.map((x) => x.row)), UI.dir('w2m', w2m.map((x) => x.row))),
@@ -126,6 +130,8 @@ UI.tab({
     let pairedKey = '';
     return (s) => {
       const p = UI.names(s);
+      bleSw.set(!s.net || s.net.ble !== false);
+      blePcSw.set(!!s.net && s.net.blePc === true);
       const c = s.client;
       const g = s.guest || { status: {}, hosts: [] };
 

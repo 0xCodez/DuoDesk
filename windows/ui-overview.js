@@ -115,6 +115,10 @@ UI.tab({
     // ---- found nearby (always visible) ----
     const discRow = UI.row('Can’t look for computers on this network.', '', [UI.button('Fix firewall', () => api.fixFirewall(), 'small')]);
     const foundList = el('div');
+    // General's two Bluetooth switches, here too: who can turn up through Bluetooth.
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth with phones' });
+    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
+    const bleRows = [UI.row('Bluetooth with phones', '', [bleSw]), UI.row('Bluetooth with computers', '', [blePcSw])];
     const refresh = UI.button('Refresh', () => { // the list empties and fills again with whoever answers
       api.refreshFound();
       refresh.disabled = true;
@@ -136,7 +140,7 @@ UI.tab({
     const pairedList = el('div');
     body.append(
       UI.card('', [addrRow, ipRow]),
-      UI.card('Found nearby', [discRow, foundList], { actions: [refresh] }),
+      UI.card('Found nearby', [discRow, foundList, ...bleRows], { actions: [refresh] }),
       hero,
       adbCard,
       pair.el,
@@ -149,6 +153,8 @@ UI.tab({
     const render = () => last && update(last);
     const update = (s) => {
       last = s;
+      bleSw.set(!s.net || s.net.ble !== false);
+      blePcSw.set(!!s.net && s.net.blePc === true);
       const l = s.link;
       const connected = l.state === 'connected';
       pcName.textContent = s.device.name;

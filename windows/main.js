@@ -324,7 +324,8 @@ async function startHost(guest) {
     bleHost = new BleHost({
       helper, server,
       info: () => ({ id: device.id, name: device.name.slice(0, 40), os: P.OS.WIN, port: server.port, fp: id.fp }),
-      enabled: () => settings.net.ble,
+      enabled: () => settings.net.ble || settings.net.blePc,
+      accept: (g) => (g.os === P.OS.ANDROID ? settings.net.ble : settings.net.blePc), // General's two Bluetooth switches
     });
     bleHost.on('change', pushState);
     discovery.extras.unshift(bleHost);
@@ -531,16 +532,16 @@ function setupNet(guest) {
     if (!peerApps.view().open && !screen.watching()) net.release('apps');
     if (phoneViews && !phoneViews.list().length && !pendingView) net.release('phone');
     if (!smb.drive && !smbWait) net.release('smb');
-    const near = settings.net.ble && link.snapshot().link.state !== 'connected' && !link.hosting;
-    bleGuest.scan(near); // looking for a host only while there's no session
-    if (blePhones) blePhones.scan(near); // … and for phones
+    const near = link.snapshot().link.state !== 'connected' && !link.hosting;
+    bleGuest.scan(near && settings.net.blePc); // looking for a host only while there's no session
+    if (blePhones) blePhones.scan(near && settings.net.ble); // … and for phones
   }, 2000);
 }
 
 // Bluetooth on or off (General), or the helper restarted.
 function applyNet() {
   if (bleHost) bleHost.apply();
-  if (bleGuest && !settings.net.ble) bleGuest.scan(false);
+  if (bleGuest && !settings.net.blePc) bleGuest.scan(false);
   if (blePhones && !settings.net.ble) blePhones.stop();
   pushState();
 }
@@ -765,7 +766,7 @@ function buildState() {
     mount: { ...(phoneDrive ? phoneDrive.view : {}), on: settings.mount.on },
     // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
     hub: hub ? hub.view : { ...settings.hub, connected: false },
-    net: { ...(net ? net.view : {}), ...hotspotView(), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
+    net: { ...(net ? net.view : {}), ...hotspotView(), location: !!wifi && wifi.refusedLocation, ble: settings.net.ble, blePc: settings.net.blePc, radio: bleHost ? bleHost.state : bleGuest ? bleGuest.state : 'off', transport: link.current ? link.current.transport : '' },
   };
 }
 

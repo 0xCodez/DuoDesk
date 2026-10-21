@@ -39,7 +39,8 @@ jobs:
             libxi-dev \
             libxtst-dev \
             libxrandr-dev \
-            libxfixes-dev
+            libxfixes-dev \
+            libglib2.0-dev
 
       - uses: ./.github/actions/android-full
         with:

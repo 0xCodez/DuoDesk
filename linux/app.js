@@ -114,7 +114,7 @@
       : (s.pairing || l.state === 'connecting' || l.state === 'reconnecting') ? 'warn' : '';
     $('peer-dot').className = 'dot ' + dot;
     let text = 'Not paired';
-    if (l.state === 'connected') text = l.macName + (l.rtt != null ? ' · ' + l.rtt + ' ms' : '');
+    if (l.state === 'connected') text = l.macName + (UI.via(s) !== 'Wi-Fi' ? ' · ' + UI.via(s) : '') + (l.rtt != null ? ' · ' + l.rtt + ' ms' : '');
     else if (s.pairing) text = 'Pairing…';
     else if (l.state === 'connecting' || l.state === 'reconnecting') text = 'Reconnecting…';
     else if (l.state === 'identity_changed') text = 'Identity changed';
@@ -152,17 +152,25 @@
     }
     const info = ph.info || {};
     const colors = info.colors && info.colors.length ? info.colors : null;
-    const key = JSON.stringify([ph.nearby, ph.connecting, ph.connected && ph.connected.rttMs, ph.held, info.battery, info.charging, colors, UI.phoneWall ? UI.phoneWall.length : 0, current && current.def.id]);
-    if (key === phonesKey) return;
+    // The connected phone's line (ping, battery) changes often: written in place, the tiles (and
+    // their wallpaper) built again only when something else changed, else they flicker.
+    const subOf = (d) => (d.connected
+      ? (ph.connected.rttMs != null ? ph.connected.rttMs + ' ms' : 'Connected') + (info.battery != null ? ' · ' + info.battery + '%' + (info.charging ? ' ⚡' : '') : '')
+      : ph.connecting && ph.connecting.id === d.id ? 'Connecting…' : 'Nearby · Click to connect');
+    const key = JSON.stringify([ph.nearby, ph.connecting, ph.held, colors, UI.phoneWall ? UI.phoneWall.length : 0, current && current.def.id]);
+    if (key === phonesKey) {
+      ph.nearby.forEach((d, i) => {
+        const sub = $('phones').children[i] && $('phones').children[i].querySelector('.phone-sub');
+        if (sub && sub.textContent !== subOf(d)) sub.textContent = subOf(d);
+      });
+      return;
+    }
     phonesKey = key;
     $('phones').replaceChildren(...ph.nearby.map((d) => {
       const wall = el('span', { class: 'phone-wall' }, [UI.icon('phone')]);
       if (d.connected && UI.phoneWall) wall.style.backgroundImage = UI.phoneWall;
       else if (d.connected && colors) wall.style.backgroundImage = 'linear-gradient(160deg, ' + colors.join(', ') + (colors.length === 1 ? ', ' + colors[0] : '') + ')';
-      const connecting = ph.connecting && ph.connecting.id === d.id;
-      const sub = d.connected
-        ? (ph.connected.rttMs != null ? ph.connected.rttMs + ' ms' : 'Connected') + (info.battery != null ? ' · ' + info.battery + '%' + (info.charging ? ' ⚡' : '') : '')
-        : connecting ? 'Connecting…' : 'Nearby · Click to connect';
+      const sub = subOf(d);
       const b = el('button', { class: 'phone-tile' + (d.connected ? ' connected' : ''), title: d.connected ? d.name : 'Connect to ' + d.name }, [
         wall,
         el('span', { class: 'phone-text' }, [el('span', { class: 'phone-name', text: d.name }), el('span', { class: 'phone-sub', text: sub })]),

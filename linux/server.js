@@ -62,13 +62,17 @@ class Server extends EventEmitter {
     Object.assign(ws, { ctx, lastRx: now, transport: ctx.transport, address: ctx.address, blePort: ctx.transport === 'ble' ? req.socket.remotePort : 0 });
     this.sockets.add(ctx);
     ws.on('message', (data, isBinary) => this._onMessage(ws.ctx, data, isBinary, ws));
-    ws.on('close', () => this._onSocketClose(ws));
+    ws.on('close', (code, reason) => this._onSocketClose(ws, code, String(reason || '')));
     ws.on('error', (err) => console.error(`[server] socket ${ws.address}: ${err.message}`));
   }
 
-  _onSocketClose(ws) {
+  _onSocketClose(ws, code, reason) {
     const ctx = ws.ctx;
     if (ws.detached) return;
+    if (ctx.authed) { // which path went, and how (1000/1001: closed on purpose there; 1006: the connection dropped)
+      const path = ws.transport === 'ble' ? 'Bluetooth' : ws.address;
+      console.log(`[server] ${ctx.name}: ${ctx.alt === ws ? 'fallback' : 'session'} socket on ${path} closed (${code || '?'}${reason ? ` ${reason}` : ''}) after ${Math.round((Date.now() - ctx.connectedAt) / 1000)} s`);
+    }
     if (ctx.alt === ws) {
       ctx.alt = null;
       return this.emit('transport', ctx);
@@ -124,6 +128,7 @@ class Server extends EventEmitter {
     }
 
     if (!ctx.authed) {
+      if (this.asleep && msg.t === P.T.HELLO) return this.fail(ctx, P.E.ASLEEP, 'Asleep'); // a dark wake: not for a session
       if (msg.t === P.T.HELLO && typeof msg.resume === 'string') return this._resume(ctx, msg);
       if (msg.t === P.T.HELLO || msg.t.startsWith('pair.')) return this.emit('preauth', ctx, msg);
       return this.fail(ctx, P.E.BAD_MESSAGE, `"${msg.t}" is not allowed before welcome`);
@@ -141,7 +146,7 @@ class Server extends EventEmitter {
       return ctx.ws.close();
     }
     if (msg.t === P.T.PONG) {
-      if (typeof msg.ts === 'number') {
+      if (typeof msg.ts === 'number' && ws === ctx.ws) { // the session's socket only, not the fallback's
         ctx.rttMs = Math.max(0, Date.now() - msg.ts);
         this.emit('rtt', ctx);
       }
@@ -186,6 +191,7 @@ class Server extends EventEmitter {
 
   // Send an error and close the socket.
   fail(ctx, code, message) {
+    console.log(`[server] ${ctx.name || ctx.address}${ctx.transport === 'ble' ? ' (Bluetooth)' : ''}: ${code}: ${message}`);
     this.send(ctx, { t: P.T.ERROR, code, message });
     if (ctx.alt) { // the whole session goes, not just this path of it
       const alt = ctx.alt;
@@ -248,6 +254,19 @@ class Server extends EventEmitter {
       setTimeout(() => c.ws.terminate(), 1000); // an older app never answers the close
     }
     this.endPhoneGrace();
+  }
+
+  // The computer is going to sleep (powerMonitor 'suspend'): the session ends with `asleep`, and
+  // until it wakes for real ('resume') hellos are refused. A dark wake (Power Nap, network upkeep)
+  // answers for a few seconds now and then: a guest let in then only went silent again, every ~20 s.
+  // Returns the guest's device id (main invites it back on waking), or ''.
+  sleep(on) {
+    this.asleep = !!on;
+    const c = on && this.current;
+    if (!c) return '';
+    c.released = true; // no phone grace: it's told why
+    this.fail(c, P.E.ASLEEP, 'Went to sleep');
+    return c.deviceId || '';
   }
 
   // Close every socket that belongs to a device id (used by Forget).

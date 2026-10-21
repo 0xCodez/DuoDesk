@@ -28,8 +28,11 @@ UI.tab({
     const vddPill = el('span', { class: 'pill' });
     const vddInstall = UI.button('Install', () => api.installVdd(), 'small primary');
     const vddRow = UI.row('Virtual display driver', '', [vddPill, vddInstall]); // Share screen › Extend (vdd.js)
-    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth when not on the same network' });
-    const bleRow = UI.row('Bluetooth when not on the same network', '', [bleSw]);
+    // Bluetooth when not on the same network: with phones (on unless switched off), with computers (off unless switched on).
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth with phones' });
+    const bleRow = UI.row('Bluetooth with phones', '', [bleSw]);
+    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
+    const blePcRow = UI.row('Bluetooth with computers', '', [blePcSw]);
     // What Windows has to allow, in one place (each is also asked for where a feature needs it).
     const btPill = el('span', { class: 'pill' });
     const btRow = UI.row('Bluetooth', 'For a phone or computer that isn’t on this network', [btPill, UI.button('Open', () => api.openBluetoothSettings(), 'small')]);
@@ -43,7 +46,7 @@ UI.tab({
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
       UI.card('Permissions', [fwRow, btRow, locRow]),
-      UI.card('Network and sharing', [wakeRow, sendToRow, bleRow]),
+      UI.card('Network and sharing', [wakeRow, sendToRow, bleRow, blePcRow]),
       UI.card('This computer', [deviceRow, helperRow, vddRow]),
     );
 
@@ -75,11 +78,14 @@ UI.tab({
       vddRow.setHint(v.message ? v.message : v.installed ? 'Adds the extra screen for Share screen › Extend'
         : 'Needed for Share screen › Extend. Asks for administrator rights once');
       const n = s.net || {};
+      const radio = n.radio === 'off' ? 'Bluetooth is off in Windows settings'
+        : n.radio === 'unsupported' ? 'This PC’s Bluetooth can’t do it (needs Bluetooth LE)' : '';
       bleSw.set(n.ble !== false);
-      bleRow.setHint(n.ble === false ? 'Only devices on this network connect'
-        : n.radio === 'off' ? 'Bluetooth is off in Windows settings'
-          : n.radio === 'unsupported' ? 'This PC’s Bluetooth can’t do it (needs Bluetooth LE)'
-            : 'A phone or computer nearby connects through Bluetooth; files and screens switch to Wi-Fi Direct for a moment');
+      bleRow.setHint(n.ble === false ? 'Only phones on this network or a USB cable connect'
+        : radio || 'A phone nearby connects through Bluetooth; files and screens switch to Wi-Fi Direct for a moment');
+      blePcSw.set(n.blePc === true);
+      blePcRow.setHint(n.blePc !== true ? 'Only computers on this network connect'
+        : radio || 'A computer nearby connects through Bluetooth; files and screens switch to Wi-Fi Direct for a moment');
       btPill.textContent = n.radio === 'off' ? 'Off' : n.radio === 'unsupported' ? 'Not supported' : n.radio ? 'On' : 'Unknown';
       btPill.className = 'pill ' + (n.radio === 'off' || n.radio === 'unsupported' ? 'bad' : n.radio ? 'good' : 'muted');
       deviceName.textContent = s.device.name;

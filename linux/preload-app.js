@@ -77,6 +77,13 @@ contextBridge.exposeInMainWorld('macshare', {
   fixInput: call('fixInput'),
   setStartup: call('setStartup'),
   quit: call('quit'),
+  phoneInstallFull: call('phoneInstallFull'),
+  setNet: call('setNet'),
+  wifiSetup: call('wifiSetup'),
+  netCancel: call('netCancel'),
+  netWifi: call('netWifi'),
+  netJoinHotspot: call('netJoinHotspot'),
+  openBluetoothSettings: call('openBluetoothSettings'),
   sendFiles: call('sendFiles'),
   chooseSendFiles: call('chooseSendFiles'),
   pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files → paths

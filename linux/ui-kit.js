@@ -318,7 +318,7 @@ const UI = {
     return String(t).replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
   },
 
-  isPhone: (s) => !!(s && s.session && s.session.os === 'android'),
+  isPhone: (s) => !!(s && s.peerSession && s.peerSession.os === 'android'), // s.session is the desktop's here
 
   // Small device glyph by OS: 'mac' | 'win' | 'linux' | 'android'.
   osClass: (os) => (os === 'mac' ? 'mac' : os === 'android' ? 'phone' : os === 'linux' ? 'pc linux' : 'pc'),
@@ -426,10 +426,12 @@ const UI = {
       const k = s.kvmState;
       const p = UI.peer(s);
       const WHERE = { home: 'On ' + p.me, driving: 'On ' + p.name, driven: p.Name + ' is using ' + p.me };
-      pill.textContent = k.linked === false ? 'Sharing off' : WHERE[k.mode] || WHERE.home;
-      pill.className = 'pill ' + (k.linked === false ? 'bad' : k.mode === 'home' ? 'muted' : 'good');
+      const off = k.linked === false || k.paused;
+      pill.textContent = off ? 'Sharing off' : WHERE[k.mode] || WHERE.home;
+      pill.className = 'pill ' + (off ? 'bad' : k.mode === 'home' ? 'muted' : 'good');
       row.setHint(k.helper && k.helper !== 'starting' ? k.helper
         : k.linked === false ? 'Cursor sharing is off. Double-tap ' + UI.hotkeyName(s) + ' to turn it on.'
+        : k.paused ? 'Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap ' + UI.hotkeyName(s) + ' to turn it on.'
         : s.link.state !== 'connected' ? 'Waiting for ' + p.the
           : k.mode === 'home' && !k.message ? 'Connected to ' + p.name + '. Double-tap ' + UI.hotkeyName(s) + ' to turn cursor sharing off.'
           : k.message || 'Double-tap ' + UI.hotkeyName(s) + ({ home: ' to turn cursor sharing off', driving: ' to come back and turn cursor sharing off', driven: ' to take it back' }[k.mode] || ''));

@@ -193,7 +193,7 @@
       // A session through Bluetooth moves onto Wi-Fi for files and screens (shared/netlink.js): one
       // side hosts a network (Wi-Fi Direct group / Windows' legacy access point), the other joins
       // it, and the guest moves the session onto it (hello {resume}, below) without ending it.
-      NET_CAPS: 'net.caps', // either {host, join, hotspot}: what this side can do (host = a network the other joins)
+      NET_CAPS: 'net.caps', // either {host, join, hotspot, band5?}: what this side can do (host = a network the other joins; band5 false = joins 2.4 GHz only)
       NET_NEED: 'net.need', // either {why: 'files'|'screen'}: please host a network (I can't)
       NET_JOIN: 'net.join', // host->joiner {ssid, pass} | {error}: it's up, join it
       NET_JOINED: 'net.joined', // joiner->host {ok, error?}
@@ -265,6 +265,7 @@
       BUSY: 'busy',
       REPLACED: 'replaced',
       RELEASED: 'released', // the Mac let the phone go (Disconnect): don't resume on your own
+      ASLEEP: 'asleep', // the host went to sleep: don't come back on your own (it invites you when it wakes)
       BAD_MESSAGE: 'bad_message',
     },
 

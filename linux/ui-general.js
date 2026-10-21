@@ -1,7 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // General tab (same cards as the PC's): open at login, the switching popup, firewall self-check
 // (+ Fix), wake from the network, the desktop session and input access (Wayland), the
-// helper, this computer and Quit (some desktops have no tray to quit from).
+// helper, Bluetooth for devices not on this network, this computer and Quit (some desktops have
+// no tray to quit from).
 'use strict';
 
 UI.tab({
@@ -31,14 +32,28 @@ UI.tab({
     const helperRow = UI.row('Mouse and keyboard helper', '', [helperPill]);
     const deviceName = el('span', { class: 'value' });
     const deviceRow = UI.row('Computer name', 'How other computers see this one', [deviceName]);
+    // Bluetooth when not on the same network: with phones (on unless switched off), with computers (off unless switched on).
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth with phones' });
+    const bleRow = UI.row('Bluetooth with phones', '', [bleSw]);
+    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
+    const blePcRow = UI.row('Bluetooth with computers', '', [blePcSw]);
+    // Hosting Wi-Fi Direct beside this computer's own Wi-Fi network (wifi.js: a second interface, set up as root once).
+    const keepSw = UI.switch((v) => api.setNet({ keepWifi: v }), { label: 'Keep Wi-Fi while hosting Wi-Fi Direct' });
+    const keepSetup = UI.button('Set up', () => api.wifiSetup(), 'small');
+    const keepRow = UI.row('Keep Wi-Fi while hosting Wi-Fi Direct', '', [keepSetup, keepSw]);
+    // The same setup also keeps Bluetooth links this computer opens up through a second of silence (wifi.js bleTimeout).
+    const steadySetup = UI.button('Set up', () => api.wifiSetup(), 'small');
+    const steadyRow = UI.row('Steadier Bluetooth links', '', [steadySetup]);
+    const btPill = el('span', { class: 'pill' });
+    const btRow = UI.row('Bluetooth', 'For a phone or computer that isn’t on this network', [btPill, UI.button('Open', () => api.openBluetoothSettings(), 'small')]);
 
     body.append(
       UI.card('App', [
         UI.row('Open at login', 'Starts in the tray', [startup]),
         UI.row('Show a popup when switching', 'When the mouse and keyboard move between computers', [hudSw]),
       ]),
-      UI.card('Permissions', [fwRow]),
-      UI.card('Network and sharing', [wakeRow]),
+      UI.card('Permissions', [fwRow, btRow, steadyRow]),
+      UI.card('Network and sharing', [wakeRow, bleRow, blePcRow, keepRow]),
       UI.card('This computer', [deviceRow, sessRow, inRow, helperRow]),
       UI.card('Quit', [
         UI.row('Quit TwinDesk', 'Stops sharing until you open it again', [UI.button('Quit', () => api.quit(), 'small')]),
@@ -80,6 +95,34 @@ UI.tab({
       helperPill.textContent = h ? (h === 'starting' ? 'Starting…' : 'Not running') : 'Running';
       helperPill.className = 'pill ' + (h ? (h === 'starting' ? 'muted' : 'bad') : 'good');
       helperRow.setHint(h && h !== 'starting' ? h : '');
+      const n = s.net || {};
+      const radio = h && h !== 'starting' ? 'Needs the helper running'
+        : n.radio === 'off' ? 'Bluetooth is off in this computer’s settings'
+          : n.radio === 'unsupported' ? 'This computer’s Bluetooth can’t do it (needs Bluetooth LE and BlueZ)' : '';
+      bleSw.set(n.ble !== false);
+      bleRow.setHint(n.ble === false ? 'Only phones on this network or a USB cable connect'
+        : radio || 'A phone nearby connects through Bluetooth; files and screens switch to Wi-Fi for a moment');
+      blePcSw.set(n.blePc === true);
+      blePcRow.setHint(n.blePc !== true ? 'Only computers on this network connect'
+        : radio || 'A computer nearby connects through Bluetooth; files and screens switch to Wi-Fi for a moment');
+      const sd = n.side || {};
+      steadyRow.hidden = !!sd.current || (n.ble === false && n.blePc !== true) || n.radio === 'unsupported';
+      steadySetup.disabled = sd.setup === 'asking';
+      steadyRow.setHint(sd.setup === 'asking' ? 'Waiting for your password…'
+        : sd.setup && sd.setup !== 'declined' ? `Setup didn’t work: ${sd.setup}`
+          : 'A phone or Mac busy with Wi-Fi for a moment stays connected (5 s before a Bluetooth link counts as lost, not 0.4 s). Asks for your password once');
+      keepRow.hidden = !sd.possible;
+      keepSw.set(sd.keep !== false);
+      keepSetup.hidden = !!sd.ready || sd.keep === false;
+      keepSetup.disabled = sd.setup === 'asking';
+      keepRow.setHint(sd.keep === false ? 'Hosting Wi-Fi Direct takes this computer off its Wi-Fi network until it ends'
+        : sd.setup === 'asking' ? 'Waiting for your password…'
+          : sd.ready ? 'Wi-Fi Direct runs on a second interface beside this computer’s Wi-Fi network, which stays connected'
+            : sd.setup === 'declined' ? 'Not set up: the password prompt was cancelled. Until it is, hosting takes this computer off its Wi-Fi network'
+              : sd.setup ? `Setup didn’t work: ${sd.setup}`
+                : 'This Wi-Fi adapter can host beside its network. Asks for your password once (the first time it’s needed, or Set up)');
+      btPill.textContent = n.radio === 'off' ? 'Off' : n.radio === 'unsupported' ? 'Not supported' : n.radio === 'idle' ? 'Idle' : n.radio ? 'On' : 'Unknown';
+      btPill.className = 'pill ' + (n.radio === 'off' || n.radio === 'unsupported' ? 'bad' : n.radio === 'idle' ? 'muted' : n.radio ? 'good' : 'muted');
       deviceName.textContent = s.device.name;
     };
   },

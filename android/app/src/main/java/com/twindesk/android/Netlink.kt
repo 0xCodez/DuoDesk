@@ -81,16 +81,18 @@ class Direct(private val ctx: Context) {
         throw Exception("Wi-Fi is off on the phone")
     }
 
-    private fun config(ssid: String, pass: String) = WifiP2pConfig.Builder()
+    // band2: the computer's Wi-Fi is 2.4 GHz only (net.caps {band5: false}): left on auto the group
+    // often goes on 5 GHz, where it never sees it.
+    private fun config(ssid: String, pass: String, band2: Boolean = false) = WifiP2pConfig.Builder()
         .setNetworkName(ssid).setPassphrase(pass).enablePersistentMode(false)
-        .setGroupOperatingBand(WifiP2pConfig.GROUP_OWNER_BAND_AUTO).build()
+        .setGroupOperatingBand(if (band2) WifiP2pConfig.GROUP_OWNER_BAND_2GHZ else WifiP2pConfig.GROUP_OWNER_BAND_AUTO).build()
 
     // Blocking (a background thread): throws with why when it can't.
-    fun host(ssid: String, pass: String, name: String = "The computer") {
+    fun host(ssid: String, pass: String, name: String = "The computer", band2: Boolean = false) {
         if (!can()) throw Exception(if (!supported()) "no Wi-Fi Direct" else "Nearby devices not allowed")
         ensureWifi(name)
         await("remove") { mgr!!.removeGroup(ch!!, it) }
-        await("create") { mgr!!.createGroup(ch!!, config(ssid, pass), it) }?.let { throw Exception(it) }
+        await("create") { mgr!!.createGroup(ch!!, config(ssid, pass, band2), it) }?.let { throw Exception(it) }
         repeat(30) { if (groupUp(true)) return; Thread.sleep(500) }
         throw Exception("the group didn’t start")
     }
@@ -273,7 +275,8 @@ class Netlink(core: Core) : Feature(core) {
         set("hosting", "")
         armDeadline()
         try {
-            direct.host(ssid, pass, core.host?.name ?: "The computer")
+            val band2 = synchronized(this) { peerCaps?.optBoolean("band5", true) == false }
+            direct.host(ssid, pass, core.host?.name ?: "The computer", band2)
         } catch (e: Exception) {
             core.link.send(msg(Proto.T.NET_JOIN, "error" to (e.message ?: "failed")))
             return fail("Couldn’t start Wi-Fi Direct: ${e.message}")

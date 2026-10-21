@@ -406,8 +406,11 @@ function setupIpc(ctx) {
     // Bluetooth when not on one network (netlink.js, blepipe.js).
     setNet(partial) {
       if (typeof partial.ble === 'boolean') settings.net.ble = partial.ble;
+      if (typeof partial.blePc === 'boolean') settings.net.blePc = partial.blePc;
       save();
       ctx.ble.apply();
+      if (partial.blePc === false && ctx.bleLook) ctx.bleLook.look(false); // computers off: stop looking now, not at the next tick
+      pushState();
     },
     // The banner: the phone's hotspot is on; join it (remembered for that phone).
     netJoinHotspot(arg) {

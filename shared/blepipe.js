@@ -42,11 +42,15 @@ class Pipe {
     this.dev = dev;
     this.sock = sock;
     this.inflight = 0;
+    this.out = 0; // bytes to the radio, and from it (the log says how far a pipe got)
+    this.in = 0;
+    this.at = Date.now();
     livePipes.add(this);
     sock.on('close', () => livePipes.delete(this));
     sock.setNoDelay(true);
     sock.on('data', (buf) => {
       helper.send(cmd, { dev, data: buf.toString('base64') });
+      this.out += buf.length;
       this.inflight += buf.length;
       if (this.inflight > HIGH_WATER) sock.pause();
     });
@@ -58,7 +62,14 @@ class Pipe {
   }
 
   data(b64) {
-    if (!this.sock.destroyed) this.sock.write(Buffer.from(b64, 'base64'));
+    const b = Buffer.from(b64, 'base64');
+    this.in += b.length;
+    if (!this.sock.destroyed) this.sock.write(b);
+  }
+
+  // For the log: "after 12 s, 3401 bytes out (2 waiting), 5120 in".
+  get summary() {
+    return `after ${Math.round((Date.now() - this.at) / 1000)} s, ${this.out} bytes out${this.inflight ? ` (${this.inflight} not sent yet)` : ''}, ${this.in} in`;
   }
 
   close() {
@@ -68,12 +79,15 @@ class Pipe {
 
 // Events: 'change' (guests nearby or the radio changed), 'state' (state).
 class BleHost extends EventEmitter {
-  // info() -> this device's beacon {id, name, os, port, fp}; server: ours (server.blePorts is set here).
-  constructor({ helper, server, info, enabled = () => true }) {
+  // info() -> this device's beacon {id, name, os, port, fp}; server: ours (server.blePorts is set here);
+  // accept({id, name, os}) -> false: that guest is turned away (Linux: Bluetooth with computers off).
+  constructor({ helper, server, info, enabled = () => true, accept = () => true }) {
     super();
-    Object.assign(this, { helper, server, info, enabled });
+    Object.assign(this, { helper, server, info, enabled, accept });
     this.state = 'off';
+    this.wanted = false; // advertising asked for (enabled(): blepolicy.js)
     this.guests = new Map(); // dev -> {id, name, os, at}
+    this.refused = new Set(); // devs turned away (accept)
     this.pipes = new Map(); // dev -> Pipe
     server.blePorts = new Map(); // local port -> when bytes last came through it
     helper.on('event', (name, m) => this._event(name, m));
@@ -86,6 +100,10 @@ class BleHost extends EventEmitter {
     if (!this.helper.running) return;
     const on = !!this.enabled();
     const key = on ? JSON.stringify(this.info()) : '';
+    if (on !== this.wanted) {
+      this.wanted = on;
+      this.emit('change');
+    }
     if (key === this.applied) return;
     this.applied = key;
     if (on) this.helper.request('bleStart', { info: key }).catch((e) => console.log(`[ble] ${e.message}`));
@@ -95,6 +113,13 @@ class BleHost extends EventEmitter {
       this.guests.clear();
       this.emit('change');
     }
+  }
+
+  // For General: the radio's state while we advertise; 'idle' while Bluetooth isn't needed (blepolicy.js),
+  // unless it can't work at all.
+  get radio() {
+    if (this.wanted) return this.state;
+    return ['unsupported', 'denied', 'unauthorized'].includes(this.state) ? this.state : 'idle';
   }
 
   // Guests that are near (said hello on Bluetooth): [{id, name, os, address: 'ble:<dev>', ble: true}].
@@ -133,11 +158,22 @@ class BleHost extends EventEmitter {
         const h = m.hello || {};
         if (typeof h.id !== 'string' || !h.id) return;
         const old = this.guests.get(dev);
-        this.guests.set(dev, { id: h.id.slice(0, 64), name: str(h.name, 64) || 'Device', os: Object.values(P.OS).includes(h.os) ? h.os : P.OS.ANDROID, at: Date.now() });
+        const g = { id: h.id.slice(0, 64), name: str(h.name, 64) || 'Device', os: Object.values(P.OS).includes(h.os) ? h.os : P.OS.ANDROID, at: Date.now() };
+        if (!this.accept(g)) {
+          if (!this.refused.has(dev)) console.log(`[ble] ${g.name} turned away: Bluetooth with ${g.os === P.OS.ANDROID ? 'phones' : 'computers'} is off`);
+          this.refused.add(dev);
+          this._closePipe(dev);
+          if (this.guests.delete(dev)) this.emit('change');
+          return;
+        }
+        this.refused.delete(dev);
+        this.guests.set(dev, g);
         if (!old || old.id !== h.id) this.emit('change');
         return;
       }
-      case 'ble.open': return this._open(dev);
+      case 'ble.open':
+        if (this.refused.has(dev)) return this.helper.send('bleCtrl', { dev, msg: JSON.stringify({ op: 'closed' }) });
+        return this._open(dev);
       case 'ble.data': {
         const g = this.guests.get(dev);
         if (g) g.at = Date.now();
@@ -156,6 +192,7 @@ class BleHost extends EventEmitter {
       case 'ble.close': return this._closePipe(dev);
       case 'ble.gone':
         this._closePipe(dev);
+        this.refused.delete(dev);
         if (this.guests.delete(dev)) this.emit('change');
         return;
     }
@@ -416,7 +453,10 @@ class BlePhones extends EventEmitter {
   constructor({ helper, server, hello }) {
     super();
     Object.assign(this, { helper, server, hello });
-    this.scanning = false;
+    this.scanning = false; // asked for (scan)
+    this.bursting = null; // a short look meanwhile (burst): its timer
+    this.radio = false; // what the helper was told
+    this.autoLink = true; // link to each phone found (false: only list them, linked on Pair or Connect)
     this.found = new Map(); // phone id -> {dev, id, name, lastSeen}
     this.links = new Map(); // dev -> 'linking' | 'up'
     this.tried = new Map(); // dev -> when we last tried to link
@@ -426,15 +466,32 @@ class BlePhones extends EventEmitter {
     helper.on('event', (name, m) => this._event(name, m));
     helper.on('ready', () => {
       this.links.clear();
-      if (this.scanning) this.helper.send('blpScan', { on: true });
+      if (this.radio) this.helper.send('blpScan', { on: true });
     });
     setInterval(() => this._prune(), 5000).unref();
   }
 
   scan(on) {
-    if (this.scanning === !!on) return;
     this.scanning = !!on;
-    this.helper.send('blpScan', { on: this.scanning });
+    this._radio();
+  }
+
+  // A short look for phones (every few seconds while the window is open, Refresh), also while
+  // scan() is off: they're listed, and linked only when autoLink is on.
+  burst(ms) {
+    clearTimeout(this.bursting);
+    this.bursting = setTimeout(() => {
+      this.bursting = null;
+      this._radio();
+    }, ms);
+    this._radio();
+  }
+
+  _radio() {
+    const on = this.scanning || !!this.bursting;
+    if (on === this.radio) return;
+    this.radio = on;
+    this.helper.send('blpScan', { on });
   }
 
   list() {
@@ -477,14 +534,17 @@ class BlePhones extends EventEmitter {
         if (old && old.dev !== dev) this._drop(old.dev); // a new address (Android changes it now and then)
         this.found.set(info.id, { dev, id: info.id.slice(0, 64), name: str(info.name, 64) || 'Phone', lastSeen: Date.now() });
         if (!old || old.dev !== dev || old.name !== info.name) this.emit('change');
-        this._link(dev, false);
+        if (this.autoLink) this._link(dev, false);
         return;
       }
       case 'blp.linked':
+        console.log(`[ble] linked to the phone ${this._name(dev)}`);
         this.links.set(dev, 'up');
         if (this.wantOpen.delete(dev)) this._open(dev);
         return;
-      case 'blp.want': return this._open(dev);
+      case 'blp.want':
+        console.log(`[ble] the phone ${this._name(dev)} asks for a pipe`);
+        return this._open(dev);
       case 'blp.opened': {
         this._closePipe(dev);
         const sock = net.connect({ host: '127.0.0.1', port: this.server.port });
@@ -499,6 +559,7 @@ class BlePhones extends EventEmitter {
         sock.on('close', () => {
           if (p.localPort) setTimeout(() => this.server.blePorts.delete(p.localPort), 1000);
           if (this.pipes.get(dev) !== p) return;
+          console.log(`[ble] our end of the phone ${this._name(dev)}'s pipe closed, ${p.summary}`);
           this.pipes.delete(dev);
           this.helper.send('blpEnd', { dev });
         });
@@ -518,19 +579,30 @@ class BlePhones extends EventEmitter {
         if (p) p.sent(Number(m.bytes) || 0);
         return;
       }
-      case 'blp.close': // the pipe (the link stays), or a link that didn't come up
+      case 'blp.close': { // the pipe (the link stays), or a link that didn't come up
+        const p = this.pipes.get(dev);
+        console.log(`[ble] ${p ? 'pipe' : 'link'} to the phone ${this._name(dev)} closed${m.error ? ` (${str(m.error, 200)})` : ''}${p ? `, ${p.summary}` : ''}`);
         this._closePipe(dev);
         if (this.links.get(dev) === 'linking') {
           this.links.delete(dev);
           this.wantOpen.delete(dev);
         }
         return;
-      case 'blp.gone':
+      }
+      case 'blp.gone': {
+        const p = this.pipes.get(dev);
+        console.log(`[ble] the phone ${this._name(dev)} went${p ? `, its pipe ${p.summary}` : ''}`);
         this._closePipe(dev);
         this.links.delete(dev);
         this.wantOpen.delete(dev);
         return;
+      }
     }
+  }
+
+  _name(dev) {
+    const f = [...this.found.values()].find((x) => x.dev === dev);
+    return f ? f.name : dev;
   }
 
   _closePipe(dev) {
@@ -560,8 +632,16 @@ class BlePhones extends EventEmitter {
   }
 
   stop() {
+    clearTimeout(this.bursting);
+    this.bursting = null;
     this.scan(false);
     for (const dev of [...this.links.keys()]) this._drop(dev);
+  }
+
+  // Nobody's looking for phones (blepolicy.js): links without a pipe go, the session's stays, and
+  // so does one on its way to a pipe (Pair or Connect pressed here).
+  trim() {
+    for (const dev of [...this.links.keys()]) if (!this.pipes.has(dev) && !this.wantOpen.has(dev)) this._drop(dev);
   }
 }
 

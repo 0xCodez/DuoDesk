@@ -379,6 +379,7 @@ class Link(
             Proto.E.BUSY -> m.optString("message").ifEmpty { "Busy with another device" }
             Proto.E.REPLACED -> m.optString("message").ifEmpty { "Another device connected" }
             Proto.E.RELEASED -> "Disconnected from ${host?.name ?: "the computer"}"
+            Proto.E.ASLEEP -> "${host?.name ?: "The computer"} is asleep"
             else -> "Closed ($code)"
         }
         if (code == Proto.E.BAD_TOKEN) host?.let { store.forgetHost(it.id) }

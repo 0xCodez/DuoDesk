@@ -26,6 +26,22 @@ UI.tab({
     const againBtn = UI.button('Connect', () => api.connectAgain(), 'small primary');
     const sessionBtns = el('div', { class: 'hero-actions' }, [againBtn, discBtn]);
     const peerDev = el('div', { class: 'device mac' });
+    const netCancel = UI.button('Cancel', () => api.netCancel(), 'small');
+    netCancel.hidden = true;
+    // A session on Bluetooth: onto a direct Wi-Fi link on request, until Back to Bluetooth.
+    let wifiOn = false;
+    const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn), 'small');
+    wifiBtn.hidden = true;
+    // A phone: its hotspot instead. It switches it on; its name and password here once (saved for it).
+    const hotspotBtn = UI.button('Connect with hotspot', () => api.netWifi('hotspot'), 'small');
+    hotspotBtn.hidden = true;
+    const hsSsid = el('input', { type: 'text', placeholder: 'Hotspot name', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Hotspot name' } });
+    const hsPass = el('input', { type: 'password', placeholder: 'Password', autocomplete: 'off', attrs: { 'aria-label': 'Hotspot password' } });
+    const hsJoin = UI.button('Join', () => api.netJoinHotspot({ ssid: hsSsid.value, pass: hsPass.value }), 'small primary');
+    hsSsid.onkeydown = hsPass.onkeydown = (e) => { if (e.key === 'Enter') hsJoin.click(); };
+    const hsForm = el('div', { class: 'hero-actions' }, [hsSsid, hsPass, hsJoin]);
+    hsForm.hidden = true;
+    let hsShown = false;
     const hero = el('div', { class: 'card hero' }, [
       el('div', { class: 'hero-devices' }, [
         el('div', { class: 'hero-device' }, [el('div', { class: 'device pc' }), pcName]),
@@ -33,6 +49,9 @@ UI.tab({
         el('div', { class: 'hero-device' }, [peerDev, macName]),
       ]),
       status,
+      hsForm,
+      netCancel,
+      el('div', { class: 'hero-actions' }, [wifiBtn, hotspotBtn]),
       sessionBtns,
     ]);
 
@@ -93,6 +112,10 @@ UI.tab({
     // ---- found nearby (always visible) ----
     const discRow = UI.row('Can’t look for computers on this network.', '', [UI.button('Fix firewall', () => api.fixFirewall(), 'small')]);
     const foundList = el('div');
+    // General's two Bluetooth switches, here too: who can turn up through Bluetooth.
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth with phones' });
+    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
+    const bleRows = [UI.row('Bluetooth with phones', '', [bleSw]), UI.row('Bluetooth with computers', '', [blePcSw])];
     const refresh = UI.button('Refresh', () => { // the list empties and fills again with whoever answers
       api.refreshFound();
       refresh.disabled = true;
@@ -114,7 +137,7 @@ UI.tab({
     const pairedList = el('div');
     body.append(
       UI.card('', [addrRow, ipRow]),
-      UI.card('Found nearby', [discRow, foundList], { actions: [refresh] }),
+      UI.card('Found nearby', [discRow, foundList, ...bleRows], { actions: [refresh] }),
       hero,
       adbCard,
       pair.el,
@@ -127,6 +150,8 @@ UI.tab({
     const render = () => last && update(last);
     const update = (s) => {
       last = s;
+      bleSw.set(!s.net || s.net.ble !== false);
+      blePcSw.set(!!s.net && s.net.blePc === true);
       const l = s.link;
       const connected = l.state === 'connected';
       pcName.textContent = s.device.name;
@@ -136,7 +161,8 @@ UI.tab({
       if (UI.phoneWall && p.phone) peerDev.style.setProperty('--phone-wall', UI.phoneWall);
       else peerDev.style.removeProperty('--phone-wall');
       linkLine.className = 'hero-link' + (connected ? ' up' : '');
-      linkText.textContent = connected ? (l.rtt != null ? l.rtt + ' ms' : 'Connected')
+      const ble = s.net && s.net.transport === 'ble';
+      linkText.textContent = connected ? (l.rtt != null ? l.rtt + ' ms · ' : '') + UI.via(s)
         : s.pairing ? 'Pairing…' : s.paired ? 'Connecting…' : 'Not connected';
       const bad = l.state === 'identity_changed';
       status.textContent = bad ? 'This ' + p.kind + ' looks different now. Forget it and pair again.'
@@ -154,6 +180,26 @@ UI.tab({
       againBtn.hidden = connected || !s.paired || !(stopped || busyBy);
       againBtn.textContent = busyBy || (stopped && l.message) ? 'Take over' : 'Connect';
       sessionBtns.hidden = discBtn.hidden && againBtn.hidden;
+      // Moving the session to Wi-Fi (files, screens through Bluetooth: netlink.js)
+      const n = s.net || {};
+      const moving = { hotspot: 'Switch on {name}’s hotspot, then type its name and password here.', asking: 'Asking {name} for Wi-Fi…', hosting: 'Starting Wi-Fi for {name}…', joining: 'Joining ' + (n.ssid || 'Wi-Fi') + '…', joined: 'On Wi-Fi with {name}' }[n.state];
+      if (connected && !bad && (moving || n.state === 'failed')) {
+        status.textContent = n.state === 'failed' ? n.error || 'Wi-Fi didn’t come up' : moving;
+        status.classList.toggle('bad', n.state === 'failed');
+      }
+      netCancel.hidden = !(connected && ['asking', 'hosting', 'joining', 'hotspot'].includes(n.state));
+      hsForm.hidden = !(connected && n.state === 'hotspot');
+      if (!hsForm.hidden && !hsShown) { // filled in once, not while typing
+        hsSsid.value = n.hotspotSsid || '';
+        hsPass.value = '';
+        hsPass.placeholder = n.hotspotSaved ? 'Password (saved)' : 'Password';
+        setTimeout(() => (n.hotspotSsid ? hsPass : hsSsid).focus(), 0);
+      }
+      hsShown = !hsForm.hidden;
+      wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
+      wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
+      wifiBtn.hidden = !connected || !netCancel.hidden || !(wifiOn || ble);
+      hotspotBtn.hidden = !connected || !netCancel.hidden || wifiOn || !ble || !UI.isPhone(s);
 
       for (const r of m2p.concat(p2m)) r.update(s);
 

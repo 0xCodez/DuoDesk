@@ -128,6 +128,7 @@ object Proto {
         const val BUSY = "busy"
         const val REPLACED = "replaced"
         const val RELEASED = "released"
+        const val ASLEEP = "asleep" // the computer went to sleep: not again on our own (it invites us when it wakes)
     }
 
     private val random = SecureRandom()

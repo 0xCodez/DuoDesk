@@ -290,7 +290,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
             changed()
         }
         // Dropped by accident (not let go, replaced, forgotten or closed here): try to get it back.
-        val accidental = code == null || code !in setOf("local", Proto.E.RELEASED, Proto.E.REPLACED, Proto.E.BAD_TOKEN, Proto.E.BUSY)
+        val accidental = code == null || code !in setOf("local", Proto.E.RELEASED, Proto.E.REPLACED, Proto.E.BAD_TOKEN, Proto.E.BUSY, Proto.E.ASLEEP)
         if (!accidental || link.state == "failed") return
         if (resumeUntil == 0L) resumeUntil = System.currentTimeMillis() + Proto.PHONE_GRACE_MS
         resumeHost = host

@@ -139,7 +139,7 @@ function normalize(s) {
       input: ph.input === 'phone' ? 'phone' : 'adb', // the mouse and keyboard through adb, or the phone's Accessibility service
       inputPicked: bool(ph.inputPicked, false), // not picked: automatic (phone-bridge.js inputMode)
     },
-    net: { ble: bool(nt.ble, true), hotspots: hotspots(nt.hotspots) }, // Bluetooth for devices not on this network (blepipe.js, netlink.js)
+    net: { ble: bool(nt.ble, true), blePc: bool(nt.blePc, false), hotspots: hotspots(nt.hotspots) }, // Bluetooth for devices not on this network (blepipe.js, netlink.js): with phones (ble), with computers (blePc)
     mount: { on: bool(mt.on, false) }, // the phone as a drive (phonedrive.js), only when Mount is clicked
     // Calls, Messages, Photos and Files from a phone (shared/phonehub.js), each off until switched on.
     // callAudio: the calls' sound here over Bluetooth; btDevices: which paired Bluetooth device each
