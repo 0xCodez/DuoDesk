@@ -283,9 +283,11 @@ function cvtRB(w, h) {
 }
 
 // `xrandr --verbose`: outputs with their state, geometry (physical px), DRM connector id and how
-// many CRTCs could drive them (none: the output can't come on at all).
-async function outputs() {
-  const text = await run('xrandr', ['--verbose']);
+// many CRTCs could drive them (none: the output can't come on at all). probe: X looks at every port
+// again first; without it, what X last saw (--current). A probe at start blanked every monitor for a
+// moment on NVIDIA, and the desktop, told the screens changed, applied its saved layout again.
+async function outputs(probe = true) {
+  const text = await run('xrandr', probe ? ['--verbose'] : ['--current', '--verbose']);
   const list = [];
   for (const line of text.split('\n')) {
     const m = /^(\S+) (connected|disconnected)( primary)?(?: (\d+)x(\d+)\+(-?\d+)\+(-?\d+))?/.exec(line);
@@ -410,7 +412,7 @@ class Vdd {
       } else {
         this.gnome = await run('python3', ['-c', CHECK]).then((t) => JSON.parse(t).displayconfig === true).catch(() => false);
         if (!this.state.on) await this._xLeftover();
-        const outs = await outputs();
+        const outs = await outputs(false); // at start: no probe (X saw the ports at login)
         for (const o of outs) if (o.active && !o.connected) await run('xrandr', ['--output', o.name, '--off']).catch(() => {}); // older versions' mode on a spare output
         const spare = spareOf(outs).length > 0 || (this.state.on && !!this.output);
         if (!spare && NVIDIA() && !outs.some((o) => o.id)) return this._nvCheck(outs);

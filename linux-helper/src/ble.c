@@ -283,7 +283,15 @@ static Att *att_open(const char *dev, void (*notify)(void *, guint16, const guin
   if (bind(fd, (struct sockaddr *)&me, sizeof me) < 0) { close(fd); *why = "bind failed"; return NULL; }
   fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
   int r = connect(fd, (struct sockaddr *)&them, sizeof them);
-  if (r < 0 && errno != EINPROGRESS) { close(fd); *why = "connect failed"; return NULL; }
+  if (r < 0 && errno != EINPROGRESS) {
+    // EBUSY: the controller is already connecting or connected to it another way (it connected to
+    // us); the error says which, for the log.
+    static __thread char msg[64];
+    snprintf(msg, sizeof msg, "connect failed: %s", strerror(errno));
+    close(fd);
+    *why = msg;
+    return NULL;
+  }
   if (r < 0) {
     struct pollfd p = { fd, POLLOUT, 0 };
     int err = 0;
@@ -428,18 +436,24 @@ static gchar *att_read_value(Att *a, guint16 h) {
   return g_string_free(s, FALSE);
 }
 
-// A write with response (a lost byte breaks the TLS), value at most the MTU allows.
-static int att_write(Att *a, guint16 h, const void *data, gsize n) {
+// A write with response (a lost byte breaks the TLS), value at most the MTU allows. 0 ok, >0 the
+// ATT error (refused: not written, so it may go again), <0 no answer (written or not: unknown).
+static int att_write_r(Att *a, guint16 h, const void *data, gsize n) {
   guint8 q[ATT_MTU];
-  if (n > (gsize)a->mtu - 3) return 0;
+  if (n > (gsize)a->mtu - 3) return 0x0d; // invalid attribute value length
   q[0] = 0x12;
   put16(q + 1, h);
   memcpy(q + 3, data, n);
   GBytes *r = NULL;
-  if (att_req(a, q, n + 3, 0x13, &r)) return 0;
-  g_bytes_unref(r);
-  return 1;
+  int e = att_req(a, q, n + 3, 0x13, &r);
+  if (!e) g_bytes_unref(r);
+  return e;
 }
+
+static int att_write(Att *a, guint16 h, const void *data, gsize n) {
+  return att_write_r(a, h, data, n) == 0;
+}
+
 
 // ---- guest and phones: scanning, reading INFO, pipes ----
 
@@ -551,17 +565,22 @@ static void pipe_lost(void *ctx) {
   g_mutex_unlock(&mu);
 }
 
-// UP / CTRL, in pieces the MTU allows; a few tries each.
+// UP / CTRL, in pieces the MTU allows. A piece is sent again only when refused (an ATT error: not
+// written). Unanswered, it may have been taken: sent again it arrived twice and broke the TLS, so the
+// pipe ends instead (main opens another).
 static int pipe_write(Pipe *p, guint16 h, const guint8 *d, gsize n) {
   gsize max = MIN(512, (gsize)p->att->mtu - 3); // an attribute value is at most 512 bytes
   for (gsize i = 0; i < n || (n == 0 && i == 0); i += max) {
     gsize len = MIN(max, n - i);
-    int ok = 0;
-    for (int tries = 0; tries < 5 && !ok && !g_atomic_int_get(&p->att->dead); tries++) {
-      ok = att_write(p->att, h, d + i, len);
-      if (!ok) g_usleep(20000);
+    int e = 1;
+    for (int tries = 0; tries < 5 && e > 0 && !g_atomic_int_get(&p->att->dead); tries++) {
+      e = att_write_r(p->att, h, d + i, len);
+      if (e > 0) g_usleep(20000);
     }
-    if (!ok) return 0;
+    if (e) {
+      if (e < 0) fprintf(stderr, "[ble] %s: no answer to a write: the pipe ends\n", p->dev);
+      return 0;
+    }
     if (n == 0) break;
   }
   return 1;

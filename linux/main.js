@@ -342,6 +342,16 @@ async function startHost(guest, tries = 0) {
     discovery.extras.unshift(bleHost);
     blePhones = new BlePhones({ helper, server, hello: bleHost.info });
     blePhones.on('change', pushState);
+    // A phone linked or gone: advertising follows (bleHostOn), after BlePhones has seen the event.
+    helper.on('event', (name) => { if (name.startsWith('blp.')) bleHost.apply(); });
+    setInterval(() => bleHost.apply(), 2000); // and a pipe our end closed (no event): apply() only compares when nothing changed
+    // The phone asks for a pipe: it has none, so one still held for it is dead (an open that crossed
+    // its "closed"), and BlePhones, seeing it, opened nothing: our TLS answer sat in it, the phone's
+    // hello timed out. Before BlePhones sees the ask: that one goes (no "closed" to the phone), a fresh one comes.
+    helper.prependListener('event', (name, m) => {
+      const dev = name === 'blp.want' && String(m.dev || '').slice(0, 64);
+      if (dev && blePhones.pipes.has(dev)) blePhones._closePipe(dev);
+    });
     discovery.extras.push(blePhones);
     server.on('phoneFree', () => { guest.poke(); pushState(); });
   } catch (e) {
@@ -582,7 +592,13 @@ function bleAccepts(os) {
 }
 
 function bleHostOn() {
-  return !bleOff && (blePhonesOn() || blePcsOn());
+  if (bleOff || !(blePhonesOn() || blePcsOn())) return false;
+  // Linked to a phone ourselves (BlePhones): not while no computer needs it. Seeing us advertise, the
+  // phone connected over that same link to read who we are, and closing its side again made Android
+  // drop the whole link, ours too: the phone's session went every few seconds to half a minute. It
+  // asks for a pipe through our link (blp.want) without seeing us advertise.
+  const pc = !!bleHost && ([...bleHost.guests.values()].some((g) => g.os !== P.OS.ANDROID) || bleHost.pipes.size > 0);
+  return !(blePhones && blePhones.links.size > 0 && !pc);
 }
 
 function applyBle() {
@@ -596,10 +612,14 @@ function applyBle() {
   }
   if (bleGuest) bleGuest.scan(p.look && blePcsOn());
   if (blePhones) {
-    if (!blePhonesOn()) return blePhones.stop();
+    if (!blePhonesOn()) {
+      blePhones.stop();
+      return bleHost.apply(); // no phone links now: advertising for computers may come back
+    }
     blePhones.autoLink = p.look; // in a session: phones found are listed, linked only on Pair or Connect
     blePhones.scan(p.look);
     if (!p.look && !p.hold) blePhones.trim(); // links without a pipe; the session's and its fallback stay
+    bleHost.apply(); // links trimmed: advertising may come back (bleHostOn)
   }
 }
 
@@ -615,11 +635,15 @@ function applyQuiet(off) {
 
 // Phones advertise while they're open and not connected: with this window open we look for them
 // now and then (PHONE_LOOK_MS) and on Refresh, in a session too (listed under Found nearby, nothing
-// linked until Pair or Connect). Not while the window is closed.
+// linked until Pair or Connect). Not while the window is closed, nor while a phone's session runs on
+// Bluetooth: the phone advertises under a new address now and then, and found there it counted as
+// moved, its link (the session's) dropped for the new one.
 const PHONE_LOOK_MS = 5000;
 const PHONE_BURST_MS = 2000;
 function lookForPhones() {
   if (!blePhones || !blePhonesOn() || bleOff || !mainWin || mainWin.isDestroyed() || !mainWin.isVisible()) return;
+  const c = link.current;
+  if (c && c.os === P.OS.ANDROID && c.transport === 'ble') return;
   blePhones.burst(PHONE_BURST_MS);
 }
 
