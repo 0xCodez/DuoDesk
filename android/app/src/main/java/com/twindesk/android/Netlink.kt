@@ -131,6 +131,8 @@ class Netlink(core: Core) : Feature(core) {
     companion object {
         const val FILES_IDLE_MS = 20000L
         const val LINGER_MS = 15000L
+        // Address ranges of the links made here: Wi-Fi Direct, a computer's access point, a hotspot (shared/netlink.js).
+        val GROUP_NETS = listOf("192.168.49.", "10.42.", "192.168.137.", "192.168.43.", "172.20.10.")
         val HOLD = setOf(Proto.T.FILE_OFFER, Proto.T.DRAG_START)
     }
 
@@ -157,6 +159,20 @@ class Netlink(core: Core) : Feature(core) {
         Notify.cancelHotspot(core.ctx)
         down()
         set("idle", "")
+    }
+
+    // How the session runs, for the status lines: USB, Bluetooth, a Wi-Fi Direct link (or the
+    // computer's hotspot) made for a file or a screen, which goes again by itself ("Temporary"), or
+    // asked for with Connect with Wi-Fi Direct; else the same Wi-Fi network. A group that's up
+    // beside a session on the real network doesn't count.
+    val via: String get() {
+        if (core.link.wired) return "USB"
+        if (core.link.ble) return "Bluetooth"
+        val onGroup = state in setOf("hosting", "joined") && GROUP_NETS.any { core.host?.address?.startsWith(it) == true }
+        if (!onGroup) return "Wi-Fi"
+        val name = if (hotspotAsked) "Hotspot" else "Wi-Fi Direct"
+        val asked = synchronized(this) { "user" in needs || "user" in peerNeeds } || hotspotAsked
+        return if (asked) name else "Temporary $name"
     }
 
     // On a link made here or there (for whatever reason): Back to Bluetooth can end it.

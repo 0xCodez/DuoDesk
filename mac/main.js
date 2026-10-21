@@ -646,7 +646,7 @@ function setupNet() {
     send: (m) => peer.sendNow(m),
     current: () => {
       const c = peer.current;
-      return c && { deviceId: c.deviceId, os: c.os, role: c.role, transport: c.transport === 'ble' ? 'ble' : 'ip' };
+      return c && { deviceId: c.deviceId, os: c.os, role: c.role, transport: c.transport === 'ble' ? 'ble' : 'ip', address: c.address };
     },
     host: null, // a Mac can't host a network others join while it stays on its own
     join: {

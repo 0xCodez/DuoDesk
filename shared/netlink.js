@@ -25,6 +25,9 @@ const { EventEmitter } = require('events');
 const P = require('./protocol.js');
 
 const T = P.T;
+// Address ranges of the links made here: Wi-Fi Direct (Android 192.168.49.x), Linux's and Windows' access
+// points (10.42.x, 192.168.137.x), a phone's hotspot (192.168.43.x, 172.20.10.x).
+const GROUP_NETS = ['192.168.49.', '10.42.', '192.168.137.', '192.168.43.', '172.20.10.'];
 const ASK_TIMEOUT_MS = 60000; // the network up, joined and the session moved onto it, by then
 const HOTSPOT_TIMEOUT_MS = 180000; // the person switches the hotspot on and types its password
 const LINGER_MS = 15000; // nobody needs it: wait this long before taking it down (another file)
@@ -55,8 +58,15 @@ class NetLink extends EventEmitter {
     setInterval(() => this._tick(), 1000).unref();
   }
 
+  // The session runs on the link made here (an address in a Wi-Fi Direct group's or a hotspot's
+  // range), not on the network both are on: the group can stay up beside a session on the real Wi-Fi.
+  get onGroup() {
+    const c = this.o.current();
+    return !!c && c.transport !== 'ble' && GROUP_NETS.some((p) => String(c.address || '').startsWith(p));
+  }
+
   get view() {
-    return { state: this.state, linked: this.linked, kind: this.kind, error: this.error, ssid: this.ssid, why: [...this.needs.keys()], peerWhy: [...this.peerNeeds] };
+    return { onGroup: this.onGroup, state: this.state, linked: this.linked, kind: this.kind, error: this.error, ssid: this.ssid, why: [...this.needs.keys()], peerWhy: [...this.peerNeeds] };
   }
 
   get onBle() {

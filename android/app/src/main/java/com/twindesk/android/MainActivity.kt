@@ -270,7 +270,7 @@ private fun Identity(core: Core, v: Int, logo: Int) {
                 Dot(when { h != null -> pal.good; core.link.pair != null || core.link.state == "connecting" -> pal.warn; else -> pal.faint }, 7)
                 Text(
                     when {
-                        h != null -> h.name + (if (core.link.wired) " · USB" else if (core.link.ble) " · Bluetooth" else "") + (core.link.rttMs?.let { " · $it ms" } ?: "")
+                        h != null -> h.name + " · " + core.net.via + (core.link.rttMs?.let { " · $it ms" } ?: "")
                         core.link.pair != null -> "Pairing…"
                         core.link.state == "connecting" -> "Connecting…"
                         else -> "Not connected"
@@ -416,7 +416,7 @@ private fun OverviewPage(core: Core, v: Int) {
                     if (host != null) Brush.horizontalGradient(listOf(pal.good, pal.accent)) else Brush.horizontalGradient(listOf(pal.trackOff, pal.trackOff)),
                 ))
                 Text(
-                    when { host != null -> listOfNotNull(if (link.wired) "USB" else if (link.ble) "Bluetooth" else null, link.rttMs?.let { "$it ms" }).joinToString(" · ").ifEmpty { "Connected" }; link.state == "connecting" -> "Connecting…"; link.pair != null -> "Pairing…"; else -> "Not connected" },
+                    when { host != null -> listOfNotNull(core.net.via, link.rttMs?.let { "$it ms" }).joinToString(" · ").ifEmpty { "Connected" }; link.state == "connecting" -> "Connecting…"; link.pair != null -> "Pairing…"; else -> "Not connected" },
                     color = pal.muted, fontSize = 11.sp, maxLines = 2, lineHeight = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
                 )
             }

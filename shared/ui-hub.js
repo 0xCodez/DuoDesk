@@ -51,7 +51,7 @@
   UI.via = (s) => {
     if (UI.onBle(s)) return 'Bluetooth';
     const n = (s && s.net) || {};
-    if (!['hosting', 'joined'].includes(n.state)) return 'Wi-Fi';
+    if (!['hosting', 'joined'].includes(n.state) || n.onGroup === false) return 'Wi-Fi'; // a group up beside a session on the real network is still Wi-Fi
     const name = n.kind === 'hotspot' ? 'Hotspot' : 'Wi-Fi Direct';
     const asked = ['user', 'hotspot'].some((w) => (n.why || []).includes(w) || (n.peerWhy || []).includes(w));
     return asked ? name : 'Temporary ' + name;

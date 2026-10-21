@@ -96,11 +96,11 @@ class Peer {
   get current() {
     if (this.hosting) {
       const c = this.server.current;
-      return { deviceId: c.deviceId, os: c.os || P.OS.WIN, role: 'guest', transport: c.transport === 'ble' ? 'ble' : 'ip' };
+      return { deviceId: c.deviceId, os: c.os || P.OS.WIN, role: 'guest', transport: c.transport === 'ble' ? 'ble' : 'ip', address: c.address };
     }
     if (!this.link.authed) return null;
     const p = this.link.snapshot().paired;
-    return p && { deviceId: p.macId, os: p.os, role: 'host', transport: this.link.transport === 'ble' ? 'ble' : 'ip' };
+    return p && { deviceId: p.macId, os: p.os, role: 'host', transport: this.link.transport === 'ble' ? 'ble' : 'ip', address: p.address };
   }
 
   send(obj) {
