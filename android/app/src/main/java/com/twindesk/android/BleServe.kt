@@ -37,6 +37,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 @SuppressLint("MissingPermission") // every entry point checks allowed()
@@ -69,6 +70,10 @@ class BleServe(
     @Volatile private var advertising = false
     private val notes = LinkedBlockingQueue<Triple<BluetoothDevice, BluetoothGattCharacteristic, ByteArray>>()
     private val noteSent = Semaphore(0)
+    // A Linux computer's writes: their responses go from here until Android takes one (respond), and
+    // notifications wait for them meanwhile.
+    private val responses = LinkedBlockingQueue<() -> Unit>()
+    private val responding = AtomicInteger()
 
     fun allowed(): Boolean = permissions().all { ctx.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
 
@@ -76,6 +81,7 @@ class BleServe(
 
     init {
         thread(name = "td-blp-notify", isDaemon = true) { notifyLoop() }
+        thread(name = "td-blp-respond", isDaemon = true) { while (true) responses.take()() }
     }
 
     // ---- advertising ----
@@ -189,7 +195,7 @@ class BleServe(
                 Ble.UP -> p.up(v)
                 Ble.CTRL -> p.onCtrl(v)
             }
-            if (responseNeeded) server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, v)
+            if (responseNeeded) respond(p, device, requestId, offset, v)
         }
 
         override fun onDescriptorWriteRequest(device: BluetoothDevice, requestId: Int, d: BluetoothGattDescriptor, preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?) {
@@ -203,10 +209,34 @@ class BleServe(
         override fun onNotificationSent(device: BluetoothDevice, status: Int) { noteSent.release() }
     }
 
-    // Notifications go one at a time: the next waits for the last one's onNotificationSent.
+    // A write's response. To Linux, until Android takes it: it refuses one while a notification of ours
+    // is on its way ("Sending response failed"), the bytes taken already, and Linux waited 30 s for it
+    // with the session stalled, then ended the pipe. Not from this callback: Android hands us its
+    // callbacks one at a time, and onNotificationSent, which ends the refusing, would wait behind it.
+    // Windows and the Mac get theirs as they always did.
+    private fun respond(p: Peer, device: BluetoothDevice, requestId: Int, offset: Int, value: ByteArray) {
+        if (p.os != "linux") { server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value); return }
+        responding.incrementAndGet()
+        responses.put {
+            var ok = false
+            repeat(400) {
+                if (ok) return@repeat
+                val s = server ?: return@repeat
+                ok = runCatching { s.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value) }.getOrDefault(false)
+                if (!ok) Thread.sleep(5)
+            }
+            if (!ok) Log.w("TwinDesk", "blp: a write's response didn't go out")
+            responding.decrementAndGet()
+        }
+    }
+
+    // Notifications go one at a time: the next waits for the last one's onNotificationSent, and for a
+    // response on its way to Linux (respond).
     private fun notifyLoop() {
         while (true) {
             val (dev, c, v) = notes.take()
+            var waited = 0
+            while (responding.get() > 0 && waited++ < 1500) Thread.sleep(2)
             val s = server ?: continue
             noteSent.drainPermits()
             var ok = false
@@ -229,6 +259,7 @@ class BleServe(
     // One PC connected to us.
     private inner class Peer(val dev: BluetoothDevice) {
         @Volatile var mtu = 23
+        @Volatile var os = "" // its hello's: "linux" gets its responses sent until Android takes them (respond)
         @Volatile var asked: CountDownLatch? = null // our open(): waiting for the PC's {op: open}
         @Volatile private var sock: Socket? = null
         @Volatile private var listener: ServerSocket? = null // waiting for the session's socket
@@ -247,6 +278,7 @@ class BleServe(
                 "hello" -> {
                     val id = o.optString("id")
                     if (id.isEmpty()) return
+                    os = o.optString("os", "win")
                     val f = Found(id.take(64), o.optString("name").take(100).ifEmpty { "Computer" }, o.optString("os", "win"), "blp:${dev.address}",
                         o.optInt("port", Proto.PORT), Proto.normFingerprint(o.optString("fp")), System.currentTimeMillis(), false)
                     val old = found[f.id]
