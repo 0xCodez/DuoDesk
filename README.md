@@ -52,7 +52,7 @@ One mouse and keyboard · second screen · the other computer's apps in windows 
 <td width="50%" valign="top">
 
 ### 📱 [Your phone and tablet join in](#-your-phone-and-tablet-join-in)
-The phone's screen and apps in windows · tablet as a second screen · share menu on both sides · clipboard · notifications · Wi-Fi or USB
+The phone's screen and apps in windows · tablet as a second screen · calls, texts and photos · share menu on both sides · clipboard · notifications · Wi-Fi or USB
 
 </td>
 </tr>
@@ -202,6 +202,21 @@ computer's can show up on your phone. Hide the message text for privacy or mute 
 <p align="center">
   <img src=".github/assets/notifications.jpg" alt="Notification settings on the Mac and on the phone" width="100%">
 </p>
+
+## Calls, texts and photos
+
+Answer, decline and make your phone's calls from the computer: a small window shows who's calling,
+and the **Calls** page has a number pad, your contacts and the call history. With Bluetooth, the
+computer becomes the phone's headset, so you talk and listen right there (on Windows and on Linux
+with PipeWire; macOS doesn't let an app carry a call's sound, so on the Mac the sound stays on the
+phone). Read and
+reply to texts on the **Messages** page (Android lets only the build the computer installs over
+wireless debugging read texts: the page offers it), and browse the phone's photos and videos on
+**Photos**, saving any of them to the computer.
+
+Each one is off until you switch it on. Off means nothing of it runs on either side, and the phone
+asks for its permissions only then, at the top of that page, never during setup. Calls and Messages
+also work over Bluetooth; Photos needs Wi-Fi.
 
 ## Wi-Fi or USB cable, your choice
 
@@ -459,8 +474,8 @@ cd android
 ./gradlew assembleRelease        # JDK 17+; app/build/outputs/apk/{standard,full}/release/
 ```
 
-`standard` is the build people download. `full` adds notification access, which Play Protect
-blocks in downloaded apps; the computers install it over wireless debugging (Phone page ›
+`standard` is the build people download. `full` adds notification access and the SMS permissions
+(Messages), which Play Protect blocks in downloaded apps; the computers install it over wireless debugging (Phone page ›
 Notifications from the phone), so `npm run dist` on each platform bundles the newest
 `android/dist/*-full.apk`.
 

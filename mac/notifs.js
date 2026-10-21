@@ -6,9 +6,10 @@
 // Events: 'change' — this.view changed; 'click' ({app, appName}) — one of the peer's was clicked.
 'use strict';
 
-const { Notification } = require('electron');
+const { Notification, nativeImage } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const { IconsOut, IconsIn } = require('../shared/notificon.js');
 
 const T = P.T;
 const str = (v, n = 500) => (typeof v === 'string' ? v.slice(0, n) : '');
@@ -16,6 +17,8 @@ const str = (v, n = 500) => (typeof v === 'string' ? v.slice(0, n) : '');
 class Notifs extends EventEmitter {
   constructor({ server, helper, getSettings, saveSettings }) {
     super();
+    this.iconsOut = new IconsOut();
+    this.iconsIn = new IconsIn(nativeImage); // none: macOS shows TwinDesk's icon with every notification
     Object.assign(this, { server, helper, getSettings, saveSettings });
     this.peerAccepts = false;
     this.access = 'unknown'; // 'ok' | 'noAccess' (Full Disk Access) | 'unknown'
@@ -90,6 +93,7 @@ class Notifs extends EventEmitter {
     this.server.sendToClient({
       t: T.NOTIF, id: str(ev.id, 64), app, appName: str(ev.appName, 100), title: str(ev.title), subtitle: str(ev.subtitle),
       body: this.cfg.hideText ? '' : str(ev.body), at: Number(ev.at) || Date.now(),
+      icon: this.iconsOut.take(this.server.current, app, ev.icon),
     });
     this.sent++;
     this.emit('change');
@@ -103,6 +107,7 @@ class Notifs extends EventEmitter {
       title: str(m.title, 200) || appName || peer,
       subtitle: [appName, peer].filter(Boolean).join(' · '),
       body: [str(m.subtitle, 200), str(m.body)].filter(Boolean).join('\n'),
+      icon: this.iconsIn.for(m),
     });
     this.live.push(n);
     const drop = () => { this.live = this.live.filter((x) => x !== n); };

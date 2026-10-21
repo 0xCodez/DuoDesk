@@ -50,7 +50,8 @@ namespace MacShare
         RawWindow raw;
         readonly Timer timer = new Timer();
         public Flash Flash; // crossing animation (set by Program)
-        DateTime lastHook = DateTime.UtcNow, lastReinstall = DateTime.MinValue;
+        DateTime rawSinceHook = DateTime.MinValue, lastReinstall = DateTime.MinValue; // first raw motion no hook call followed
+        bool secure; // a UAC prompt or the lock screen is the input desktop (Native.SecureDesktop)
 
         public Capture(Action<Dictionary<string, object>> emit)
         {
@@ -80,15 +81,17 @@ namespace MacShare
             if (keyHook != IntPtr.Zero) Native.UnhookWindowsHookEx(keyHook);
             mouseHook = Native.SetWindowsHookEx(Native.WH_MOUSE_LL, mouseProc, mod, 0);
             keyHook = Native.SetWindowsHookEx(Native.WH_KEYBOARD_LL, keyProc, mod, 0);
-            lastHook = DateTime.UtcNow;
+            rawSinceHook = DateTime.MinValue;
         }
 
         // Windows silently removes a low-level hook whose callback once took longer than
-        // LowLevelHooksTimeout. Raw input keeps coming then, but the hook isn't called: put it back.
+        // LowLevelHooksTimeout. Raw input keeps coming then, but the hook isn't called: put it back,
+        // once the mouse has moved for half a second with no hook call (not merely after a pause).
         void Watchdog()
         {
             DateTime now = DateTime.UtcNow;
-            if ((now - lastHook).TotalMilliseconds < 500 || (now - lastReinstall).TotalMilliseconds < 1000) return;
+            if (rawSinceHook == DateTime.MinValue) { rawSinceHook = now; return; }
+            if ((now - rawSinceHook).TotalMilliseconds < 500 || (now - lastReinstall).TotalMilliseconds < 1000) return;
             lastReinstall = now;
             Hook();
             emit(Ev("hooksReinstalled"));
@@ -195,6 +198,24 @@ namespace MacShare
 
         void Tick()
         {
+            HideCursor.Retry();
+            // A UAC prompt or the lock screen: nothing can be injected or captured there, so the
+            // input goes home on both sides (main sends a driven PC's owner home).
+            bool now = Native.SecureDesktop();
+            if (now != secure)
+            {
+                secure = now;
+                if (secure && capturing)
+                {
+                    Stop(null, 0);
+                    Dictionary<string, object> c = Ev("captureEnded");
+                    c["reason"] = "secureDesktop";
+                    emit(c);
+                }
+                Dictionary<string, object> e = Ev("secureDesktop");
+                e["on"] = secure;
+                emit(e);
+            }
             if (capturing && (DateTime.UtcNow - lastCmd).TotalMilliseconds > DeadmanMs)
             {
                 Stop(null, 0); // Rule 1: a hung main or a dead link never keeps the user's input
@@ -208,7 +229,7 @@ namespace MacShare
 
         IntPtr MouseHook(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            lastHook = DateTime.UtcNow;
+            rawSinceHook = DateTime.MinValue;
             if (nCode < 0) return Native.CallNextHookEx(mouseHook, nCode, wParam, lParam);
             Native.MSLLHOOKSTRUCT m = (Native.MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(Native.MSLLHOOKSTRUCT));
             if ((m.flags & Native.LLMHF_INJECTED) != 0 && m.dwExtraInfo == Native.MARK)

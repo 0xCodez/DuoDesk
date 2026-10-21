@@ -35,6 +35,11 @@ class Link extends EventEmitter {
     this.host = null; // the stored host we are connected/connecting to
     this.ctx = null; // peer context while authed
     this.attempt = 0;
+    // Disconnect here, or the host let us go / another device took over: no reconnecting by itself
+    // until connect(). {why: 'local' | released | replaced, message}
+    this.stopped = null;
+    this.takeover = false; // the next hello takes the session from whoever has it (Take over)
+    this.busyBy = ''; // the host is in use by someone else: tried again now and then
     this.timers = {};
   }
 
@@ -49,7 +54,7 @@ class Link extends EventEmitter {
 
   view() {
     return {
-      status: { ...this.status },
+      status: { ...this.status, busy: this.authed ? '' : this.busyBy },
       pairing: this.pairState ? { ...this.pairState } : null,
       hosts: this.hosts.map(({ id, name, os, address, lastSeen }) => ({ id, name, os, address, lastSeen })),
     };
@@ -93,7 +98,25 @@ class Link extends EventEmitter {
 
   // Another session ended or started on this Mac: try again / stand back.
   poke() {
-    if (!this.ws && !this.pairState) this._scheduleReconnect(300);
+    if (!this.ws && !this.pairState && !this.stopped) this._scheduleReconnect(300);
+  }
+
+  // Disconnect: stays away until Connect.
+  disconnect() {
+    this.stopped = { why: 'local', message: '' };
+    clearTimeout(this.timers.reconnect);
+    if (this.authed) this._raw({ t: T.BYE }); // on purpose: the host doesn't wait for us
+    this._closeSocket();
+    this._setStatus('stopped', '');
+  }
+
+  // Connect again, or Take over (takeover: the host's session with another device ends).
+  connect(takeover = false) {
+    if (!this.hosts.length || this.pairState) return;
+    this.stopped = null;
+    this.takeover = !!takeover;
+    this.attempt = 0;
+    this._scheduleReconnect(0);
   }
 
   // ---- connection ----
@@ -142,7 +165,7 @@ class Link extends EventEmitter {
   }
 
   _hello() {
-    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.id.macId, name: this.id.macName, os: P.OS.MAC, token: this.host.token });
+    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.id.macId, name: this.id.macName, os: P.OS.MAC, token: this.host.token, ...(this.takeover ? { takeover: true } : {}) });
     this.timers.hello = setTimeout(() => {
       this.lastError = 'No answer';
       if (this.ws) this.ws.terminate();
@@ -237,6 +260,8 @@ class Link extends EventEmitter {
       }
       this._raw({ t: T.PING, ts: Date.now() });
     }, P.PING_MS);
+    this.takeover = false;
+    this.busyBy = '';
     this._setStatus('connected', '');
     this.emit('welcome', this.ctx);
   }
@@ -249,7 +274,10 @@ class Link extends EventEmitter {
       this.forget(this.host.id);
       return this._setStatus('idle', `${name} forgot this Mac. Pair again.`);
     }
-    this.lastError = code === P.E.BUSY ? 'Busy with another device' : `Closed (${code})`;
+    if (code === P.E.REPLACED || code === P.E.RELEASED) {
+      this.stopped = { why: code, message: String(msg.message || (code === P.E.RELEASED ? 'Disconnected' : 'Another device took over')).slice(0, 120) };
+    } else if (code === P.E.BUSY) this.lastError = this.busyBy = String(msg.message || 'In use by another device').slice(0, 120);
+    else this.lastError = `Closed (${code})`;
   }
 
   _pairFailed(error) {
@@ -274,6 +302,7 @@ class Link extends EventEmitter {
       }
       return;
     }
+    if (this.stopped) return this._setStatus('stopped', this.stopped.message);
     if (this.status.state !== 'identity_changed') this._scheduleReconnect();
   }
 
@@ -288,12 +317,13 @@ class Link extends EventEmitter {
   // Reconnect to the most recently used stored host that discovery sees (else the last address).
   _scheduleReconnect(delay) {
     clearTimeout(this.timers.reconnect);
+    if (this.stopped) return this._setStatus('stopped', this.stopped.message);
     if (!this.hosts.length || this.pairState) {
       if (!this.hosts.length && this.status.state !== 'idle') this._setStatus('idle', this.status.message);
       return;
     }
     const delays = P.RECONNECT_MS;
-    const d = delay !== undefined ? delay : delays[Math.min(this.attempt, delays.length - 1)];
+    const d = delay !== undefined ? delay : this.busyBy ? 10000 : delays[Math.min(this.attempt, delays.length - 1)];
     this.attempt++;
     if (this.status.state === 'connected') this._setStatus('reconnecting', this.lastError || '');
     this.timers.reconnect = setTimeout(() => {
