@@ -7,6 +7,7 @@
 // server: the phone-facing session (mac/peer.js, or phone-link.js): on('client'|'closed'),
 // on('t:<type>'), sendToClient(), current. audio: () => this computer's call sound over Bluetooth
 // (callaudio.js), made only while Calls and its Bluetooth option are on with a phone connected.
+// btSettings(): opens this computer's Bluetooth settings, where the phone is paired for that.
 // send(paths, batch): files to the phone (the file sender's sendBatch); choose(): files picked here.
 // share: shared folders' options (foldershare.js), when this computer has them.
 //
@@ -45,12 +46,15 @@ const phonePath = (v) => {
   return parts.join('/');
 };
 const fileName = (v) => (typeof v === 'string' && v.trim() && v.length <= 255 && !/[/\u0000-\u001f]/.test(v) && v.trim() !== '.' && v.trim() !== '..' ? v.trim() : '');
+const PAIR_WATCH_MS = 5 * 60000; // looking for the phone's pairing this long after setup or Forget
+const PAIR_POLL_MS = 3000;
 
 class PhoneHub extends EventEmitter {
   // audioLimit: what this computer can't do with the calls' sound, said under its switch (Windows).
-  constructor({ server, getSettings, save, audio, audioLimit, send, choose, share }) {
+  constructor({ server, getSettings, save, audio, audioLimit, btSettings, send, choose, share }) {
     super();
-    Object.assign(this, { server, getSettings, save, makeAudio: audio || null, audioLimit: audioLimit || '', sendFiles: send || null, choose: choose || null });
+    Object.assign(this, { server, getSettings, save, makeAudio: audio || null, audioLimit: audioLimit || '', btSettings: btSettings || null, sendFiles: send || null, choose: choose || null });
+    this.pairTimer = null; // looking for the phone's pairing (watchPair)
     this.share = null;
     if (share) {
       this.share = new (require('./foldershare.js').FolderShare)(this, share);
@@ -81,7 +85,7 @@ class PhoneHub extends EventEmitter {
         files: { perm: perm(m.files) },
         bt: {
           allowed: bt.allowed !== false, radio: bt.radio !== false, name: str(bt.name, 100), bonded: bt.bonded === true ? true : bt.bonded === false ? false : null,
-          le: !!bt.le, bonding: !!bt.bonding, failed: !!bt.failed, forget: !!bt.forget, // le: paired over Bluetooth LE only (no calls' sound through it)
+          le: !!bt.le, bonding: !!bt.bonding, forget: !!bt.forget, // le: paired over Bluetooth LE only (no calls' sound through it)
         },
         opens: !!m.opens,
       };
@@ -96,6 +100,8 @@ class PhoneHub extends EventEmitter {
       this.applyAudio();
       this.emit('change');
     });
+    // Forget on the phone: it forgot this computer, and this computer forgets it too.
+    on(T.HUB_BT, (m) => m.unpair && this.forget(true));
     on(T.CALL_STATE, (m) => this.onCall(m));
     on(T.SHARE_OFFER, (m) => { if (this.share) { this.share.onOffer(m); this.share.host(); } });
     on(T.SHARE_SET, (m) => this.share && this.share.act('serve', { on: !!m.serve })); // switched on the phone
@@ -140,7 +146,7 @@ class PhoneHub extends EventEmitter {
   // ---- from the window ----
 
   // {do: 'set', what, on} | {do: 'opt', callAudio?, btDevice?} | {do: 'ask', what} | {do: 'seen'}
-  // | {do: 'send', msg} | {do: 'audio', a: 'here'|'phone'|'connect'|'pair'|'unpair'} | {do: 'call', a, number?, on?}
+  // | {do: 'send', msg} | {do: 'audio', a: 'here'|'phone'|'connect'|'check'|'settings'|'visible'|'forget'} | {do: 'call', a, number?, on?}
   // | {do: 'upload', path, paths? (none: chosen here first)} | {do: 'share', a: 'mount'|'unmount'|'auto'|'serve'|'choose'|'default', on?}
   act(r) {
     if (!r || typeof r !== 'object') return;
@@ -322,6 +328,7 @@ class PhoneHub extends EventEmitter {
     const s = this.settings;
     const want = !!(this.makeAudio && s.calls && s.callAudio && this.phone);
     if (!want) {
+      this.unwatchPair();
       if (this.audio) {
         this.audio.stop();
         this.audio = null;
@@ -347,15 +354,53 @@ class PhoneHub extends EventEmitter {
     if (!this.audio) return;
     if (a === 'here' || a === 'phone') { this.pulled = true; this.audio.transfer(a === 'here'); }
     else if (a === 'connect') this.audio.start(this.state ? this.state.bt.name : '');
-    else if (a === 'unpair') {
-      if (this.audio.unpair) this.audio.unpair();
-      if (this.phone) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', unpair: true });
-    } else if (a === 'pair' && this.audio.view.address) {
-      // Paired over Bluetooth LE only: this computer's side goes first (the phone's next, Hub.kt).
-      if (this.state && this.state.bt.le && this.audio.unpair) this.audio.unpair();
-      this.audio.pair();
-      this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address, bond: true });
-    }
+    else if (a === 'check') { if (this.audio.check) this.audio.check(); } // back in the window: paired meanwhile?
+    else if (a === 'settings') this.pairHere();
+    else if (a === 'visible') this.visible();
+    else if (a === 'forget') this.forget(false);
+  }
+
+  // The phone asked to let itself be found, for pairing in this computer's Bluetooth settings.
+  visible() {
+    if (this.phone && this.audio) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', visible: true });
+  }
+
+  // This computer's Bluetooth settings, where the phone is paired over classic Bluetooth (the kind
+  // a call goes through); the phone is looked for until it's there.
+  pairHere() {
+    if (this.btSettings) this.btSettings();
+    this.watchPair();
+  }
+
+  // Forget: both forget each other, over classic Bluetooth and LE, so neither keeps keys the other
+  // dropped (TwinDesk's own LE link fails on those), then they pair again: this computer's
+  // Bluetooth settings open and the phone is asked to be visible (it asks itself when Forget was
+  // pressed there). The phone hears first: over Bluetooth LE the session may go with the pairing.
+  forget(fromPhone) {
+    if (!this.audio) return;
+    if (!fromPhone && this.phone) this.server.sendToClient({ t: T.HUB_BT, address: this.audio.view.address || '', unpair: true, visible: true });
+    if (this.audio.unpair) this.audio.unpair();
+    this.pairHere();
+  }
+
+  // Back from pairing: the phone looked for every few seconds for a while, and connected to as soon
+  // as it's there (callaudio's check() only looks while it isn't).
+  watchPair() {
+    clearInterval(this.pairTimer);
+    const until = Date.now() + PAIR_WATCH_MS;
+    this.pairTimer = setInterval(() => {
+      const st = this.audio && this.audio.view.state;
+      if (!st || ['ready', 'connecting', 'off'].includes(st) || Date.now() > until) return this.unwatchPair();
+      if (this.audio.check) this.audio.check();
+    }, PAIR_POLL_MS);
+    this.emit('change');
+  }
+
+  unwatchPair() {
+    if (!this.pairTimer) return;
+    clearInterval(this.pairTimer);
+    this.pairTimer = null;
+    this.emit('change');
   }
 
   get view() {
@@ -366,6 +411,7 @@ class PhoneHub extends EventEmitter {
       supported: !!this.state, // the phone app answered (an older one doesn't know these)
       perm: this.state, call: this.call, ended: this.ended, unread: this.unread, muted: this.muted,
       audio: this.audio ? this.audio.view : null, canAudio: !!this.makeAudio, audioLimit: this.audioLimit,
+      btSettings: !!this.btSettings, pairWatch: !!this.pairTimer, // pairing for the calls' sound: Open Bluetooth settings, looking for the phone
       share: this.share ? this.share.view : null,
     };
   }

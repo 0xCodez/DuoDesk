@@ -105,6 +105,11 @@ class BleServe(
         }
     }
 
+    // On the same Wi-Fi as the PC (Core.bleTick): PCs linked without a pipe are let go.
+    fun trim() {
+        for (p in peers.values.toList()) if (!p.piped) runCatching { server?.cancelConnection(p.dev) } // onConnectionStateChange cleans up
+    }
+
     // Bluetooth off for TwinDesk: no advertising, no PCs.
     fun stop() {
         advertise(false)
@@ -227,6 +232,7 @@ class BleServe(
         @Volatile var asked: CountDownLatch? = null // our open(): waiting for the PC's {op: open}
         @Volatile private var sock: Socket? = null
         @Volatile private var listener: ServerSocket? = null // waiting for the session's socket
+        val piped get() = sock != null || listener != null
         @Volatile private var gen = 0 // the pipe a DOWN chunk belongs to
         private val pending = java.io.ByteArrayOutputStream() // UP before the session's socket connected
 

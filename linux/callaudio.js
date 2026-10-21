@@ -44,6 +44,7 @@ class CallAudio extends EventEmitter {
     this.here = false;
     this.parked = false; // moved to the phone for this call (the profile let go on purpose)
     this.micWas = null; // the microphone's mute before Mute, put back after
+    this.forgetting = false; // unpair() removing the phone's devices: not looked at meanwhile
     this.tries = 0;
     this.timer = null;
     this.watcher = null;
@@ -66,19 +67,39 @@ class CallAudio extends EventEmitter {
     if (!this.stopped && (['needs-pair', 'choose'].includes(this.state) || (renamed && this.state !== 'ready'))) this._info(this.gen);
   }
 
-  // Forget the phone on this computer (the phone forgets it too: phonehub.js).
-  unpair() {
+  // Forget the phone on this computer, over classic Bluetooth and LE both (the phone forgets it too:
+  // phonehub.js), so neither keeps keys the other dropped: the device picked for it, and every other
+  // paired one with its name. Then looked for again, to be paired in the desktop's Bluetooth settings.
+  async unpair() {
     const d = this._device();
-    if (!d || !this.adapter) return;
+    const name = ((d && d.name) || this.phoneName).trim().toLowerCase();
+    if (!d && !name) return;
+    const gen = ++this.gen;
+    clearTimeout(this.timer);
+    this._unwatch();
     this.save('');
     this.id = '';
-    busctl(['call', 'org.bluez', this.adapter, 'org.bluez.Adapter1', 'RemoveDevice', 'o', d.path]);
+    this.here = false;
+    this.parked = false;
+    this.forgetting = true;
     this._set('needs-pair');
+    const r = await busctl(['--json=short', 'call', 'org.bluez', '/', 'org.freedesktop.DBus.ObjectManager', 'GetManagedObjects']);
+    let objs;
+    try { objs = JSON.parse(r.out).data[0] || {}; } catch { objs = {}; }
+    for (const [p, o] of Object.entries(objs)) {
+      const x = o['org.bluez.Device1'];
+      if (!x || !val(x.Paired)) continue;
+      const same = (d && String(val(x.Address) || '').toUpperCase() === d.id)
+        || (name && String(val(x.Alias) || val(x.Name) || '').trim().toLowerCase() === name);
+      if (same) await busctl(['call', 'org.bluez', String(val(x.Adapter)), 'org.bluez.Adapter1', 'RemoveDevice', 'o', p]);
+    }
+    this.forgetting = false;
+    if (gen === this.gen && !this.stopped) this._info(gen);
   }
 
-  // Pair asks the phone to pair with this computer: it has to let it.
-  pair() {
-    if (this.adapter) busctl(['set-property', 'org.bluez', this.adapter, 'org.bluez.Adapter1', 'Pairable', 'b', 'true']);
+  // Paired meanwhile (in the desktop's Bluetooth settings)? Looked at again while it isn't, and connected to then.
+  check() {
+    if (!this.stopped && !this.forgetting && (['needs-pair', 'choose'].includes(this.state) || (this.state === 'unavailable' && !this.power))) this._info(this.gen);
   }
 
   // Here: the hands-free connected again. Phone: let go of it, as when a headset goes away; the
@@ -258,8 +279,8 @@ class CallAudio extends EventEmitter {
     const MESSAGES = {
       starting: 'Starting…',
       unavailable: this.error ? `Not available: ${this.error}` : 'Bluetooth is off on this computer',
-      'needs-pair': `Pair ${this.phoneName || 'the phone'} with this computer over Bluetooth once: Pair asks the phone, or use Settings › Bluetooth`,
-      choose: `Which one is ${this.phoneName || 'the phone'}? Pick it, or Pair if it isn’t there`,
+      'needs-pair': `Not paired with ${this.phoneName || 'the phone'} yet: set it up below`,
+      choose: `Which one is ${this.phoneName || 'the phone'}? Pick it, or pair it below if it isn’t there`,
       connecting: `Connecting to ${name}…`,
       ready: this.parked ? `This call plays on ${name}` : `Connected to ${name} over Bluetooth: calls play on this computer`,
       failed: `Couldn’t reach ${name} over Bluetooth${this.error ? ` (${this.error})` : ''}. ${this.tries > RETRY_MS.length ? 'Click Connect to try again' : 'Trying again soon'}`,
@@ -268,6 +289,7 @@ class CallAudio extends EventEmitter {
     return {
       state: this.state, message: MESSAGES[this.state] || '', device: this.id,
       canUnpair: true, devices: this.devices.map(({ id, name: n }) => ({ id, name: n })), here: this.here, address: this.address,
+      pairHow: `In Settings › Bluetooth, pick ${this.phoneName || 'the phone'} from the devices found and confirm`,
     };
   }
 }

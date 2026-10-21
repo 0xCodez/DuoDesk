@@ -6,8 +6,9 @@
 // Bluetooth headset is connected to the PC (whatever the default devices: its hands-free link and the
 // phone's can't both be up). Windows lets only an app with a package identity do that (PhoneLineTransportDevice),
 // so first its sparse package is registered for this user, pointing at where TwinDesk is (the
-// installer trusts its certificate). The phone has to be paired with this PC over Bluetooth once
-// (Pair asks the phone to). stop() ends it: the process lets the phone line go and exits.
+// installer trusts its certificate). The phone has to be paired with this PC over Bluetooth once, in
+// Windows' own Bluetooth settings (the Calls page's setup). stop() ends it: the process lets the
+// phone line go and exits.
 //
 // view: as linux/callaudio.js. Events: 'change', 'address' (this PC's).
 'use strict';
@@ -92,8 +93,10 @@ class CallAudio extends EventEmitter {
     this._set('needs-pair');
   }
 
-  // Pair asks the phone to pair with this PC; Windows asks to let it on its own.
-  pair() {}
+  // Paired meanwhile (in Windows' Bluetooth settings)? Looked at again while it isn't, and connected to then.
+  check() {
+    if (this.proc && (['needs-pair', 'choose'].includes(this.state) || (this.state === 'unavailable' && !this.power))) this._send({ cmd: 'info' });
+  }
 
   // Where the call's sound goes, this call and the next ones: this PC, or back to the phone.
   transfer(here) {
@@ -216,7 +219,7 @@ class CallAudio extends EventEmitter {
       // say): it's TwinDesk's once the phone is paired again.
       if (m.error === 'unregistered') {
         this.denied = true;
-        this.error = `Windows keeps ${this.phoneName || 'the phone'}’s calls for another app: remove it in Settings › Bluetooth & devices, pair it again (Pair), then Connect`;
+        this.error = `Windows keeps ${this.phoneName || 'the phone'}’s calls for another app: Forget it below and pair it again`;
         this.tries = RETRY_MS.length + 1;
         return this._set('failed');
       }
@@ -269,8 +272,8 @@ class CallAudio extends EventEmitter {
     const MESSAGES = {
       starting: 'Starting…',
       unavailable: this.error || 'Bluetooth is off on this PC',
-      'needs-pair': `Pair ${this.phoneName || 'the phone'} with this PC over Bluetooth once: Pair asks the phone, or use Settings › Bluetooth & devices`,
-      choose: `Which one is ${this.phoneName || 'the phone'}? Pick it, or Pair if it isn’t there`,
+      'needs-pair': `Not paired with ${this.phoneName || 'the phone'} yet: set it up below`,
+      choose: `Which one is ${this.phoneName || 'the phone'}? Pick it, or pair it below if it isn’t there`,
       connecting: `Connecting to ${name}…`,
       ready: this.local ? `Connected to ${name} over Bluetooth: calls play on this PC`
         : `Connected to ${name}, but calls stay on the phone while a Bluetooth headset is connected to this PC: Windows plays calls only through wired or built-in speakers and a microphone, with no Bluetooth headset connected`,
@@ -280,6 +283,7 @@ class CallAudio extends EventEmitter {
     return {
       state: this.state, message: MESSAGES[this.state] || '', device: this.id,
       devices: this.devices, here: this.here, address: this.address, canMute: this.here, canMove: this.local, canUnpair: true,
+      pairHow: `In Settings › Bluetooth & devices: Add device › Bluetooth, then pick ${this.phoneName || 'the phone'} (the one with a phone icon)`,
     };
   }
 }

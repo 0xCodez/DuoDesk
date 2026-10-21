@@ -128,18 +128,35 @@ UI.tab({
     // The sound over Bluetooth: this computer as the phone's headset.
     const audioSw = UI.switch((v) => api.hub({ do: 'opt', callAudio: v }), { label: 'Talk and listen on this computer' });
     const audioRow = UI.row('Talk and listen on {me}', '', [audioSw]);
-    const pairBtn = UI.button('Pair', () => api.hub({ do: 'audio', a: 'pair' }));
     const retryBtn = UI.button('Connect', () => api.hub({ do: 'audio', a: 'connect' }));
-    // Unpair: forget each other (the phone that's connected is the one; Pair makes it again).
-    const unpairBtn = UI.button('Unpair', () => {
-      if (unpairBtn.dataset.sure !== '1') { unpairBtn.dataset.sure = '1'; unpairBtn.textContent = 'Unpair?'; unpairBtn.classList.add('danger'); return; }
-      api.hub({ do: 'audio', a: 'unpair' });
-    });
     // Which paired Bluetooth device the phone is, when its name didn't say (or to change it).
     const which = UI.select([], (id) => id && api.hub({ do: 'opt', btDevice: id }));
     which.el.setAttribute('aria-label', 'Which phone');
-    const statusRow = UI.row('Bluetooth', '', [which.el, pairBtn, retryBtn, unpairBtn]);
+    const statusRow = UI.row('Bluetooth', '', [which.el, retryBtn]);
     const soundCard = UI.card('Sound', [audioRow, statusRow]);
+
+    // Setting it up: the two paired in this computer's own Bluetooth settings, over classic Bluetooth
+    // (what a call goes through), the phone visible meanwhile; TwinDesk connects once they are.
+    // Forget at the bottom: both forget each other, classic and LE, and it starts over.
+    const visibleBtn = UI.button('Ask the phone', () => api.hub({ do: 'audio', a: 'visible' }), 'small');
+    const settingsBtn = UI.button('Open Bluetooth settings', () => api.hub({ do: 'audio', a: 'settings' }), 'small primary');
+    const step1 = UI.row('', '', [visibleBtn]);
+    const step2 = UI.row('', '', [settingsBtn]);
+    const step3 = UI.row('3. Confirm the code on both', '');
+    const pairedRow = UI.row('', '');
+    const forgetBtn = UI.button('Forget', () => {
+      if (forgetBtn.dataset.sure !== '1') { forgetBtn.dataset.sure = '1'; forgetBtn.textContent = 'Forget?'; forgetBtn.classList.add('danger'); return; }
+      unsure();
+      api.hub({ do: 'audio', a: 'forget' });
+    }, 'small');
+    const unsure = () => { forgetBtn.dataset.sure = ''; forgetBtn.textContent = 'Forget'; forgetBtn.classList.remove('danger'); };
+    const forgetRow = UI.row('Forget', '', [forgetBtn]);
+    const setupCard = UI.card('Bluetooth setup', [step1, step2, step3, pairedRow, forgetRow]);
+    // Back in this window from pairing (Settings, or the phone): connected at once when they are.
+    window.addEventListener('focus', () => {
+      const a = UI.state && UI.state.hub && UI.state.hub.audio;
+      if (a && ['needs-pair', 'choose'].includes(a.state)) api.hub({ do: 'audio', a: 'check' });
+    });
 
     // The call history.
     const recent = el('div', { class: 'hub-list hub-scroll' });
@@ -157,7 +174,7 @@ UI.tab({
       if (!recent.children.length) recent.append(el('div', { class: 'hub-empty', text: m.items ? 'No calls yet' : '' }));
     });
 
-    body.append(top.el, nowCard, dialCard, recentCard, contactsCard, soundCard);
+    body.append(top.el, nowCard, dialCard, recentCard, contactsCard, soundCard, setupCard);
 
     let loaded = false;
     let hadCall = false;
@@ -219,17 +236,13 @@ UI.tab({
       const phone = UI.phoneName(s);
       const needsPair = !!(a && ['needs-pair', 'choose'].includes(a.state));
       if (h.callAudio && h.connected && needsPair && bt) {
-        // The phone's side of the pairing (Hub.kt): LE only can't carry a call, so it's paired again.
+        // The phone's side of the pairing (Hub.kt): LE only can't carry a call.
         if (bt.bonding) status = `Pairing… Confirm the code on ${phone} and on {me}`;
-        else if (bt.le) status = `${phone} and {me} are paired over Bluetooth LE only, which can’t carry a call. Pair pairs them again for calls`;
-        else if (bt.forget) status = `${phone} keeps its old pairing with {me}: forget {me} in Bluetooth settings on ${phone} (they opened there), then Pair Again`;
-        else if (bt.failed) status = `Pairing didn’t finish. Pair again, then confirm the code on ${phone} and on {me}`;
+        else if (bt.le) status = `${phone} and {me} are paired over Bluetooth LE only, which can’t carry a call: Forget below, then pair them again`;
+        else if (bt.forget) status = `${phone} keeps its old pairing with {me}: forget {me} in Bluetooth settings on ${phone} (they opened there), then pair them again below`;
         else if (bt.radio === false) status = `Bluetooth is off on ${phone}`;
-        else if (bt.allowed === false) status = `${status}${status ? '. ' : ''}Pair asks ${phone} to allow Nearby devices first`;
       }
       statusRow.setHint(status);
-      pairBtn.hidden = !(needsPair && a.address && h.connected && !(bt && bt.bonding));
-      pairBtn.textContent = bt && (bt.le || bt.failed) ? 'Pair Again' : 'Pair';
       retryBtn.hidden = !(a && ['failed', 'off'].includes(a.state));
       const devices = (a && h.connected && a.devices) || [];
       which.el.hidden = !(a && (a.state === 'choose' || (devices.length > 1 && a.state !== 'ready')));
@@ -237,8 +250,29 @@ UI.tab({
         which.options([{ value: '', label: `Which one is ${phone}?` }, ...devices.map((d) => ({ value: d.id, label: d.name }))]);
         which.set(a.device || '');
       }
-      unpairBtn.hidden = !(a && a.device && a.canUnpair && h.connected && !needsPair);
-      if (unpairBtn.hidden) { unpairBtn.dataset.sure = ''; unpairBtn.textContent = 'Unpair'; unpairBtn.classList.remove('danger'); }
+
+      // Setup: the steps until they're paired, Forget always at the bottom.
+      setupCard.hidden = soundCard.hidden || !h.callAudio || !h.connected || !a || ['off', 'starting', 'unavailable'].includes(a.state);
+      const paired = !needsPair && !!(a && a.device);
+      step1.hidden = paired;
+      step2.hidden = paired;
+      step3.hidden = paired;
+      pairedRow.hidden = !paired;
+      if (paired) {
+        pairedRow.label.textContent = `Paired with ${phone}`;
+        pairedRow.setHint('Over classic Bluetooth, which carries the calls’ sound');
+      } else {
+        step1.label.textContent = `1. Make ${phone} visible`;
+        step1.setHint(`${phone} asks to be found for a few minutes: allow it there. Or open Bluetooth settings on ${phone}`);
+        step2.label.textContent = UI.fill('2. Pair from {me}');
+        step2.setHint((a && a.pairHow) || `In {me}’s Bluetooth settings, add a device and pick ${phone}`);
+        settingsBtn.hidden = !h.btSettings;
+        step3.setHint(bt && bt.bonding ? `Pairing… Confirm it on ${phone} and on {me}`
+          : h.pairWatch ? `Looking for ${phone}… TwinDesk connects as soon as they’re paired`
+            : 'TwinDesk connects as soon as they’re paired');
+      }
+      forgetRow.setHint(`${phone} and {me} forget each other, over classic Bluetooth and LE, then pair again from the start`);
+      if (setupCard.hidden) unsure();
     };
   },
 });

@@ -418,6 +418,7 @@ function loadHub() {
     server: phoneLink, getSettings: () => settings, save: saveSettings,
     audio: (opts) => require('./callaudio.js').create({ helper, ...opts }), // the calls' sound over Bluetooth
     audioLimit: require('./callaudio.js').LIMIT,
+    btSettings: () => shell.openExternal('ms-settings:bluetooth').catch(() => {}), // pairing the phone for the calls' sound
     send: (paths, batch) => !!(fileDrop && fileDrop.sendBatch(paths, 'send', batch)), // Files: into a folder on the phone
     choose: () => require('electron').dialog.showOpenDialog(mainWin && !mainWin.isDestroyed() ? mainWin : undefined, { properties: ['openFile', 'multiSelections'] }) // files only: with folders too it picks only folders here
       .then((r) => (r.canceled ? [] : r.filePaths)),

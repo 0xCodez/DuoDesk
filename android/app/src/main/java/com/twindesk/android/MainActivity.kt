@@ -486,6 +486,7 @@ private fun OverviewPage(core: Core, v: Int) {
                 }
             }
         }
+        MacCard { BleSwitch(core, "Allow Nearby devices on the General page", first = true) }
     }
 
     if (host != null) {
@@ -554,6 +555,7 @@ private fun OverviewPage(core: Core, v: Int) {
             first = false
         }
         if (first) MacRow("Looking for computers…", if (core.bleOn && core.ble.allowed()) "Open TwinDesk on your computer (same Wi-Fi, or Bluetooth on)" else "Open TwinDesk on your Mac (same Wi-Fi)", true)
+        BleSwitch(core, "Allow Nearby devices on the General page")
         var addr by remember { mutableStateOf("") }
         Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(1.dp).background(pal.line))
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -566,6 +568,23 @@ private fun OverviewPage(core: Core, v: Int) {
             }
         }
     }
+}
+
+// Bluetooth with computers (Overview and General, as on the computers): for one that isn't on this
+// network. Off by itself while the session is on the same Wi-Fi, on again when that drops (Core.bleTick).
+@Composable
+private fun BleSwitch(core: Core, askHint: String, first: Boolean = false) {
+    val ctx = LocalContext.current
+    val name = them(core)
+    val link = core.link
+    val allowed = (Ble.permissions() + BleServe.permissions() + Direct.permission()).all { ctx.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
+    SwitchRow("Bluetooth with computers", when {
+        !core.bleOn -> "Only computers on this network or a USB cable connect"
+        !core.ble.radioOn -> "Bluetooth is off on this device"
+        !allowed -> askHint
+        link.connected && core.net.via == "Wi-Fi" -> "Off while you’re on the same Wi-Fi as $name, on again if it drops"
+        else -> "Connects to $name over Bluetooth when it isn’t on this network. Files and screens move to a direct Wi-Fi link for a while"
+    }, core.bleOn, first = first) { core.store.setFlag("ble", it); core.changed() }
 }
 
 @Composable
@@ -652,26 +671,33 @@ private fun CallsPage(core: Core, v: Int) {
         MacRow("Answer and decline", "A window on $name when this phone rings", first = true)
         MacRow("Make calls", "The number pad, contacts and recent calls on $name’s Calls page")
     }
-    // The computer as this phone's headset: paired over classic Bluetooth.
+    // The computer as this phone's headset: paired over classic Bluetooth, in the computer's own
+    // Bluetooth settings (its Calls page's setup) with this phone visible. Forget at the bottom.
     val hub = core.hub
     if (hub.btAudio) MacCard("Sound on $name") {
         val bt = hub.btState()
+        val allowed = bt.optBoolean("allowed", true)
+        val bonded = bt.optBoolean("bonded")
         MacRow(
             "Bluetooth",
             when {
-                bt.optBoolean("allowed", true).not() -> "Allow Nearby devices so this phone can pair with $name"
+                !allowed -> "Allow Nearby devices so TwinDesk sees this phone’s pairing with $name"
                 !bt.optBoolean("radio", true) -> "Bluetooth is off on this phone"
                 bt.optBoolean("bonding") -> "Pairing… Confirm the code here and on $name"
-                bt.optBoolean("forget") -> "Forget $name in Bluetooth settings first (the old pairing can’t carry calls), then Pair"
-                bt.optBoolean("bonded") -> "Paired with $name: calls can play there"
-                bt.optBoolean("le") -> "Paired over Bluetooth LE only, which can’t carry a call: Pair again"
-                bt.optBoolean("failed") -> "Pairing didn’t finish: Pair again"
+                bt.optBoolean("forget") -> "Forget $name in Bluetooth settings here (Android keeps the old pairing for itself), then pair again from $name"
+                bonded -> "Paired with $name: calls can play there"
+                bt.optBoolean("le") -> "Paired over Bluetooth LE only, which can’t carry a call: Forget, then pair again from $name"
                 !hub.btKnown -> "Waiting for $name…"
-                else -> "Not paired with $name over Bluetooth yet"
+                else -> "Not paired yet: make this phone visible, then pair it in $name’s Bluetooth settings"
             },
             first = true,
         ) {
-            if (hub.btKnown && !bt.optBoolean("bonded") && !bt.optBoolean("bonding")) Primary("Pair") { hub.pairBt() }
+            if (!allowed) Primary("Allow") { hub.askHere("bt") }
+            else if (hub.btKnown && !bonded && !bt.optBoolean("bonding")) Primary("Make visible") { hub.visibleBt() }
+        }
+        var sure by remember { mutableStateOf(false) }
+        MacRow("Forget", "This phone and $name forget each other, over classic Bluetooth and LE, then pair again") {
+            TextButton(onClick = { if (sure) { sure = false; hub.forgetBt() } else { sure = true } }) { Text(if (sure) "Forget?" else "Forget", color = pal.bad) }
         }
     }
 }
@@ -1172,11 +1198,7 @@ private fun GeneralPage(core: Core, v: Int) {
         }
     }
     MacCard("Not on the same network") {
-        SwitchRow("Bluetooth", when {
-            !core.ble.radioOn -> "Bluetooth is off on this device"
-            !nearbyAllowed -> "Allow Nearby devices above"
-            else -> "Connects to $name over Bluetooth when it isn’t on this network. Files and screens move to a direct Wi-Fi link for a while"
-        }, core.bleOn, first = true) { core.store.setFlag("ble", it); core.changed() }
+        BleSwitch(core, "Allow Nearby devices above", first = true)
         val n = core.net
         if (n.state != "idle") MacRow("Wi-Fi", when (n.state) {
             "asking", "hosting" -> "Starting a direct Wi-Fi link…"

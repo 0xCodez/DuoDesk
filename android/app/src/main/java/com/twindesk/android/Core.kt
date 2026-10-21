@@ -80,10 +80,17 @@ class Core private constructor(val ctx: Context) : Link.Events {
 
     // Every 2 s: Bluetooth scans while it may be needed (not connected, or connected through it),
     // and a session through Bluetooth moves onto the network as soon as the computer is seen there
-    // (the same Wi-Fi, or a group Netlink made).
+    // (the same Wi-Fi, or a group Netlink made). On the same Wi-Fi, Bluetooth goes altogether (its
+    // fallback, then its links): the Wi-Fi dropping ends the session, which comes back over
+    // Bluetooth (resume). On a group Netlink made, or a USB cable, it stays as the fallback.
     private val resumeTried = HashMap<String, Long>()
     private fun bleTick() {
         ble.prune()
+        if (link.connected && net.via == "Wi-Fi") {
+            link.dropAlt()
+            ble.trim()
+            serve.trim()
+        }
         val want = bleOn && ble.allowed() && ble.radioOn && (!link.connected || link.ble)
         ble.scan(want)
         if (!bleOn && ble.found.isNotEmpty()) ble.stop()

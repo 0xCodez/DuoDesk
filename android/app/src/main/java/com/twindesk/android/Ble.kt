@@ -141,6 +141,11 @@ class Ble(
         return c.openPipe(timeoutMs)
     }
 
+    // On the same Wi-Fi as the computer (Core.bleTick): links without a pipe go.
+    fun trim() {
+        for (c in conns.values.toList()) if (!c.piped) c.close()
+    }
+
     fun stop() {
         scan(false)
         for (c in conns.values) c.close()
@@ -166,6 +171,7 @@ class Ble(
         private val readyWait = java.util.concurrent.CountDownLatch(1)
         // The pipe: its socket here, and whether the computer opened its end.
         @Volatile private var sock: Socket? = null
+        val piped get() = sock != null
         @Volatile private var pipeGen = 0 // the pipe a queued UP chunk belongs to: a closed pipe's never go out
         @Volatile private var opened: java.util.concurrent.CountDownLatch? = null
         private val upSlots = java.util.concurrent.Semaphore(16) // UP writes in flight

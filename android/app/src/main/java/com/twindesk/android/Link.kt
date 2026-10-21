@@ -19,6 +19,9 @@ import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
+private const val FALLBACK_MS = 5000L // on the network this long, answering: its Bluetooth fallback goes (dropAlt)
+private const val ANSWERING_MS = 3000L // … answering = something came through it this recently
+
 data class PairState(
     val phase: String, // connecting | starting | code | waiting | failed
     val address: String,
@@ -67,6 +70,7 @@ class Link(
     private var resumeKey = ""
     private var alt: WebSocket? = null
     private var altBle = false
+    private var movedAt = 0L // when the session moved onto the network (dropAlt)
     private var pending: WebSocket? = null
     private var pendingAddress = ""
     private val lastRxOf = java.util.concurrent.ConcurrentHashMap<WebSocket, Long>()
@@ -217,10 +221,26 @@ class Link(
         altBle = ble
         ws = w
         ble = false
+        movedAt = System.currentTimeMillis()
         host?.let { h ->
             if (h.address != pendingAddress) { h.address = pendingAddress; store.putHost(h) }
         }
         Log.i("TwinDesk", "session moved to $pendingAddress")
+        events.onChange()
+    }
+
+    // On the same Wi-Fi as the computer (Core.bleTick): the Bluetooth fallback goes once this path
+    // has proven itself (on it FALLBACK_MS, answering). The Wi-Fi dropping then ends the session,
+    // which comes back over Bluetooth (Core.resume).
+    fun dropAlt() = run {
+        val a = alt ?: return@run
+        val w = ws ?: return@run
+        val now = System.currentTimeMillis()
+        if (ble || !altBle || now - movedAt < FALLBACK_MS || now - (lastRxOf[w] ?: 0L) > ANSWERING_MS) return@run
+        alt = null
+        lastRxOf.remove(a)
+        a.close(1000, null)
+        Log.i("TwinDesk", "Bluetooth fallback closed: the session stays on Wi-Fi")
         events.onChange()
     }
 

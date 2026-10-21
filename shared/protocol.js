@@ -203,10 +203,10 @@
       // off until switched on (its page here, or the phone's Overview); while one is off the phone
       // keeps nothing running for it: no listener, no observer, no query.
       HUB_POLICY: 'hub.policy', // computer->phone {calls, messages, media, files, bt}: which are on here (at every session start: it also says the computer has them); bt = call audio here over Bluetooth
-      HUB_STATE: 'hub.state', // phone->computer {calls: {perm}, messages: {perm}, media: {perm}, files: {perm}, bt: {name, bonded, le, bonding, failed, allowed, radio}}: perm 'ok'|'partial'|'ask'|'blocked'|'none' (not in this build)
+      HUB_STATE: 'hub.state', // phone->computer {calls: {perm}, messages: {perm}, media: {perm}, files: {perm}, bt: {name, bonded, le, bonding, forget, allowed, radio}}: perm 'ok'|'partial'|'ask'|'blocked'|'none' (not in this build)
       HUB_ASK: 'hub.ask', // computer->phone {what: 'calls'|'messages'|'media'|'files'|'bt'}: ask the person on the phone for that one's permissions
       HUB_SET: 'hub.set', // phone->computer {what, on}: switched on or off on the phone
-      HUB_BT: 'hub.bt', // computer->phone {address, bond?, unpair?}: this computer's Bluetooth address (is the phone paired with it?); bond: pair with it now; unpair: forget it
+      HUB_BT: 'hub.bt', // computer->phone {address, unpair?, visible?}: this computer's Bluetooth address (is the phone paired with it?); unpair: forget it (classic and LE); visible: ask to be found, for pairing in the computer's Bluetooth settings. phone->computer {unpair: true}: Forget on the phone, the computer forgets it too
       CALL_STATE: 'call.state', // phone->computer {state: 'idle'|'ringing'|'offhook', number, name, photo?, dir: 'in'|'out', since}
       CALL_DO: 'call.do', // computer->phone {a: 'dial'|'answer'|'end'|'mute', number?, on?}
       CALL_DONE: 'call.done', // phone->computer {a, ok, error?}

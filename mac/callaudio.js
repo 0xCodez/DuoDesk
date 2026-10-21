@@ -2,7 +2,8 @@
 // The calls' sound on this Mac over Bluetooth (shared/phonehub.js makes this only while Calls and
 // its Bluetooth option are on with a phone connected): mac-helper's macshare-calls connects to the
 // phone as its hands-free, like a headset, and macOS plays the call through the Mac's speakers and
-// microphone. The phone has to be paired with this Mac over Bluetooth once (Pair asks the phone to).
+// microphone. The phone has to be paired with this Mac over Bluetooth once, in System Settings (the
+// Calls page's setup).
 // stop() ends it all: the process exits and the phone gets its calls back.
 //
 // view: {state: 'starting'|'unavailable'|'needs-pair'|'choose'|'connecting'|'ready'|'failed'|'off',
@@ -51,9 +52,6 @@ class CallAudio extends EventEmitter {
     if (name) this.phoneName = name;
     if (this.proc && ['needs-pair', 'choose'].includes(this.state)) this._send({ cmd: 'info' });
   }
-
-  // Pair asks the phone to pair with this Mac; macOS asks to let it on its own.
-  pair() {}
 
   transfer(here) {
     this._send({ cmd: here ? 'here' : 'phone' });
@@ -161,7 +159,7 @@ class CallAudio extends EventEmitter {
     const MESSAGES = {
       starting: 'Starting…',
       unavailable: this.error ? `Not available: ${this.error}` : 'Bluetooth is off on this Mac',
-      'needs-pair': `Pair ${this.phoneName || 'the phone'} with this Mac over Bluetooth once: Pair asks the phone, or use System Settings › Bluetooth`,
+      'needs-pair': `Not paired with ${this.phoneName || 'the phone'} yet: set it up below`,
       choose: 'Choose the phone below',
       connecting: `Connecting to ${name}…`,
       ready: `Connected to ${name} over Bluetooth: calls play on this Mac`,

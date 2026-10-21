@@ -10,6 +10,7 @@ package com.twindesk.android
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
@@ -25,10 +26,8 @@ import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import org.json.JSONObject
-import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlin.concurrent.thread
 
 class Hub(core: Core) : Feature(core) {
     // What the computer has on (hub.policy). Nothing until a computer that knows these says so.
@@ -90,8 +89,9 @@ class Hub(core: Core) : Feature(core) {
             Proto.T.HUB_ASK -> ask(m.str("what", 20))
             Proto.T.HUB_BT -> {
                 m.str("address", 17).uppercase().let { if (it.isNotEmpty()) btAddress = it }
-                if (m.optBoolean("unpair")) core.bg.execute { unpairBt() }
-                else if (m.optBoolean("bond")) bond()
+                val visible = m.optBoolean("visible") // the computer's Forget, or its setup's Ask the phone
+                if (m.optBoolean("unpair")) core.bg.execute { if (unpairBt() && visible) ask("visible") }
+                else if (visible) ask("visible")
                 sendState()
             }
             Proto.T.CALL_DO -> calls?.act(m) ?: core.send(msg(Proto.T.CALL_DONE, "a" to m.str("a", 20), "ok" to false, "error" to "off"))
@@ -128,6 +128,7 @@ class Hub(core: Core) : Feature(core) {
         if (!(live && mediaOn)) { media?.stop(); media = null }
         if (!(live && filesOn)) fs = null
         if (!(live && (callsOn || messagesOn || mediaOn || filesOn))) synchronized(this) { io?.shutdownNow(); io = null }
+        watchBonds(live && callsOn && btAudio)
     }
 
     // The person switched one here: the computer follows (it keeps the setting).
@@ -142,7 +143,6 @@ class Hub(core: Core) : Feature(core) {
     // Back from the permission prompt or Settings: start what can start now, and tell the computer.
     fun permsChanged() {
         if (!peer) return
-        if (bondWanted && (Build.VERSION.SDK_INT < 31 || granted(Manifest.permission.BLUETOOTH_CONNECT))) bond() // Pair, waiting for Nearby devices
         apply()
         sendState()
         core.changed()
@@ -207,26 +207,36 @@ class Hub(core: Core) : Feature(core) {
     // The person on the phone is asked (the computer's Allow): the prompt opens straight away when
     // Android lets us (display over other apps, or TwinDesk on screen), else a notification.
     private fun ask(what: String) {
-        if (what !in listOf("calls", "messages", "media", "files", "bt")) return
+        if (what !in listOf("calls", "messages", "media", "files", "bt", "visible")) return
         val i = Intent(core.ctx, PermActivity::class.java).putExtra("what", what).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Settings.canDrawOverlays(core.ctx) || MainActivity.shown) runCatching { core.ctx.startActivity(i) }
         else Notify.hubAsk(core.ctx, what, core.host?.name ?: "Your computer")
     }
 
     // ---- Bluetooth: calls' sound on the computer needs this phone paired with it ----
-    // Over classic Bluetooth (BR/EDR): hands-free runs only there. A plain createBond() picks
-    // Bluetooth LE for a computer this phone knows from TwinDesk's own LE link, and the result is
-    // a pairing the phone counts as done and the computer can't use for calls (le below).
+    // Over classic Bluetooth (BR/EDR): hands-free runs only there. Paired in the computer's own
+    // Bluetooth settings (its Calls page's setup), with this phone visible meanwhile. A pairing over
+    // Bluetooth LE only (le below) can't carry a call: Forget, on either side, starts over.
 
-    @Volatile private var bonding = false
-    @Volatile private var bondFailed = false
-    @Volatile private var bondWanted = false // asked to pair before Nearby devices was allowed
+    @Volatile private var bonding = false // pairing with the computer right now
     @Volatile private var forget = false // the old pairing has to be forgotten in Settings first
+    private var bondWatch: BroadcastReceiver? = null
 
-    // For the app's Calls page: the pairing as the computer sees it (bt()), and Pair from here.
+    // For the app's Calls page: the pairing as the computer sees it (bt()), Make visible and Forget from here.
     val btKnown get() = btAddress.isNotEmpty()
     fun btState(): JSONObject = bt()
-    fun pairBt() { core.bg.execute { bond(); core.changed() } }
+    fun visibleBt() { askHere("visible") }
+
+    // Forget from here: both forget each other (this phone, then the computer: phonehub.js, which
+    // opens its Bluetooth settings), and this phone is made visible to be paired again there.
+    fun forgetBt() {
+        core.bg.execute {
+            val gone = unpairBt()
+            core.send(msg(Proto.T.HUB_BT, "unpair" to true))
+            if (gone) askHere("visible")
+            core.changed()
+        }
+    }
 
     // The app's own pages: ask here (the prompt, or All files access in Settings).
     fun askHere(what: String) = runCatching {
@@ -239,7 +249,7 @@ class Hub(core: Core) : Feature(core) {
         if (Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) return o.put("allowed", false)
         val a = core.ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return o.put("none", true)
         o.put("allowed", true).put("radio", a.isEnabled).put("name", runCatching { a.name }.getOrNull() ?: "")
-            .put("bonding", bonding).put("failed", bondFailed).put("forget", forget)
+            .put("bonding", bonding).put("forget", forget)
         if (btAddress.isNotEmpty()) {
             val d = runCatching { a.bondedDevices.find { it.address.equals(btAddress, true) } }.getOrNull()
             val le = d != null && runCatching { d.type == BluetoothDevice.DEVICE_TYPE_LE }.getOrDefault(false)
@@ -248,108 +258,55 @@ class Hub(core: Core) : Feature(core) {
         return o
     }
 
-    // Pair with the computer from here over classic Bluetooth (it asks to confirm on both). The
-    // computer asks only when it doesn't see this phone as a hands-free phone, so a pairing already
-    // there (LE only, or one the computer forgot) is dropped and made again. Listens only while pairing.
-    @SuppressLint("MissingPermission")
-    private fun bond() {
-        if (btAddress.isEmpty()) return
-        if (Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) { bondWanted = true; ask("bt"); return }
-        bondWanted = false
-        forget = false
-        val a = core.ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
-        val d = runCatching { a.getRemoteDevice(btAddress) }.getOrNull() ?: return
-        bondFailed = false
-        if (d.bondState != BluetoothDevice.BOND_NONE) {
-            if (!unbond(d)) {
-                // Android keeps that one for itself: the person forgets it in Settings, then Pair again.
-                Log.i("TwinDesk", "bt: can't drop the old pairing with $btAddress")
-                runCatching { core.ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                bondFailed = true
-                forget = true
-                sendState()
-                return
-            }
-            // Gone: pair again once Android says so.
-            watchBond(d) { if (it == BluetoothDevice.BOND_NONE) { createBredr(d); true } else false }
+    // While the computer takes calls' sound: told when this phone's pairing with it changes (paired in
+    // the computer's Bluetooth settings, or forgotten), so the computer connects, or says why, at once.
+    @Synchronized
+    private fun watchBonds(on: Boolean) {
+        if (on == (bondWatch != null)) return
+        if (!on) {
+            bondWatch?.let { r -> runCatching { core.ctx.unregisterReceiver(r) } }
+            bondWatch = null
+            bonding = false
             return
         }
-        createBredr(d)
-    }
-
-    // createBond(TRANSPORT_BREDR) isn't public (a system API from Android 12), and plain createBond()
-    // pairs over LE with a computer this phone has only seen over LE (TwinDesk's own link): a pairing
-    // that can't carry a call, and whose keys break TwinDesk's LE link once one side forgets them.
-    // So the computer is reached over classic Bluetooth first (an RFCOMM look-up, which only runs
-    // there; nothing has to answer it), after which Android knows it as classic and createBond()
-    // pairs there. Still LE only: not paired at all. Off the main thread (the look-up takes seconds).
-    @SuppressLint("MissingPermission")
-    private fun createBredr(d: BluetoothDevice) {
-        bonding = true
-        sendState()
-        watchBond(d) { s ->
-            if (s == BluetoothDevice.BOND_BONDING) return@watchBond false
-            bonding = false
-            bondFailed = s != BluetoothDevice.BOND_BONDED
-            sendState()
-            true
-        }
-        thread(name = "td-bond", isDaemon = true) {
-            val ok = runCatching { BluetoothDevice::class.java.getMethod("createBond", Int::class.javaPrimitiveType).invoke(d, BluetoothDevice.TRANSPORT_BREDR) as Boolean }
-                .getOrElse {
-                    Log.i("TwinDesk", "bt: createBond(BR/EDR): ${it.message}")
-                    if (classic(d)) d.createBond() else { Log.i("TwinDesk", "bt: ${d.address} not reachable over classic Bluetooth"); false }
-                }
-            if (!ok) { bonding = false; bondFailed = true; sendState() }
-        }
-    }
-
-    // True once Android knows the device over classic Bluetooth (BR/EDR).
-    @SuppressLint("MissingPermission")
-    private fun classic(d: BluetoothDevice): Boolean {
-        val known = { runCatching { d.type == BluetoothDevice.DEVICE_TYPE_CLASSIC || d.type == BluetoothDevice.DEVICE_TYPE_DUAL }.getOrDefault(false) }
-        if (known()) return true
-        runCatching { core.ctx.getSystemService(BluetoothManager::class.java)?.adapter?.cancelDiscovery() }
-        runCatching { d.createInsecureRfcommSocketToServiceRecord(PROBE).use { it.connect() } } // fails: no such service
-        return known()
-    }
-
-    // The computer's Unpair: this phone forgets it too (when Android lets us).
-    @SuppressLint("MissingPermission")
-    private fun unpairBt() {
-        if (btAddress.isEmpty() || Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) return
-        val a = core.ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
-        val d = runCatching { a.getRemoteDevice(btAddress) }.getOrNull() ?: return
-        bondFailed = false
-        forget = false
-        if (d.bondState != BluetoothDevice.BOND_NONE && !unbond(d)) Log.i("TwinDesk", "bt: can't forget $btAddress here")
-        core.bg.schedule({ lastState = ""; sendState() }, 1500, java.util.concurrent.TimeUnit.MILLISECONDS)
-    }
-
-    // Android's removeBond isn't public either: true when it took it.
-    private fun unbond(d: BluetoothDevice): Boolean =
-        runCatching { BluetoothDevice::class.java.getMethod("removeBond").invoke(d) as Boolean }.getOrDefault(false)
-
-    // fn(bond state) for this device until it returns true (or 90 s).
-    private fun watchBond(d: BluetoothDevice, fn: (Int) -> Boolean) {
         val r = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
                 @Suppress("DEPRECATION")
-                val dev = i.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                if (dev != null && !dev.address.equals(d.address, true)) return
-                if (fn(i.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1))) runCatching { core.ctx.unregisterReceiver(this) }
+                val dev = i.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE) ?: return
+                if (btAddress.isEmpty() || !dev.address.equals(btAddress, true)) return
+                val s = i.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1)
+                bonding = s == BluetoothDevice.BOND_BONDING
+                if (s == BluetoothDevice.BOND_NONE) forget = false
+                sendState()
             }
         }
-        core.ctx.registerReceiver(r, IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED))
-        core.bg.schedule({
-            if (runCatching { core.ctx.unregisterReceiver(r) }.isSuccess && bonding) { bonding = false; bondFailed = true; sendState() }
-        }, 90, java.util.concurrent.TimeUnit.SECONDS)
+        runCatching { core.ctx.registerReceiver(r, IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) }.onSuccess { bondWatch = r }
     }
 
-    companion object {
-        // Looked up over classic Bluetooth only to reach the computer there (classic()): no one serves it.
-        private val PROBE: UUID = UUID.fromString("b7f300ff-2c4e-4d1a-9a57-3e8c2f6d0a91")
+    // Forget: this phone forgets the computer, over classic Bluetooth and LE (one pairing in Android).
+    // False when Android keeps it for itself: its Bluetooth settings open, to forget it there (forget).
+    @SuppressLint("MissingPermission")
+    private fun unpairBt(): Boolean {
+        if (btAddress.isEmpty() || Build.VERSION.SDK_INT >= 31 && !granted(Manifest.permission.BLUETOOTH_CONNECT)) return true
+        val a = core.ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return true
+        val d = runCatching { a.getRemoteDevice(btAddress) }.getOrNull() ?: return true
+        forget = false
+        if (d.bondState != BluetoothDevice.BOND_NONE && !unbond(d)) {
+            Log.i("TwinDesk", "bt: can't forget $btAddress here")
+            runCatching { core.ctx.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            forget = true
+            sendState()
+            return false
+        }
+        core.bg.schedule({ lastState = ""; sendState() }, 1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        return true
+    }
 
+    // Android's removeBond isn't public: true when it took it.
+    private fun unbond(d: BluetoothDevice): Boolean =
+        runCatching { BluetoothDevice::class.java.getMethod("removeBond").invoke(d) as Boolean }.getOrDefault(false)
+
+    companion object {
         // Everything each one uses.
         fun wanted(what: String): List<String> = when (what) {
             "calls" -> listOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG, Manifest.permission.CALL_PHONE,
@@ -372,14 +329,19 @@ class Hub(core: Core) : Feature(core) {
             else -> wanted(what).first()
         }
 
-        fun label(what: String) = when (what) { "calls" -> "Calls"; "messages" -> "Messages"; "files" -> "Files"; "bt" -> "Calls on the computer"; else -> "Photos and videos" }
+        fun label(what: String) = when (what) { "calls" -> "Calls"; "messages" -> "Messages"; "files" -> "Files"; "bt" -> "Calls on the computer"; "visible" -> "Bluetooth pairing for calls"; else -> "Photos and videos" }
     }
 }
 
 // Invisible: Android's own prompt for what Calls, Messages or Photos need (or Nearby devices, to
-// pair for calls' sound; Files: All files access in Settings). Refused for good
+// see the pairing for calls' sound; visible: found for that pairing; Files: All files access in Settings). Refused for good
 // before (Android won't ask again): TwinDesk's page in Settings instead.
 class PermActivity : Activity() {
+    private companion object {
+        const val VISIBLE_PERM = 2 // Nearby devices, for the discoverable prompt
+        const val VISIBLE = 3 // the discoverable prompt
+    }
+
     private var what = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -396,6 +358,8 @@ class PermActivity : Activity() {
             finish()
             return
         }
+        // Calls' sound: visible a few minutes, to be paired from the computer's Bluetooth settings.
+        if (what == "visible") { visible(); return }
         val want = Hub.request(what).filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (what.isEmpty() || want.isEmpty() || core.hub.perm(what) == "none") { core.hub.permsChanged(); finish(); return }
         if (core.store.flag("hub.refused.$what", false) && want.none { shouldShowRequestPermissionRationale(it) }) {
@@ -408,8 +372,34 @@ class PermActivity : Activity() {
         requestPermissions(want.toTypedArray(), 1)
     }
 
+    // Android's own prompt to let this phone be found (from Android 12 it needs Nearby devices first).
+    // No prompt: Bluetooth settings instead, where the phone is visible too.
+    @SuppressLint("MissingPermission") // BLUETOOTH_ADVERTISE: asked for just above
+    private fun visible() {
+        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_ADVERTISE), VISIBLE_PERM)
+            return
+        }
+        val i = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+        if (runCatching { startActivityForResult(i, VISIBLE) }.isFailure) {
+            runCatching { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
+            finish()
+        }
+    }
+
+    // The discoverable prompt answered, either way.
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        finish()
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == VISIBLE_PERM) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) visible()
+            else { runCatching { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }; finish() }
+            return
+        }
         val core = Core.get(this)
         val refused = permissions.filterIndexed { i, _ -> grantResults.getOrNull(i) != PackageManager.PERMISSION_GRANTED }
         // Only some photos chosen: Android asks again next time (the person may want more).
