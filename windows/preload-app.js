@@ -88,4 +88,6 @@ contextBridge.exposeInMainWorld('macshare', {
   pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files → paths
   setNotifs: call('setNotifs'),
   muteNotifApp: call('muteNotifApp'),
+  clearNotifHistory: call('clearNotifHistory'),
+  openNotifiedApp: call('openNotifiedApp'),
 });
