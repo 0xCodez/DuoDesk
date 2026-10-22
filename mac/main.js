@@ -61,7 +61,7 @@ const { Peer } = require('./peer');
 const { Server } = require('./server');
 const { Pairing } = require('./pairing');
 const { startServices } = require('./services');
-const { setupIpc } = require('./ipc');
+const { setupIpc, TABS } = require('./ipc');
 const login = require('./login');
 const { Hud } = require('./hud');
 const { PairSync } = require('./pairsync');
@@ -71,6 +71,9 @@ const { Wired } = require('./wired');
 const { PhoneViews } = require('./phoneview');
 const { PhoneDrive } = require('./phonedrive');
 const { Updates } = require('../shared/updates.js');
+const { BleHost, BleLook } = require('../shared/blepipe.js');
+const { wifiQuiet } = require('../shared/blepolicy.js');
+const { NetLink } = require('../shared/netlink.js');
 const { aboutInfo } = require('../shared/about.js');
 
 let win = null;
@@ -79,6 +82,7 @@ let hud = null;
 let quitting = false;
 let startHidden = process.argv.includes('--hidden');
 let settings, id, server, pairing, discovery, link, peer, svc, actions, pairSync, updates;
+let phoneHub = null; // Calls, Messages and Photos (loadHub); svc.hub is the Mac's sound capture (audiohub.js)
 
 const state = {
   macName: '',
@@ -107,7 +111,7 @@ let pendingPhoneApp = null; // {pkg, until}
 function openPhoneApp(pkg) {
   if (!/^[\w.]{1,200}$/.test(pkg)) return;
   const phone = svc.phone;
-  if (phone.connected && phone.bridge.state === 'ready') {
+  if (phone.connected && (phone.bridge.state === 'ready' || svc.net.onBle)) { // through Bluetooth: Wi-Fi first (onNoAdb)
     pendingPhoneApp = null;
     return svc.phoneViews.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
   }
@@ -172,7 +176,11 @@ function pushState() {
     }
     if (link) state.guest = link.view();
     const c = peer && peer.current;
-    state.client = c ? { id: c.deviceId, name: c.name, os: c.os, role: c.role, address: c.address, rttMs: c.rttMs } : null;
+    state.client = c ? { id: c.deviceId, name: c.name, os: c.os, role: c.role, address: c.address, rttMs: c.rttMs, transport: c.transport || 'ip' } : null;
+    if (svc && svc.net) {
+      const hs = c && settings.net.hotspots[c.deviceId];
+      state.net = { ...svc.net.view, ble: settings.net.ble !== false, blePc: settings.net.blePc === true, bleWifiOff: settings.net.bleWifiOff !== false, bleOff, radio: svc.ble.state, hotspotSsid: hs ? hs.ssid : '', hotspotSaved: !!(hs && hs.pass) };
+    }
     const { helper, displays, stream, clipboard: clip, kvm } = svc || {};
     state.helper.running = !!(helper && helper.running);
     if (displays) {
@@ -213,6 +221,8 @@ function pushState() {
     if (svc) state.wake = svc.wake.view;
     if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone };
     if (svc && svc.phoneDrive) state.mount = { ...svc.phoneDrive.view, on: !!settings.mount.on };
+    // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
+    state.hub = phoneHub ? phoneHub.view : { ...settings.hub, connected: false };
     if (updates) state.updates = updates.view;
     if (pairSync) pairSync.check();
     sendScreenState();
@@ -239,9 +249,9 @@ function onScreenCtl(m) {
   // The phone viewer's Close stops sharing even when the viewer may not start and switch it.
   if (m.share === false && m.close === true) return void (settings.sharing.on && actions.setSharing(false, 'remote'));
   if (settings.sharing.remote === false) return void (screenStateKey = '', pushState()); // re-send: remote false
-  if (m.mode === 'extend' || m.mode === 'mirror') {
-    if (displayMode() !== m.mode) actions.setDisplayMode(m.mode);
-  }
+  // Started from the viewer without a mode: Mirror (the virtual display doesn't always start); Extend is its switch.
+  const mode = m.mode === 'extend' || m.mode === 'mirror' ? m.mode : m.share === true && !settings.sharing.on ? 'mirror' : null;
+  if (mode && displayMode() !== mode) actions.setDisplayMode(mode);
   if (typeof m.share === 'boolean' && m.share !== !!settings.sharing.on) actions.setSharing(m.share, 'remote');
 }
 
@@ -377,39 +387,56 @@ function showWindow() {
 }
 
 // Menu bar: the app mark as a template icon; the switches people reach for most, one click away.
+// Set again only when what it shows changes: a menu replaced while it's open closes (or its click
+// goes nowhere), and the state is pushed every second (the ping time isn't in it for that reason).
+let trayKey = '';
 function updateTray() {
   if (!tray) return;
   const c = state.client;
-  const name = c ? c.name : 'the other computer';
+  const phone = !!(c && c.os === P.OS.ANDROID);
+  const name = c ? c.name : 'Other Computer';
   const k = settings.kvm;
   const where = state.input && state.input.where;
+  const found = (state.found || []).filter((d) => !c || d.id !== c.id);
+  const phoneView = !!(phone && svc && svc.phoneViews.list().some((v) => v.kind === 'screen'));
+  const OS = { mac: 'Mac', linux: 'Linux', android: 'Phone' };
+  const g = (svc && link && link.view()) || { status: {}, hosts: [] };
+  const again = !c && g.hosts.length && (g.status.state === 'stopped' || !!g.status.busy);
+  const key = JSON.stringify([c && c.name, c && c.transport, phone, again, where, k.linked, k.ble, k.driveOther, k.beDriven, settings.sharing.on,
+    !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud,
+    found.map((d) => [d.id, d.name, d.os]), updates && updates.status.available && updates.status.latest]);
+  if (key === trayKey) return;
+  trayKey = key;
   tray.setToolTip(c ? `TwinDesk: ${c.name}` : 'TwinDesk');
   const check = (label, checked, click, enabled = true) => ({ label, type: 'checkbox', checked: !!checked, enabled, click });
-  const found = (state.found || []).filter((d) => !c || d.id !== c.id);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: c ? `Connected to ${c.name}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}` : 'Not connected', enabled: false },
+      { label: c ? `Connected to ${c.name}${c.transport === 'ble' ? ' · Bluetooth' : ''}` : 'Not connected', enabled: false },
       ...(where === 'driving' || where === 'driven'
         ? [{ label: 'Bring Mouse and Keyboard Back', click: () => svc.kvm.home() }] : []),
-      check('Cursor Sharing', k.linked !== false, (i) => actions.setKvm({ linked: i.checked })),
+      check('Cursor Sharing', k.linked !== false && !(svc && svc.kvm.paused), (i) => actions.setKvm({ shared: i.checked })),
       { type: 'separator' },
       check('Share Screen', settings.sharing.on, (i) => actions.setSharing(i.checked)),
-      check('Receive Screen', svc && svc.pcView.isOpen, (i) => (i.checked ? actions.showPcView() : actions.closePcView())),
-      check(`Use Mouse and Keyboard on ${c ? name : 'Other Computer'}`, k.driveOther, (i) => actions.setKvm({ driveOther: i.checked })),
-      check(`Let ${c ? name : 'Other Computer'} Control ${id.macName}`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked })),
+      phone
+        ? check('Show Phone Screen', phoneView, (i) => actions.phoneScreen(i.checked))
+        : check('Receive Screen', svc && svc.pcView.isOpen, (i) => (i.checked ? actions.showPcView() : actions.closePcView())),
+      check(`Use Mouse and Keyboard on ${name}`, k.driveOther, (i) => actions.setKvm({ driveOther: i.checked })),
+      ...(phone ? [] : [check(`Let ${name} Control ${id.macName}`, k.beDriven, (i) => actions.setKvm({ beDriven: i.checked }))]),
       check('Share Clipboard', settings.clipboard.enabled, (i) => actions.setClipboard({ enabled: i.checked })),
       check('Send Sound', settings.audio.send, (i) => actions.setAudio({ send: i.checked })),
       { type: 'separator' },
       {
         label: 'Connect To',
         submenu: [
-          ...(found.length ? found.map((d) => ({ label: `${d.name} (${d.os === 'mac' ? 'Mac' : d.os === 'linux' ? 'Linux' : 'PC'})`, click: () => actions.pairWith(d.id) }))
+          ...(found.length ? found.map((d) => ({ label: `${d.name} (${OS[d.os] || 'PC'})`, click: () => actions.pairWith(d.id) }))
             : [{ label: 'Nobody nearby', enabled: false }]),
           { type: 'separator' },
           { label: 'Connect by Address…', click: () => { actions.setTab('overview'); showWindow(); } },
           { label: 'Look Again', click: () => actions.refreshDiscovery() },
         ],
       },
+      ...(c ? [{ label: phone ? 'Disconnect Phone' : `Disconnect ${name}`, click: () => actions.disconnect() }] : []),
+      ...(again ? [{ label: `${g.status.busy ? 'Take Over' : 'Connect to'} ${g.hosts[0].name}`, click: () => actions.connectAgain() }] : []),
       check('Show a Popup When Switching', settings.app.hud !== false, (i) => actions.setApp({ hud: i.checked })),
       { type: 'separator' },
       ...(updates && updates.status.available ? [{ label: `Download TwinDesk ${updates.status.latest}…`, click: () => updates.open() }] : []),
@@ -453,10 +480,19 @@ app.whenReady().then(() => {
   discovery.start();
   link = new Link(id, {
     canConnect: () => !server.current && !(pairing && pairing.pending) && !server.phoneHolds(),
-    resolve: (hostId) => discovery.get(hostId),
+    resolve: (hostId) => { const d = discovery.get(hostId); return d && !d.ble ? d : null; }, // a Mac host: on the network only
   });
   link.on('change', pushState);
   link.on('request', showWindow);
+  // Take over on a Mac we're a guest of: back to it, taking the session over (a device connected
+  // to us goes first, as Take over here does).
+  discovery.on('invite', (d) => {
+    if (!d || !link.hosts.some((h) => h.id === d.id)) return;
+    if (server.current) {
+      server.release();
+      setTimeout(() => link.connect(true), 800);
+    } else link.connect(true);
+  });
   pairing = new Pairing(server, id, { busy: () => !!link.ctx, yieldTo: () => link.stop() });
   server.on('phoneFree', () => { link.poke(); pushState(); });
   pairing.on('change', pushState);
@@ -481,9 +517,10 @@ app.whenReady().then(() => {
   // The phone's screen, input, clipboard and app windows, through wireless debugging.
   svc.phone.bridge = new PhoneBridge({ server: peer, phone: svc.phone, getSettings: () => settings, clipboard: svc.clipboard });
   svc.phone.bridge.on('change', pushState);
-  // A paired phone on a USB cable: the session, screen and sound through it (no Wi-Fi needed).
-  svc.wired = new Wired({ adb: svc.phone.bridge.adb, raw: server, peer, getId: () => id.macId,
-    hasPhone: () => pairing.list().some((x) => x.os === P.OS.ANDROID) });
+  svc.phone.bridge.on('save', () => store.saveSettings(settings));
+  // A phone on a USB cable: pairing, the session, screen and sound through it (no Wi-Fi needed).
+  svc.wired = new Wired({ adb: svc.phone.bridge.adb, raw: server, peer, getId: () => id.macId, getName: () => id.macName });
+  pairing.isWired = (nonce) => svc.wired.knows(nonce);
   svc.wired.on('change', pushState);
   svc.phone.bridge.wired = svc.wired;
   svc.phone.wired = svc.wired;
@@ -494,6 +531,8 @@ app.whenReady().then(() => {
   // The phone in Finder, through adb (the cable, else wireless debugging): only when Mount is clicked.
   svc.phoneDrive = new PhoneDrive({ adb: svc.phone.bridge.adb, bridge: svc.phone.bridge, phone: svc.phone });
   svc.phoneDrive.on('change', pushState);
+  setupNet();
+  setupHub();
   svc.kvm.local = svc.phone.bridge;
   const blockEdge = svc.kvm.blockEdge;
   svc.kvm.blockEdge = () => blockEdge() || svc.phoneViews.focused; // moving inside the phone window never crosses
@@ -509,7 +548,7 @@ app.whenReady().then(() => {
   };
   pairSync = new PairSync({ server: peer, getSettings: () => settings, saveSettings: () => store.saveSettings(settings),
     apply: (f, dir, on) => (f !== 'value' ? SYNC_ACTIONS[f](dir, on)
-      : ['gestures', 'keyboard', 'speed', 'reverseScroll'].includes(dir) ? actions.setKvm({ [dir]: on }) : actions.setSharingOpts({ [dir]: on })) });
+      : ['gestures', 'ble', 'keyboard', 'speed', 'reverseScroll'].includes(dir) ? actions.setKvm({ [dir]: on }) : actions.setSharingOpts({ [dir]: on })) });
   // New releases on GitHub: a notification once per version, the menu bar item and About › Updates.
   updates = new Updates({
     current: app.getVersion(), platform: 'mac', getSettings: () => settings,
@@ -522,7 +561,7 @@ app.whenReady().then(() => {
     },
   });
   updates.start();
-  actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, login, refreshPermissions, updates });
+  actions = setupIpc({ state, settings, pushState, server: peer, pairing, discovery, link, ...svc, hub: loadHub, login, refreshPermissions, updates });
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
   hud = new Hud(() => settings);
   svc.kvm.on('where', (mode) => {
@@ -537,16 +576,30 @@ app.whenReady().then(() => {
   if (app.isPackaged) app.setAsDefaultProtocolClient('macshare');
   for (const url of linkQueue.splice(0)) handleLink(url);
   // The hotkey's double-tap: the big card "Cursor sharing on/off" (also when the other side switched it).
-  svc.kvm.on('linked', (on, here) => {
+  // ble: Over Bluetooth was switched (kvm.setShared through Bluetooth).
+  svc.kvm.on('linked', (on, here, ble) => {
     const name = peer.current ? peer.current.name : '';
     const key = P.hotkeyName(settings.keys.hotkey);
     const sub = !here && name ? `Turned ${on ? 'on' : 'off'} on ${name}`
-      : on ? `${name ? `With ${name}. ` : ''}Double-tap ${key} to turn it off` : `Double-tap ${key} to turn it on`;
-    hud.show(on ? 'linkOn' : 'linkOff', `Cursor sharing ${on ? 'on' : 'off'}`, sub);
+      : on ? `${name ? `With ${name}. ` : ''}Double-tap ${key} to turn it off` : `${ble ? 'It comes back on Wi-Fi. ' : ''}Double-tap ${key} to turn it on`;
+    hud.show(on ? 'linkOn' : 'linkOff', `Cursor sharing ${on ? 'on' : 'off'}${!on && ble ? ' over Bluetooth' : ''}`, sub);
   });
   svc.drop.on('batch', (b) => {
     if (b.kind === 'send') hud.show('driven', `Received ${b.files} file${b.files === 1 ? '' : 's'} from ${peer.current ? peer.current.name : 'the other computer'}`);
   });
+  // Files on their way, live: the percentage beside the menu bar icon, ↓ coming in, ↑ going out
+  // (macOS notifications have no progress bar, and TwinDesk has no Dock icon to put one on).
+  let trayPct = '';
+  setInterval(() => {
+    const sum = (list, k) => list.reduce((a, f) => [a[0] + (f[k] || 0), a[1] + (f.size || 0)], [0, 0]);
+    const [got, gotOf] = sum(svc.drop.view.receiving, 'got');
+    const [sent, sentOf] = sum(svc.fileSend.view.sending, 'sent');
+    const pct = (n, of) => Math.min(99, Math.floor((100 * n) / of));
+    const t = (gotOf ? ` ↓${pct(got, gotOf)}%` : '') + (sentOf ? ` ↑${pct(sent, sentOf)}%` : '');
+    if (t === trayPct || !tray) return;
+    trayPct = t;
+    tray.setTitle(t, { fontType: 'monospacedDigit' });
+  }, 500).unref();
   createWindow();
   refreshPermissions();
   if (process.env.MACSHARE_DEV_TEST) require('./dev/m2m')({ role: process.env.MACSHARE_DEV_TEST, svc, actions, link, pairing, peer });
@@ -563,6 +616,171 @@ app.whenReady().then(() => {
   }, 3000);
 });
 
+// Not on one network: the session through Bluetooth (this Mac advertises; phones and PCs connect),
+// and Wi-Fi for files and screens (netlink.js): this Mac joins the other side's Wi-Fi Direct group or
+// access point for a while, or, for a phone's screen, its hotspot (the banner asks for it).
+let bleOff = false; // General's Turn off Bluetooth on Wi-Fi connections, in effect (bleQuiet)
+const bleQuiet = wifiQuiet();
+
+function setupNet() {
+  const { safeStorage } = require('electron');
+  svc.ble = new BleHost({
+    helper: svc.helper, server,
+    info: () => ({ id: id.macId, name: id.macName.slice(0, 40), os: P.OS.MAC, port: server.port, fp: id.fp }),
+    enabled: () => !bleOff && (settings.net.ble !== false || settings.net.blePc === true),
+    accept: (g) => (g.os === P.OS.ANDROID ? settings.net.ble !== false : settings.net.blePc === true), // General's two Bluetooth switches
+  });
+  svc.ble.on('change', pushState);
+  // PCs nearby that aren't on this network (not paired yet: they haven't connected to say hello).
+  // Looked for only while there's no session; Invite asks one to connect.
+  svc.bleLook = new BleLook({ helper: svc.helper, self: () => ({ id: id.macId, name: id.macName.slice(0, 40), os: P.OS.MAC }) });
+  svc.bleLook.on('change', pushState);
+  setInterval(() => {
+    // The session on the same Wi-Fi a while (General's Turn off Bluetooth on Wi-Fi connections,
+    // blepolicy.js wifiQuiet): no advertising, its pipes and the session's Bluetooth fallback closed;
+    // back as it was when the session ends.
+    const off = bleQuiet({ on: settings.net.bleWifiOff !== false, current: () => peer.current, onGroup: () => !!svc.net && svc.net.onGroup });
+    if (off !== bleOff) {
+      bleOff = off;
+      console.log(`[ble] ${off ? 'off: the session is on the same Wi-Fi' : 'on again'}`);
+      svc.ble.apply();
+      pushState();
+    }
+    svc.bleLook.look(settings.net.blePc === true && !peer.current);
+  }, 3000).unref();
+  discovery.extra = {
+    list: () => {
+      const out = svc.ble.list();
+      for (const d of svc.bleLook.list()) if (d.os !== P.OS.MAC && !out.some((x) => x.id === d.id)) out.push(d); // a Mac can't come through Bluetooth to a Mac
+      return out;
+    },
+    invite: (devId) => svc.ble.invite(devId) || svc.bleLook.invite(devId),
+  };
+  const wifi = (cmd, args, ms) => svc.helper.request(cmd, args, ms);
+  svc.net = new NetLink({
+    os: P.OS.MAC,
+    send: (m) => peer.sendNow(m),
+    current: () => {
+      const c = peer.current;
+      return c && { deviceId: c.deviceId, os: c.os, role: c.role, transport: c.transport === 'ble' ? 'ble' : 'ip', address: c.address };
+    },
+    host: null, // a Mac can't host a network others join while it stays on its own
+    join: {
+      can: () => true,
+      start: async (ssid, password) => {
+        await wifi('wifiLocation').catch(() => {}); // macOS shows scans only to apps with Location
+        await wifi('wifiJoin', { ssid, password }, 90000);
+      },
+      stop: () => wifi('wifiLeave', {}, 30000),
+    },
+    // A phone's screen goes through adb: on the phone's hotspot the Mac keeps the internet.
+    // 'user': Connect with Wi-Fi Direct; 'hotspot': Connect with hotspot.
+    hotspot: (why, peerOs) => peerOs === P.OS.ANDROID && why !== 'files' && why !== 'user',
+    cable: () => {
+      const c = peer.current;
+      return !!c && c.os === P.OS.ANDROID && !!svc.wired && svc.wired.toCable(c.deviceId);
+    },
+  });
+  svc.net.on('change', () => {
+    if (svc.net.state === 'hotspot') showWindow();
+    pushState();
+  });
+  svc.net.on('dropped', () => settings.sharing.on && actions.setSharing(false)); // Bluetooth can't carry the screen
+  peer.hold = (m) => svc.net.holdOut(m, (x) => peer.sendNow(x));
+  peer.tap = (m) => svc.net.onMessage(m);
+  peer.on('client', () => svc.net.started());
+  peer.on('closed', () => svc.net.ended());
+  peer.on('transport', () => {
+    pushState();
+    if (!svc.smb.onBle) svc.smb.mountPc(); // on Wi-Fi now: the PC's folder too
+  });
+  svc.smb.wifi = (on) => (on ? svc.net.need('smb') : Promise.resolve(svc.net.release('smb')));
+  // The phone's screen or an app window asked for while on Bluetooth: its hotspot, then the window.
+  let pendingView = null;
+  svc.phoneViews.onNoAdb = (v) => {
+    const c = peer.current;
+    if (!c || c.transport !== 'ble' || c.os !== P.OS.ANDROID) return false;
+    pendingView = v;
+    svc.net.need('phone').then((ok) => !ok && (pendingView = null));
+    return true;
+  };
+  svc.phone.bridge.on('change', () => {
+    if (!pendingView || !svc.phone.bridge.serial) return;
+    const v = pendingView;
+    pendingView = null;
+    if (v.kind === 'app') svc.phoneViews.openApp(v.app, v.title);
+    else svc.phoneViews.openScreen();
+  });
+  svc.phoneViews.on('change', () => {
+    if (!svc.phoneViews.list().length && !pendingView) svc.net.release('phone');
+  });
+  svc.pcView.on('change', () => !svc.pcView.isOpen && svc.net.release('view'));
+  const openPcApp = svc.pcApps.open.bind(svc.pcApps);
+  svc.pcApps.open = (id) => svc.net.need('apps').then((ok) => ok && openPcApp(id));
+  svc.pcApps.on('change', () => {
+    const v = svc.pcApps.view;
+    if (!(v.windows || []).length) svc.net.release('apps');
+  });
+  svc.netSecret = {
+    seal: (s) => (safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(s).toString('base64') : `plain:${s}`),
+    open: (s) => {
+      if (!s) return '';
+      if (s.startsWith('plain:')) return s.slice(6);
+      try { return safeStorage.decryptString(Buffer.from(s, 'base64')); } catch { return ''; }
+    },
+  };
+}
+
+// Calls, Messages, Photos and Files from a phone (shared/phonehub.js): loaded when a phone connects with
+// one of them on, or the first time a page uses it. Before that none of it exists: no module, no
+// listener, nothing sent to the phone. The call window (shared/callwin.js) only with a call.
+function setupHub() {
+  const anyOn = () => settings.hub.calls || settings.hub.messages || settings.hub.media || settings.hub.files || settings.hub.shareServe;
+  peer.on('client', (ctx) => ctx.os === P.OS.ANDROID && !phoneHub && anyOn() && loadHub());
+  // The phone shares a folder: loaded for it (its listener comes with it, so this one passes it on).
+  peer.on(`t:${P.T.SHARE_OFFER}`, (m, ctx) => ctx && ctx.os === P.OS.ANDROID && !phoneHub && loadHub().share && phoneHub.share.onOffer(m));
+  peer.on(`t:${P.T.SHARE_SET}`, (m, ctx) => ctx && ctx.os === P.OS.ANDROID && !phoneHub && loadHub().share && phoneHub.share.act('serve', { on: !!m.serve }));
+}
+
+let callwin = null;
+function loadHub() {
+  if (phoneHub) return phoneHub;
+  const { PhoneHub } = require('../shared/phonehub.js');
+  const hub = new PhoneHub({
+    server: peer, getSettings: () => settings, save: () => store.saveSettings(settings),
+    audio: (opts) => require('./callaudio.js').create({ helper: svc.helper, ...opts }), // the calls' sound over Bluetooth
+    send: (paths, batch) => !!(svc.fileSend && svc.fileSend.sendBatch(paths, 'send', batch)), // Files: into a folder on the phone
+    choose: () => dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { properties: ['openFile', 'openDirectory', 'multiSelections'] })
+      .then((r) => (r.canceled ? [] : r.filePaths)),
+    share: { // shared folders with the phone (shared/foldershare.js)
+      mounter: require('./phonedrive').mounter, adb: svc && svc.phone.bridge.adb, serialOf: (id) => svc && svc.wired && svc.wired.serialOf(id),
+      chooseFolder: () => dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { properties: ['openDirectory', 'createDirectory'] }).then((r) => (r.canceled ? '' : r.filePaths[0])),
+      defaultFolder: path.join(require('os').homedir(), 'MacShare'),
+      tls: () => server && server.tls, // served with the session's certificate, which the phone pinned
+      wifi: (on) => (!svc.net ? Promise.resolve(false) : on ? svc.net.need('folder') : Promise.resolve(svc.net.release('folder'))), // through Bluetooth
+    },
+  });
+  phoneHub = hub;
+  hub.on('change', pushState);
+  hub.on('data', (m) => win && !win.isDestroyed() && win.webContents.send('hub', m));
+  const popup = () => {
+    if (!callwin && !hub.call) return;
+    callwin = callwin || require('../shared/callwin.js');
+    callwin.update(hub, { corner: 'top', open: goTab });
+  };
+  hub.on('call', popup);
+  hub.on('change', popup);
+  if (peer.current && peer.current.os === P.OS.ANDROID) hub.started();
+  return hub;
+}
+
+// The window on one page (the call window's name opens Calls).
+function goTab(tab) {
+  if (TABS.includes(tab)) settings.ui.tab = tab; // a window made now opens there
+  showWindow();
+  if (win && !win.isDestroyed()) win.webContents.send('go', tab);
+}
+
 app.on('second-instance', showWindow);
 app.on('activate', showWindow);
 app.on('window-all-closed', () => {}); // keep running in the menu bar
@@ -574,6 +792,9 @@ app.on('before-quit', () => {
   quitting = true;
   if (svc && svc.phoneViews) svc.phoneViews.shutdown();
   if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();
+  if (phoneHub && phoneHub.audio) phoneHub.audio.stop(); // the phone's calls go back to it
+  if (phoneHub && phoneHub.share) phoneHub.share.stop();
+  if (callwin) callwin.close();
   if (svc && svc.wired) svc.wired.stop();
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input
   if (discovery) discovery.stop();

@@ -9,10 +9,12 @@
 
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const blepipe = require('../shared/blepipe.js');
 const store = require('./store');
 
 // {them} = the other computer's name (Kvm._them).
 const REFUSED = { busy: '{them} is using this computer right now', not_allowed: '{them} doesn’t accept input from here' };
+const OFF_BLE = 'Cursor sharing is off over Bluetooth';
 
 class Kvm extends EventEmitter {
   constructor({ server, helper, getSettings, clipboard, input, drop, fileSend }) {
@@ -31,6 +33,7 @@ class Kvm extends EventEmitter {
     this.tapError = null;
     this.acceptTimer = null;
     this.pendingMove = null; // coalesced k.mm while driving
+    this.moveTimer = null; // its flush, through Bluetooth
     this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
 
     setInterval(() => this._tick(), 250);
@@ -53,6 +56,8 @@ class Kvm extends EventEmitter {
       if (this.mode === 'driving') this.goHome(this._them('{them} disconnected'));
       else if (this.mode === 'driven') this._drivenHome(this._them('{them} disconnected'));
     });
+    // Onto Bluetooth with Over Bluetooth off: everything home; back on Wi-Fi it crosses again.
+    server.on('transport', () => this._bleCheck());
     const on = (t, fn) => server.on(`t:${t}`, fn);
     on(P.T.KVM_TAKE, (m) => this._onTake(m));
     on(P.T.KVM_LINK, (m) => this.setLinked(m.on !== false, false));
@@ -102,7 +107,7 @@ class Kvm extends EventEmitter {
   }
 
   get view() {
-    return { where: this.mode, message: this.message, tapError: this.tapError };
+    return { where: this.mode, message: this.message, tapError: this.tapError, paused: this.paused };
   }
 
   // Tell the helper where the crossing side is and whether edge crossing is armed.
@@ -112,7 +117,7 @@ class Kvm extends EventEmitter {
     this.helper
       .request('kvmConfig', {
         side: k.pcSide, resistancePx: k.resistancePx, keyboard: !!k.keyboard,
-        driveOther: !!(this.linked && k.driveOther && k.mouse && this.server.current),
+        driveOther: !!(this.linked && k.driveOther && k.mouse && this.server.current && !this.paused),
         hotkey: this.getSettings().keys.hotkey || P.HOTKEY_MAC,
         gestures: k.gestures !== false, // Trackpad gestures go over as k.ge
         dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
@@ -142,6 +147,41 @@ class Kvm extends EventEmitter {
     this.emit('change');
   }
 
+  // Over Bluetooth (kvm.ble, the same on both: pair.sync 'ble'): off, nothing crosses either way
+  // while the session runs through Bluetooth, and it crosses again once it's on Wi-Fi.
+  get onBle() {
+    const c = this.server.current;
+    return !!c && c.transport === 'ble';
+  }
+
+  get paused() {
+    return this.cfg.ble === false && this.onBle;
+  }
+
+  // The one switch (the Cursor tab, the menu bar, the hotkey's double-tap). Through Bluetooth, with
+  // cursor sharing on, it is Over Bluetooth: off there leaves it on for Wi-Fi.
+  setShared(on) {
+    if (this.onBle && this.linked) return this._setBle(on);
+    if (on && this.onBle) this.cfg.ble = true; // saved by setLinked
+    this.setLinked(on);
+  }
+
+  _setBle(on) {
+    if (on === (this.cfg.ble !== false)) return;
+    this.cfg.ble = on;
+    store.saveSettings(this.getSettings());
+    this._bleCheck(); // off: everything home first
+    this.emit('linked', on, true, true);
+    this.emit('change');
+  }
+
+  _bleCheck() {
+    this.config();
+    if (!this.paused) return;
+    if (this.mode === 'driving') this.goHome(OFF_BLE);
+    else if (this.mode === 'driven') this._sendHome(undefined, OFF_BLE);
+  }
+
   settingsChanged(prev) {
     if (prev && prev.linked !== this.cfg.linked) {
       const on = this.linked;
@@ -149,7 +189,7 @@ class Kvm extends EventEmitter {
       return this.setLinked(on);
     }
     if (!prev || prev.pcSide !== this.cfg.pcSide) this._sendLayout();
-    this.config();
+    this._bleCheck(); // config() too
     const k = this.cfg;
     if (this.mode === 'driving' && !k.driveOther) this.goHome('Turned off');
     if (this.mode === 'driven' && !k.beDriven) this._sendHome(undefined, 'Turned off');
@@ -182,7 +222,7 @@ class Kvm extends EventEmitter {
     if (this.mode === 'home') return;
     if (this.mode === 'driving') this.helper.send('keepalive');
     const c = this.server.current;
-    if (!c || Date.now() - c.lastRx > P.KVM_SILENCE_MS) {
+    if (!c || Date.now() - c.lastRx > (c.transport === 'ble' ? P.KVM_SILENCE_BLE_MS : P.KVM_SILENCE_MS)) {
       if (this.mode === 'driving') this.goHome(this._them('{them} stopped answering'));
       else this._drivenHome(this._them('{them} stopped answering'));
     }
@@ -191,7 +231,7 @@ class Kvm extends EventEmitter {
   // ---- owner: this Mac drives the PC ----
 
   _canDrive() {
-    return this.mode === 'home' && !!this.server.current && !!this.cfg.driveOther && this.linked;
+    return this.mode === 'home' && !!this.server.current && !!this.cfg.driveOther && this.linked && !this.paused;
   }
 
   _take(fields) {
@@ -225,6 +265,19 @@ class Kvm extends EventEmitter {
     this.helper.send('capture', { on: false });
     if (tellPeer && this.server.current) this._drive({ t: P.T.KVM_RELEASE, route: ++this.route });
     this._setMode('home', message);
+  }
+
+  // Through Bluetooth every message is a round trip on the radio: moves go at most every
+  // KVM_MOVE_BLE_MS, and wait (still summed) while earlier bytes haven't gone out yet.
+  _scheduleMove() {
+    if (!this.onBle || (this.local && this.local.drives())) return setImmediate(() => this._flushMove());
+    if (this.moveTimer) return;
+    this.moveTimer = setTimeout(() => {
+      this.moveTimer = null;
+      if (!this.pendingMove) return;
+      if (blepipe.backlog() > P.KVM_BLE_BACKLOG) return this._scheduleMove();
+      this._flushMove();
+    }, P.KVM_MOVE_BLE_MS);
   }
 
   _flushMove() {
@@ -264,7 +317,12 @@ class Kvm extends EventEmitter {
           break;
         }
         // Off (by the switch, the hotkey or the other computer) → on, cursor included: the same
-        // state the Cursor tab's one switch shows. On → off.
+        // state the Cursor tab's one switch shows. On → off. Through Bluetooth: Over Bluetooth.
+        if (this.onBle && this.linked && k.mouse) {
+          this.setShared(this.paused);
+          break;
+        }
+        if (this.onBle) k.ble = true; // off → on: Over Bluetooth too (saved below)
         if (this.linked && k.mouse) this.setLinked(false);
         else {
           if (!k.mouse) {
@@ -285,7 +343,7 @@ class Kvm extends EventEmitter {
         if (e.t === P.T.K_MOVE) {
           if (!this.pendingMove) {
             this.pendingMove = { dx: 0, dy: 0 };
-            setImmediate(() => this._flushMove());
+            this._scheduleMove();
           }
           this.pendingMove.dx += e.dx;
           this.pendingMove.dy += e.dy;
@@ -310,7 +368,7 @@ class Kvm extends EventEmitter {
   _onTake(m) {
     const refuse = (why) => this.server.sendToClient({ t: P.T.KVM_REFUSE, route: m.route, why });
     if (this.mode === 'driving') return refuse(P.REFUSE.BUSY);
-    if (!this.cfg.beDriven || !this.linked) return refuse(P.REFUSE.NOT_ALLOWED);
+    if (!this.cfg.beDriven || !this.linked || this.paused) return refuse(P.REFUSE.NOT_ALLOWED);
     if (this.mode === 'driven' && !(m.route > this.peerRoute)) return;
     const first = this.mode !== 'driven';
     this.peerRoute = m.route;

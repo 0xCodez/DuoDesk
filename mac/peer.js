@@ -29,6 +29,7 @@ class Peer extends EventEmitter {
       if (!server.current) link.poke();
     });
     server.on('rtt', (ctx) => this.emit('rtt', ctx));
+    server.on('transport', (ctx) => this.emit('transport', ctx));
     server.on('message', (msg, ctx) => this._deliver(msg, ctx));
 
     link.on('welcome', (ctx) => {
@@ -51,6 +52,13 @@ class Peer extends EventEmitter {
     return this.server.current || this.link.ctx || null;
   }
 
+  // Disconnect, whichever side opened the session: a device connected to us doesn't come back by
+  // itself (released); as a guest we don't reconnect until Connect.
+  disconnect() {
+    if (this.server.current) return this.server.release();
+    this.link.disconnect();
+  }
+
   get sameOs() {
     const c = this.current;
     return !!c && c.os === P.OS.MAC;
@@ -63,6 +71,17 @@ class Peer extends EventEmitter {
   }
 
   send(ctx, msg) {
+    if (!ctx) return;
+    // Through Bluetooth, files wait for Wi-Fi (netlink.js); they come back through sendNow.
+    if (this.hold && ctx === this.current && this.hold(msg)) return;
+    this._send(ctx, msg);
+  }
+
+  sendNow(msg) {
+    this._send(this.current, msg);
+  }
+
+  _send(ctx, msg) {
     if (!ctx) return;
     if (ctx === this.link.ctx) {
       for (const m of P.swapRole(msg, this.swapOut)) this.link.send(m);
@@ -86,6 +105,7 @@ class Peer extends EventEmitter {
       this.unknown.add(msg.t);
       console.log(`[peer] no handler for "${msg.t}" (ignored)`);
     }
+    if (this.tap) this.tap(msg);
     this.emit(`t:${msg.t}`, msg, ctx);
     this.emit('message', msg, ctx);
   }

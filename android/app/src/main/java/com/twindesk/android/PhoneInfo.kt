@@ -19,6 +19,8 @@ import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.hardware.display.DisplayManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -118,7 +120,7 @@ class PhoneInfo(core: Core) : Feature(core) {
                 "colors" to jsonArray(colors()), "display" to display(),
             )
             val key = m.toString()
-            if (withWallpaper) wallpaperImage()?.let { m.put("wallpaper", it) }
+            if (withWallpaper && !core.link.ble) wallpaperImage()?.let { m.put("wallpaper", it) } // too big for Bluetooth
             if (!withWallpaper && key == lastSent) return@execute
             lastSent = key
             core.send(m)
@@ -140,7 +142,7 @@ class Apps(core: Core) : Feature(core) {
         return pm.queryIntentActivities(main, 0).mapNotNull { ri ->
             val pkg = ri.activityInfo.packageName
             if (pkg == core.ctx.packageName || !seen.add(pkg)) return@mapNotNull null
-            JSONObject().put("id", pkg).put("name", ri.loadLabel(pm).toString().take(100)).put("icon", icon(ri.loadIcon(pm)))
+            JSONObject().put("id", pkg).put("name", ri.loadLabel(pm).toString().take(100)).put("icon", if (core.link.ble) "" else icon(ri.loadIcon(pm)))
         }
     }
 
@@ -191,11 +193,16 @@ class Adb(core: Core) : Feature(core) {
     private var connectNsd: android.net.nsd.NsdManager.DiscoveryListener? = null
     @Volatile private var connectPort = 0
 
+    // check() switched it on and waits 2 s to see if it stayed on. Android switches it straight back
+    // off on a network it doesn't trust: starting over on that change would switch it on again at
+    // once, on and off without end.
+    private var trying = false
+
     init {
         val obs = object : ContentObserver(main) {
             override fun onChange(selfChange: Boolean) {
                 sendState()
-                check()
+                if (!trying || wifiDebugging) check()
             }
         }
         cr.registerContentObserver(Settings.Global.getUriFor("adb_wifi_enabled"), false, obs)
@@ -220,6 +227,14 @@ class Adb(core: Core) : Feature(core) {
         ifaces.any { it.name.startsWith("ap") || it.name.startsWith("swlan") || it.name.startsWith("rndis") || it.name.startsWith("tether") }
     }.getOrDefault(false)
 
+    // On a Wi-Fi network: Android keeps wireless debugging off without one, and switches it straight
+    // back off if we switch it on. A Wi-Fi Direct group or a hotspot isn't one (not a network here).
+    val onWifiNetwork get() = runCatching {
+        val cm = core.ctx.getSystemService(ConnectivityManager::class.java)
+        @Suppress("DEPRECATION")
+        cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true }
+    }.getOrDefault(true)
+
     fun address(): String = runCatching {
         val ifaces = NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
         val preferredPrefixes = listOf("ap", "swlan", "rndis", "tether", "wlan", "eth")
@@ -237,7 +252,7 @@ class Adb(core: Core) : Feature(core) {
         val on = wifiDebugging
         if (on && core.link.connected) watchConnectPort() else { stopConnectWatch(); connectPort = 0 }
         val hotspot = isHotspotActive
-        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to on, "canEnable" to canEnable, "address" to address(), "full" to BuildConfig.NOTIF_LISTENER, "port" to connectPort, "hotspot" to hotspot))
+        core.send(msg(Proto.T.ADB_STATE, "devOptions" to devOptions, "wifi" to on, "canEnable" to canEnable, "address" to address(), "full" to BuildConfig.NOTIF_LISTENER, "port" to connectPort, "net" to onWifiNetwork, "hotspot" to hotspot))
         core.changed()
     }
 
@@ -256,7 +271,7 @@ class Adb(core: Core) : Feature(core) {
     }
 
     fun enable(on: Boolean): Boolean {
-        if (!canEnable) return false
+        if (!canEnable || on && !onWifiNetwork) return false
         return runCatching {
             if (on) Settings.Global.putInt(cr, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 1)
             // Android forgets a computer's pairing after 7 days without a connection (the default
@@ -270,13 +285,16 @@ class Adb(core: Core) : Feature(core) {
 
     // Is wireless debugging on while we're connected? If not: switch it on if we may (a few times:
     // MIUI may switch it off again just after an unlock), and if it is still off, ask (the app's
-    // dialog and a notification, both open the setting). Locked: wait for the unlock.
+    // dialog and a notification, both open the setting). Locked: wait for the unlock. Without a
+    // Wi-Fi network nobody can switch it on: nothing to ask (the computer says so).
     fun check(tries: Int = 3) {
         main.removeCallbacksAndMessages(null)
-        if (!core.link.connected || wifiDebugging || isHotspotActive) return settle(false)
+        trying = false
+        if (!core.link.connected || wifiDebugging || !onWifiNetwork || isHotspotActive) return settle(false)
         if (!unlocked) return
-        if (canEnable) enable(true)
+        trying = enable(true)
         main.postDelayed({
+            trying = false
             if (!core.link.connected || wifiDebugging || isHotspotActive) settle(false)
             else if (canEnable && tries > 1) check(tries - 1)
             else settle(true)

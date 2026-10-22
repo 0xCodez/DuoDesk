@@ -61,16 +61,17 @@ async function main() {
   console.log('Staging…');
   fs.rmSync(STAGE, { recursive: true, force: true });
   copy(WIN, path.join(STAGE, 'windows'), (name) => !SKIP.has(name));
-  copy(path.join(ROOT, 'shared', 'protocol.js'), path.join(STAGE, 'shared', 'protocol.js'));
-  copy(path.join(ROOT, 'shared', 'adbmdns.js'), path.join(STAGE, 'shared', 'adbmdns.js'));
-  copy(path.join(ROOT, 'shared', 'usbadb.js'), path.join(STAGE, 'shared', 'usbadb.js')); // a phone on the cable, asked without adb
-  copy(path.join(ROOT, 'shared', 'turn.js'), path.join(STAGE, 'shared', 'turn.js')); // the phone on a USB cable
-  copy(path.join(ROOT, 'shared', 'sshconfig.js'), path.join(STAGE, 'shared', 'sshconfig.js'));
-  copy(path.join(ROOT, 'shared', 'updates.js'), path.join(STAGE, 'shared', 'updates.js'));
-  copy(path.join(ROOT, 'shared', 'about.js'), path.join(STAGE, 'shared', 'about.js'));
-  copy(path.join(ROOT, 'shared', 'framegen.js'), path.join(STAGE, 'shared', 'framegen.js')); // Monitor 2
+  // Every shared module (a list missed new ones: the app then failed on its first require), and the
+  // pages' styles and the call window (phonehub.css, callpop.html).
+  copy(path.join(ROOT, 'shared'), path.join(STAGE, 'shared'), (name) => /\.(js|css|html)$/.test(name));
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
+  // The calls' sound on this PC (callaudio.js): its .exe, its signed package and that certificate.
+  for (const f of ['macshare-calls.exe', 'twindesk-calls.msix', 'twindesk-calls.cer']) {
+    const from = path.join(ROOT, 'windows-helper', 'bin', f);
+    if (fs.existsSync(from)) copy(from, path.join(STAGE, 'windows-helper', 'bin', f));
+    else console.log('note: no windows-helper/bin/' + f + ' — calls won’t play on the PC (build the helper on Windows)');
+  }
   // A phone: its screen, apps and input go through adb and scrcpy-server (phone-bridge.js).
   if (!fs.existsSync(path.join(WIN, 'vendor', 'scrcpy-server'))) {
     copy(path.join(ROOT, 'mac', 'vendor', 'scrcpy-server'), path.join(STAGE, 'windows', 'vendor', 'scrcpy-server'));

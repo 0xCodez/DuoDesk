@@ -3,8 +3,10 @@
 // go to the other computer while it accepts them (`notif.policy`); the helper reads them from the
 // Windows notification database. The other computer's show here as Windows toasts from TwinDesk
 // (main.js sets the AppUserModelID, or Windows shows none). Port of mac/notifs.js.
-const { Notification } = require('electron');
+const { Notification, nativeImage } = require('electron');
+const path = require('path');
 const P = require('../shared/protocol.js');
+const { IconsIn } = require('../shared/notificon.js');
 
 const T = P.T;
 const str = (v, n = 500) => (typeof v === 'string' ? v.slice(0, n) : '');
@@ -12,6 +14,7 @@ const str = (v, n = 500) => (typeof v === 'string' ? v.slice(0, n) : '');
 class Notifs {
   // opts: link, helper, settings (shared), save(), selfIds: [AUMID], peerName(), onChange(), onClick({app, appName})? (main.js: a phone's notification clicked)
   constructor(opts) {
+    this.iconsIn = new IconsIn(nativeImage, path.join(__dirname, 'assets', 'sidebar-icon@2x.png')); // TwinDesk's for apps without one
     Object.assign(this, opts);
     this.peerAccepts = false; // the other side's notif.policy (assume no until told)
     this.readable = null; // the helper can read the database
@@ -109,6 +112,7 @@ class Notifs {
     this.echoes.push({ title, body: str(m.body).slice(0, 80), until: Date.now() + 30000 });
     const n = new Notification({
       title,
+      icon: this.iconsIn.for(m),
       body: [[appName, peer].filter(Boolean).join(' · '), str(m.subtitle, 200), str(m.body)].filter(Boolean).join('\n'),
     });
     this.live.add(n);
