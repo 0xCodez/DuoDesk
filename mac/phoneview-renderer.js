@@ -18,6 +18,7 @@
   const ACTION = { DOWN: 0, UP: 1, MOVE: 2, HOVER_MOVE: 7 };
   const FINGER = -2; // scrcpy's generic finger
   let size = null; // video size
+  let enterIsSend = true;
   let decoder = null;
   let config = null; // SPS/PPS, sent in front of the next key frame
   let waitingKey = true;
@@ -322,6 +323,24 @@
       }
       return;
     }
+    // Enter / NumpadEnter: send message or newline
+    if (['Enter', 'NumpadEnter'].includes(e.code)) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Shift+Enter: always insert newline
+        if (e.type === 'keydown' && !e.repeat) {
+          api.send({ t: 'newline' });
+        }
+        return;
+      }
+      if (enterIsSend) {
+        // Enter without Shift: trigger Send button
+        if (e.type === 'keydown' && !e.repeat) {
+          api.send({ t: 'sendMsg' });
+        }
+        return;
+      }
+    }
     e.preventDefault();
     api.send({ t: 'key', code: e.code, down: e.type === 'keydown', repeat: e.repeat });
   };
@@ -360,6 +379,17 @@
     powerBtn.oncontextmenu = (e) => {
       e.preventDefault();
       api.send({ t: 'nav', key: 'power' });
+    };
+  }
+
+  const enterSendBtn = document.getElementById('b-enter-send');
+  if (enterSendBtn) {
+    enterSendBtn.onclick = () => {
+      enterIsSend = !enterIsSend;
+      enterSendBtn.classList.toggle('active', enterIsSend);
+      enterSendBtn.title = enterIsSend
+        ? 'Enter sends message (Shift+Enter for new line)'
+        : 'Enter inserts new line (Enter sends message is OFF)';
     };
   }
 

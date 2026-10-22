@@ -30,6 +30,8 @@ class PhoneViews extends EventEmitter {
     this.views = new Map(); // id -> {id, kind, app, title, win, session, keys, size}
     bridge.views = this;
     this.notified = null; // {pkg, name, at, unlocked}: a clicked notification's app, waiting to open (openNotified)
+    this.activeApp = '';
+    server.on(`t:${T.PHONE_ACTIVE_APP}`, (m) => { if (m && m.pkg) this.activeApp = m.pkg; });
     server.on(`t:${T.PHONE_AWAKE}`, (m) => this._awake(m));
     bridge.on('change', () => this._openNotified());
     server.on('closed', () => { this.notified = null; });
@@ -237,6 +239,12 @@ class PhoneViews extends EventEmitter {
         if (e) s.key(m.down ? ACTION.DOWN : ACTION.UP, e.keycode, e.meta, m.repeat ? 1 : 0);
         break;
       }
+      case 'newline':
+        if (s && !s.closed) s.text('\n');
+        break;
+      case 'sendMsg':
+        this._sendMsg(v);
+        break;
       case 'nav': {
         const k = { back: ANDROID.BACK, home: ANDROID.HOME, recents: ANDROID.APP_SWITCH, power: ANDROID.POWER }[m.key];
         if (m.key === 'back') { s.backOrScreenOn(ACTION.DOWN); s.backOrScreenOn(ACTION.UP); } else if (k) s.tap(k);
@@ -259,6 +267,55 @@ class PhoneViews extends EventEmitter {
         if (typeof m.dir === 'string') this._swipe(v, m.dir);
         break;
       default: break;
+    }
+  }
+
+  _sendMsg(v) {
+    const s = v.session;
+    if (!s || s.closed) return;
+
+    // 1. Tell companion app on phone to click Send button via Accessibility (InputService)
+    if (this.server) {
+      try { this.server.sendToClient({ t: T.PHONE_SEND }); } catch {}
+    }
+
+    const pkg = (v.app || this.activeApp || '').toLowerCase();
+    const isInsta = pkg.includes('instagram');
+    const isWhatsApp = pkg.includes('whatsapp');
+
+    if (isInsta) {
+      // Instagram direct message composer:
+      // Tab to focus Send button, then Enter to click it.
+      s.tap(61); // KEYCODE_TAB
+      setTimeout(() => {
+        if (v.session && !v.session.closed) {
+          s.tap(66); // KEYCODE_ENTER
+        }
+      }, 40);
+    } else if (isWhatsApp) {
+      // WhatsApp:
+      // 1. Enter key sends natively if "Enter is send" is enabled in WhatsApp settings
+      s.tap(66); // KEYCODE_ENTER
+      // 2. Tab + Enter if "Enter is send" was not toggled in WhatsApp settings
+      setTimeout(() => {
+        if (v.session && !v.session.closed) {
+          s.tap(61);
+          setTimeout(() => {
+            if (v.session && !v.session.closed) s.tap(66);
+          }, 35);
+        }
+      }, 50);
+    } else {
+      // General chat / messaging apps:
+      s.tap(66);
+      setTimeout(() => {
+        if (v.session && !v.session.closed) {
+          s.tap(61);
+          setTimeout(() => {
+            if (v.session && !v.session.closed) s.tap(66);
+          }, 35);
+        }
+      }, 50);
     }
   }
 
