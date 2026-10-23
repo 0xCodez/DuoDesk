@@ -92,4 +92,11 @@ test('settings: the mesh keys go to multi.json, settings.json keeps the one-to-o
   assert.strictEqual(again.mesh.autoJoin, false, 'the choice is kept over the default');
 });
 
+test('settings: an off Join every device automatically saved before 2.2.0 (no choice) is on', () => {
+  reset({ 'settings.json': {}, 'multi.json': { on: true, mesh: { autoJoin: false } } });
+  assert.strictEqual(M.load(base).mesh.autoJoin, true, 'the old default, not a choice');
+  reset({ 'settings.json': {}, 'multi.json': { on: true, mesh: { autoJoin: false, chosen: true } } });
+  assert.strictEqual(M.load(base).mesh.autoJoin, false, 'switched off here');
+});
+
 runTests(tests);

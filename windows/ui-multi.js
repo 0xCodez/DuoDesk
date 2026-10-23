@@ -26,7 +26,7 @@ UI.tab({
           'Computers and phones connected at the same time: one clipboard and one set of notifications for all, each screen edge leading to another device, a phone and a computer together',
           [turnOn]),
       ]),
-      UI.note('info', 'TwinDesk restarts to turn it on or off, and connections drop for a moment. Turned off again, your pairings are as they were; settings both modes have (cursor, clipboard, keys…) keep what you set. Windows, Mac and Linux computers take part (Linux with other computers on the same network only); the phone app connects to one computer at a time.'),
+      UI.note('info', 'TwinDesk restarts when you turn it on or off.'),
       MeshIntro.art(),
     );
 

@@ -54,14 +54,19 @@ const MULTI = 'multi.json';
 function load(store) {
   const s = store.read('settings.json', {}) || {};
   const m = store.read(MULTI, {}) || {};
-  return normalize({ ...s, kvm: { ...(s.kvm || {}), edges: (m.kvm || {}).edges }, layout: m.layout, mesh: m.mesh });
+  // Join every device automatically is off only when switched off here: saved with `chosen`. Before 2.2.0
+  // it was off by default and every save wrote that false, which isn't anyone's choice.
+  const ms = m.mesh || {};
+  const mesh = ms.autoJoin === false && ms.chosen !== true ? {} : ms;
+  return normalize({ ...s, kvm: { ...(s.kvm || {}), edges: (m.kvm || {}).edges }, layout: m.layout, mesh });
 }
 
 function save(store, settings) {
   const { layout, mesh, ...rest } = settings;
   const { edges, ...kvm } = settings.kvm;
   store.write('settings.json', { ...rest, kvm });
-  store.write(MULTI, { ...store.read(MULTI, {}), kvm: { edges }, layout, mesh });
+  const off = mesh && mesh.autoJoin === false;
+  store.write(MULTI, { ...store.read(MULTI, {}), kvm: { edges }, layout, mesh: off ? { autoJoin: false, chosen: true } : { autoJoin: true } });
 }
 
 module.exports = { normalize, apply, migrateKvm, load, save };

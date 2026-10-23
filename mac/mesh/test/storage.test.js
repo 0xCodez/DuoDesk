@@ -69,4 +69,11 @@ test('settings: layout and mesh go to multi.json; settings.json keeps the rest',
   assert.strictEqual(base.loadSettings().layout, undefined, 'the one-to-one app sees no layout');
 });
 
+test('settings: an off Join every device automatically saved before 2.2.0 (no choice) is on', () => {
+  reset({ 'multi.json': { on: true, mesh: { autoJoin: false } } });
+  assert.strictEqual(store.loadSettings().mesh.autoJoin, true, 'the old default, not a choice');
+  reset({ 'multi.json': { on: true, mesh: { autoJoin: false, chosen: true } } });
+  assert.strictEqual(store.loadSettings().mesh.autoJoin, false, 'switched off here');
+});
+
 runTests(tests);

@@ -63,14 +63,21 @@ function loadSettings() {
   out.layout = m.layout; // the shared layout (layout-sync.js); none until one was edited
   // Join every device automatically: on unless switched off in the Multi-device tab, so every computer the
   // mouse goes through is connected to the others; a paired device can add others without a pairing code.
-  out.mesh = { autoJoin: true, ...(m.mesh || {}) };
+  out.mesh = { autoJoin: !switchedOff(m.mesh) };
   return out;
+}
+
+// Off only when switched off here: saved with `chosen`. Before 2.2.0 it was off by default and every save
+// wrote that false, which isn't anyone's choice.
+function switchedOff(mesh) {
+  return !!mesh && mesh.autoJoin === false && mesh.chosen === true;
 }
 
 function saveSettings(s) {
   const { layout, mesh, ...rest } = s;
   store.saveSettings(rest);
-  store.write(MULTI, { ...store.read(MULTI, {}), layout, mesh });
+  const join = !mesh || mesh.autoJoin !== false;
+  store.write(MULTI, { ...store.read(MULTI, {}), layout, mesh: join ? { autoJoin: true } : { autoJoin: false, chosen: true } });
 }
 
 module.exports = { init: store.init, filePath: store.filePath, read, write, loadSettings, saveSettings };

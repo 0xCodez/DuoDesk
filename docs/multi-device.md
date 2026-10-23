@@ -61,7 +61,9 @@ It is off by default, and while it is off TwinDesk runs exactly the code it runs
    connected to the others (a chain needs the computer whose mouse is used to be connected to each device
    of it). With it on, a paired device can add another device to this one without a pairing code; off,
    each pair of devices is paired by hand, and the layout shows in red a device the pointer stops before
-   (in the mesh, not connected here) and greys the ones past it.
+   (in the mesh, not connected here) and greys the ones past it. Switched off, multi.json keeps
+   `mesh: { autoJoin: false, chosen: true }`; a `false` without `chosen` was written by a build before
+   2.2.0, where off was the default and every save wrote it, so it reads as on.
 
 ## Where things are
 

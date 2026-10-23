@@ -7,20 +7,7 @@
   // Each device: [kind, x, y]. Lines join every pair, as the mesh does.
   const NODES = [['monitor', 110, 78], ['laptop', 320, 46], ['monitor', 530, 84], ['phone', 214, 196], ['laptop', 430, 200]];
 
-  function device(kind, x, y) {
-    if (kind === 'phone') {
-      return `<rect class="mi-body" x="${x - 16}" y="${y - 30}" width="32" height="60" rx="7"/>`
-        + `<rect class="mi-screen" x="${x - 11}" y="${y - 23}" width="22" height="42" rx="3"/>`;
-    }
-    if (kind === 'laptop') {
-      return `<rect class="mi-body" x="${x - 38}" y="${y - 28}" width="76" height="48" rx="6"/>`
-        + `<rect class="mi-screen" x="${x - 31}" y="${y - 21}" width="62" height="34" rx="3"/>`
-        + `<path class="mi-body" d="M${x - 48} ${y + 22}h96l-6 9h-84z"/>`;
-    }
-    return `<rect class="mi-body" x="${x - 42}" y="${y - 30}" width="84" height="54" rx="6"/>`
-      + `<rect class="mi-screen" x="${x - 35}" y="${y - 23}" width="70" height="40" rx="3"/>`
-      + `<path class="mi-body" d="M${x - 6} ${y + 24}h12v10h-12z M${x - 20} ${y + 34}h40v5h-40z"/>`;
-  }
+  const device = (kind, x, y) => FeatureArt.device(kind, x, y); // shared/feature-art.js, loaded first
 
   function art() {
     const lines = [];
@@ -64,7 +51,7 @@
       title,
       el('p', '', 'Mesh mode is still in beta, and you may run into some issues with it.'),
       el('p', '', 'If you connect only two devices, keep it off.'),
-      el('div', 'hint', 'You can turn it off again on this page: TwinDesk restarts as it was.'),
+      el('div', 'hint', 'TwinDesk restarts when you turn it on or off.'),
     );
     const cancel = el('button', 'btn', 'Cancel');
     const ok = el('button', 'btn primary', 'Turn on');

@@ -57,15 +57,26 @@
     // the button that moves it there.
     const wifiNote = def.wifiOnly ? UI.wifiGate() : null;
     if (wifiNote) page.append(wifiNote.el);
+    page.classList.toggle('free', FeatureArt.FREE.includes(def.id)); // works with nothing connected: its switches stay blue
+    // Until it's turned on, an introduction in place of the settings (shared/feature-art.js).
+    const art = FeatureArt.has(def.id) ? FeatureArt.create(def.id, {
+      color: def.color,
+      keep: !def.master, // without a switch at the top, an introduction once
+      onDismiss: () => UI.state && renderPage(views.get(def.id), UI.state),
+    }) : null;
+    if (art) page.append(art.el);
     const body = el('div', { class: 'page-body' }, limitNote ? [limitNote] : []);
     page.append(body);
     pages.append(page);
     const render = def.build(body, page) || (() => {});
-    return { page, body, master, render, headText, limitNote, wifiNote };
+    return { page, body, master, render, headText, limitNote, wifiNote, art };
   }
 
   // The session is through Bluetooth (pages that need Wi-Fi say so).
   const onBle = (s) => !!(s && s.net && s.net.transport === 'ble');
+
+  // Something to work with: the other computer, or a phone.
+  const linked = (s) => !!(s && ((s.link && s.link.state === 'connected') || (s.phone && s.phone.connected)));
 
   function show(id, user) {
     const v = views.get(id) || views.get('overview');
@@ -100,6 +111,14 @@
       const on = !limited && !!v.def.master.get(s);
       v.master.set(on);
       v.page.classList.toggle('off', !on);
+    }
+    if (v.art) { // while the page's switch is off; on a page without one, until dismissed
+      let off = !v.def.master;
+      try {
+        if (v.def.master) off = !v.def.master.get(s);
+      } catch (e) { /* its state isn't there yet */ }
+      v.art.set(!limited && off);
+      v.body.hidden = !v.art.el.hidden;
     }
     try {
       v.render(s);
@@ -243,6 +262,7 @@
 
   function render(s) {
     UI.state = s;
+    document.body.classList.toggle('no-peer', !linked(s)); // switches of what needs a device can't be changed (shared/feature-art.js)
     renderPeer(s);
     UI.setup.render(s);
     UI.fillTree(UI.setup.page);

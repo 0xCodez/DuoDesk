@@ -142,7 +142,7 @@ UI.tab({
 
     body.append(
       UI.card('Mesh mode', [
-        UI.row('Use several devices at once', 'On, in beta. Turned off, TwinDesk restarts and connects one to one, with your pairings as they were', [turnOff]),
+        UI.row('Use several devices at once', 'On, in beta. TwinDesk restarts when you turn it on or off', [turnOff]),
         UI.row('Computers', 'Connect to this one over the same network only, not Bluetooth. Phones over Wi-Fi, a USB cable or Bluetooth, as before', []),
       ]),
       UI.card('Layout', [gridEl, reachNote, layoutHint], { cls: 'keep-on' }),
