@@ -36,7 +36,7 @@ PC's apps on the Mac. Turn an old laptop or your **Android tablet** into a secon
 your **phone's calls and texts** from the computer, send a file in two taps, and paste on one
 device what you copied on another.
 
-- **Any combination.** Mac ↔ Windows, Mac ↔ Mac, PC ↔ PC, Linux ↔ anything, and Android ↔ any computer. Or, with **Multi-device**, all of them at once.
+- **Any combination.** Mac ↔ Windows, Mac ↔ Mac, PC ↔ PC, Linux ↔ anything, and Android ↔ any computer. Or, with **TwinDesk Mesh**, all of them at once.
 - **Anywhere.** Same Wi-Fi, a USB cable, or no shared network at all: Bluetooth and a direct Wi-Fi link of their own.
 - **No account, no cloud.** Devices talk only to each other, on an encrypted link.
 - **No extra hardware, no root.** Install the app on each device and pair once.
@@ -68,53 +68,63 @@ Phone screen and apps in windows · tablet as a second screen · **calls** · **
 
 # ✨ New in 2.2
 
-TwinDesk 2.2 brings **Multi-device** (Mesh mode, beta). Until now TwinDesk was one-to-one: a
-computer with another computer, or with a phone. Turn Multi-device on and all of them connect at the
-same time, each one linked directly to the others, with no server in between.
+<p align="center">
+  <img src=".github/assets/v22-mesh.jpg" alt="Introducing TwinDesk Mesh: a MacBook, a Windows PC, a Linux laptop, a phone and a tablet, all connected to each other" width="100%">
+</p>
+
+Meet **TwinDesk Mesh**. Your laptop, your desktop, the Linux box in the corner, your phone and your
+tablet, all connected at once. Copy on one and paste on any of them. A text on your phone shows up
+on every screen. Glide your mouse from screen to screen to screen. However many devices are on your
+desk, they now work as one.
 
 | | What's new | |
 |---|---|---|
-| 🕸️ | **Many devices at once.** Several computers and phones together, a phone and a computer at the same time | [More](#-multi-device-beta) |
-| 📋 | **One clipboard for all.** Copy on any device, paste on every other; the latest copy wins | [More](#-multi-device-beta) |
-| 🔔 | **One notification pool.** A notification on any device shows on the others | [More](#-multi-device-beta) |
-| 🗺 | **One screen layout.** Each screen edge leads to a different device, and the mouse goes on from one to the next | [More](#-multi-device-beta) |
-| 🤝 | **Pair once, join everyone.** A newly paired device is introduced to the rest, no extra codes | [More](#-multi-device-beta) |
-| ✨ | **Every feature introduces itself.** Each tab shows an animated picture of what it does until you turn it on | |
+| 🕸️ | **Every device at once.** Computers and phones, all connected together | [More](#-introducing-twindesk-mesh) |
+| 📋 | **One clipboard.** Copy anywhere, paste everywhere | [More](#-introducing-twindesk-mesh) |
+| 🔔 | **One notification pool.** Every alert, on every screen | [More](#-introducing-twindesk-mesh) |
+| 🖱 | **One mouse, every screen.** Each edge leads to the device you put there | [More](#-one-mouse-every-screen) |
+| 🤝 | **Pair once, join all.** A new device meets the rest by itself | [More](#-introducing-twindesk-mesh) |
+| ✨ | **Every feature introduces itself.** Each tab shows what it does with an animated picture, until you turn it on | |
 
-Multi-device is built on the mesh by **Erdoğan Yeşil ([@erdodo](https://github.com/erdodo))**
+TwinDesk Mesh is built on the work of **Erdoğan Yeşil ([@erdodo](https://github.com/erdodo))**
 in [#29](https://github.com/InukaAsith/TwinDesk/pull/29). Thank you! 🙌
 
-## 🕸 Multi-device (beta)
+## 🕸 Introducing TwinDesk Mesh
 
-Turn it on in the **Multi-device** tab, on Windows, Mac and Linux. Then:
+Until now TwinDesk paired two devices at a time. Mesh connects **all of them**: every computer and
+phone you own, each talking straight to the others, no cloud and no hub in between. Your phone no
+longer has to choose between your two computers.
 
-- **Everything connects together.** Pair as many computers and phones as you like and they stay
-  connected at the same time. A phone no longer pushes the other computer away, and several phones
-  can be connected at once.
-- **One clipboard.** Copy on any device and paste on all of them. Every copy carries when it
-  happened, so the newest one wins, even when two copies are a moment apart on different devices.
-- **One notification pool.** A notification on any device shows up on every other one.
-- **One map of your desk.** Place your devices on the grid in the Multi-device tab. Each screen edge
-  can lead to a different device, and the mouse and keyboard carry on from one to the next: a
-  Windows PC, a Mac and a Linux box in a row, driven from any keyboard. Every device shows the same map.
-- **Join every device automatically** (on by default): pair a device with one computer and the
-  mesh introduces it to the others, no extra pairing codes. With it off, the grid marks in red a
-  device that isn't connected to this one (the pointer stops before it) and greys the ones past it.
+<p align="center">
+  <img src=".github/assets/v22-mesh-features.jpg" alt="Every device at once, one clipboard, one notification pool, one map of your desk, pair once and join all" width="100%">
+</p>
 
-It's **off by default**, and with it off TwinDesk connects exactly as before. Turning it on or off
-restarts TwinDesk; your pairings and the settings both modes share are kept, and turning it off gives
-back exactly what was there. Older TwinDesk versions, and devices with Multi-device off, still connect
-as one-to-one devices. **If you only connect two devices, keep it off.**
+- **One clipboard.** Copy a link on your laptop and paste it on your desktop, your other laptop or
+  your phone. The newest copy always wins.
+- **One notification pool.** Your phone buzzes, and every computer on your desk shows it.
+- **Pair once, join all.** Pair a new device with one computer and it meets the rest by itself.
+  No codes to type again and again.
 
-Still rough in this beta:
+## 🖱 One mouse, every screen
 
-- Dragging files across a screen edge goes to one device only (and across one edge on Windows and Linux).
-- The mouse only reaches devices this computer is connected to (*Join every device automatically* takes care of that).
-- The phone app connects to one computer at a time.
-- On Linux, other computers connect over the same network only (phones as before, Bluetooth
-  included), and screen sharing goes to the selected device.
+<p align="center">
+  <img src=".github/assets/v22-mesh-desk.jpg" alt="The pointer travelling from a Windows PC across a MacBook and a Linux laptop onto a phone, with the desk map below" width="100%">
+</p>
 
-The design is in [docs/multi-device.md](docs/multi-device.md) and [docs/mesh.md](docs/mesh.md).
+Line your devices up on the map once. Push the pointer off any edge and it lands on the device you
+put there, then keeps going to the next one: from the PC to the Mac to the Linux laptop to your
+phone, with one mouse and one keyboard. Every device sees the same map, so it works the same from
+wherever you sit.
+
+## 🧪 Try the beta
+
+TwinDesk Mesh is in **beta** on Windows, Mac and Linux. Turn it on in the **Multi-device** tab;
+TwinDesk restarts, and your pairings come with it. Turn it off any time and everything is just as
+you left it. Devices that don't have it on (or run an older TwinDesk) still connect as before.
+
+Connecting just two devices? Keep it off, you won't need it. A few things are still being polished:
+files dragged across a screen edge go to one device at a time, the phone app connects to one
+computer at a time, and Linux joins other computers over the same Wi-Fi only.
 
 # ✨ New in 2.1
 
@@ -256,7 +266,7 @@ shared by both sides and remembered for the pair.
 Pair as many computers and phones as you like. **Switch** moves the session to another paired
 device nearby, **Take over** claims one that's busy with someone else, and **Disconnect** lets go:
 a device let go stays away until you connect it again. All from the Overview, the menu bar or the
-tray. Want them all connected at once? Turn on [Multi-device](#-multi-device-beta).
+tray. Want them all connected at once? Try [TwinDesk Mesh](#-introducing-twindesk-mesh).
 
 ## 🤝 Cross-platform pairing
 
@@ -429,7 +439,7 @@ in both directions (the phone captures its own sound now, no wireless debugging 
 | PC ↔ PC | Everything |
 | Linux ↔ Mac, PC or Linux | Everything ([a few differences](#linux)) |
 | Android ↔ Mac, Windows or Linux | Every phone and tablet feature |
-| All of them at once | One clipboard, notifications and screen layout for every device ([Multi-device, beta](#-multi-device-beta)) |
+| All of them at once | One clipboard, notifications and screen layout for every device ([TwinDesk Mesh, beta](#-introducing-twindesk-mesh)) |
 
 Every pair connects over the same Wi-Fi, Bluetooth, or a direct Wi-Fi link; a phone also over a USB cable.
 
@@ -689,7 +699,7 @@ guarantee that antivirus products will stop flagging a file.
 
 ## Thanks
 
-Multi-device is built on the mesh by Erdoğan Yeşil ([@erdodo](https://github.com/erdodo), [#29](https://github.com/InukaAsith/TwinDesk/pull/29)),
+TwinDesk Mesh (Multi-device) is built on the mesh by Erdoğan Yeşil ([@erdodo](https://github.com/erdodo), [#29](https://github.com/InukaAsith/TwinDesk/pull/29)),
 who also contributed [#8](https://github.com/InukaAsith/TwinDesk/pull/8) and [#9](https://github.com/InukaAsith/TwinDesk/pull/9).
 Thanks too to [@Jay-Prajapati01](https://github.com/Jay-Prajapati01) for signed Windows installers
 ([#13](https://github.com/InukaAsith/TwinDesk/pull/13)), and to everyone who reports problems and
