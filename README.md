@@ -11,14 +11,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/InukaAsith/TwinDesk/releases/latest"><b>⬇️ Download 2.1</b></a> ·
+  <a href="https://github.com/InukaAsith/TwinDesk/releases/latest"><b>⬇️ Download 2.2</b></a> ·
   <a href="https://twin-desk.vercel.app"><b>Website</b></a> ·
-  <a href="#-new-in-21"><b>What's new</b></a> ·
+  <a href="#-new-in-22"><b>What's new</b></a> ·
   <a href="#under-the-hood"><b>How it works</b></a>
 </p>
 
 <p align="center">
-  <img alt="Version 2.1" src="https://img.shields.io/github/v/release/InukaAsith/TwinDesk?label=version&color=4b8bff">
+  <img alt="Version 2.2" src="https://img.shields.io/github/v/release/InukaAsith/TwinDesk?label=version&color=4b8bff">
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black">
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4">
   <img alt="Linux X11 and Wayland" src="https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-f0a30a">
@@ -36,7 +36,7 @@ PC's apps on the Mac. Turn an old laptop or your **Android tablet** into a secon
 your **phone's calls and texts** from the computer, send a file in two taps, and paste on one
 device what you copied on another.
 
-- **Any combination.** Mac ↔ Windows, Mac ↔ Mac, PC ↔ PC, Linux ↔ anything, and Android ↔ any computer.
+- **Any combination.** Mac ↔ Windows, Mac ↔ Mac, PC ↔ PC, Linux ↔ anything, and Android ↔ any computer. Or, with **Multi-device**, all of them at once.
 - **Anywhere.** Same Wi-Fi, a USB cable, or no shared network at all: Bluetooth and a direct Wi-Fi link of their own.
 - **No account, no cloud.** Devices talk only to each other, on an encrypted link.
 - **No extra hardware, no root.** Install the app on each device and pair once.
@@ -65,6 +65,56 @@ Phone screen and apps in windows · tablet as a second screen · **calls** · **
 </table>
 
 ---
+
+# ✨ New in 2.2
+
+TwinDesk 2.2 brings **Multi-device** (Mesh mode, beta). Until now TwinDesk was one-to-one: a
+computer with another computer, or with a phone. Turn Multi-device on and all of them connect at the
+same time, each one linked directly to the others, with no server in between.
+
+| | What's new | |
+|---|---|---|
+| 🕸️ | **Many devices at once.** Several computers and phones together, a phone and a computer at the same time | [More](#-multi-device-beta) |
+| 📋 | **One clipboard for all.** Copy on any device, paste on every other; the latest copy wins | [More](#-multi-device-beta) |
+| 🔔 | **One notification pool.** A notification on any device shows on the others | [More](#-multi-device-beta) |
+| 🗺 | **One screen layout.** Each screen edge leads to a different device, and the mouse goes on from one to the next | [More](#-multi-device-beta) |
+| 🤝 | **Pair once, join everyone.** A newly paired device is introduced to the rest, no extra codes | [More](#-multi-device-beta) |
+| ✨ | **Every feature introduces itself.** Each tab shows an animated picture of what it does until you turn it on | |
+
+Multi-device is built on the mesh by **Erdoğan Yeşil ([@erdodo](https://github.com/erdodo))**
+in [#29](https://github.com/InukaAsith/TwinDesk/pull/29). Thank you! 🙌
+
+## 🕸 Multi-device (beta)
+
+Turn it on in the **Multi-device** tab, on Windows, Mac and Linux. Then:
+
+- **Everything connects together.** Pair as many computers and phones as you like and they stay
+  connected at the same time. A phone no longer pushes the other computer away, and several phones
+  can be connected at once.
+- **One clipboard.** Copy on any device and paste on all of them. Every copy carries when it
+  happened, so the newest one wins, even when two copies are a moment apart on different devices.
+- **One notification pool.** A notification on any device shows up on every other one.
+- **One map of your desk.** Place your devices on the grid in the Multi-device tab. Each screen edge
+  can lead to a different device, and the mouse and keyboard carry on from one to the next: a
+  Windows PC, a Mac and a Linux box in a row, driven from any keyboard. Every device shows the same map.
+- **Join every device automatically** (on by default): pair a device with one computer and the
+  mesh introduces it to the others, no extra pairing codes. With it off, the grid marks in red a
+  device that isn't connected to this one (the pointer stops before it) and greys the ones past it.
+
+It's **off by default**, and with it off TwinDesk connects exactly as before. Turning it on or off
+restarts TwinDesk; your pairings and the settings both modes share are kept, and turning it off gives
+back exactly what was there. Older TwinDesk versions, and devices with Multi-device off, still connect
+as one-to-one devices. **If you only connect two devices, keep it off.**
+
+Still rough in this beta:
+
+- Dragging files across a screen edge goes to one device only (and across one edge on Windows and Linux).
+- The mouse only reaches devices this computer is connected to (*Join every device automatically* takes care of that).
+- The phone app connects to one computer at a time.
+- On Linux, other computers connect over the same network only (phones as before, Bluetooth
+  included), and screen sharing goes to the selected device.
+
+The design is in [docs/multi-device.md](docs/multi-device.md) and [docs/mesh.md](docs/mesh.md).
 
 # ✨ New in 2.1
 
@@ -206,7 +256,7 @@ shared by both sides and remembered for the pair.
 Pair as many computers and phones as you like. **Switch** moves the session to another paired
 device nearby, **Take over** claims one that's busy with someone else, and **Disconnect** lets go:
 a device let go stays away until you connect it again. All from the Overview, the menu bar or the
-tray.
+tray. Want them all connected at once? Turn on [Multi-device](#-multi-device-beta).
 
 ## 🤝 Cross-platform pairing
 
@@ -319,7 +369,8 @@ works in the background, and a Quick Settings tile sends the phone's clipboard w
 Push the pointer past the edge of your screen and it **carries on onto the phone**. Type with your
 real keyboard in any Android app, scroll with your trackpad, then double-tap the hotkey to come back.
 It goes through wireless debugging, or through **Accessibility** with no developer options at all
-(over Bluetooth too); TwinDesk picks automatically, or you choose on the Cursor page.
+(over Bluetooth too, in the full app, which the computer installs for you); TwinDesk picks
+automatically, or you choose on the Cursor page.
 
 <p align="center">
   <img src=".github/assets/mouse-keyboard.jpg" alt="Cursor settings on the Mac and on the phone, with the device layout" width="100%">
@@ -378,6 +429,7 @@ in both directions (the phone captures its own sound now, no wireless debugging 
 | PC ↔ PC | Everything |
 | Linux ↔ Mac, PC or Linux | Everything ([a few differences](#linux)) |
 | Android ↔ Mac, Windows or Linux | Every phone and tablet feature |
+| All of them at once | One clipboard, notifications and screen layout for every device ([Multi-device, beta](#-multi-device-beta)) |
 
 Every pair connects over the same Wi-Fi, Bluetooth, or a direct Wi-Fi link; a phone also over a USB cable.
 
@@ -392,8 +444,9 @@ Every pair connects over the same Wi-Fi, Bluetooth, or a direct Wi-Fi link; a ph
 3. **Pair once** by comparing a code (on a USB cable, just click Allow). From then on they connect by themselves.
 
 For the phone's screen and apps in windows, TwinDesk walks you through turning on Android's
-wireless debugging once ([details](#wireless-debugging)). Files, clipboard, notifications, calls,
-texts, photos and mouse and keyboard (through Accessibility) work without it.
+wireless debugging once ([details](#wireless-debugging)). Files, clipboard, the computer's notifications,
+calls and photos work without it. The phone's notifications, texts and mouse and keyboard through
+Accessibility come with the full app, which the computer installs once over wireless debugging.
 
 ## Privacy
 
@@ -471,8 +524,8 @@ And outside the app:
 - **Copied on the computer:** files copied with <kbd>⌃⌥C</kbd> / <kbd>Ctrl+Alt+C</kbd> arrive as a
   notification with Copy (paste them in any app) and Save.
 - **The computer can install the full app** over wireless debugging (Phone page › Notifications
-  from the phone): Play Protect blocks downloaded apps that read notifications, so the download
-  leaves that out and the computer adds it. Settings and pairing stay.
+  from the phone): Play Protect blocks downloaded apps that read notifications or texts, or use
+  Accessibility, so the download leaves those out and the computer adds them. Settings and pairing stay.
 
 ### Wireless debugging
 
@@ -613,8 +666,8 @@ cd android
 ./gradlew assembleRelease        # JDK 17+; app/build/outputs/apk/{standard,full}/release/
 ```
 
-`standard` is the build people download. `full` adds notification access and the SMS permissions
-(Messages), which Play Protect blocks in downloaded apps; the computers install it over wireless debugging (Phone page ›
+`standard` is the build people download. `full` adds notification access, the SMS permissions
+(Messages) and the Accessibility service (mouse and keyboard without wireless debugging), which Play Protect blocks in downloaded apps; the computers install it over wireless debugging (Phone page ›
 Notifications from the phone), so `npm run dist` on each platform bundles the newest
 `android/dist/*-full.apk`.
 
@@ -633,6 +686,14 @@ certificate and password out of the repository. When `WIN_CSC_LINK` is set, the 
 if signing cannot complete instead of silently publishing an unsigned installer. Signing gives
 users a verified publisher and can help SmartScreen reputation build over time; it does not
 guarantee that antivirus products will stop flagging a file.
+
+## Thanks
+
+Multi-device is built on the mesh by Erdoğan Yeşil ([@erdodo](https://github.com/erdodo), [#29](https://github.com/InukaAsith/TwinDesk/pull/29)),
+who also contributed [#8](https://github.com/InukaAsith/TwinDesk/pull/8) and [#9](https://github.com/InukaAsith/TwinDesk/pull/9).
+Thanks too to [@Jay-Prajapati01](https://github.com/Jay-Prajapati01) for signed Windows installers
+([#13](https://github.com/InukaAsith/TwinDesk/pull/13)), and to everyone who reports problems and
+shares ideas in the [issues](https://github.com/InukaAsith/TwinDesk/issues).
 
 ## License
 
