@@ -3,7 +3,7 @@
 // disk or from the UI goes through normalize(), so main never stores anything out of range.
 const P = require('../shared/protocol.js');
 
-const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'general', 'about'];
+const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'multi', 'general', 'about'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 

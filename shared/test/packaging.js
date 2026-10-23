@@ -13,7 +13,7 @@ const shared = fs.readdirSync(path.join(ROOT, 'shared')).filter((f) => f.endsWit
 
 // 1. what the apps require from shared/ exists there (the app folders and their multi-device mesh/ folders)
 const required = new Set();
-for (const dir of ['windows', 'mac', 'linux', 'windows/mesh', 'mac/mesh']) {
+for (const dir of ['windows', 'mac', 'linux', 'windows/mesh', 'mac/mesh', 'linux/mesh']) {
   if (!fs.existsSync(path.join(ROOT, dir))) continue;
   for (const f of fs.readdirSync(path.join(ROOT, dir)).filter((n) => n.endsWith('.js'))) {
     for (const m of read(`${dir}/${f}`).matchAll(/require\('(?:\.\.\/)+shared\/([a-z0-9-]+(?:\.js)?)'\)/g)) {

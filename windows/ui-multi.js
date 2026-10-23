@@ -24,7 +24,7 @@ UI.tab({
           'Computers and phones connected at the same time: one clipboard and one set of notifications for all, each screen edge leading to another device, a phone and a computer together',
           [turnOn]),
       ]),
-      UI.note('info', 'TwinDesk restarts to turn it on or off, and connections drop for a moment. Turned off again, everything is as it was before. Windows and Mac computers take part; Linux and the phone app connect one to one.'),
+      UI.note('info', 'TwinDesk restarts to turn it on or off, and connections drop for a moment. Turned off again, everything is as it was before. Windows, Mac and Linux computers take part (Linux with other computers on the same network only); the phone app connects to one computer at a time.'),
     );
 
     return () => {};

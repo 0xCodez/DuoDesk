@@ -18,7 +18,7 @@ const STAGE = path.join(LIN, 'dist', 'stage');
 const pkg = require(path.join(LIN, 'package.json'));
 const electronVersion = require(path.join(LIN, 'node_modules', 'electron', 'package.json')).version;
 
-const SKIP = new Set(['node_modules', 'dist', 'installer', 'package-lock.json']);
+const SKIP = new Set(['node_modules', 'dist', 'installer', 'test', 'package-lock.json']); // tests (mesh/test) stay out of the package
 
 function copy(from, to, filter = () => true) {
   const st = fs.statSync(from);
@@ -55,6 +55,8 @@ async function main() {
     if (/\.(js|css|html)$/.test(name)) copy(path.join(ROOT, 'shared', name), path.join(STAGE, 'shared', name));
   }
   copy(path.join(ROOT, 'linux-helper', 'bin', 'macshare-linuxhelper'), path.join(STAGE, 'linux-helper', 'bin', 'macshare-linuxhelper'));
+  // Multi-device's helper (several watched edges, docs/multi-device.md): the same sources built with -DMULTI.
+  copy(path.join(ROOT, 'linux-helper', 'bin', 'macshare-linuxhelper-multi'), path.join(STAGE, 'linux-helper', 'bin', 'macshare-linuxhelper-multi'));
   copy(path.join(ROOT, 'linux-helper', 'bin', 'twindesk-wifiap'), path.join(STAGE, 'linux-helper', 'bin', 'twindesk-wifiap'));
   // A phone: its screen, apps and input go through adb and scrcpy-server (phone-bridge.js).
   if (!fs.existsSync(path.join(LIN, 'vendor', 'scrcpy-server'))) {

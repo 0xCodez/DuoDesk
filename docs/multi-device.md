@@ -39,13 +39,24 @@ It is off by default, and while it is off TwinDesk runs exactly the code it runs
 6. **Native helpers: two builds of the same sources.** What Multi-device adds (several watched sides,
    the side in the edge and return events) is inside `#if MULTI`: `windows-helper/src/CaptureMulti.cs`,
    `Program.cs`, `Json.cs`; `mac-helper`'s `Capture.swift` and `main.swift`, where the `#else` parts are
-   today's code as it was. `macshare-winhelper.exe` and `macshare-helper` are built without it and are
-   today's helpers; `macshare-winhelper-multi.exe` and `macshare-helper-multi` are built with it, and
-   only `mesh/helper.js` starts them. Without a `-multi` build the mesh starts the one-to-one helper,
+   today's code as it was. `macshare-winhelper.exe`, `macshare-helper` and `macshare-linuxhelper` are
+   built without it and are today's helpers; the `-multi` builds have it, and only `mesh/helper.js`
+   starts them. `linux-helper` reads the sides as `sideList` ("left,top"), as its JSON reader skips
+   arrays. Without a `-multi` build the mesh starts the one-to-one helper,
    which watches the first side (the mesh sends it as `side` too).
 7. **Android, first release: unchanged.** A multi-device computer sees today's phone app as a plain
    one-to-one device. A phone with several computers at once comes later, behind its own switch.
-8. **Linux** stays one-to-one for now: the mesh has no Linux link layer yet.
+8. **Linux** has Multi-device too (`linux/mesh/`), with less in it, to stay clear of what Bluetooth,
+   the desktops and the GPU drivers make fragile there:
+   - with it on, other computers connect to the Linux one over the same network only, never Bluetooth
+     (no `BleGuest`; `BleHost` and the Bluetooth policy take phones only; General's *Bluetooth with
+     computers* is left as the one-to-one app has it). Phones connect as before, Bluetooth included.
+   - screen sharing goes to the selected device, as today (no screen per device, no virtual display
+     per device);
+   - several watched edges on X11 (`macshare-linuxhelper-multi`); the Wayland backend watches one;
+   - Windows and Mac keep Bluetooth with each other in Multi-device.
+   A Linux computer with Multi-device off is a plain one-to-one peer to the others, with its Bluetooth
+   as today.
 9. **Join every device automatically** is off by default: with it on, a paired device can add another
    device to this one without a pairing code.
 
@@ -62,11 +73,14 @@ It is off by default, and while it is off TwinDesk runs exactly the code it runs
   `ui-multi.js`).
 - `mac/mesh/`: the same for the Mac (`services`, `pairing`, `clipboard`, `stream`/`streams`, `displays`,
   `control.html`, …).
+- `linux/mesh/`: the same for Linux, made from `windows/mesh/` with `linux/`'s own parts (notifications
+  read with dbus-monitor, sleep that ends every session and invites each device back: `sleepwake.js`).
 - A file in `mesh/` named like one a folder up is its mesh version: when a fix there applies to both,
   make it in both.
 - The design: [mesh.md](mesh.md) and [screen-mesh.md](screen-mesh.md).
 
-Tests: `node <file>` for each of `shared/test/*.js`, `windows/mesh/test/*.js` and `mac/mesh/test/*.js`,
+Tests: `node <file>` for each of `shared/test/*.js`, `windows/mesh/test/*.js`, `mac/mesh/test/*.js` and
+`linux/mesh/test/*.js`,
 with `NODE_PATH` set to `windows/node_modules`. `switch.test.js` checks rule 1 (off: nothing of the
 mesh is loaded) and the hand-over; `storage.test.js` checks rule 4. The installers leave `test` folders
 out.
@@ -79,10 +93,10 @@ out.
 3. Helpers: several watched sides in `-multi` builds of the same sources (rule 6); the fork's extra
    edge logging left out. *(done; the Windows helper built without `MULTI` has the same types,
    methods and IL as before, compared method by method; the Mac `-multi` build is still to be compiled
-   on a Mac)*
+   on a Mac; the Linux helper built without `MULTI` compiles to the same object files as before)*
 4. Real devices: two computers and a phone with the switch off (must match today), then on.
 5. Android: several computers at once, behind its own switch.
-6. Linux.
+6. Linux. *(done: computers over the network only, the screen to the selected device, several edges on X11)*
 
 ## Not part of this
 
