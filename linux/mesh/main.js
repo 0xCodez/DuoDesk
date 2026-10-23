@@ -207,7 +207,9 @@ function start() {
     mesh,
     selfId: device.id,
     storage: { get: () => settings.layout, set: (l) => { settings.layout = l; saveSettings(); } },
-    knownIds: () => hub.peers().map((p) => p.id),
+    knownIds: () => hub.peers({ indirect: true }).map((p) => p.id), // with those known through a peer: one map everywhere
+    canDrive: (pid) => { const s = hub.sessions.get(pid); return !!s && s.connected; }, // the Multi-device tab's reach
+    endsChain: (pid) => { const s = hub.sessions.get(pid); return !!s && s.peerOs === P.OS.ANDROID; },
     legacyEdges: () => settings.kvm.edges, // settings from before the layout: once
     onChange: () => { if (kvm) kvm.layoutChanged(); pushState(); },
   });

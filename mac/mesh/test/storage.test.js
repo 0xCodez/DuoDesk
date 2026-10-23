@@ -50,9 +50,9 @@ test('settings: layout and mesh go to multi.json; settings.json keeps the rest',
   reset({ 'settings.json': { kvm: { pcSide: 'left', speed: 2 } }, 'multi.json': { on: true } });
   const s = store.loadSettings();
   assert.strictEqual(s.kvm.pcSide, 'left');
-  assert.strictEqual(s.mesh.autoJoin, false, 'Join every device automatically is off by default');
+  assert.strictEqual(s.mesh.autoJoin, true, 'Join every device automatically is on by default');
   s.layout = { rev: 2, by: 'A', cells: { A: { x: 0, y: 0 } } };
-  s.mesh.autoJoin = true;
+  s.mesh.autoJoin = false; // switched off: kept
   store.saveSettings(s);
   const one = JSON.parse(raw('settings.json'));
   assert.strictEqual(one.layout, undefined, 'no layout in settings.json');
@@ -62,10 +62,10 @@ test('settings: layout and mesh go to multi.json; settings.json keeps the rest',
   const multi = JSON.parse(raw('multi.json'));
   assert.strictEqual(multi.on, true, 'the switch is kept');
   assert.strictEqual(multi.layout.rev, 2);
-  assert.strictEqual(multi.mesh.autoJoin, true);
+  assert.strictEqual(multi.mesh.autoJoin, false);
   const again = store.loadSettings();
   assert.strictEqual(again.layout.rev, 2);
-  assert.strictEqual(again.mesh.autoJoin, true);
+  assert.strictEqual(again.mesh.autoJoin, false, 'the choice is kept over the default');
   assert.strictEqual(base.loadSettings().layout, undefined, 'the one-to-one app sees no layout');
 });
 

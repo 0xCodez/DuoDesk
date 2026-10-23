@@ -57,8 +57,11 @@ It is off by default, and while it is off TwinDesk runs exactly the code it runs
    - Windows and Mac keep Bluetooth with each other in Multi-device.
    A Linux computer with Multi-device off is a plain one-to-one peer to the others, with its Bluetooth
    as today.
-9. **Join every device automatically** is off by default: with it on, a paired device can add another
-   device to this one without a pairing code.
+9. **Join every device automatically** is on by default, so every computer the mouse goes through ends up
+   connected to the others (a chain needs the computer whose mouse is used to be connected to each device
+   of it). With it on, a paired device can add another device to this one without a pairing code; off,
+   each pair of devices is paired by hand, and the layout shows in red a device the pointer stops before
+   (in the mesh, not connected here) and greys the ones past it.
 
 ## Where things are
 

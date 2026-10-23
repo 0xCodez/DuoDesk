@@ -61,9 +61,9 @@ function loadSettings() {
   const out = store.loadSettings();
   const m = store.read(MULTI, {});
   out.layout = m.layout; // the shared layout (layout-sync.js); none until one was edited
-  // Join every device automatically: off until switched on in the Multi-device tab, as it lets a paired
-  // device add others to this Mac without a pairing code.
-  out.mesh = { autoJoin: false, ...(m.mesh || {}) };
+  // Join every device automatically: on unless switched off in the Multi-device tab, so every computer the
+  // mouse goes through is connected to the others; a paired device can add others without a pairing code.
+  out.mesh = { autoJoin: true, ...(m.mesh || {}) };
   return out;
 }
 

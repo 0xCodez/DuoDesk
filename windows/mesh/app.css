@@ -237,6 +237,9 @@ input[type="text"]:focus, input[type="search"]:focus { outline: none; box-shadow
   border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
 .lay-tile.here { border-color: var(--accent); background: var(--accent-soft); }
 .lay-tile.off { opacity: 0.55; }
+.lay-tile.blocked { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); } /* in the mesh, not connected here */
+.lay-tile.blocked .lay-state { color: var(--bad); opacity: 1; }
+.lay-tile.behind { opacity: 0.4; filter: grayscale(1); } /* only past a device the pointer can't get to */
 .lay-tile.picked { box-shadow: 0 0 0 2px var(--accent); }
 .lay-tile .os-ico { flex: none; }
 .lay-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }

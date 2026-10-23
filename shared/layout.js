@@ -283,7 +283,52 @@ function grid(layout) {
   return { minX, maxX, minY, maxY, cells: ids.sort().map((id) => ({ id, x: l.cells[id].x, y: l.cells[id].y })) };
 }
 
+// An edit made on a view (`place`, `remove` on view(stored, known)) keeps the devices of the stored
+// layout that the editing device doesn't know (it never saw them, so it can't mean to take them
+// off): each goes back on its stored cell when that cell is still free. One whose cell was taken is
+// left out, and the devices that know it put it back at the end of the first row (`view`).
+function keepUnknown(edited, stored, known) {
+  const e = normalize(edited);
+  const s = normalize(stored);
+  const ids = new Set(known);
+  const cells = { ...e.cells };
+  for (const id of Object.keys(s.cells).sort()) {
+    if (ids.has(id) || cells[id] || Object.keys(cells).length >= MAX_CELLS) continue;
+    if (freeCell({ cells }, s.cells[id].x, s.cells[id].y)) cells[id] = { ...s.cells[id] };
+  }
+  return { rev: e.rev, by: e.by, cells };
+}
+
+// Which devices the mouse and keyboard of device selfId reach by crossing screen edges (docs/mesh.md,
+// "Chains"). selfId takes every device of a chain itself, so a device is reached when it is next to a
+// reached one by a side and selfId can drive it (`canDrive(id)`: connected to selfId); the chain goes
+// on past it unless it ends chains (`endsChain(id)`: a phone). Returns { [id]: state }: 'self',
+// 'reached', 'blocked' (next to a reached device, but selfId can't drive it: the pointer stops
+// before it) or 'behind' (only past a blocked device, or not joined to selfId at all).
+function reach(layout, selfId, canDrive, endsChain = () => false) {
+  const l = normalize(layout);
+  const out = {};
+  if (!l.cells[selfId]) return out;
+  for (const id of Object.keys(l.cells)) out[id] = 'behind';
+  out[selfId] = 'self';
+  const queue = [selfId];
+  while (queue.length) {
+    const id = queue.shift();
+    if (id !== selfId && endsChain(id)) continue;
+    const n = neighbors(l, id);
+    for (const side of SIDES) {
+      const to = n[side];
+      if (!to || out[to] !== 'behind') continue;
+      if (canDrive(to)) {
+        out[to] = 'reached';
+        queue.push(to);
+      } else out[to] = 'blocked';
+    }
+  }
+  return out;
+}
+
 module.exports = {
   SIDES, OPPOSITE, empty, normalize, canonical, newer, merge, neighbors, across, sideTo, view, place, remove, fromEdges, grid,
-  pieces, pack, joined, targets,
+  pieces, pack, joined, targets, reach, keepUnknown,
 };

@@ -191,6 +191,32 @@ test('a partial mesh (A and C have no direct link) still converges, through B', 
   }
 });
 
+test('a chain A-B-C-D linked side by side only: A draws C (known through B) as blocked, and an edit on A keeps D, which only the others know', async () => {
+  const N = await world(['A', 'B', 'C', 'D'], [['A', 'B'], ['B', 'C'], ['C', 'D']]);
+  try {
+    const { A, B, C, D } = N;
+    for (const n of all(N)) {
+      n.ls.knownIds = () => n.hub.peers({ indirect: true }).map((p) => p.id); // as main.js has it
+      n.ls.canDrive = (id) => { const s = n.hub.sessions.get(id); return !!s && s.connected; };
+    }
+    await waitFor(() => A.ls.view().cells[C.id] && B.ls.view().cells[D.id], 'A knows C through B, B knows D through C');
+    B.ls.place(A.id, 0, 0);
+    B.ls.place(B.id, 1, 0);
+    B.ls.place(C.id, 2, 0);
+    B.ls.place(D.id, 3, 0);
+    await waitFor(() => all(N).every((n) => n.ls.get() && n.ls.get().rev === 4), 'every node has the row');
+    const r = A.ls.state().reach;
+    assert.deepStrictEqual([r[A.id], r[B.id], r[C.id], r[D.id]], ['self', 'reached', 'blocked', undefined], 'two hops away, D is not known to A');
+    assert.strictEqual(A.ls.across('right', B.id), C.id, "A sees what B's right edge leads to");
+    assert.strictEqual(A.ls.place(A.id, 1, 1), true); // A moves under B
+    await waitFor(() => all(N).every((n) => n.ls.get().rev === 5), 'the edit reaches every node');
+    assert.ok(A.ls.get().cells[C.id] && A.ls.get().cells[D.id], "A's edit keeps C, and D that only the others know");
+    assert.deepStrictEqual(D.ls.view().cells[D.id], { x: 3, y: 0 }, 'D is where it was');
+  } finally {
+    closeAll(N);
+  }
+});
+
 test('a device that is forgotten leaves the view of the device that forgot it; the others keep it', async () => {
   const N = await world(['A', 'B', 'C'], full(['A', 'B', 'C']));
   try {

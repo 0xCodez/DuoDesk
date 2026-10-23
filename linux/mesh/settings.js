@@ -15,9 +15,9 @@ function normalize(s) {
   const ms = s.mesh || {};
   out.kvm.edges = E.normalizeEdges(kvm.edges); // each side of this screen -> the paired device behind it (shared/kvm-edges.js)
   out.layout = storedLayout(s.layout); // the mesh's shared layout (mesh/layout-sync.js); null until one was edited
-  // Joining everyone (docs/mesh.md): off until switched on in the Multi-device tab, as it lets a paired
-  // device add others to this computer without a pairing code.
-  out.mesh = { autoJoin: bool(ms.autoJoin, false) };
+  // Joining everyone (docs/mesh.md): on unless switched off in the Multi-device tab, so every computer
+  // the mouse goes through is connected to the others; a paired device can add others without a code.
+  out.mesh = { autoJoin: bool(ms.autoJoin, true) };
   return out;
 }
 

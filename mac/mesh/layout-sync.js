@@ -7,7 +7,10 @@
 //   mesh      shared/mesh.js Mesh (its peers are the pool's view; only mesh-capable ones get the layout)
 //   selfId    this device's id
 //   storage   { get() -> the stored layout (or null), set(layout) } : settings.layout
-//   knownIds  () -> ids of the devices the layout is drawn for (the paired ones)
+//   knownIds  () -> ids of the devices the layout is drawn for (the paired ones and those known
+//             through them, so every device draws the same map and an edit keeps them all)
+//   canDrive  optional (id) -> this device can drive it (connected): the editor's reach
+//   endsChain optional (id) -> a chain stops at it (a phone)
 //   legacyEdges  optional () -> { left, right, top, bottom } : settings.kvm.edges, used once when no
 //                layout is stored yet
 //   onChange  () -> the layout changed (stored or seen)
@@ -36,6 +39,8 @@ class LayoutSync {
     this.selfId = opts.selfId;
     this.storage = opts.storage;
     this.knownIds = opts.knownIds;
+    this.canDrive = opts.canDrive || (() => true);
+    this.endsChain = opts.endsChain || (() => false);
     this.onChange = opts.onChange || (() => {});
     this.pool = new Pool({ name: 'layout', selfId: this.selfId, peers: () => this._peers() });
 
@@ -79,12 +84,14 @@ class LayoutSync {
   }
 
   // Plain data for the editor: rev, who edited last, the cells shown, the grid to draw and, per
-  // device, the empty cells it may be put on ("x,y": next to another device, shared/layout.js).
+  // device, the empty cells it may be put on ("x,y": next to another device, shared/layout.js) and
+  // whether this device's mouse gets there (reach: self, reached, blocked, behind; L.reach).
   state() {
     const v = this.view();
     const targets = {};
     for (const id of Object.keys(v.cells)) targets[id] = L.targets(v, id).map((c) => c.x + ',' + c.y);
-    return { rev: this.layout.rev, by: this.layout.by, cells: v.cells, grid: L.grid(v), targets };
+    const reach = L.reach(v, this.selfId, (id) => this.canDrive(id), (id) => this.endsChain(id));
+    return { rev: this.layout.rev, by: this.layout.by, cells: v.cells, grid: L.grid(v), targets, reach };
   }
 
   // A person's edit: device id goes to cell (x, y); a device that was there moves to id's old cell.
@@ -92,7 +99,7 @@ class LayoutSync {
     if (!this._isKnown(id)) return false;
     const r = L.place(this.view(), id, x, y, this.selfId);
     if (!r.ok) return false;
-    this._commit(r.layout);
+    this._commit(L.keepUnknown(r.layout, this.layout, this._known())); // devices only others know stay on it
     return true;
   }
 
@@ -101,7 +108,7 @@ class LayoutSync {
   remove(id) {
     if (typeof id !== 'string' || !id || !this.layout.cells[id]) return false;
     const base = L.view(this.layout, [...this._known(), id]);
-    this._commit(L.remove(base, id, this.selfId));
+    this._commit(L.keepUnknown(L.remove(base, id, this.selfId), this.layout, [...this._known(), id]));
     return true;
   }
 

@@ -69,10 +69,10 @@ test('settings: the mesh keys go to multi.json, settings.json keeps the one-to-o
   reset({ 'settings.json': { kvm: { pcSide: 'left', speed: 1.5 } }, 'multi.json': { on: true } });
   const s = M.load(base);
   assert.strictEqual(s.kvm.pcSide, 'left');
-  assert.strictEqual(s.mesh.autoJoin, false, 'Join every device automatically is off by default');
+  assert.strictEqual(s.mesh.autoJoin, true, 'Join every device automatically is on by default');
   s.kvm.edges = { left: null, right: 'B', top: null, bottom: null };
   s.layout = { rev: 1, by: 'A', cells: { A: { x: 0, y: 0 }, B: { x: 1, y: 0 } } };
-  assert.strictEqual(M.apply(s, 'mesh', { autoJoin: true }), true);
+  assert.strictEqual(M.apply(s, 'mesh', { autoJoin: false }), true);
   assert.deepStrictEqual(s.kvm.edges.right, 'B', 'apply keeps the edges');
   assert.ok(s.layout && s.layout.rev === 1, 'apply keeps the layout');
   M.save(base, s);
@@ -85,11 +85,11 @@ test('settings: the mesh keys go to multi.json, settings.json keeps the one-to-o
   const multi = read('multi.json');
   assert.strictEqual(multi.on, true, 'the switch is kept');
   assert.strictEqual(multi.kvm.edges.right, 'B');
-  assert.strictEqual(multi.mesh.autoJoin, true);
+  assert.strictEqual(multi.mesh.autoJoin, false);
   const again = M.load(base);
   assert.strictEqual(again.kvm.edges.right, 'B');
   assert.strictEqual(again.layout.rev, 1);
-  assert.strictEqual(again.mesh.autoJoin, true);
+  assert.strictEqual(again.mesh.autoJoin, false, 'the choice is kept over the default');
 });
 
 runTests(tests);

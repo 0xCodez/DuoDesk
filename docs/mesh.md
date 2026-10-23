@@ -113,6 +113,10 @@ the phone on the Mac's right, every screen shows exactly that. The rules are in 
   moves away or is taken off from between others slides back the shortest way until it touches the
   rest (`pack`; the device just put down stays where it was put). `view()` packs too, so a stored
   layout with gaps (an older app's, or devices that are gone) is shown, and next edited, in one piece.
+- The known ids are the paired devices and those known through a connected one (`hub.peers()` with the
+  indirect ones, `Mesh.known()`: two hops), so devices draw the same map. An edit keeps the devices of the
+  stored layout that the editing device doesn't know on their cells (`keepUnknown`): a device three hops
+  away is not taken off by an edit made where it isn't known.
 - Only a person's edit changes the stored layout (`place`, `remove`: rev + 1, `by` = the editing
   device). Devices that appeared or went away are handled by `view()`, computed identically on every
   device from the same layout and the same known ids, never stored or sent.
@@ -130,7 +134,12 @@ the phone on the Mac's right, every screen shows exactly that. The rules are in 
   helpers' return watch covers every edge that has a neighbour (`armReturn { sides }`, and the `return`
   event carries `side`). A phone driven through the owner's wireless debugging ends a chain: it has no
   edges of its own beyond the one it was entered by.
-- The editor (Cursor tab, every desktop app) draws the grid with every device as a tile; click a
+- Reach (`reach`, in the layout state for the editor): a chain gets only to devices the owner is connected
+  to, as the owner takes each one itself (`kvm.next` past a device it has no link to is ignored, and a
+  driven computer passes input on only to a phone of its own). From this device, a tile is reached
+  (next to a reached one, connected here), blocked (the pointer stops before it: red when it is in the
+  mesh but not connected here) or behind (only past a blocked one: greyed).
+- The editor (Multi-device tab, every desktop app) draws the grid with every device as a tile; click a
   tile and a free cell, or a tile and another tile to swap. Android stores and relays the layout and
   can end a chain; editing from the phone is not in this change.
 
@@ -196,7 +205,7 @@ Security: the introducer is a trusted device. Anyone you paired with can make th
 device (H side) or add a host (G side), so pair only devices you trust. The introducer only forwards a
 reply for a request it made, from the host it asked, once; a host never grants for the asker or itself,
 nor for a device that is connected now, and at most once per device in 10 s. The token goes through the
-authenticated TLS links only. Setting `mesh.autoJoin` (default on, General › "Join every device
+authenticated TLS links only. Setting `mesh.autoJoin` (default on, Multi-device › "Join every device
 automatically"): when off, the PC neither introduces nor accepts. Old apps ignore the `mesh.intro.*`
 messages.
 

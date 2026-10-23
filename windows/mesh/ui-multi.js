@@ -28,6 +28,7 @@ UI.tab({
     let picked = null; // the device id picked, waiting for a place or another tile
     let last = null; // the last state, to draw the grid again
     const layoutHint = UI.note('info', '');
+    const reachNote = UI.note('warn', ''); // the devices the pointer can't get to from here, and why
     const gridEl = UI.el('div', { class: 'layout-grid' });
 
     const cellOf = (id) => (last && last.layout && last.layout.cells[id]) || null;
@@ -71,11 +72,19 @@ UI.tab({
       move(id, x, y);
     }
 
-    function tile(id, info) {
-      const state = info.self ? 'This PC' : info.connected ? 'Connected' : 'Not connected';
+    // reach (L.reach, from layout-sync): 'blocked', the pointer stops before it, shown red when the device
+    // is in the mesh but not connected to this PC (one that is off is just off); 'behind', only past such a
+    // device, greyed: the mouse and keyboard here get to neither (docs/mesh.md, "Chains").
+    function tile(id, info, reach) {
+      const red = reach === 'blocked' && info.via;
+      const state = info.self ? 'This PC' : red ? 'Not paired here' : reach === 'behind' ? 'Out of reach'
+        : info.connected ? 'Connected' : 'Not connected';
+      const why = red ? ': not connected to this PC, so the pointer stops before it'
+        : reach === 'behind' ? ': the pointer gets there only past a device it can\'t reach from here' : '';
       return UI.el('button', {
-        class: 'lay-tile' + (info.self ? ' here' : '') + (info.connected || info.self ? '' : ' off') + (picked === id ? ' picked' : ''),
-        attrs: { type: 'button', title: info.name + ' — ' + state },
+        class: 'lay-tile' + (info.self ? ' here' : '') + (info.connected || info.self || red ? '' : ' off') + (red ? ' blocked' : '')
+          + (reach === 'behind' ? ' behind' : '') + (picked === id ? ' picked' : ''),
+        attrs: { type: 'button', title: info.name + ' — ' + state + why },
         onclick: () => onTile(id),
       }, [
         UI.osIcon(info.os),
@@ -100,7 +109,7 @@ UI.tab({
       if (picked && !lay.cells[picked]) picked = null; // a device that is gone cannot be moved
       const people = new Map([[s.device.id, { name: s.device.name || 'This PC', os: 'win', connected: true, self: true }]]);
       for (const d of s.peers || []) {
-        if (d && d.id) people.set(d.id, { name: d.name || d.id.slice(0, 8), os: d.os, connected: !!d.connected, self: false });
+        if (d && d.id) people.set(d.id, { name: d.name || d.id.slice(0, 8), os: d.os, connected: !!d.connected, self: false, via: d.state === 'via' });
       }
       const at = new Map();
       for (const id of Object.keys(lay.cells)) at.set(lay.cells[id].x + ',' + lay.cells[id].y, id);
@@ -110,10 +119,17 @@ UI.tab({
       for (let y = g.minY; y <= g.maxY; y++) {
         for (let x = g.minX; x <= g.maxX; x++) {
           const id = at.get(x + ',' + y);
-          cells.push(id ? tile(id, people.get(id) || { name: id.slice(0, 8), os: '', connected: false, self: false }) : place(x, y));
+          cells.push(id ? tile(id, people.get(id) || { name: id.slice(0, 8), os: '', connected: false, self: false }, lay.reach && lay.reach[id]) : place(x, y));
         }
       }
       gridEl.replaceChildren(...cells);
+      const reach = lay.reach || {};
+      const red = Object.keys(reach).filter((id) => reach[id] === 'blocked' && (people.get(id) || {}).via);
+      const them = red.length > 1 ? 'them' : 'it';
+      reachNote.set(red.length ? red.map((id) => people.get(id).name).join(', ') + (red.length > 1 ? ' aren\'t' : ' isn\'t')
+        + ' connected to this PC, so the pointer stops before ' + them
+        + (Object.values(reach).includes('behind') ? ' and doesn\'t get to the devices past ' + them : '')
+        + '. Pair ' + them + ' with this PC' + ((s.mesh || {}).autoJoin === true ? '' : ', or turn on Join every device automatically') + '.' : '');
       layoutHint.set(picked
         ? 'Now click a lit place next to another device to move it there, or another device to swap places.'
         : 'Click a device, then a place next to another device to move it there, or another device to swap places. Devices sit side by side, with no empty space between them.');
@@ -126,7 +142,7 @@ UI.tab({
       UI.card('Multi-device', [
         UI.row('Use several devices at once', 'On. Turned off, TwinDesk restarts and connects one to one, as it was before', [turnOff]),
       ]),
-      UI.card('Layout', [gridEl, layoutHint], { cls: 'keep-on' }),
+      UI.card('Layout', [gridEl, reachNote, layoutHint], { cls: 'keep-on' }),
       UI.card('Joining', [joinRow]),
     );
 

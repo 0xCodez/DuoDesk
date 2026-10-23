@@ -198,4 +198,42 @@ const L = require('../layout');
   assert.deepStrictEqual(L.grid(L.empty()).cells, []);
 }
 
+// ---- reach: what this device's mouse gets to through the chain ----
+{
+  // W1 - W2 - W3 - W4, W1 not connected to W3: the pointer stops at W2's edge and W4 is behind W3
+  const row = { rev: 1, by: 'w1', cells: { w1: { x: 0, y: 0 }, w2: { x: 1, y: 0 }, w3: { x: 2, y: 0 }, w4: { x: 3, y: 0 } } };
+  const conn = (ids) => (id) => ids.includes(id);
+  assert.deepStrictEqual(L.reach(row, 'w1', conn(['w2', 'w4'])), { w1: 'self', w2: 'reached', w3: 'blocked', w4: 'behind' });
+  assert.deepStrictEqual(L.reach(row, 'w1', conn(['w2', 'w3', 'w4'])), { w1: 'self', w2: 'reached', w3: 'reached', w4: 'reached' });
+  // seen from W3 (connected to W2 and W4 only): both ways out, and W1 past W2 is blocked
+  assert.deepStrictEqual(L.reach(row, 'w3', conn(['w2', 'w4'])), { w1: 'blocked', w2: 'reached', w3: 'self', w4: 'reached' });
+  // a phone ends a chain: what is past it is behind
+  assert.deepStrictEqual(L.reach(row, 'w1', conn(['w2', 'w3', 'w4']), (id) => id === 'w2'), { w1: 'self', w2: 'reached', w3: 'behind', w4: 'behind' });
+  // another way round: W4 is reached under W1 and W2 when W3 is blocked
+  const l2 = { rev: 1, by: 'a', cells: { a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, c: { x: 1, y: 1 }, d: { x: 2, y: 1 } } };
+  assert.deepStrictEqual(L.reach(l2, 'a', conn(['c', 'd'])), { a: 'self', b: 'blocked', c: 'behind', d: 'behind' });
+  assert.deepStrictEqual(L.reach(l2, 'a', conn(['b', 'd'])), { a: 'self', b: 'reached', c: 'blocked', d: 'behind' });
+  assert.deepStrictEqual(L.reach(l2, 'a', conn(['b', 'c', 'd'])), { a: 'self', b: 'reached', c: 'reached', d: 'reached' });
+  assert.deepStrictEqual(L.reach(row, 'zz', () => true), {}, 'not on the layout: nothing');
+}
+
+// ---- keepUnknown: an edit keeps the devices only others know ----
+{
+  const stored = { rev: 4, by: 'b', cells: { a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, c: { x: 2, y: 0 }, d: { x: 3, y: 0 } } };
+  // a knows a, b, c: it moves itself under b; d (unknown to a) stays where it was
+  const r = L.place(L.view(stored, ['a', 'b', 'c']), 'a', 1, 1, 'a');
+  assert.ok(r.ok);
+  const kept = L.keepUnknown(r.layout, stored, ['a', 'b', 'c']);
+  assert.deepStrictEqual(kept.cells.d, { x: 3, y: 0 }, 'd keeps its cell');
+  assert.strictEqual(kept.rev, 5);
+  assert.deepStrictEqual(L.view(kept, ['a', 'b', 'c', 'd']).cells, { a: { x: 1, y: 1 }, b: { x: 1, y: 0 }, c: { x: 2, y: 0 }, d: { x: 3, y: 0 } });
+  // its cell taken by the edit: left out, and a device that knows it puts it at the end of row 0
+  const r2 = L.place(L.view(stored, ['a', 'b', 'c']), 'a', 3, 0, 'a');
+  const k2 = L.keepUnknown(r2.layout, stored, ['a', 'b', 'c']);
+  assert.ok(!k2.cells.d || Object.keys(k2.cells).filter((id) => k2.cells[id].x === 3 && k2.cells[id].y === 0).length === 1, 'never two on a cell');
+  assert.ok(L.view(k2, ['a', 'b', 'c', 'd']).cells.d, 'd is still drawn where it is known');
+  // a device it knows and took off stays off
+  assert.ok(!L.keepUnknown(L.remove(stored, 'c', 'a'), stored, ['a', 'b', 'c']).cells.c);
+}
+
 console.log('layout: passed');

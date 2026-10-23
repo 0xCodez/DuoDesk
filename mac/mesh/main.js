@@ -507,6 +507,8 @@ app.whenReady().then(() => {
     selfId: id.macId,
     storage: { get: () => settings.layout, set: (l) => { settings.layout = l; store.saveSettings(settings); } },
     knownIds: () => hub.peers().map((p) => p.id),
+    canDrive: (pid) => { const s = hub.sessions.get(pid); return !!s && s.connected; }, // the Multi-device tab's reach
+    endsChain: (pid) => { const s = hub.sessions.get(pid); return !!s && s.peerOs === P.OS.ANDROID; },
     legacyEdges: () => {
       const k = settings.kvm || {};
       if (k.edges && Object.values(k.edges).some(Boolean)) return k.edges;
