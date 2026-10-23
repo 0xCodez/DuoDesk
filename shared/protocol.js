@@ -22,6 +22,14 @@
     PHONE_GRACE_MS: 30000,
     PING_MS: 1000,
     TIMEOUT_MS: 4000, // close the session after this much silence
+    // Multi-device only (docs/mesh.md): many devices at once. A link that is selected, driving or being
+    // driven keeps PING_MS/TIMEOUT_MS; the others are checked more rarely so ten links cost little.
+    MAX_DEVICES: 10,
+    IDLE_PING_MS: 5000,
+    IDLE_TIMEOUT_MS: 15000,
+    INBOUND_WAIT_MS: 5000, // two computers that hold each other as hosts: the larger id waits this long for the other to dial
+    POOL_SEEN_LIMIT: 200, // (origin, seq) pairs remembered per pool for dedupe
+    POOL_MAX_HOPS: 9, // one less than MAX_DEVICES: enough for a chain of ten (duplicates are dropped, so no storms)
     BLE_TIMEOUT_MS: 20000, // the same through Bluetooth, where one big message takes seconds
     PAIR_TIMEOUT_MS: 60000,
     UNAUTH_TIMEOUT_MS: 70000, // Mac closes sockets that never authenticate
@@ -92,6 +100,7 @@
       KVM_RELEASE: 'kvm.release',
       KVM_HOME: 'kvm.home',
       KVM_LINK: 'kvm.link', // either {on}: mouse and keyboard sharing switched on/off (hotkey double-tap); the other side follows
+      KVM_NEXT: 'kvm.next', // multi-device: {route, to, side, offset}: a device we drive reached an edge that leads to device `to` (docs/mesh.md)
       K_MOVE: 'k.mm',
       K_DOWN: 'k.md',
       K_UP: 'k.mu',
