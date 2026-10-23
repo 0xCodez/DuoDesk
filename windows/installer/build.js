@@ -66,6 +66,10 @@ async function main() {
   copy(path.join(ROOT, 'shared'), path.join(STAGE, 'shared'), (name) => /\.(js|css|html)$/.test(name));
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
+  // Multi-device's helper (several watched sides, docs/multi-device.md): the same sources built with MULTI.
+  const multiHelper = path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper-multi.exe');
+  if (fs.existsSync(multiHelper)) copy(multiHelper, path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper-multi.exe'));
+  else console.log('note: no windows-helper/bin/macshare-winhelper-multi.exe — Multi-device uses the one-to-one helper (one edge)');
   // The calls' sound on this PC (callaudio.js): its .exe, its signed package and that certificate.
   for (const f of ['macshare-calls.exe', 'twindesk-calls.msix', 'twindesk-calls.cer']) {
     const from = path.join(ROOT, 'windows-helper', 'bin', f);

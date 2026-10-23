@@ -10,6 +10,13 @@ swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13.0" \
   -framework CoreGraphics -framework AppKit -framework ApplicationServices -framework IOKit -framework ScreenCaptureKit -framework CoreMedia -framework NetFS -framework CoreBluetooth -framework CoreWLAN -framework CoreLocation -lsqlite3 \
   Sources/macshare-helper/*.swift -o .build/release/macshare-helper
 echo "built .build/release/macshare-helper"
+# Multi-device's helper (docs/multi-device.md): the same sources with -D MULTI, several watched edges
+# (the #if MULTI parts of Capture.swift and main.swift); only mac/mesh starts it.
+swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13.0" -D MULTI \
+  -I Sources/VirtualDisplayBridge/include \
+  -framework CoreGraphics -framework AppKit -framework ApplicationServices -framework IOKit -framework ScreenCaptureKit -framework CoreMedia -framework NetFS -framework CoreBluetooth -framework CoreWLAN -framework CoreLocation -lsqlite3 \
+  Sources/macshare-helper/*.swift -o .build/release/macshare-helper-multi
+echo "built .build/release/macshare-helper-multi"
 swiftc -O -swift-version 5 -target "$(uname -m)-apple-macos13.0" -framework AppKit \
   Sources/macshare-dockstub/main.swift -o .build/release/macshare-dockstub
 echo "built .build/release/macshare-dockstub"

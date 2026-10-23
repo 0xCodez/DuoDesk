@@ -500,7 +500,8 @@ class Kvm extends EventEmitter {
 
   // The helper crossed one of our edges (ev.side) at ev.offset: take the device behind it.
   _onEdge(ev) {
-    const side = E.SIDES.includes(ev.side) ? ev.side : null;
+    // The one-to-one helper (macshare-helper-multi not built) says no side: it watches the first one we sent.
+    const side = E.SIDES.includes(ev.side) ? ev.side : this._watchedSides()[0] || null;
     const id = side ? this.edges[side] : null;
     if (this.mode !== 'home' || !id || !this._canDriveTo(id) || !this.cfg.mouse || (this.blockEdge && this.blockEdge())) {
       // The helper already captures (it started at the edge); undo that if we can't cross.

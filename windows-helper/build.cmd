@@ -27,6 +27,15 @@ set OLD=macshare-winhelper.old.exe
 if exist "%BIN%\%OLD%" set OLD=macshare-winhelper.old-%RANDOM%.exe
 if exist "%BIN%\macshare-winhelper.exe" ren "%BIN%\macshare-winhelper.exe" %OLD%
 ren "%BIN%\macshare-winhelper.new.exe" macshare-winhelper.exe
+rem Multi-device's helper (docs/multi-device.md): the same sources with MULTI, several watched sides
+rem (CaptureMulti.cs); only windows/mesh starts it. Without MULTI the code above is the one-to-one helper's.
+"%CSC%" /nologo /optimize+ /platform:anycpu /target:exe /define:MULTI /out:"%BIN%\macshare-winhelper-multi.new.exe" ^
+  /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll %WINRT% "%~dp0src\*.cs" || exit /b 1
+del /q "%BIN%\macshare-winhelper-multi.old*.exe" 2>nul
+set OLD=macshare-winhelper-multi.old.exe
+if exist "%BIN%\%OLD%" set OLD=macshare-winhelper-multi.old-%RANDOM%.exe
+if exist "%BIN%\macshare-winhelper-multi.exe" ren "%BIN%\macshare-winhelper-multi.exe" %OLD%
+ren "%BIN%\macshare-winhelper-multi.new.exe" macshare-winhelper-multi.exe
 rem The calls' sound on this PC (windows/callaudio.js): its own .exe with its own manifest (calls\),
 rem and the signed sparse package that gives it an identity (pack.ps1). A Windows app, not a console
 rem one: Windows starts it by itself on a call (phoneCallActivation), and a console app opened a terminal.

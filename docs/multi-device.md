@@ -36,9 +36,13 @@ It is off by default, and while it is off TwinDesk runs exactly the code it runs
 5. **Older devices and devices with it off** are plain one-to-one peers to a multi-device one: no
    roster, no relayed items. Their `kvm.layout` places them where they say, as the one-to-one app does;
    between mesh devices the shared layout is the one map.
-6. **Native helpers** are one binary each. What the mesh adds (several watched sides) is used only when
-   the mesh sends it; without it a helper does what it does today. Until the helpers know several sides,
-   the mesh sends the first one as `side` too, so today's helpers watch that one.
+6. **Native helpers: two builds of the same sources.** What Multi-device adds (several watched sides,
+   the side in the edge and return events) is inside `#if MULTI`: `windows-helper/src/CaptureMulti.cs`,
+   `Program.cs`, `Json.cs`; `mac-helper`'s `Capture.swift` and `main.swift`, where the `#else` parts are
+   today's code as it was. `macshare-winhelper.exe` and `macshare-helper` are built without it and are
+   today's helpers; `macshare-winhelper-multi.exe` and `macshare-helper-multi` are built with it, and
+   only `mesh/helper.js` starts them. Without a `-multi` build the mesh starts the one-to-one helper,
+   which watches the first side (the mesh sends it as `side` too).
 7. **Android, first release: unchanged.** A multi-device computer sees today's phone app as a plain
    one-to-one device. A phone with several computers at once comes later, behind its own switch.
 8. **Linux** stays one-to-one for now: the mesh has no Linux link layer yet.
@@ -72,8 +76,10 @@ out.
 1. Import the mesh as new files, its tests passing. *(done)*
 2. Windows and Mac: the switch and the Multi-device tab, the mesh app in `mesh/`, its own storage,
    `kvm.layout` from older peers. *(done)*
-3. Helpers: several watched sides (Windows `Capture.cs`, Mac `Capture.swift`), used only when `sides` is
-   sent; the extra edge logging left out.
+3. Helpers: several watched sides in `-multi` builds of the same sources (rule 6); the fork's extra
+   edge logging left out. *(done; the Windows helper built without `MULTI` has the same types,
+   methods and IL as before, compared method by method; the Mac `-multi` build is still to be compiled
+   on a Mac)*
 4. Real devices: two computers and a phone with the switch off (must match today), then on.
 5. Android: several computers at once, behind its own switch.
 6. Linux.

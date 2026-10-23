@@ -6,7 +6,7 @@
 'use strict';
 
 const { powerSaveBlocker } = require('electron');
-const { Helper } = require('../helper');
+const { Helper } = require('./helper'); // Multi-device's helper (several watched edges), else the one-to-one one
 const { Displays } = require('./displays');
 const { Stream } = require('./stream');
 const { StreamSet } = require('./streams');

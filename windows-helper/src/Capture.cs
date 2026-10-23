@@ -3,6 +3,8 @@
 // GPL-3.0. Changed: C# port of win_app/capture_win.py hooks and raw-mouse edge push.
 // Low-level hooks (capture + hotkey), Raw Input (edge push at home, local return-edge motion),
 // dead-man timer and the safety rules. Hook callbacks only decide and enqueue.
+// The parts inside #if !MULTI are the one side of the one-to-one app; macshare-winhelper-multi.exe
+// (built with MULTI, docs/multi-device.md) has CaptureMulti.cs in their place.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -11,10 +13,12 @@ using System.Windows.Forms;
 
 namespace MacShare
 {
-    class Capture
+    partial class Capture
     {
         // config (kvmConfig)
+#if !MULTI
         public string Side;          // crossing side of this PC (null = unknown)
+#endif
         public double ResistancePx = 120;
         // kvmConfig hotkey: one key, or the left and right one ("both")
         public HashSet<uint> HotkeyVks = new HashSet<uint> { 0xA5 }; // Right Alt
@@ -34,8 +38,10 @@ namespace MacShare
         DateTime lastCmd = DateTime.UtcNow;
 
         // edge push (home) and return edge (driven)
+#if !MULTI
         double push; DateTime lastPush;
         bool retArmed; string retSide; double retResistance, retPush; DateTime retLast;
+#endif
 
         // hotkey double-tap
         bool hkDown; DateTime lastTapUp = DateTime.MinValue;
@@ -145,6 +151,7 @@ namespace MacShare
 
         // ---- capture on/off ----
 
+#if !MULTI
         public void Begin(bool mouse, bool keys)
         {
             if (capturing) { capMouse = mouse; capKeys = keys; return; }
@@ -189,9 +196,11 @@ namespace MacShare
             }
             push = 0;
         }
+#endif
 
         public bool Capturing { get { return capturing; } }
 
+#if !MULTI
         public void ArmReturn(bool on, string side, double resistance)
         {
             retArmed = on && side != null;
@@ -199,6 +208,7 @@ namespace MacShare
             retResistance = resistance;
             retPush = 0;
         }
+#endif
 
         void Tick()
         {
@@ -404,6 +414,7 @@ namespace MacShare
             return (Native.GetAsyncKeyState(0x01) & 0x8000) != 0 || (Native.GetAsyncKeyState(0x02) & 0x8000) != 0 || (Native.GetAsyncKeyState(0x04) & 0x8000) != 0;
         }
 
+#if !MULTI
         void OnRawMove(int dx, int dy)
         {
             Watchdog();
@@ -444,6 +455,7 @@ namespace MacShare
             d["offset"] = Math.Round(Screens.Offset(x, y, retSide), 4);
             emit(d);
         }
+#endif
 
         // Message-only window that receives WM_INPUT for the mouse (usage page 1, usage 2) and, since
         // The precision touchpad (digitizer page 0x0D, usage 5) for Touchpad.cs.

@@ -46,6 +46,20 @@ namespace MacShare
             return d != null && d.TryGetValue(k, out v) && v is bool ? (bool)v : def;
         }
 
+#if MULTI
+        // An array of strings (non-strings skipped); null when the key is absent or not an array.
+        public static List<string> Strs(Dictionary<string, object> d, string k)
+        {
+            object v;
+            // JavaScriptSerializer hands nested arrays over as ArrayList (object[] in some paths): take either.
+            System.Collections.IEnumerable arr = d != null && d.TryGetValue(k, out v) ? v as System.Collections.IEnumerable : null;
+            if (arr == null || arr is string) return null;
+            List<string> r = new List<string>();
+            foreach (object o in arr) if (o is string) r.Add((string)o);
+            return r;
+        }
+#endif
+
         public static Dictionary<string, object> Obj(Dictionary<string, object> d, string k)
         {
             object v;
