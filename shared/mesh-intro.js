@@ -1,8 +1,8 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Multi-device (Mesh mode, beta) in the one-to-one app: the picture of a mesh on its tab, and the popup
-// before it's turned on, which says what is still rough in it (docs/multi-device.md).
+// before it's turned on, which says it's in beta (docs/multi-device.md).
 //   MeshIntro.art()                 -> an element: devices, each one linked to every other
-//   MeshIntro.confirm(os, onTurnOn) -> the popup (styled as pairpop.js's .pair-pop); Turn on calls onTurnOn
+//   MeshIntro.confirm(onTurnOn)     -> the popup (styled as pairpop.js's .pair-pop); Turn on calls onTurnOn
 (function () {
   // Each device: [kind, x, y]. Lines join every pair, as the mesh does.
   const NODES = [['monitor', 110, 78], ['laptop', 320, 46], ['monitor', 530, 84], ['phone', 214, 196], ['laptop', 430, 200]];
@@ -45,22 +45,14 @@
     return wrap;
   }
 
-  // What's rough so far, said before it's turned on. os: 'mac' | 'win' | 'linux'.
-  function confirm(os, onTurnOn) {
+  // Said before it's turned on: it's in beta, and with two devices the one-to-one app is the one to use.
+  function confirm(onTurnOn) {
     const el = (tag, cls, text) => {
       const e = document.createElement(tag);
       if (cls) e.className = cls;
       if (text) e.textContent = text;
       return e;
     };
-    const here = os === 'mac' ? 'this Mac' : os === 'win' ? 'this PC' : 'this computer';
-    const rough = [
-      `Dragging files across a screen edge goes one device only: from ${here} to the device next to it${os === 'mac' ? '' : ', and across one edge of the screen'}. Send files to the others from the Files page.`,
-      `The mouse gets only to devices ${here} is connected to. Join every device automatically (on) connects them by itself; the layout shows in red what it can't reach.`,
-      'Settings both modes have (cursor, clipboard, keys…) are the same in both: what you change in Mesh mode stays when you turn it off. Your pairings come back as they were.',
-      'The phone app connects to one computer at a time.',
-    ];
-    if (os === 'linux') rough.push('Other computers connect to this one over the same network only, not Bluetooth.');
 
     const pop = el('div', 'pair-pop mesh-pop');
     pop.setAttribute('role', 'dialog');
@@ -68,13 +60,11 @@
     const body = el('div', 'pop-body');
     const title = el('strong', '', 'Turn on Multi-device? ');
     title.append(el('span', 'pill beta', 'Mesh · Beta'));
-    const list = el('ul', 'mesh-rough');
-    for (const t of rough) list.append(el('li', '', t));
     body.append(
       title,
-      el('p', '', 'Mesh mode is new. It works, but some parts are still rough, and they get proper fixes along the way:'),
-      list,
-      el('div', 'hint', 'You may run into problems with TwinDesk Mesh. If you do, turn it off on this page (TwinDesk restarts as it was) and tell us on GitHub.'),
+      el('p', '', 'Mesh mode is still in beta, and you may run into some issues with it.'),
+      el('p', '', 'If you connect only two devices, keep it off.'),
+      el('div', 'hint', 'You can turn it off again on this page: TwinDesk restarts as it was.'),
     );
     const cancel = el('button', 'btn', 'Cancel');
     const ok = el('button', 'btn primary', 'Turn on');

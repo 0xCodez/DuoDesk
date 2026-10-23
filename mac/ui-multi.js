@@ -13,8 +13,8 @@ UI.tab({
   bottom: true,
   build(body) {
     const { api } = UI;
-    // Mesh mode is in beta: the popup says what's still rough (shared/mesh-intro.js) before it restarts.
-    const turnOn = UI.button('Turn on', () => MeshIntro.confirm('mac', () => {
+    // Mesh mode is in beta: the popup says so (shared/mesh-intro.js) before it restarts.
+    const turnOn = UI.button('Turn on', () => MeshIntro.confirm(() => {
       turnOn.disabled = true;
       turnOn.textContent = 'Restarting…';
       api.setMulti(true);

@@ -223,7 +223,6 @@ select { padding: 3px 24px 3px 8px; border-radius: 6px; border: 1px solid var(--
 .mesh-art .mi-screen { fill: rgba(94, 92, 230, 0.22); }
 .mesh-art .mi-dot { fill: #7d7bff; }
 @media (prefers-reduced-motion: reduce) { .mesh-art .mi-dot { display: none; } }
-.mesh-pop { width: min(520px, calc(100vw - 32px)); border-color: #5e5ce6; }
+.mesh-pop { border-color: #5e5ce6; }
 .mesh-pop .pill { margin-left: 4px; vertical-align: 2px; }
 .mesh-pop p { margin: 8px 0; }
-.mesh-pop .mesh-rough { display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px; padding-left: 18px; font-size: 13px; }
