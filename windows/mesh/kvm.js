@@ -44,7 +44,7 @@ class Kvm {
 
     const hub = this.hub;
     const bus = hub.bus;
-    bus.on(T.KVM_LAYOUT, () => {}); // an older app's edge (the layout is the one map): nothing to do here
+    bus.on(T.KVM_LAYOUT, (m, from) => this._onOldLayout(m, from)); // a one-to-one app's edge: placed as it says
     bus.on(T.KVM_TAKE, (m, from) => this._onTake(m, from));
     bus.on(T.KVM_LINK, (m, from) => this._onLink(m, from)); // the other side switched it: follow, no echo
     bus.on(T.KVM_NEXT, (m, from) => this._onNext(m, from)); // a device we drive hands the input on (a chain)
@@ -196,6 +196,21 @@ class Kvm {
       const side = this._sideOf(id);
       if (side) this._send(id, { t: T.KVM_LAYOUT, pcSide: side }); // its edge towards us is the opposite
     }
+  }
+
+  // kvm.layout from a one-to-one app (no mesh): pcSide is the edge of its screen that leads to this PC,
+  // so it sits beyond the opposite edge of this one. It goes there in the shared layout (an edit, synced
+  // to the others), as the one-to-one app would set it; layoutChanged() tells it our side back. A mesh
+  // device's kvm.layout changes nothing: the shared layout is the one map between mesh devices.
+  _onOldLayout(m, from) {
+    const s = this.hub.sessions.get(from);
+    if (!s || s.meshCapable || !P.SIDES.includes(m.pcSide)) return;
+    const side = P.opposite(m.pcSide);
+    if (this._sideOf(from) === side) return;
+    const me = this.layoutSync.view().cells[this.layoutSync.selfId];
+    if (!me) return;
+    const [dx, dy] = { left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1] }[side];
+    this.layoutSync.place(from, me.x + dx, me.y + dy);
   }
 
   // A device came up (its welcome). A device that dialled us gets our side of it and our cursor state.
@@ -575,7 +590,9 @@ class Kvm {
 
   _armReturn() {
     console.log('[kvm] return watch on: ' + this._returnSides().join(',') + ' (partner ' + this.partner + ')');
-    this.helper.send('armReturn', { on: true, sides: this._returnSides(), resistancePx: this.cfg.resistancePx });
+    const sides = this._returnSides();
+    // side: the first one, for a helper from before several sides (it watches that one; a newer one reads sides)
+    this.helper.send('armReturn', { on: true, side: sides[0] || null, sides, resistancePx: this.cfg.resistancePx });
   }
 
   // The helper saw the pointer leave this PC (driven) through `side`. Back to the driver: kvm.home as

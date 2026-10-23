@@ -16,7 +16,7 @@ class Pairing extends EventEmitter {
   // No client is refused because another one is connected (mesh); one pairing at a time.
   constructor(server, identity, { storage } = {}) {
     super();
-    this.store = storage || require('../store');
+    this.store = storage || require('./store'); // the mesh's own files (store.js)
     this.server = server;
     this.id = identity;
     this.paired = this.store.read('paired.json', []);

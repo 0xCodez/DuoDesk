@@ -30,7 +30,7 @@ class LinkManager extends EventEmitter {
   constructor({ device, storage, hostPairing = null, resolveAddress = null, inboundWaitMs = P.INBOUND_WAIT_MS } = {}) {
     super();
     this.device = device;
-    this.storage = storage || require('../store');
+    this.storage = storage || require('./store'); // the mesh's own files (store.js)
     this.hostPairing = hostPairing;
     this.resolveAddress = resolveAddress;
     this.inboundWaitMs = inboundWaitMs;

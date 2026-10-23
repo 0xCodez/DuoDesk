@@ -27,6 +27,15 @@ function storedLayout(v) {
   return l.rev > 0 ? l : null;
 }
 
+// ../settings.js's apply() over this normalize(), which keeps the mesh's keys (kvm.edges, layout, mesh).
+function apply(settings, section, partial) {
+  if (!partial || typeof partial !== 'object' || !(section in settings)) return false;
+  const next = normalize({ ...settings, [section]: { ...settings[section], ...partial } });
+  const changed = JSON.stringify(next[section]) !== JSON.stringify(settings[section]);
+  settings[section] = next[section];
+  return changed;
+}
+
 // Settings from before the edges (kvm.pcSide): with exactly one paired device, its edge is set.
 // Returns true when settings changed (the caller saves). pcSide stays for the one-to-one app.
 function migrateKvm(settings, deviceIds) {
@@ -37,4 +46,22 @@ function migrateKvm(settings, deviceIds) {
   return true;
 }
 
-module.exports = { normalize, apply: base.apply, migrateKvm };
+// Where they live: settings.json holds what the one-to-one app has too (the same choices in both),
+// multi.json what only the mesh has (docs/multi-device.md, rule 4), so the one-to-one app never sees
+// or drops it. store: ../store.js.
+const MULTI = 'multi.json';
+
+function load(store) {
+  const s = store.read('settings.json', {}) || {};
+  const m = store.read(MULTI, {}) || {};
+  return normalize({ ...s, kvm: { ...(s.kvm || {}), edges: (m.kvm || {}).edges }, layout: m.layout, mesh: m.mesh });
+}
+
+function save(store, settings) {
+  const { layout, mesh, ...rest } = settings;
+  const { edges, ...kvm } = settings.kvm;
+  store.write('settings.json', { ...rest, kvm });
+  store.write(MULTI, { ...store.read(MULTI, {}), kvm: { edges }, layout, mesh });
+}
+
+module.exports = { normalize, apply, migrateKvm, load, save };

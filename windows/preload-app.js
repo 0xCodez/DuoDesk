@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('macshare', {
   copyHistory: call('copyHistory'),
   clearHistory: call('clearHistory'),
   setTab: call('setTab'),
+  setMulti: call('setMulti'),
   setAudio: call('setAudio'),
   setTerminal: call('setTerminal'),
   openTerminal: call('openTerminal'),

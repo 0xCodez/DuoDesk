@@ -21,7 +21,7 @@ const LayoutSync = require('../layout-sync.js');
 const { normalize, migrateKvm } = require('../settings.js');
 const { runTests } = require('./lib/run.js');
 const { loadTestCert } = require('./lib/testcert.js');
-const { close, waitFor, pair, memoryStorage } = require('./lib/mesh.js');
+const { close, waitFor, pair, memoryStorage, pairPhone, hello } = require('./lib/mesh.js');
 
 const T = P.T;
 const TRIANGLE = [['A', 'B'], ['A', 'C'], ['B', 'C']]; // [dialer, host]
@@ -41,7 +41,7 @@ async function hubNode(name) {
   links.bindServer(server);
   const mesh = new Mesh({ selfId: id });
   const hub = new Hub({ device: { id, name }, links, server, pairing, mesh });
-  const n = { name, id, port: server.port, server, pairing, links, mesh, hub, log: [], kvm: null, settings: normalize({}) };
+  const n = { name, id, fp: cert.fp, port: server.port, server, pairing, links, mesh, hub, log: [], kvm: null, settings: normalize({}) };
   n.layoutSync = new LayoutSync({
     bus: hub.bus,
     mesh,
@@ -309,7 +309,37 @@ test('cursor sharing is per device: a device with it off is not crossed to, the 
   }
 });
 
-test('kvm.layout from an older app does not change the layout: the shared layout is the one map', async () => {
+test('kvm.layout from a one-to-one app puts it beyond the edge it says, and it is told our side back', async () => {
+  const N = await world(['A'], []);
+  let old = null;
+  try {
+    const { A } = N;
+    const p = await pairPhone(A, { name: 'Old PC' }); // a paired device that speaks no mesh
+    p.client.close();
+    const h = await hello(A.port, { id: p.id, name: 'Old PC', os: P.OS.WIN, token: p.token });
+    old = h.client;
+    assert.strictEqual(h.reply.t, T.WELCOME);
+    await waitFor(() => { const s = A.hub.sessions.get(p.id); return !!s && s.connected; }, 'the old app is up');
+    assert.strictEqual(A.hub.sessions.get(p.id).meshCapable, false, 'no mesh flag: a one-to-one peer');
+    const kvm = kvmOn(A);
+    lay(A, {});
+    old.send({ t: T.KVM_LAYOUT, pcSide: 'left' }); // A is on its left: it is on A's right
+    await waitFor(() => kvm.edges.right === p.id, 'A’s right edge leads to it');
+    await old.until((m) => m.t === T.KVM_LAYOUT && m.pcSide === 'right');
+    const rev = A.layoutSync.get().rev;
+    old.send({ t: T.KVM_LAYOUT, pcSide: 'left' });
+    await sleep(150);
+    assert.strictEqual(A.layoutSync.get().rev, rev, 'the same side again: no edit');
+    old.send({ t: T.KVM_LAYOUT, pcSide: 'bottom' });
+    await waitFor(() => kvm.edges.top === p.id, 'moved: now beyond A’s top edge');
+    snaps(A);
+  } finally {
+    if (old) old.close();
+    closeAll(N);
+  }
+});
+
+test('kvm.layout from a mesh device does not change the layout: the shared layout is the one map', async () => {
   const N = await world(['A', 'B', 'C'], TRIANGLE);
   try {
     const { A, B, C } = N;
