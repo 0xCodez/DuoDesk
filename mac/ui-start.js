@@ -43,7 +43,8 @@
     if ((def.heading || def.title).includes('{')) h1Text.dataset.peer = def.heading || def.title;
     if ((def.desc || '').includes('{')) descEl.dataset.peer = def.desc;
     const titles = el('div', { class: 'titles' }, [
-      el('h1', {}, [h1Text, def.phase ? el('span', { class: 'pill muted', text: `Phase ${def.phase}` }) : null]),
+      el('h1', {}, [h1Text, def.phase ? el('span', { class: 'pill muted', text: `Phase ${def.phase}` }) : null,
+        def.tag ? el('span', { class: 'pill beta', text: def.tag }) : null]),
       descEl,
     ]);
     let master = null;

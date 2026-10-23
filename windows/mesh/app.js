@@ -46,7 +46,8 @@
     const limitNote = def.macOnly ? UI.note('info', '') : null;
     const devTag = el('span', { class: 'pill muted dev-tag', hidden: true }); // names the selected device on its own sections
     const titles = el('div', { class: 'titles' }, [
-      el('h1', {}, [headText, def.phase ? el('span', { class: 'pill muted', text: 'Phase ' + def.phase }) : null, devTag]),
+      el('h1', {}, [headText, def.phase ? el('span', { class: 'pill muted', text: 'Phase ' + def.phase }) : null,
+        def.tag ? el('span', { class: 'pill beta', text: def.tag }) : null, devTag]),
       el('p', { text: def.desc || '' }),
     ]);
     let master = null;

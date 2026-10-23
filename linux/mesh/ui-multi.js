@@ -8,6 +8,8 @@ UI.tab({
   id: 'multi',
   order: 95,
   title: 'Multi-device',
+  heading: 'Multi-device · Mesh mode',
+  tag: 'Beta',
   color: 'linear-gradient(#5e5ce6, #3634a3)',
   desc: 'Several computers and phones connected at once',
   bottom: true,
@@ -139,8 +141,8 @@ UI.tab({
     const joinRow = UI.row('Join every device automatically', '', [joinSw]);
 
     body.append(
-      UI.card('Multi-device', [
-        UI.row('Use several devices at once', 'On. Turned off, TwinDesk restarts and connects one to one, as it was before', [turnOff]),
+      UI.card('Mesh mode', [
+        UI.row('Use several devices at once', 'On, in beta. Turned off, TwinDesk restarts and connects one to one, with your pairings as they were', [turnOff]),
         UI.row('Computers', 'Connect to this one over the same network only, not Bluetooth. Phones over Wi-Fi, a USB cable or Bluetooth, as before', []),
       ]),
       UI.card('Layout', [gridEl, reachNote, layoutHint], { cls: 'keep-on' }),

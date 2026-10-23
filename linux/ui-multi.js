@@ -9,22 +9,25 @@ UI.tab({
   title: 'Multi-device',
   color: 'linear-gradient(#5e5ce6, #3634a3)',
   desc: 'Several computers and phones connected at once',
+  tag: 'Beta',
   bottom: true,
   build(body) {
     const { api } = UI;
-    const turnOn = UI.button('Turn on', () => {
+    // Mesh mode is in beta: the popup says what's still rough (shared/mesh-intro.js) before it restarts.
+    const turnOn = UI.button('Turn on', () => MeshIntro.confirm('linux', () => {
       turnOn.disabled = true;
       turnOn.textContent = 'Restarting…';
       api.setMulti(true);
-    }, 'small primary');
+    }), 'small primary');
 
     body.append(
-      UI.card('Multi-device', [
+      UI.card('Mesh mode', [
         UI.row('Use several devices at once',
           'Computers and phones connected at the same time: one clipboard and one set of notifications for all, each screen edge leading to another device, a phone and a computer together',
           [turnOn]),
       ]),
-      UI.note('info', 'TwinDesk restarts to turn it on or off, and connections drop for a moment. Turned off again, everything is as it was before. Windows, Mac and Linux computers take part; with it on here, other computers connect to this one over the same network only, not Bluetooth. The phone app connects to one computer at a time.'),
+      UI.note('info', 'TwinDesk restarts to turn it on or off, and connections drop for a moment. Turned off again, your pairings are as they were; settings both modes have (cursor, clipboard, keys…) keep what you set. Windows, Mac and Linux computers take part; with it on here, other computers connect to this one over the same network only, not Bluetooth. The phone app connects to one computer at a time.'),
+      MeshIntro.art(),
     );
 
     return () => {};
