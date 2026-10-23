@@ -61,11 +61,13 @@ string, `selected` is the session object; never overload them.
 ## Wire additions (all optional, ignored by older apps)
 
 - `hello` and `welcome` may carry `mesh: 1`. A peer that sent no `mesh` field is treated as a plain
-  one-to-one peer: it gets no roster and no relayed items.
+  one-to-one peer: it gets no roster, and pooled items (its neighbour's own and relayed ones) reach it
+  as plain messages, without the stamps below.
 - `mesh.roster {peers: [deviceId, …]}`: sent after `welcome` and whenever the set of direct links
   changes. Receivers keep it in the `Roster`.
 - Pooled messages (`clip`, `notif`) get three optional fields, set by the device where the item
-  starts: `o` (origin device id), `s` (origin sequence number, increases per origin and pool) and
+  starts: `o` (origin device id), `s` (origin sequence number, increases per origin and pool,
+  counted from the time the app started, in ms, so a restarted app numbers past its last run) and
   `d` (the origin's direct links at that moment, array of ids). A pooled message without `o` comes
   from a one-to-one peer: it is applied and published into the pool as if the sender were its origin.
 
@@ -105,6 +107,12 @@ the phone on the Mac's right, every screen shows exactly that. The rules are in 
   bottom). Each device derives its own edges from the layout:
   `neighbors(view(layout, knownIds), selfId)`. `settings.kvm.edges` is migrated once into a layout
   (`fromEdges`) and is derived from then on.
+- No empty space between devices: they are one piece, each touching another by a side. A corner is
+  no way through (an edge leads only to a side), so a device goes only on an empty cell next to
+  another one (`targets`, lit in the editor) or swaps with a device. What comes loose when a device
+  moves away or is taken off from between others slides back the shortest way until it touches the
+  rest (`pack`; the device just put down stays where it was put). `view()` packs too, so a stored
+  layout with gaps (an older app's, or devices that are gone) is shown, and next edited, in one piece.
 - Only a person's edit changes the stored layout (`place`, `remove`: rev + 1, `by` = the editing
   device). Devices that appeared or went away are handled by `view()`, computed identically on every
   device from the same layout and the same known ids, never stored or sent.

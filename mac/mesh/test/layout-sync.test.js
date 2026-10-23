@@ -141,7 +141,7 @@ test('concurrent edits on two nodes at the same rev: one winner everywhere (the 
     A.ls.place(C.id, 2, 0);
     await waitFor(() => sameStored(N) && A.ls.get().rev === 3, 'base layout');
     assert.strictEqual(A.ls.place(B.id, 0, 1), true);
-    assert.strictEqual(C.ls.place(C.id, 5, 5), true);
+    assert.strictEqual(C.ls.place(C.id, 1, -1), true); // above B (a device goes next to another one)
     assert.strictEqual(A.ls.get().rev, 4);
     assert.strictEqual(C.ls.get().rev, 4);
     const winner = [A, C].sort((x, y) => (x.id > y.id ? -1 : 1))[0];
@@ -241,8 +241,8 @@ test('garbage layouts from a device are ignored as a whole: the view and the sto
     await sleep(300);
     assert.strictEqual(L.canonical(A.ls.get()), before, 'A kept its layout');
     assert.deepStrictEqual(A.ls.view().cells[B.id], { x: 1, y: 0 });
-    assert.strictEqual(B.ls.place(B.id, 2, 0), true);
-    await waitFor(() => A.ls.view().cells[B.id] && A.ls.view().cells[B.id].x === 2, 'the next real edit arrives');
+    assert.strictEqual(B.ls.place(B.id, 0, 1), true); // under A
+    await waitFor(() => A.ls.view().cells[B.id] && A.ls.view().cells[B.id].y === 1, 'the next real edit arrives');
   } finally {
     closeAll(N);
   }
@@ -254,12 +254,12 @@ test('an older layout never replaces a newer one', async () => {
     const { A, B } = N;
     A.ls.place(A.id, 0, 0);
     A.ls.place(B.id, 1, 0);
-    A.ls.place(B.id, 2, 0); // rev 3
+    A.ls.place(B.id, 0, 1); // rev 3: B under A
     await waitFor(() => sameStored(N), 'rev 3 on both');
     B.hub.bus.send(A.id, { t: 'layout', layout: { rev: 2, by: A.id, cells: { [A.id]: { x: 5, y: 5 } } } });
     await sleep(200);
     assert.strictEqual(A.ls.get().rev, 3);
-    assert.deepStrictEqual(A.ls.view().cells[B.id], { x: 2, y: 0 });
+    assert.deepStrictEqual(A.ls.view().cells[B.id], { x: 0, y: 1 });
   } finally {
     closeAll(N);
   }

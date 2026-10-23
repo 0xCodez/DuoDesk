@@ -79,10 +79,13 @@ class LayoutSync {
     return L.sideTo(this.view(), fromId, toId);
   }
 
-  // Plain data for the editor: rev, who edited last, the cells shown and the grid to draw.
+  // Plain data for the editor: rev, who edited last, the cells shown, the grid to draw and, per
+  // device, the empty cells it may be put on ("x,y": next to another device, shared/layout.js).
   state() {
     const v = this.view();
-    return { rev: this.layout.rev, by: this.layout.by, cells: v.cells, grid: L.grid(v) };
+    const targets = {};
+    for (const id of Object.keys(v.cells)) targets[id] = L.targets(v, id).map((c) => c.x + ',' + c.y);
+    return { rev: this.layout.rev, by: this.layout.by, cells: v.cells, grid: L.grid(v), targets };
   }
 
   // A person's edit: device id goes to cell (x, y); a device that was there moves to id's old cell.

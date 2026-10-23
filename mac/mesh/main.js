@@ -191,7 +191,7 @@ function publishState() {
     }
     if (links) state.guest = links.view();
     state.peers = hub ? hub.peers() : [];
-    state.layout = layoutSync ? layoutSync.state() : null; // the shared layout: { rev, by, cells (this Mac's view), grid }
+    state.layout = layoutSync ? layoutSync.state() : null; // the shared layout: { rev, by, cells (this Mac's view), grid, targets }
     const c = peer && peer.current;
     state.client = c ? { id: c.deviceId, name: c.name, os: c.os, role: c.role, address: c.address, rttMs: c.rttMs } : null;
     const { helper, displays, stream, clipboard: clip, kvm } = svc || {};

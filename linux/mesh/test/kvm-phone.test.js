@@ -205,7 +205,7 @@ test('a computer drives B and B’s pointer reaches the phone: B passes the inpu
     const localLog = [];
     B.kvm.local = fakeBridge(B, phone, localLog);
     // A - B - phone in one row
-    assert.ok(B.layoutSync.place(A.id, -1, 0) && B.layoutSync.place(B.id, 0, 0) && B.layoutSync.place(phone.id, 1, 0));
+    assert.ok(B.layoutSync.place(B.id, 0, 0) && B.layoutSync.place(A.id, -1, 0) && B.layoutSync.place(phone.id, 1, 0)); // B first: each next to one already placed
     await waitFor(() => A.kvm.edges.right === B.id && B.kvm.edges.right === phone.id, 'A - B - phone');
 
     await driveVia(A, B, 'right');
@@ -257,7 +257,7 @@ test('B cannot drive the phone itself (the bridge is not ready): B asks A to tak
     await waitFor(() => B.hub.sessions.get(phone.id) && B.hub.sessions.get(phone.id).connected, 'the phone is connected to B');
     const localLog = [];
     B.kvm.local = fakeBridge(B, phone, localLog, false);
-    assert.ok(B.layoutSync.place(A.id, -1, 0) && B.layoutSync.place(B.id, 0, 0) && B.layoutSync.place(phone.id, 1, 0));
+    assert.ok(B.layoutSync.place(B.id, 0, 0) && B.layoutSync.place(A.id, -1, 0) && B.layoutSync.place(phone.id, 1, 0)); // B first: each next to one already placed
     await waitFor(() => A.kvm.edges.right === B.id && B.kvm.edges.right === phone.id, 'A - B - phone');
     await driveVia(A, B, 'right');
     await waitFor(() => B.kvm.mode === 'driven', 'B is driven by A');

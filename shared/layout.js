@@ -12,6 +12,11 @@
 // device). A device that appeared or went away after the last edit is handled by `view()`, which
 // is computed the same way on every device from the same layout and the same set of known device
 // ids, and is never stored or sent: that way devices cannot ping-pong automatic changes.
+//
+// No empty space between devices: the devices are one piece, each touching another by a side (a
+// corner is not a way through: an edge only leads to a side). A device goes only next to another
+// one (`targets`), and a part that came loose (a device moved away or taken off from between
+// others) slides back until it touches the rest (`pack`), as screens do in display settings.
 'use strict';
 
 const SIDES = ['left', 'right', 'top', 'bottom'];
@@ -107,9 +112,98 @@ function freeCell(layout, x, y) {
   return !Object.values(layout.cells).some((c) => c.x === x && c.y === y);
 }
 
+const STEPS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+const touch = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
+
+// The devices in one piece (each touching another by a side), largest piece first; at the same
+// size the piece with the smallest id first. Each piece is an array of ids, sorted.
+function pieces(cells) {
+  const left = new Set(Object.keys(cells));
+  const out = [];
+  for (const start of Object.keys(cells).sort()) {
+    if (!left.has(start)) continue;
+    left.delete(start);
+    const piece = [start];
+    for (let i = 0; i < piece.length; i++) {
+      for (const k of [...left]) {
+        if (touch(cells[piece[i]], cells[k])) {
+          left.delete(k);
+          piece.push(k);
+        }
+      }
+    }
+    out.push(piece.sort());
+  }
+  return out.sort((p, q) => q.length - p.length || (p[0] < q[0] ? -1 : 1));
+}
+
+// The same cells with no empty space between devices: while there is more than one piece, the
+// next piece moves the shortest way (sideways first) until it touches the first one without
+// covering a device. keep: a device whose piece stays where it is (the one a person just put
+// down); otherwise the largest piece stays. Deterministic, so every device gets the same.
+function pack(cells, keep) {
+  const out = {};
+  for (const id of Object.keys(cells)) out[id] = { ...cells[id] };
+  for (let round = 0; round < MAX_CELLS; round++) {
+    const ps = pieces(out);
+    if (ps.length < 2) break;
+    const kept = keep && out[keep] ? ps.findIndex((p) => p.includes(keep)) : 0;
+    const main = ps[kept];
+    const loose = ps.find((p, i) => i !== kept);
+    const fixed = Object.keys(out).filter((k) => !loose.includes(k));
+    let best = null;
+    for (let d = 1; d <= 4 * LIMIT && !best; d++) {
+      const moves = [];
+      for (let dx = -d; dx <= d; dx++) {
+        const r = d - Math.abs(dx);
+        moves.push([dx, r]);
+        if (r) moves.push([dx, -r]);
+      }
+      moves.sort((a, b) => Math.abs(a[1]) - Math.abs(b[1]) || a[0] - b[0] || a[1] - b[1]);
+      for (const [dx, dy] of moves) {
+        const moved = loose.map((k) => ({ x: out[k].x + dx, y: out[k].y + dy }));
+        if (moved.some((c) => !isCoord(c.x) || !isCoord(c.y))) continue;
+        if (moved.some((c) => fixed.some((k) => out[k].x === c.x && out[k].y === c.y))) continue;
+        if (!moved.some((c) => main.some((k) => touch(c, out[k])))) continue;
+        best = [dx, dy];
+        break;
+      }
+    }
+    if (!best) break; // cannot happen within the limits; leave it as it is
+    for (const k of loose) out[k] = { x: out[k].x + best[0], y: out[k].y + best[1] };
+  }
+  return out;
+}
+
+// True when the devices are one piece (no empty space between them).
+function joined(layout) {
+  return pieces(normalize(layout).cells).length < 2;
+}
+
+// The empty cells device id may be put on: next to another device by a side. A device on its own
+// may go anywhere (an empty list: nothing to be next to). Sorted by row, then column.
+function targets(layout, id) {
+  const l = normalize(layout);
+  const others = Object.keys(l.cells).filter((k) => k !== id);
+  const seen = new Set();
+  const out = [];
+  for (const k of others) {
+    for (const [dx, dy] of STEPS) {
+      const x = l.cells[k].x + dx;
+      const y = l.cells[k].y + dy;
+      const key = `${x},${y}`;
+      if (seen.has(key) || !isCoord(x) || !isCoord(y) || !freeCell(l, x, y)) continue;
+      seen.add(key);
+      out.push({ x, y });
+    }
+  }
+  return out.sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
 // The layout as every device computes it for the same set of known ids: devices that are gone
-// are dropped, new ones are put at the right of row 0, in id order. Not stored, not sent. `ids`
-// should hold every device of the mesh including this one.
+// are dropped, new ones are put at the right of row 0 (of the top row when row 0 is empty), in
+// id order, and a part left apart by a device that is gone slides back (`pack`). Not stored, not
+// sent. `ids` should hold every device of the mesh including this one.
 function view(layout, ids) {
   const l = normalize(layout);
   const known = new Set(ids);
@@ -117,17 +211,22 @@ function view(layout, ids) {
   for (const id of Object.keys(l.cells)) if (known.has(id)) out.cells[id] = { ...l.cells[id] };
   for (const id of [...known].sort()) {
     if (out.cells[id] || Object.keys(out.cells).length >= MAX_CELLS) continue;
-    const xs = Object.values(out.cells).filter((c) => c.y === 0).map((c) => c.x);
+    const all = Object.values(out.cells);
+    const row = all.some((c) => c.y === 0) || !all.length ? 0 : Math.min(...all.map((c) => c.y));
+    const xs = all.filter((c) => c.y === row).map((c) => c.x);
     let x = xs.length ? Math.max(...xs) + 1 : 0;
-    while (!freeCell(out, x, 0)) x += 1;
+    while (!freeCell(out, x, row)) x += 1;
     if (x > LIMIT) continue;
-    out.cells[id] = { x, y: 0 };
+    out.cells[id] = { x, y: row };
   }
+  out.cells = pack(out.cells);
   return out;
 }
 
 // A person's edit: put device id at cell (x, y). An occupied cell is swapped (the other device
-// takes the cell `id` left, when it had one). Returns { ok, layout } (not ok: coordinates invalid).
+// takes the cell `id` left, when it had one). An empty cell must be next to another device
+// (`targets`); what came loose from the others slides back to them. Returns { ok, layout } (not
+// ok: coordinates invalid, or an empty cell that touches no other device, a corner included).
 function place(layout, id, x, y, by) {
   if (!id || !isCoord(x) || !isCoord(y)) return { ok: false, layout: normalize(layout) };
   const l = normalize(layout);
@@ -142,17 +241,21 @@ function place(layout, id, x, y, by) {
       cells[other] = { x: nx, y };
     }
   } else if (!old && Object.keys(cells).length >= MAX_CELLS) return { ok: false, layout: l };
+  else if (!(old && old.x === x && old.y === y) && Object.keys(cells).some((k) => k !== id)
+    && !targets(l, id).some((c) => c.x === x && c.y === y)) {
+    return { ok: false, layout: l };
+  }
   cells[id] = { x, y };
-  return { ok: true, layout: { rev: l.rev + 1, by: by || '', cells } };
+  return { ok: true, layout: { rev: l.rev + 1, by: by || '', cells: pack(cells, id) } };
 }
 
-// A person's edit: take device id off the map.
+// A person's edit: take device id off the map; the devices on either side of it close up.
 function remove(layout, id, by) {
   const l = normalize(layout);
   if (!l.cells[id]) return l;
   const cells = { ...l.cells };
   delete cells[id];
-  return { rev: l.rev + 1, by: by || '', cells };
+  return { rev: l.rev + 1, by: by || '', cells: pack(cells) };
 }
 
 // The old per-device edges ({left, right, top, bottom}: device id) as a layout: this device in the
@@ -182,4 +285,5 @@ function grid(layout) {
 
 module.exports = {
   SIDES, OPPOSITE, empty, normalize, canonical, newer, merge, neighbors, across, sideTo, view, place, remove, fromEdges, grid,
+  pieces, pack, joined, targets,
 };

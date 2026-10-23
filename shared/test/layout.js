@@ -78,15 +78,66 @@ const L = require('../layout');
   assert.ok(!removed.cells.b);
   assert.strictEqual(removed.rev, l.rev + 1);
   assert.strictEqual(L.remove(l, 'nobody', 'a').rev, l.rev, 'nothing to remove: no edit');
-  // never two devices on one cell, whatever is done
+  // never two devices on one cell and never empty space between them, whatever is done
   let walk = L.view(L.empty(), ['a', 'b', 'c', 'd', 'e']);
+  let moved = 0;
   for (let i = 0; i < 200; i++) {
     const ids = Object.keys(walk.cells);
     const res = L.place(walk, ids[i % ids.length], ((i * 7) % 5) - 2, ((i * 3) % 3) - 1, 'a');
-    if (res.ok) walk = res.layout;
+    if (res.ok) {
+      walk = res.layout;
+      moved += 1;
+    }
     const seen = new Set(Object.values(walk.cells).map((c) => `${c.x},${c.y}`));
     assert.strictEqual(seen.size, Object.keys(walk.cells).length, 'unique cells');
+    assert.ok(L.joined(walk), 'one piece');
   }
+  assert.ok(moved > 20, 'the walk did move devices');
+}
+
+// ---- no empty space: next to another device by a side, never only by a corner ----
+{
+  // A 3 x 3 grid numbered like a keypad (1 2 3 / 4 5 6 / 7 8 9): monitor 1 on 5, PC 2 wanted on 9.
+  const cell = (n) => ({ x: (n - 1) % 3, y: Math.floor((n - 1) / 3) });
+  const two = { rev: 1, by: 'm1', cells: { m1: cell(5), pc2: cell(6) } };
+  const nine = L.place(two, 'pc2', cell(9).x, cell(9).y, 'm1');
+  assert.ok(!nine.ok, 'a corner of monitor 1 is no way through: 9 is refused');
+  assert.deepStrictEqual(nine.layout.cells.pc2, cell(6), 'nothing moved');
+  assert.deepStrictEqual(L.targets(two, 'pc2').map((c) => `${c.x},${c.y}`).sort(), ['0,1', '1,0', '1,2'].sort(),
+    'pc2 may go on 2, 4 or 8 (next to monitor 1), or stay on 6');
+  assert.ok(L.place(two, 'pc2', cell(8).x, cell(8).y, 'm1').ok, '8 is under monitor 1');
+  assert.ok(!L.place(two, 'pc2', 7, 1, 'm1').ok, 'a cell away from everyone is refused');
+  assert.ok(L.place({ rev: 0, by: '', cells: { a: { x: 0, y: 0 } } }, 'a', 5, 5, 'a').ok, 'a device on its own may go anywhere');
+  assert.ok(L.place(two, 'pc2', cell(6).x, cell(6).y, 'm1').ok, 'put back where it is');
+
+  // a device moved away from between others: the rest close up (a b c d → a c d, b under a)
+  const row = L.view(L.empty(), ['a', 'b', 'c', 'd']);
+  const r = L.place(row, 'b', 0, 1, 'a');
+  assert.ok(r.ok);
+  assert.deepStrictEqual(r.layout.cells, { a: { x: 0, y: 0 }, b: { x: 0, y: 1 }, c: { x: 1, y: 0 }, d: { x: 2, y: 0 } });
+  assert.strictEqual(L.across(r.layout, 'a', 'right'), 'c');
+  // the device put down stays where it was put, the loose part comes to it
+  const end = L.place(row, 'd', -1, 0, 'a'); // d to the left end: nothing comes loose
+  assert.deepStrictEqual(end.layout.cells.d, { x: -1, y: 0 });
+  assert.ok(L.joined(end.layout));
+
+  // taken off from the middle: the two sides close up
+  const rm = L.remove(L.view(L.empty(), ['a', 'b', 'c']), 'b', 'a');
+  assert.deepStrictEqual(rm.cells, { a: { x: 0, y: 0 }, c: { x: 1, y: 0 } });
+  const rm2 = L.remove(L.view(L.empty(), ['a', 'b', 'c', 'd', 'e']), 'b', 'a');
+  assert.ok(L.joined(rm2) && Object.keys(rm2.cells).length === 4, 'the larger part stays, the other comes to it');
+  assert.deepStrictEqual(rm2.cells.c, { x: 2, y: 0 }, 'c d e stay');
+  assert.deepStrictEqual(rm2.cells.a, { x: 1, y: 0 }, 'a moved next to c');
+
+  // a stored layout with gaps (an older app's, or devices that are gone) is shown in one piece
+  const gappy = { rev: 3, by: 'a', cells: { a: { x: 0, y: 0 }, b: { x: 5, y: 0 }, c: { x: 2, y: 2 } } };
+  const v = L.view(gappy, ['a', 'b', 'c']);
+  assert.ok(L.joined(v), 'the view has no empty space');
+  assert.strictEqual(L.canonical(v), L.canonical(L.view(gappy, ['c', 'b', 'a'])), 'the same on every device');
+  assert.ok(!L.joined(gappy) && L.joined({ rev: 1, cells: { a: { x: 0, y: 0 } } }));
+  // a new device goes to the right of row 0, or of the top row when row 0 is empty
+  const high = L.view({ rev: 1, by: 'a', cells: { a: { x: 0, y: -1 } } }, ['a', 'z']);
+  assert.deepStrictEqual(high.cells.z, { x: 1, y: -1 });
 }
 
 // ---- merge: all devices end with the same layout, whatever the order ----
@@ -117,8 +168,8 @@ const L = require('../layout');
   }
   // concurrent edits at the same rev: one wins on every device, the same one
   const base = L.view(L.empty(), ['a', 'b']);
-  const x = L.place(base, 'a', 0, 1, 'a').layout;
-  const y = L.place(base, 'b', 0, 1, 'b').layout;
+  const x = L.place(base, 'a', 1, 1, 'a').layout; // under b
+  const y = L.place(base, 'b', 0, 1, 'b').layout; // under a
   assert.strictEqual(L.canonical(L.merge(x, y)), L.canonical(L.merge(y, x)));
   assert.strictEqual(L.merge(x, y).by, 'b', 'at the same rev the larger author wins');
   // same rev and the same author but different cells (a device edited twice offline, or a bug):

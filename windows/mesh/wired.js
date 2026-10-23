@@ -34,10 +34,11 @@ const isUsb = (serial) => !/[:]/.test(serial) && !serial.startsWith('emulator-')
 const isLoopback = (a) => a === '127.0.0.1' || a === '::1';
 
 class Wired extends EventEmitter {
-  // getName: this computer's name, for a phone that pairs through the cable.
-  constructor({ adb, raw, peer, getId, getName }) {
+  // getName: this computer's name, for a phone that pairs through the cable. hasPhone: whether a
+  // phone is paired, so the cable is looked at (adb started) only then; without it, always.
+  constructor({ adb, raw, peer, getId, getName, hasPhone = () => true }) {
     super();
-    Object.assign(this, { adb, raw, peer, getId, getName });
+    Object.assign(this, { adb, raw, peer, getId, getName, hasPhone });
     this.plugged = new Map(); // USB serial -> {nonce, at, linked}
     this.byDevice = new Map(); // phone deviceId -> USB serial (from phone.wired)
     this.asked = new WeakSet(); // sessions (ctx) not on the cable that were asked onto it once

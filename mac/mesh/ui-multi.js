@@ -23,12 +23,23 @@ UI.tab({
     // Every device is a tile; its edges lead to the nearest tile on its row or column. Click a tile and
     // then an empty place to move it there, or then another tile to swap the two. Each change goes through
     // setLayoutCell, so every computer shows the same grid.
+    // Tiles sit side by side, with no empty space between them: a tile goes only next to another one by a
+    // side (not a corner), the places it may go are lit (layout.targets), and the rest close up behind it.
     let picked = null; // the device id picked, waiting for a place or another tile
     let last = null; // the last state, to draw the grid again
     const layoutHint = UI.note('info', '');
     const gridEl = el('div', { class: 'layout-map' });
 
     const cellOf = (id) => (last && last.layout && last.layout.cells[id]) || null;
+
+    // An empty place the picked tile may go to: next to another tile by a side (layout.targets, from
+    // shared/layout.js). A tile on its own may go anywhere.
+    function canGo(id, x, y) {
+      const lay = last && last.layout;
+      const t = lay && lay.targets && lay.targets[id];
+      if (!Array.isArray(t) || Object.keys(lay.cells).length < 2) return true;
+      return t.includes(x + ',' + y);
+    }
 
     function move(id, x, y) {
       api.setLayoutCell({ id, x, y });
@@ -52,7 +63,7 @@ UI.tab({
 
     // An empty place was clicked: the picked device moves there.
     function onPlace(x, y) {
-      if (!picked) return;
+      if (!picked || !canGo(picked, x, y)) return;
       const id = picked;
       pick(null);
       move(id, x, y);
@@ -72,9 +83,11 @@ UI.tab({
     }
 
     function place(x, y) {
+      const ok = !!picked && canGo(picked, x, y);
       return el('button', {
-        class: 'lay-place' + (picked ? ' target' : ''),
-        attrs: { type: 'button', 'aria-label': 'Empty place' },
+        class: 'lay-place' + (ok ? ' target' : ''),
+        disabled: !!picked && !ok,
+        attrs: { type: 'button', 'aria-label': ok ? 'Move here' : 'Empty place' },
         onclick: () => onPlace(x, y),
       });
     }
@@ -100,8 +113,8 @@ UI.tab({
       }
       gridEl.replaceChildren(...cells);
       layoutHint.set(picked
-        ? 'Now click an empty place to move it there, or another device to swap places.'
-        : 'Click a device, then an empty place to move it there, or another device to swap places.');
+        ? 'Now click a lit place next to another device to move it there, or another device to swap places.'
+        : 'Click a device, then a place next to another device to move it there, or another device to swap places. Devices sit side by side, with no empty space between them.');
     }
 
 

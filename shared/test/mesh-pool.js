@@ -272,7 +272,7 @@ const nextItem = () => 'item' + (++itemNo);
   const peers = [
     { id: 'B', mesh: true, pool: true, send: (m) => (sent.push(['B', m]), true) },
   ];
-  const pool = new Pool({ name: 'clip', selfId: 'A', peers: () => peers, seenLimit: 3, maxHops: 3 });
+  const pool = new Pool({ name: 'clip', selfId: 'A', peers: () => peers, seenLimit: 3, maxHops: 3, start: 0 });
   const published = pool.publish({ item: 'mine' });
   assert.strictEqual(published.msg.o, 'A');
   assert.strictEqual(published.msg.s, 1);
@@ -390,6 +390,53 @@ const nextItem = () => 'item' + (++itemNo);
   assert.strictEqual(sent.length, 1);
   assert.strictEqual(sent[0][1].h, 1, 'relay carries h+1');
   assert.strictEqual(sent[0][1].o, 'O', 'relay keeps the origin');
+}
+
+// 7. Sequence numbers across a restart: the devices that stayed up remember (origin, s) pairs, so
+//    a restarted app must not number its items from where its last run started.
+{
+  const receiver = () => new Pool({ name: 'clip', selfId: 'B', peers: () => [], seenLimit: 200, maxHops: 3 });
+  const run = (start) => new Pool({ name: 'clip', selfId: 'A', peers: () => [], seenLimit: 200, maxHops: 3, start });
+
+  // 7a. Counting from the same place again (what counting from 0 did): the new items are dropped.
+  const b0 = receiver();
+  const old0 = run(0);
+  for (let i = 0; i < 3; i++) assert.strictEqual(b0.receive('A', old0.publish({ item: 'old' + i }).msg).fresh, true);
+  const new0 = run(0);
+  assert.strictEqual(b0.receive('A', new0.publish({ item: 'new0' }).msg).fresh, false, 'same start: taken for a duplicate');
+
+  // 7b. A later start (the clock by default): every item of the new run is fresh.
+  const b = receiver();
+  const first = run(1000);
+  for (let i = 0; i < 3; i++) assert.strictEqual(b.receive('A', first.publish({ item: 'old' + i }).msg).fresh, true);
+  const second = run(2000);
+  for (let i = 0; i < 3; i++) {
+    assert.strictEqual(b.receive('A', second.publish({ item: 'new' + i }).msg).fresh, true, 'new run item ' + i + ' is fresh');
+  }
+  assert.strictEqual(b.stats().droppedDup, 0);
+
+  // 7c. The default start is the clock.
+  const before = Date.now();
+  const s = new Pool({ name: 'clip', selfId: 'A', peers: () => [] }).publish({ item: 'x' }).msg.s;
+  assert.ok(s > before && s <= Date.now() + 1, 'first number just past the time the pool was made');
+
+  // 7d. A one-to-one peer C whose items X numbered, then C switches Multi-device on: its own
+  //     numbering starts at its clock, past what X gave its items, so its first items are fresh.
+  const x = new Pool({ name: 'clip', selfId: 'X', peers: () => [{ id: 'C', mesh: false, pool: true, send: () => true }], seenLimit: 200, maxHops: 3, start: 1000 });
+  assert.strictEqual(x.receive('C', { item: 'legacy1' }).msg.s, 1001, 'a legacy item is numbered from start too');
+  x.receive('C', { item: 'legacy2' });
+  const c = new Pool({ name: 'clip', selfId: 'C', peers: () => [], seenLimit: 200, maxHops: 3, start: 2000 });
+  assert.strictEqual(x.receive('C', c.publish({ item: 'mesh1' }).msg).fresh, true, "C's first own item is fresh");
+
+  // 7e. X restarts and relays the legacy peer's items again: Y, which stayed up, takes them.
+  const y = new Pool({ name: 'clip', selfId: 'Y', peers: () => [], seenLimit: 200, maxHops: 3 });
+  const xRun = (start) => new Pool({ name: 'clip', selfId: 'X', peers: () => [{ id: 'P', mesh: false, pool: true, send: () => true }, { id: 'Y', mesh: true, pool: true, send: (m) => (y.last = m, true) }], seenLimit: 200, maxHops: 3, start });
+  const x1 = xRun(1000);
+  x1.receive('P', { item: 'phone1' });
+  assert.strictEqual(y.receive('X', y.last).fresh, true);
+  const x2 = xRun(2000);
+  x2.receive('P', { item: 'phone2' });
+  assert.strictEqual(y.receive('X', y.last).fresh, true, "the phone's item relayed by the restarted X is fresh");
 }
 
 console.log('mesh-pool: passed');

@@ -54,6 +54,7 @@
 .lay-state { font-size: 11px; opacity: 0.7; }
 .lay-place { min-height: 96px; width: 100%; box-sizing: border-box; border: 1px dashed var(--control-line); border-radius: 10px; background: transparent; cursor: pointer; font: inherit; }
 .lay-place.target { border-color: var(--accent); }
+.lay-place:disabled { cursor: default; opacity: 0.35; } /* not next to another device */
 kbd.key { font: 12px -apple-system, sans-serif; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--control-line); border-bottom-width: 2px; background: var(--control); }
 
 /* Clipboard: history */

@@ -804,7 +804,7 @@ function buildState() {
     input: kvm.mode,
     kvmState: kvm.view(),
     kvm: { ...settings.kvm },
-    layout: layoutSync.state(), // the shared layout: { rev, by, cells (this device's view), grid }
+    layout: layoutSync.state(), // the shared layout: { rev, by, cells (this device's view), grid, targets }
     keys: settings.keys,
     monitor: settings.monitor,
     clipboard: { ...settings.clipboard, ...clip.view },

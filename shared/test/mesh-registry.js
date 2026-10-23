@@ -116,7 +116,7 @@ function sink(log, id) {
   m.addPeer({ id: 'D', send: sink(log, 'D'), mesh: true });
   m.get('D').pool = false; // the peer switched its pool off
 
-  const clip = m.pool('clip', { seenLimit: 50, maxHops: 3 });
+  const clip = m.pool('clip', { seenLimit: 50, maxHops: 3, start: 0 });
   assert.strictEqual(m.pool('clip'), clip, 'the same pool comes back by name');
   const r = clip.publish({ t: 'clip', text: 'copied' });
   assert.deepStrictEqual(r.sent, ['B', 'C']);

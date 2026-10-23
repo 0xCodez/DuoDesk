@@ -28,10 +28,13 @@ function plain(msg) {
 
 // Pool: fan-out, dedupe and relay of pooled items (clipboard, notifications).
 //
-//   new Pool({ name, selfId, peers, seenLimit, maxHops })
+//   new Pool({ name, selfId, peers, seenLimit, maxHops, start })
 //   peers() -> [{ id, mesh, pool, send(msg) -> boolean }]   (currently connected peers)
 //     mesh: false  an old app: send it the plain message
 //     pool: false  that peer switched the pool off: never send it pool items, never accept them
+//   start: sequence numbers (ours, and those given to a legacy peer's items) count up from here.
+//     Default: the clock in ms, so a restarted app numbers past its last run, whose numbers the
+//     devices that stayed up still remember (counting from 0 again, its next items were duplicates).
 class Pool {
   constructor(opts) {
     this.name = opts.name;
@@ -39,7 +42,8 @@ class Pool {
     this._peers = opts.peers;
     this.seenLimit = opts.seenLimit != null ? opts.seenLimit : P.POOL_SEEN_LIMIT;
     this.maxHops = opts.maxHops != null ? opts.maxHops : P.POOL_MAX_HOPS;
-    this._seq = 0; // our own sequence numbers, per pool
+    this._start = opts.start != null ? opts.start : Date.now();
+    this._seq = this._start; // our own sequence numbers, per pool
     this._legacySeq = new Map(); // origin -> last number given to a legacy item from that peer
     this._seen = new Map(); // origin -> Set of sequence numbers, oldest first (insertion order)
     this._stats = {
@@ -85,7 +89,7 @@ class Pool {
     let m = msg;
     if (m.o === undefined) {
       // A message without stamps comes from an old one-to-one peer, which is the origin of it.
-      const s = (this._legacySeq.get(fromId) || 0) + 1;
+      const s = (this._legacySeq.get(fromId) || this._start) + 1;
       this._legacySeq.set(fromId, s);
       m = Object.assign({}, msg, { o: fromId, s, d: [fromId], h: 0 });
     }
