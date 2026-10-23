@@ -145,20 +145,18 @@ scenario('a device that sent clip.policy accept:false is not sent items', async 
   assert.deepStrictEqual(writes(devs.A), ['from b']);
 });
 
-scenario('two copies at once on different devices: both propagate, each device applies each once', async () => {
+scenario('two copies at once on different devices: every device ends with the later one (shared/clipsync.js)', async () => {
   const { net, devs } = await world(['A', 'B', 'C'], full(['A', 'B', 'C']));
   devs.A.clipboard.text = 'x';
   await devs.A.clip.sendIfChanged('copy');
-  devs.B.clipboard.text = 'y';
+  devs.B.clipboard.text = 'y'; // copied after x, before x arrived
   await devs.B.clip.sendIfChanged('copy');
   await net.run();
-  // Arrival order: A gets y, B gets x, C gets x then y. Each device ends with the last item it applied.
+  // Arrival order: A gets y, B gets x, C gets x then y. x is older than y: B keeps its own y.
   assert.deepStrictEqual(writes(devs.A), ['y']);
-  assert.deepStrictEqual(writes(devs.B), ['x']);
+  assert.deepStrictEqual(writes(devs.B), [], 'the older copy is not applied over a newer one');
   assert.deepStrictEqual(writes(devs.C), ['x', 'y']);
-  assert.strictEqual(devs.A.clipboard.text, 'y');
-  assert.strictEqual(devs.B.clipboard.text, 'x');
-  assert.strictEqual(devs.C.clipboard.text, 'y');
+  for (const id of ['A', 'B', 'C']) assert.strictEqual(devs[id].clipboard.text, 'y', id + ' holds the later copy');
 });
 
 scenario('copies one after another: the last writer wins on every device', async () => {

@@ -11,6 +11,7 @@
 const { EventEmitter } = require('events');
 const P = require('../../shared/protocol.js');
 const { Pool } = require('../../shared/mesh.js');
+const { Latest } = require('../../shared/clipsync.js');
 
 const PREVIEW = 300; // characters kept per history item for the UI
 
@@ -43,6 +44,7 @@ class Clip extends EventEmitter {
     this.clipboard = opts.clipboard || require('electron').clipboard;
     this.helper = opts.helper || null;
     this.pool = new Pool({ name: 'clip', selfId: this.mesh.selfId, peers: () => clipPeers(this.mesh) });
+    this.latest = new Latest({ selfId: this.mesh.selfId }); // the latest copy wins (shared/clipsync.js)
     this.lastSync = { sent: null, received: null };
     this.history = []; // newest first: {dir: 'out'|'in', at, text, size, from}
     this.lastSkip = '';
@@ -155,6 +157,9 @@ class Clip extends EventEmitter {
     if (!c.enabled || !c.receive || !m || !P.clipAllowed(m.text)) return;
     const r = this.pool.receive(from, m);
     if (!r.fresh) return;
+    // An older copy than the newest this device knows (its own last copy counts): not applied. The pool
+    // relayed it anyway, so each device decides for itself.
+    if (!this.latest.accept(r.msg, 'text')) return;
     const text = m.text;
     const name = this._nameOf(r.msg.o, m.on, from);
     this.lastSync.received = text;
@@ -182,7 +187,8 @@ class Clip extends EventEmitter {
       this.lastSync.sent = text;
       return this._skip(`skipped ${Math.round(size / 1024)} KB (over ${c.maxKB} KB)`);
     }
-    if (!this.pool.publish({ t: P.T.CLIP, text }).sent.length) return;
+    const stamp = this.latest.copied('text'); // when the copy happened; the pool adds where (o)
+    if (!this.pool.publish({ t: P.T.CLIP, text, ts: stamp.ts }).sent.length) return;
     this.lastSync.sent = text;
     this._remember('out', text);
     this.lastSkip = '';

@@ -6,6 +6,7 @@
 const electron = require('electron');
 const P = require('../../shared/protocol.js');
 const { Pool } = require('../../shared/mesh.js');
+const { Latest } = require('../../shared/clipsync.js');
 
 const electronClipboard = electron.clipboard; // undefined under plain node (tests inject one)
 const POLL_MS = 500; // instant mode: how often the clipboard is checked for a new copy
@@ -50,6 +51,7 @@ class Clip {
     this.onChange = opts.onChange;
     this.clipboard = opts.clipboard || electronClipboard;
     this.pool = new Pool({ name: 'clip', selfId: this.mesh.selfId, peers: () => clipPeers(this.mesh) });
+    this.latest = new Latest({ selfId: this.mesh.selfId }); // the latest copy wins (shared/clipsync.js)
     this.lastSync = { sent: null, received: null };
     this.history = []; // newest first: {dir: 'out'|'in', at, text, size, from}
     this.lastSkip = '';
@@ -172,6 +174,9 @@ class Clip {
     if (!c.enabled || !c.receive || !m || !P.clipAllowed(m.text)) return;
     const r = this.pool.receive(from, m);
     if (!r.fresh) return;
+    // An older copy than the newest this device knows (its own last copy counts): not applied. The pool
+    // relayed it anyway, so each device decides for itself.
+    if (!this.latest.accept(r.msg, 'text')) return;
     const text = m.text;
     const name = this._nameOf(r.msg.o, m.on, from);
     this.lastSync.received = text;
@@ -200,7 +205,8 @@ class Clip {
       this.lastSync.sent = text;
       return this._skip('skipped ' + Math.round(size / 1024) + ' KB (over ' + c.maxKB + ' KB)');
     }
-    if (!this.pool.publish({ t: P.T.CLIP, text }).sent.length) return;
+    const stamp = this.latest.copied('text'); // when the copy happened; the pool adds where (o)
+    if (!this.pool.publish({ t: P.T.CLIP, text, ts: stamp.ts }).sent.length) return;
     this.lastSync.sent = text;
     this._remember('out', text);
     this.lastSkip = '';
