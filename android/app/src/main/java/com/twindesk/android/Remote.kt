@@ -23,7 +23,7 @@ class Remote(core: Core) : Feature(core) {
     private var mode = "pad"
     @Volatile private var ble: Boolean? = null // what the page was last told (through Bluetooth it sends moves less often)
 
-    // The touchpad's pointer speed (also the gamepad's right stick).
+    // The touchpad's pointer speed (also the gamepad's right stick and the screen viewer's touchpad).
     val speed: Float get() = core.store.prefsString("remote.speed", "1.0").toFloatOrNull()?.coerceIn(0.3f, 3f) ?: 1f
     fun setSpeed(v: Float) { core.store.setPrefsString("remote.speed", String.format(Locale.ROOT, "%.2f", v)); push() }
 
@@ -56,6 +56,7 @@ class Remote(core: Core) : Feature(core) {
 
     private fun push() {
         host?.post(opts())
+        core.screen.repost()
         core.changed()
     }
 

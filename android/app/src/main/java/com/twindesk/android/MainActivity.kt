@@ -831,10 +831,20 @@ private fun ScreenPage(core: Core, v: Int) {
         if (s.sharing && s.remote) MacRow("Sharing", "") { Secondary("Stop") { s.control(share = false) } }
     }
     MacCard("Touch") {
-        MacRow("Tap", "Click", first = true)
-        MacRow("Hold", "Right click")
-        MacRow("Drag", "Drag (select, move windows)")
-        MacRow("Two fingers", "Scroll")
+        val pad = core.store.flag("screen.touchpad", true)
+        SwitchRow("Touchpad", "Slide to move the pointer; sliding never clicks. Off: the pointer goes where you touch", pad, first = true) { s.setOpt("screen.touchpad", it) }
+        if (pad) {
+            MacRow("Slide", "Move the pointer")
+            MacRow("Tap", if (core.remote.tapClick) "Left click" else "Nothing (Remote › Tap to click is off)")
+            MacRow("Hold", "Right click")
+            MacRow("Click button", "Left click. Hold it and slide to drag")
+            MacRow("Two fingers", "Scroll")
+        } else {
+            MacRow("Tap", "Click")
+            MacRow("Hold", "Right click")
+            MacRow("Drag", "Drag (select, move windows)")
+            MacRow("Two fingers", "Scroll")
+        }
         if (!s.inputOn) MacRow("Input is off", "$name doesn’t take input from here (its Share screen › Receive input)")
     }
     MacCard("Playback") {
@@ -976,7 +986,7 @@ private fun RemotePage(core: Core, v: Int) {
         }
     }
     MacCard("Touchpad") {
-        MacRow("Pointer speed", "Also the gamepad’s right stick", first = true) {
+        MacRow("Pointer speed", "Also the gamepad’s right stick and the Screen page’s touchpad", first = true) {
             MacSlider(r.speed, 0.3f..3f, 0, { "%.1f×".format(java.util.Locale.ROOT, it) }) { r.setSpeed(it) }
         }
         SwitchRow("Tap to click", "A quick tap left-clicks; a slide never clicks. Off: only the click buttons click", r.tapClick) { r.setTapClick(it) }
