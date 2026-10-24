@@ -1,6 +1,6 @@
 #!/bin/sh
 # TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-# Builds dist/TwinDesk.app (npm run dist). The app code keeps its dev layout inside
+# Builds dist/TwinDesk.app (npm run dist [x64|arm64]). The app code keeps its dev layout inside
 # Contents/Resources/app (mac/, shared/, mac-helper/.build/release/) so every `../` path still works;
 # no asar, because mac-helper and scripts/*.sh are run straight from there.
 set -e
@@ -8,11 +8,16 @@ unset ELECTRON_RUN_AS_NODE
 cd "$(dirname "$0")"
 ROOT=..
 STAGE=dist/stage
-ARCH=$(uname -m)
-[ "$ARCH" = x86_64 ] && ARCH=x64
+ARCH=${1:-$(uname -m)}
+case "$ARCH" in
+  x86_64) ARCH=x64 ;;
+  aarch64) ARCH=arm64 ;;
+  x64|arm64) ;;
+  *) echo "Error: unsupported macOS architecture '$ARCH' (use x64 or arm64)." >&2; exit 2 ;;
+esac
 EV=$(node -p "require('./node_modules/electron/package.json').version")
 
-../mac-helper/build.sh
+../mac-helper/build.sh "$ARCH"
 
 # TwinDesk for Android with notification access, which the Mac installs on a phone over wireless
 # debugging (phone-bridge.js): the newest full build from android/dist, if one was built.

@@ -609,6 +609,20 @@ npm start                       # run from source
 npm run dist && npm run dmg     # build TwinDesk.app and TwinDesk.dmg in mac/dist/
 ```
 
+By default, `npm run dist` targets the Mac's current architecture. To build an Intel
+package from an Apple Silicon Mac, use:
+
+```sh
+npm run dist:x64 && npm run dmg
+```
+
+To build the Intel app and produce the requested named image in one step, run
+`npm run dmg:intel`; it writes `mac/dist/Twindesk_intel.dmg`.
+
+Use `npm run dist:arm64 && npm run dmg` for Apple Silicon explicitly. The x64 build
+cross-compiles the Swift helpers and packages the x64 Electron runtime, so it does
+not require an Intel Mac.
+
 On first launch, TwinDesk asks for **Screen Recording**, **Accessibility** and **Input
 Monitoring** (once; after that the General tab shows each permission's status).
 
