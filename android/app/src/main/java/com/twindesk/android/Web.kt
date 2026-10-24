@@ -57,6 +57,10 @@ class WebHost(ctx: Context, page: String, private val core: Core, private val on
         }.let { }
         @JavascriptInterface fun playing(w: Int, h: Int) = main.post { onEvent("playing", JSONObject().put("w", w).put("h", h)) }.let { }
         @JavascriptInterface fun haptic() = main.post { view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS) }.let { }
+        // A light tap (a gamepad or touchpad button going down).
+        @JavascriptInterface fun tick() = main.post { view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY) }.let { }
+        // Something for the activity around the page (remote.html: "close", "keyboard", "keyboardOff").
+        @JavascriptInterface fun event(name: String) = main.post { onEvent(name, null) }.let { }
     }
 
     // A message to the page (any thread).
