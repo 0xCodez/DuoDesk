@@ -20,7 +20,7 @@ const STAGE = path.join(WIN, 'dist', 'stage');
 const pkg = require(path.join(WIN, 'package.json'));
 const electronVersion = require(path.join(WIN, 'node_modules', 'electron', 'package.json')).version;
 
-const SKIP = new Set(['node_modules', 'dist', 'installer', 'package-lock.json']);
+const SKIP = new Set(['node_modules', 'dist', 'installer', 'test', 'package-lock.json']); // tests (mesh/test) stay out of the package
 const ARCHS = process.argv.slice(2).length ? process.argv.slice(2) : ['x64'];
 for (const a of ARCHS) if (a !== 'x64' && a !== 'arm64') throw new Error('Unknown architecture ' + a + ' (x64 or arm64)');
 
@@ -66,6 +66,10 @@ async function main() {
   copy(path.join(ROOT, 'shared'), path.join(STAGE, 'shared'), (name) => /\.(js|css|html)$/.test(name));
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
+  // Multi-device's helper (several watched sides, docs/multi-device.md): the same sources built with MULTI.
+  const multiHelper = path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper-multi.exe');
+  if (fs.existsSync(multiHelper)) copy(multiHelper, path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper-multi.exe'));
+  else console.log('note: no windows-helper/bin/macshare-winhelper-multi.exe — Multi-device uses the one-to-one helper (one edge)');
   // The calls' sound on this PC (callaudio.js): its .exe, its signed package and that certificate.
   for (const f of ['macshare-calls.exe', 'twindesk-calls.msix', 'twindesk-calls.cer']) {
     const from = path.join(ROOT, 'windows-helper', 'bin', f);

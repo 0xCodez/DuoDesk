@@ -55,9 +55,17 @@ func handle(_ line: String) {
   case "kvmConfig":
     guard Capture.shared.startTap() else { return replyError(id, "event tap failed (Accessibility / Input Monitoring)") }
     Flash.shared.prepare()
+#if MULTI
+    // `sides` (every edge with a device behind it, Multi-device); `side` alone is one edge.
+    let sides = (msg["sides"] as? [String]) ?? [(msg["side"] as? String) ?? "right"]
+    Capture.shared.configure(sides: sides, resistance: num("resistancePx", 120),
+                             edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
+                             dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight")
+#else
     Capture.shared.configure(side: (msg["side"] as? String) ?? "right", resistance: num("resistancePx", 120),
                              edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
                              dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight")
+#endif
     Capture.shared.gestures = (msg["gestures"] as? Bool) ?? true
     reply(id)
   case "gesture": // A gesture from the other computer, done by macOS itself
@@ -80,8 +88,13 @@ func handle(_ line: String) {
     Flash.shared.arrive(at: to, side: side) // the PC's pointer arrives here
     reply(id)
   case "armReturn":
+#if MULTI
+    let sides = (msg["sides"] as? [String]) ?? [(msg["side"] as? String) ?? "right"]
+    Capture.shared.armReturn(on: (msg["on"] as? Bool) ?? false, sides: sides, resistance: num("resistancePx", 120))
+#else
     Capture.shared.armReturn(on: (msg["on"] as? Bool) ?? false, side: (msg["side"] as? String) ?? "right",
                              resistance: num("resistancePx", 120))
+#endif
     reply(id)
   case "inject":
     if let ev = msg["ev"] as? [String: Any] { injector.injectRel(ev) }

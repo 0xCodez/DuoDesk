@@ -65,6 +65,9 @@ void capture_stop(int side, double offset, int hasSide);
 void capture_touch(void);
 void capture_tick(void);
 void capture_arm_return(int on, int side, double resistance);
+#ifdef MULTI
+void capture_arm_return_list(int on, const char *list, int fallback, double resistance); // several edges
+#endif
 void capture_feed_return(int x, int y, double dx, double dy);
 void capture_xevent(XEvent *e);
 int capture_active(void);

@@ -7,7 +7,11 @@ set -e
 cd "$(dirname "$0")"
 
 APP="dist/TwinDesk.app"
-DMG="dist/TwinDesk.dmg"
+DMG_NAME=${1:-TwinDesk.dmg}
+case "$DMG_NAME" in
+  */*) DMG="$DMG_NAME" ;;
+  *) DMG="dist/$DMG_NAME" ;;
+esac
 VOLNAME="TwinDesk"
 VENV="dist/.dmgbuild"
 

@@ -160,7 +160,19 @@ namespace MacShare
                 {
                     case "ping": case "keepalive": break;
                     case "kvmConfig":
+#if MULTI
+                        // sides: every side that leads to a connected device (CaptureMulti.cs); without it, the one side.
+                        List<string> sides = Json.Strs(c, "sides");
+                        if (sides == null)
+                        {
+                            sides = new List<string>();
+                            string one = Json.Str(c, "side", null);
+                            if (one != null) sides.Add(one);
+                        }
+                        capture.SetSides(sides);
+#else
                         capture.Side = Json.Str(c, "side", null);
+#endif
                         capture.ResistancePx = Json.Num(c, "resistancePx", 120);
                         capture.HotkeyVks = HotkeyVks(Json.Str(c, "hotkey", "AltRight"));
                         capture.DriveOther = Json.Bool(c, "driveOther", false);
@@ -181,7 +193,19 @@ namespace MacShare
                         capture.Flash.Play(p, center ? null : Json.Str(c, "side", "left"), false); // the Mac arrives here
                         break;
                     case "armReturn":
+#if MULTI
+                        // sides: every side with a device behind it; without it, the one side.
+                        List<string> retSides = Json.Strs(c, "sides");
+                        if (retSides == null)
+                        {
+                            retSides = new List<string>();
+                            string oneSide = Json.Str(c, "side", null);
+                            if (oneSide != null) retSides.Add(oneSide);
+                        }
+                        capture.ArmReturn(Json.Bool(c, "on", false), retSides, Json.Num(c, "resistancePx", 120));
+#else
                         capture.ArmReturn(Json.Bool(c, "on", false), Json.Str(c, "side", null), Json.Num(c, "resistancePx", 120));
+#endif
                         break;
                     case "inject":
                         Dictionary<string, object> ev = Json.Obj(c, "ev");

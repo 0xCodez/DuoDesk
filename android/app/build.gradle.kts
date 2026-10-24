@@ -10,23 +10,25 @@ android {
         applicationId = "com.twindesk.android"
         minSdk = 29 // Android 10: wireless debugging needs 11, everything else works from 10
         targetSdk = 36
-        versionCode = 20100
-        versionName = "2.1.0"
+        versionCode = 20200
+        versionName = "2.2.0"
     }
     // Two builds of the same app (same id and signature, so one installs over the other):
-    //   standard — what people download: no notification access, which Play Protect blocks on apps
-    //              installed from a browser, a messaging app or a file manager;
-    //   full     — with it (the phone's notifications on the computer): the computer installs it over
-    //              the standard one through wireless debugging, which Play Protect doesn't check.
+    //   standard — what people download: no notification access, SMS or Accessibility service, which
+    //              Play Protect blocks on apps installed from a browser, a messaging app or a file manager;
+    //   full     — with them (notifications, Messages, the mouse and keyboard without ADB): the computer
+    //              installs it over the standard one through wireless debugging, which Play Protect doesn't check.
     flavorDimensions += "dist"
     productFlavors {
         create("standard") {
             dimension = "dist"
             buildConfigField("boolean", "NOTIF_LISTENER", "false")
+            buildConfigField("boolean", "ACCESSIBILITY", "false")
         }
         create("full") {
             dimension = "dist"
             buildConfigField("boolean", "NOTIF_LISTENER", "true")
+            buildConfigField("boolean", "ACCESSIBILITY", "true")
         }
     }
     buildTypes {

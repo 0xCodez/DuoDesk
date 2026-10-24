@@ -92,6 +92,7 @@ function setupIpc(ctx) {
   handle('copyHistory', (index) => clip.copyHistory(Number(index)));
   handle('clearHistory', () => clip.clearHistory());
   handle('setTab', (tab) => change('ui', { tab })); // invalid names fall back in normalize()
+  handle('setMulti', (on) => require('./multi').set(on === true)); // Multi-device: TwinDesk restarts
   handle('setAudio', (partial) => change('audio', partial, () => sound.apply()));
   handle('setTerminal', (partial) => {
     const p = partial && typeof partial === 'object' ? { enabled: partial.enabled, allowMac: partial.allowMac } : {};

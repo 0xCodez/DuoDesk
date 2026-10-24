@@ -1,6 +1,6 @@
 #!/bin/sh
 # TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-# Builds dist/TwinDesk.app (npm run dist). The app code keeps its dev layout inside
+# Builds dist/TwinDesk.app (npm run dist [x64|arm64]). The app code keeps its dev layout inside
 # Contents/Resources/app (mac/, shared/, mac-helper/.build/release/) so every `../` path still works;
 # no asar, because mac-helper and scripts/*.sh are run straight from there.
 set -e
@@ -8,11 +8,16 @@ unset ELECTRON_RUN_AS_NODE
 cd "$(dirname "$0")"
 ROOT=..
 STAGE=dist/stage
-ARCH=$(uname -m)
-[ "$ARCH" = x86_64 ] && ARCH=x64
+ARCH=${1:-$(uname -m)}
+case "$ARCH" in
+  x86_64) ARCH=x64 ;;
+  aarch64) ARCH=arm64 ;;
+  x64|arm64) ;;
+  *) echo "Error: unsupported macOS architecture '$ARCH' (use x64 or arm64)." >&2; exit 2 ;;
+esac
 EV=$(node -p "require('./node_modules/electron/package.json').version")
 
-../mac-helper/build.sh
+../mac-helper/build.sh "$ARCH"
 
 # TwinDesk for Android with notification access, which the Mac installs on a phone over wireless
 # debugging (phone-bridge.js): the newest full build from android/dist, if one was built.
@@ -23,9 +28,9 @@ if [ -n "$FULL_APK" ]; then cp "$FULL_APK" vendor/twindesk-android-full.apk; els
 sh scripts/fetch-adb.sh
 
 rm -rf "$STAGE" && mkdir -p "$STAGE/mac" "$STAGE/shared" "$STAGE/mac-helper/.build/release" "$STAGE/node_modules"
-rsync -a --exclude node_modules --exclude dist --exclude dev --exclude dmg --exclude build-app.sh --exclude build-dmg.sh --exclude scripts/signing-identity.sh ./ "$STAGE/mac/"
+rsync -a --exclude node_modules --exclude dist --exclude dev --exclude test --exclude dmg --exclude build-app.sh --exclude build-dmg.sh --exclude scripts/signing-identity.sh ./ "$STAGE/mac/"
 cp "$ROOT"/shared/*.js "$ROOT"/shared/*.css "$ROOT"/shared/*.html "$STAGE/shared/"
-cp "$ROOT"/mac-helper/.build/release/macshare-helper "$ROOT"/mac-helper/.build/release/macshare-dockstub "$ROOT"/mac-helper/.build/release/macshare-calls "$STAGE/mac-helper/.build/release/"
+cp "$ROOT"/mac-helper/.build/release/macshare-helper "$ROOT"/mac-helper/.build/release/macshare-helper-multi "$ROOT"/mac-helper/.build/release/macshare-dockstub "$ROOT"/mac-helper/.build/release/macshare-calls "$STAGE/mac-helper/.build/release/"
 cp -R node_modules/ws "$STAGE/node_modules/"
 mkdir -p "$STAGE/mac/node_modules" && cp -R node_modules/ws "$STAGE/mac/node_modules/"
 cp "$ROOT/LICENSE" "$STAGE/"

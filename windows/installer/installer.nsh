@@ -7,6 +7,7 @@
 
 !macro customInit
   nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
+  nsExec::Exec 'taskkill /f /im macshare-winhelper-multi.exe'
   nsExec::Exec 'taskkill /f /im macshare-calls.exe'
   System::Call 'user32::SystemParametersInfoW(i 0x57, i 0, i 0, i 2)'
   nsExec::Exec '"$INSTDIR\resources\app\windows\vendor\adb\adb.exe" kill-server'
@@ -14,6 +15,7 @@
 
 !macro customUnInit
   nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
+  nsExec::Exec 'taskkill /f /im macshare-winhelper-multi.exe'
   nsExec::Exec 'taskkill /f /im macshare-calls.exe'
   System::Call 'user32::SystemParametersInfoW(i 0x57, i 0, i 0, i 2)'
   nsExec::Exec '"$INSTDIR\resources\app\windows\vendor\adb\adb.exe" kill-server'
@@ -25,6 +27,7 @@
 !macro customCheckAppRunning
   nsExec::Exec 'taskkill /f /t /im TwinDesk.exe'
   nsExec::Exec 'taskkill /f /im macshare-winhelper.exe'
+  nsExec::Exec 'taskkill /f /im macshare-winhelper-multi.exe'
   nsExec::Exec 'taskkill /f /im macshare-calls.exe'
   System::Call 'user32::SystemParametersInfoW(i 0x57, i 0, i 0, i 2)'
   Sleep 500

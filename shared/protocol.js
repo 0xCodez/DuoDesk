@@ -22,6 +22,14 @@
     PHONE_GRACE_MS: 30000,
     PING_MS: 1000,
     TIMEOUT_MS: 4000, // close the session after this much silence
+    // Multi-device only (docs/mesh.md): many devices at once. A link that is selected, driving or being
+    // driven keeps PING_MS/TIMEOUT_MS; the others are checked more rarely so ten links cost little.
+    MAX_DEVICES: 10,
+    IDLE_PING_MS: 5000,
+    IDLE_TIMEOUT_MS: 15000,
+    INBOUND_WAIT_MS: 5000, // two computers that hold each other as hosts: the larger id waits this long for the other to dial
+    POOL_SEEN_LIMIT: 200, // (origin, seq) pairs remembered per pool for dedupe
+    POOL_MAX_HOPS: 9, // one less than MAX_DEVICES: enough for a chain of ten (duplicates are dropped, so no storms)
     BLE_TIMEOUT_MS: 20000, // the same through Bluetooth, where one big message takes seconds
     PAIR_TIMEOUT_MS: 60000,
     UNAUTH_TIMEOUT_MS: 70000, // Mac closes sockets that never authenticate
@@ -47,6 +55,8 @@
     HOTKEYS: ['AltRight', 'AltLeft', 'Alt', 'ControlRight', 'ControlLeft', 'Control',
       'ShiftRight', 'ShiftLeft', 'Shift', 'MetaRight', 'MetaLeft', 'Meta'],
     CLIP_MAX_BYTES: 256 * 1024, // clipboard text limit (UTF-8)
+    CLIP_IMAGE_MAX_BYTES: 8 * 1024 * 1024, // clipboard image limit (PNG bytes, before base64)
+    CLIP_SKEW_MS: 10 * 60 * 1000, // a copy time further ahead of our clock than this is clamped (a clock that wrong must not win for ever)
     FILE_CHUNK_BYTES: 64 * 1024, // raw bytes per file.chunk (base64 on the wire)
     FILE_MAX_BYTES: 4 * 1024 * 1024 * 1024, // largest dropped file
     SIDES: ['left', 'right', 'top', 'bottom'],
@@ -92,6 +102,7 @@
       KVM_RELEASE: 'kvm.release',
       KVM_HOME: 'kvm.home',
       KVM_LINK: 'kvm.link', // either {on}: mouse and keyboard sharing switched on/off (hotkey double-tap); the other side follows
+      KVM_NEXT: 'kvm.next', // multi-device: {route, to, side, offset}: a device we drive reached an edge that leads to device `to` (docs/mesh.md)
       K_MOVE: 'k.mm',
       K_DOWN: 'k.md',
       K_UP: 'k.mu',
@@ -107,6 +118,10 @@
       CLIP: 'clip',
       CLIP_REQUEST: 'clip.request',
       CLIP_POLICY: 'clip.policy', // either way: {accept} — whether this side applies clip from the other
+      // The latest copy wins (shared/clipsync.js; Multi-device's clipboard for now): `clip` carries {ts, o}:
+      // when the copy happened (a hybrid logical clock, ms) and on which device. An older item never replaces a newer one.
+      CLIP_IMAGE: 'clip.image', // either way: {id, ts, o, w, h, png: base64} an image on the clipboard
+      CLIP_LATEST: 'clip.latest', // either way, after welcome: {ts, o, kind: 'text'|'image'|'files'} what this side holds as the newest copy
       // roadmap,
       AUDIO_POLICY: 'audio.policy', // W->M {accept}: the PC plays the Mac's sound
       SSH_KEY: 'ssh.key', // W->M {pub}

@@ -38,6 +38,35 @@ static double push, lastPush;
 static int retArmed, retSide = SIDE_NONE;
 static double retResistance, retPush, retLast;
 
+#ifdef MULTI
+// Multi-device's helper (macshare-linuxhelper-multi, built with -DMULTI, docs/multi-device.md):
+// several watched edges on X11, each pushed through on its own, and the edge and return events say
+// which side. `side` stays the first one (the file-drag strip, drop.c). The lists come as sideList
+// ("left,top"): our JSON reader skips arrays. Without MULTI, the one-side code below is all there is.
+static int sides[4], nsides;                 // the edges watched at home
+static double pushBy[4], lastPushBy[4];      // the push per side (indexed by SIDE_*)
+static int retSides[4], nret;                // the edges watched while driven
+static double retPushBy[4], retLastBy[4];
+
+// "left,top" -> out (valid, no repeats); none given: the one side `fallback`, if any.
+static int parse_sides(const char *list, int fallback, int *out) {
+  int n = 0;
+  if (!list) {
+    if (fallback != SIDE_NONE) out[n++] = fallback;
+    return n;
+  }
+  char buf[64];
+  snprintf(buf, sizeof buf, "%s", list);
+  for (char *tok = strtok(buf, ","); tok && n < 4; tok = strtok(NULL, ",")) {
+    int s = side_of(tok);
+    int dup = 0;
+    for (int i = 0; i < n; i++) if (out[i] == s) dup = 1;
+    if (s != SIDE_NONE && !dup) out[n++] = s;
+  }
+  return n;
+}
+#endif
+
 // key repeat while capturing: raw events carry none (X repeats inside XKB), the PC forwards
 // repeats as more k.kd, so the last key held repeats here at X's own rate
 static int repeatEv = -1;
@@ -155,6 +184,10 @@ void capture_config(const JObj *c) {
   doubleTapMs = jnum(c, "doubleTapMs", 400);
   shortcut_config(c);
   drop_config(c);
+#ifdef MULTI
+  nsides = parse_sides(jstr(c, "sideList", NULL), side, sides);
+  memset(pushBy, 0, sizeof pushBy);
+#endif
 }
 
 void capture_touch(void) { lastCmd = now_ms(); }
@@ -227,6 +260,9 @@ int capture_begin(int mouse, int keys) {
   }
   XFlush(dpy_ev);
   push = 0;
+#ifdef MULTI
+  memset(pushBy, 0, sizeof pushBy);
+#endif
   return 1;
 }
 
@@ -257,6 +293,9 @@ void capture_stop(int toSide, double offset, int hasSide) {
   }
   release_grabs();
   push = 0;
+#ifdef MULTI
+  memset(pushBy, 0, sizeof pushBy);
+#endif
 }
 
 void capture_arm_return(int on, int s, double resistance) {
@@ -265,6 +304,17 @@ void capture_arm_return(int on, int s, double resistance) {
   retResistance = resistance;
   retPush = 0;
 }
+
+#ifdef MULTI
+// armReturn with sideList: every edge with a device behind it (fallback: the one side).
+void capture_arm_return_list(int on, const char *list, int fallback, double resistance) {
+  nret = on ? parse_sides(list, fallback, retSides) : 0;
+  retArmed = nret > 0;
+  retSide = nret ? retSides[0] : SIDE_NONE;
+  retResistance = resistance;
+  memset(retPushBy, 0, sizeof retPushBy);
+}
+#endif
 
 static void repeat_tick(double now);
 
@@ -278,6 +328,9 @@ void capture_drag_cross(const char *paths, int x, int y, int sx, int sy, int sw,
   memset(heldButtons, 0, sizeof heldButtons); // the left button's release goes over: it drops there
   capture_touch();
   push = 0;
+#ifdef MULTI
+  memset(pushBy, 0, sizeof pushBy);
+#endif
   savedX = x < sx ? sx : x > sx + sw - 1 ? sx + sw - 1 : x;
   savedY = y < sy ? sy : y > sy + sh - 1 ? sy + sh - 1 : y;
   XWarpPointer(dpy_in, None, root_in, 0, 0, 0, 0, savedX, savedY);
@@ -476,6 +529,57 @@ static void on_button(int xb, int down) {
 }
 
 // The owner's hand reaching the return edge: local raw motion and injected moves both come here.
+#ifdef MULTI
+// Every armed side counts, summed on its own; the first through says which side it left by.
+void capture_feed_return(int x, int y, double dx, double dy) {
+  if (!retArmed) return;
+  double now = now_ms();
+  for (int i = 0; i < nret; i++) {
+    int s = retSides[i];
+    double outward = screens_outward(s, dx, dy);
+    if (outward <= 0 || !screens_on_outer_edge(x, y, s)) { retPushBy[s] = 0; continue; }
+    if (now - retLastBy[s] > 300) retPushBy[s] = 0;
+    retLastBy[s] = now;
+    retPushBy[s] += outward;
+    if (retPushBy[s] < retResistance) continue;
+    retArmed = 0;
+    memset(retPushBy, 0, sizeof retPushBy);
+    JOut o;
+    jo_begin(&o);
+    jo_str(&o, "event", "return");
+    jo_str(&o, "side", side_name(s));
+    jo_num(&o, "offset", round(screens_offset(x, y, s) * 10000) / 10000);
+    emit(jo_end(&o));
+    return;
+  }
+}
+
+// At home: the first watched side pushed through takes the pointer there (`edge` names the side).
+static void multi_edge_push(int x, int y, unsigned mask, double rdx, double rdy) {
+  if (!driveOther || !nsides || (mask & (Button1Mask | Button2Mask | Button3Mask))) { memset(pushBy, 0, sizeof pushBy); return; } // rule 6
+  double now = now_ms();
+  for (int i = 0; i < nsides; i++) {
+    int s = sides[i];
+    double outward = screens_outward(s, rdx, rdy);
+    if (outward <= 0 || !screens_on_outer_edge(x, y, s)) { pushBy[s] = 0; continue; }
+    if (now - lastPushBy[s] > 300) pushBy[s] = 0;
+    lastPushBy[s] = now;
+    pushBy[s] += outward;
+    if (pushBy[s] < resistancePx) continue;
+    double offset = screens_offset(x, y, s);
+    // Start capturing at once so no motion leaks, then tell main.
+    if (!capture_begin(1, edgeKeyboard)) { memset(pushBy, 0, sizeof pushBy); return; }
+    savedX = x; savedY = y;
+    JOut o;
+    jo_begin(&o);
+    jo_str(&o, "event", "edge");
+    jo_str(&o, "side", side_name(s));
+    jo_num(&o, "offset", round(offset * 10000) / 10000);
+    emit(jo_end(&o));
+    return;
+  }
+}
+#else
 void capture_feed_return(int x, int y, double dx, double dy) {
   if (!retArmed) return;
   double outward = screens_outward(retSide, dx, dy);
@@ -492,6 +596,7 @@ void capture_feed_return(int x, int y, double dx, double dy) {
   jo_num(&o, "offset", round(screens_offset(x, y, retSide) * 10000) / 10000);
   emit(jo_end(&o));
 }
+#endif
 
 // dx/dy: accelerated (what the pointer would do), rdx/rdy: unaccelerated (edge push).
 static void on_motion(double dx, double dy, double rdx, double rdy) {
@@ -509,6 +614,9 @@ static void on_motion(double dx, double dy, double rdx, double rdy) {
   unsigned mask;
   query(&x, &y, &mask);
   if (retArmed) { capture_feed_return(x, y, rdx, rdy); return; }
+#ifdef MULTI
+  multi_edge_push(x, y, mask, rdx, rdy);
+#else
   if (!driveOther || side == SIDE_NONE || (mask & (Button1Mask | Button2Mask | Button3Mask))) { push = 0; return; } // rule 6
   double outward = screens_outward(side, rdx, rdy);
   if (outward <= 0 || !screens_on_outer_edge(x, y, side)) { push = 0; return; }
@@ -526,6 +634,7 @@ static void on_motion(double dx, double dy, double rdx, double rdy) {
   jo_str(&o, "event", "edge");
   jo_num(&o, "offset", round(offset * 10000) / 10000);
   emit(jo_end(&o));
+#endif
 }
 
 static void raw_motion(XIRawEvent *r) {
