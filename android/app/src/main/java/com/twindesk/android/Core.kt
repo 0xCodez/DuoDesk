@@ -63,13 +63,14 @@ class Core private constructor(val ctx: Context) : Link.Events {
     val macSound = MacSound(this)
     val shortcuts = Shortcuts(this)
     val kvm = Kvm(this)
+    val remote = Remote(this) // this phone as the computer's touchpad, keyboard and gamepad (the Remote page)
     val updates = Updates(this)
     val net = Netlink(this)
     val hub = Hub(this) // Calls, Messages and Photos on the computer: nothing runs until one is on
     val share = FolderShare(this) // shared folders with the computer, both ways
     val sound = PhoneSound(this) // this phone's sound there without wireless debugging
     val shots = Screenshots(this) // screenshots both ways, onto the other clipboard
-    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, input, drive, screen, macSound, shortcuts, kvm, hub, share, sound, shots)
+    private val features: List<Feature> = listOf(net, sync, clip, notifs, files, fclip, info, apps, wake, adb, pointer, input, drive, screen, macSound, shortcuts, kvm, remote, hub, share, sound, shots)
 
     val host: Host? get() = if (link.connected) link.host else null
 
@@ -119,12 +120,13 @@ class Core private constructor(val ctx: Context) : Link.Events {
 
     fun isNear(id: String) = discovery.found.containsKey(id) || (bleOn && (ble.found.containsKey(id) || serve.found.containsKey(id)))
 
-    // Wi-Fi out of power save while a screen streams either way (power save adds 50–200 ms bursts).
+    // Wi-Fi out of power save while a screen streams either way, or the Remote is in use (power
+    // save adds 50–200 ms bursts).
     private val wifiFast by lazy { WifiFast(ctx) }
 
     fun changed() {
         // (runCatching: discovery may report before every feature exists)
-        runCatching { wifiFast.hold(link.connected && !link.wired && (screen.viewing || adb.viewed)) }
+        runCatching { wifiFast.hold(link.connected && !link.wired && (screen.viewing || adb.viewed || remote.active)) }
         version.value++
         main.post { TwinService.refresh(ctx) }
     }
@@ -269,6 +271,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
 
     override fun onChange() {
         runCatching { share.linkChanged() } // the session moved (Bluetooth <-> Wi-Fi): shared folders follow
+        runCatching { remote.linkChanged() } // … and the Remote page's pace
         changed()
     }
 
