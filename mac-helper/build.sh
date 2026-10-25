@@ -17,6 +17,7 @@ TARGET="$SWIFT_ARCH-apple-macos13.0"
 swiftc -O -swift-version 5 -target "$TARGET" \
   -I Sources/VirtualDisplayBridge/include \
   -framework CoreGraphics -framework AppKit -framework ApplicationServices -framework IOKit -framework ScreenCaptureKit -framework CoreMedia -framework NetFS -framework CoreBluetooth -framework CoreWLAN -framework CoreLocation -lsqlite3 \
+  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Sources/macshare-helper/Info.plist \
   Sources/macshare-helper/*.swift -o .build/release/macshare-helper
 echo "built .build/release/macshare-helper"
 # Multi-device's helper (docs/multi-device.md): the same sources with -D MULTI, several watched edges
@@ -24,6 +25,7 @@ echo "built .build/release/macshare-helper"
 swiftc -O -swift-version 5 -target "$TARGET" -D MULTI \
   -I Sources/VirtualDisplayBridge/include \
   -framework CoreGraphics -framework AppKit -framework ApplicationServices -framework IOKit -framework ScreenCaptureKit -framework CoreMedia -framework NetFS -framework CoreBluetooth -framework CoreWLAN -framework CoreLocation -lsqlite3 \
+  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Sources/macshare-helper/Info.plist \
   Sources/macshare-helper/*.swift -o .build/release/macshare-helper-multi
 echo "built .build/release/macshare-helper-multi"
 swiftc -O -swift-version 5 -target "$TARGET" -framework AppKit \
@@ -31,6 +33,7 @@ swiftc -O -swift-version 5 -target "$TARGET" -framework AppKit \
 echo "built .build/release/macshare-dockstub"
 # The calls' sound over Bluetooth (mac/callaudio.js), its own process: only it loads IOBluetooth.
 swiftc -O -swift-version 5 -target "$TARGET" -framework IOBluetooth \
+  -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Sources/macshare-calls/Info.plist \
   Sources/macshare-calls/main.swift -o .build/release/macshare-calls
 echo "built .build/release/macshare-calls"
 # Share menu extension (packed into TwinDesk.app/Contents/PlugIns by mac/build-app.sh).
