@@ -35,6 +35,8 @@ class PhoneViews extends EventEmitter {
     this.views = new Map(); // id -> {id, kind, app, title, win, session, keys, size}
     bridge.views = this;
     this.notified = null; // {pkg, name, at, unlocked}: a clicked notification's app, waiting to open (openNotified)
+    this.activeApp = '';
+    server.on(`t:${T.PHONE_ACTIVE_APP}`, (m) => { if (m && m.pkg) this.activeApp = m.pkg; });
     server.on(`t:${T.PHONE_AWAKE}`, (m) => this._awake(m));
     // The phone's own Show and Close (its Screen page): its screen in a window here (openScreen
     // decides how: wireless debugging, Wi-Fi first when on Bluetooth, or a popup saying what's
@@ -180,7 +182,7 @@ class PhoneViews extends EventEmitter {
       // click never comes: without this its AudioContext stays suspended and silent).
       webPreferences: { preload: path.join(__dirname, 'preload-phoneview.js'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
     });
-    const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [], chrome: this._chrome() };
+    const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [], chrome: this._chrome(), screenOff: false };
     this.views.set(id, v);
     win.loadFile(path.join(__dirname, 'phoneview.html'), { query: { kind, title, controls: this._controls() } });
     // The phone's screen: the window keeps the picture's shape, its bars added (snapped exact
@@ -195,6 +197,10 @@ class PhoneViews extends EventEmitter {
     win.on('focus', () => this.emit('focus'));
     win.on('blur', () => this.emit('focus'));
     win.on('closed', () => {
+      if (v.swipeTimer) clearInterval(v.swipeTimer);
+      if (v.screenOff && v.session && !v.session.closed) {
+        try { v.session.setDisplayPower(true); } catch {}
+      }
       if (v.session) v.session.stop();
       this.views.delete(id);
       this.emit('change');
@@ -328,6 +334,12 @@ class PhoneViews extends EventEmitter {
         if (e) s.key(m.down ? ACTION.DOWN : ACTION.UP, e.keycode, e.meta, m.repeat ? 1 : 0);
         break;
       }
+      case 'newline':
+        if (s && !s.closed) s.text('\n');
+        break;
+      case 'sendMsg':
+        this._sendMsg(v);
+        break;
       case 'nav': {
         const k = {
           back: ANDROID.BACK, home: ANDROID.HOME, recents: ANDROID.APP_SWITCH, power: ANDROID.POWER,
@@ -337,6 +349,11 @@ class PhoneViews extends EventEmitter {
         if (m.key === 'notifications') s.simple(TYPE.EXPAND_NOTIFICATIONS);
         if (m.key === 'settings') s.simple(TYPE.EXPAND_SETTINGS);
         if (m.key === 'rotate') s.simple(TYPE.ROTATE);
+        if (m.key === 'screenPower') {
+          v.screenOff = !v.screenOff;
+          s.setDisplayPower(!v.screenOff);
+          this._send(v, 'phoneview:screenPower', { off: v.screenOff });
+        }
         break;
       }
       case 'resetVideo': // the window skipped frames: a keyframe now
@@ -345,8 +362,156 @@ class PhoneViews extends EventEmitter {
       case 'resize': // an app window changed size: its virtual display follows (flex)
         if (v.kind === 'app' && m.w > 50 && m.h > 50) s.resizeDisplay(Math.round(m.w), Math.round(m.h));
         break;
+      case 'swipe':
+        if (typeof m.dir === 'string') this._swipe(v, m.dir);
+        break;
       default: break;
     }
+  }
+
+  _sendMsg(v) {
+    const s = v.session;
+    if (!s || s.closed) return;
+
+    // 1. Tell companion app on phone to click Send button via Accessibility (InputService)
+    if (this.server) {
+      try { this.server.sendToClient({ t: T.PHONE_SEND }); } catch {}
+    }
+
+    const pkg = (v.app || this.activeApp || '').toLowerCase();
+    const isInsta = pkg.includes('instagram');
+    const isWhatsApp = pkg.includes('whatsapp');
+
+    if (isInsta) {
+      // Instagram direct message composer:
+      // Tab to focus Send button, then Enter to click it.
+      s.tap(61); // KEYCODE_TAB
+      setTimeout(() => {
+        if (v.session && !v.session.closed) {
+          s.tap(66); // KEYCODE_ENTER
+        }
+      }, 40);
+    } else if (isWhatsApp) {
+      // WhatsApp:
+      // 1. Enter key sends natively if "Enter is send" is enabled in WhatsApp settings
+      s.tap(66); // KEYCODE_ENTER
+      // 2. Tab + Enter if "Enter is send" was not toggled in WhatsApp settings
+      setTimeout(() => {
+        if (v.session && !v.session.closed) {
+          s.tap(61);
+          setTimeout(() => {
+            if (v.session && !v.session.closed) s.tap(66);
+          }, 35);
+        }
+      }, 50);
+    } else {
+      // General chat / messaging apps:
+      s.tap(66);
+      setTimeout(() => {
+        if (v.session && !v.session.closed) {
+          s.tap(61);
+          setTimeout(() => {
+            if (v.session && !v.session.closed) s.tap(66);
+          }, 35);
+        }
+      }, 50);
+    }
+  }
+
+  _swipe(v, dir) {
+    const s = v.session;
+    const size = v.size;
+    if (!s || s.closed || !size) return;
+    if (v.swiping) {
+      // Buffer at most 1 subsequent swipe so rapid taps are never dropped
+      v.pendingSwipe = dir;
+      return;
+    }
+    v.swiping = true;
+
+    const w = size.width;
+    const h = size.height;
+    let startX, startY, endX, endY;
+
+    // Inverted directional swipe for natural navigation:
+    // ArrowDown -> content moves down (finger swipes UP from bottom to top)
+    // ArrowUp -> content moves up (finger swipes DOWN from top to bottom)
+    // ArrowRight -> content moves right (finger swipes LEFT from right to left)
+    // ArrowLeft -> content moves left (finger swipes RIGHT from left to right)
+    switch (dir) {
+      case 'down':
+        startX = Math.round(w * 0.5);
+        startY = Math.round(h * 0.78);
+        endX = Math.round(w * 0.5);
+        endY = Math.round(h * 0.22);
+        break;
+      case 'up':
+        startX = Math.round(w * 0.5);
+        startY = Math.round(h * 0.22);
+        endX = Math.round(w * 0.5);
+        endY = Math.round(h * 0.78);
+        break;
+      case 'right':
+        startX = Math.round(w * 0.82);
+        startY = Math.round(h * 0.5);
+        endX = Math.round(w * 0.18);
+        endY = Math.round(h * 0.5);
+        break;
+      case 'left':
+        startX = Math.round(w * 0.18);
+        startY = Math.round(h * 0.5);
+        endX = Math.round(w * 0.82);
+        endY = Math.round(h * 0.5);
+        break;
+      default:
+        v.swiping = false;
+        return;
+    }
+
+    const duration = 160; // ms: natural flick duration
+    const startTime = Date.now();
+    const dx = endX - startX;
+    const dy = endY - startY;
+
+    // Send touch down directly over control socket (pointer: -2 = FINGER)
+    s.touch(ACTION.DOWN, -2, startX, startY, w, h, 1, 0, 0);
+
+    const timer = setInterval(() => {
+      if (s.closed) {
+        clearInterval(timer);
+        v.swiping = false;
+        v.swipeTimer = null;
+        v.pendingSwipe = null;
+        return;
+      }
+
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(1, elapsed / duration);
+
+      if (progress < 1) {
+        // Mild ease-in curve (t^1.15): starts cleanly without jerk and maintains brisk velocity
+        // right through release (ACTION.UP), ensuring Android's VelocityTracker detects a
+        // natural fling and triggers a smooth inertia scroll.
+        const ease = Math.pow(progress, 1.15);
+        const curX = Math.round(startX + dx * ease);
+        const curY = Math.round(startY + dy * ease);
+        s.touch(ACTION.MOVE, -2, curX, curY, w, h, 1, 0, 0);
+      } else {
+        clearInterval(timer);
+        v.swipeTimer = null;
+        // Liftoff at terminal position with authentic release velocity
+        s.touch(ACTION.UP, -2, endX, endY, w, h, 0, 0, 0);
+        setTimeout(() => {
+          v.swiping = false;
+          if (v.pendingSwipe) {
+            const next = v.pendingSwipe;
+            v.pendingSwipe = null;
+            this._swipe(v, next);
+          }
+        }, 30);
+      }
+    }, 10);
+    v.swipeTimer = timer;
   }
 
   shutdown() {

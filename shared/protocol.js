@@ -212,6 +212,8 @@
       REMOTE_KEY_DOWN: 'remote.kd', // {code} (KeyboardEvent.code)
       REMOTE_KEY_UP: 'remote.ku', // {code}
       REMOTE_RELEASE: 'remote.release', // let go of every key and button the remote holds
+      PHONE_SEND: 'phone.send', // computer->phone: clicks the active app's Send button
+      PHONE_ACTIVE_APP: 'phone.activeApp', // phone->computer {pkg}: current foreground package
       // Wireless debugging (adb), which the Mac uses for the screen, touch, mouse and keyboard,
       // the clipboard in the background and apps in their own windows (scrcpy):
       ADB_STATE: 'adb.state', // phone->Mac {devOptions, wifi (wireless debugging on), canEnable (WRITE_SECURE_SETTINGS granted), address, full, port (its wireless debugging port from its own mDNS, 0 if not known yet), net (on a Wi-Fi network: wireless debugging can't be on without one)}

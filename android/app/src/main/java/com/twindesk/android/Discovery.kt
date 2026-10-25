@@ -121,6 +121,21 @@ class Discovery(
                 }
             }
         }
+        // Inspect ARP table (/proc/net/arp) to reach connected hotspot clients directly
+        runCatching {
+            val arp = java.io.File("/proc/net/arp")
+            if (arp.exists() && arp.canRead()) {
+                arp.forEachLine { line ->
+                    val parts = line.trim().split("\\s+".toRegex())
+                    if (parts.size >= 4 && parts[0] != "IP" && parts[2] != "0x0") {
+                        val ip = parts[0]
+                        if (ip.matches(Regex("^\\d+\\.\\d+\\.\\d+\\.\\d+$"))) {
+                            out.add(ip)
+                        }
+                    }
+                }
+            }
+        }
         return out
     }
 

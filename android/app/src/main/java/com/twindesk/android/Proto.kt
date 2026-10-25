@@ -82,6 +82,8 @@ object Proto {
         const val REMOTE_HELLO = "remote.hello"
         const val REMOTE_STATE = "remote.state"
         const val REMOTE_RELEASE = "remote.release"
+        const val PHONE_SEND = "phone.send"
+        const val PHONE_ACTIVE_APP = "phone.activeApp"
         const val ADB_STATE = "adb.state"
         const val ADB_ENABLE = "adb.enable"
         const val ADB_PAIR = "adb.pair"
