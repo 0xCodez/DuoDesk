@@ -1,10 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Cursor lock: the pointer stays on the device it is on now, whichever computer the mouse is plugged
 // into. At home the edges don't cross; while driven the way back isn't watched; while driving the
-// driven device is told (kvm.lock) and stops watching its edges. The lock key switches it: at home the
-// helper (Linux) or a global shortcut (Mac, Windows) sees it, while driving it passes through
-// LockKey.intercept() on its way to the other computer and is used up there. Going home or away by
-// any other means (the hotkey, the tray, a disconnect) ends the lock.
+// driven device is told (kvm.lock) and stops watching its edges. Each device has its own lock key, and
+// the one that counts is the one of the device the pointer is on: the helper (Linux) or a global
+// shortcut (Mac, Windows) sees it on this device's keyboard, LockKey.intercept() in the keys another
+// computer's keyboard sends while it drives this one. Going home or away by any other means (the
+// hotkey, the tray, a disconnect) ends the lock.
 'use strict';
 
 // Scroll Lock, as Synergy and Input Leap use it. A Mac has none: a PC keyboard's Scroll Lock is F14 there.
@@ -36,9 +37,13 @@ function keyName(code) {
 
 const MODS = { ControlLeft: 'Control', ControlRight: 'Control', AltLeft: 'Alt', AltRight: 'Alt', ShiftLeft: 'Shift', ShiftRight: 'Shift', MetaLeft: 'Super', MetaRight: 'Super' };
 const SAME = { Command: 'Super', Meta: 'Super', Cmd: 'Super', Option: 'Alt', Ctrl: 'Control' };
+// One physical key: a PC keyboard's Scroll Lock is F14 on a Mac.
+const SAME_KEY = { Scrolllock: 'F14', F14: 'Scrolllock' };
 
-// The key events of this computer's keyboard while it drives another one (kvm.js): the lock key and its
-// release are used up there, so they never reach the other computer.
+// The lock key belongs to the device the pointer is on. Keys typed on another computer's keyboard while
+// it drives this one come through here (kvm.js) before they're injected: this device's own lock key and
+// its release are used up, so the app in front never gets them. A device driving a phone (which has no
+// lock key) passes its own keys through here instead.
 class LockKey {
   constructor(getKeys) {
     this.getKeys = getKeys; // () => the accelerator (settings.keys.lockKeys)
@@ -46,7 +51,8 @@ class LockKey {
     this.eaten = new Set();
   }
 
-  // True when the event was the lock key (or its release): don't send it.
+  // 'press' when the event is the lock key going down, true for its release or autorepeat (used up
+  // too), false for anything else.
   intercept(e) {
     if (!e || (e.t !== 'k.kd' && e.t !== 'k.ku') || typeof e.code !== 'string') return false;
     if (MODS[e.code]) {
@@ -55,15 +61,18 @@ class LockKey {
       return false;
     }
     if (e.t === 'k.ku') return this.eaten.delete(e.code);
+    if (this.eaten.has(e.code)) return true; // autorepeat
     const acc = this.getKeys();
     if (!acc) return false;
     const parts = acc.split('+');
-    if (parts.pop() !== keyName(e.code)) return false;
+    const key = parts.pop();
+    const name = keyName(e.code);
+    if (key !== name && SAME_KEY[key] !== name) return false;
     const want = [...new Set(parts.map((p) => SAME[p] || p))].sort().join('+');
     const have = [...new Set([...this.held].map((c) => MODS[c]))].sort().join('+');
     if (want !== have) return false;
     this.eaten.add(e.code);
-    return true;
+    return 'press';
   }
 
   reset() {

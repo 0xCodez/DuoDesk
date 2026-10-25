@@ -230,12 +230,20 @@ class Kvm {
     this.onChange();
   }
 
-  // The lock key (main.js's global shortcut, or ours while driving): a press and its echo count once.
+  // The lock key (main.js's global shortcut, or the driver's keyboard): a press and its echo count once.
   toggleLock() {
     const now = Date.now();
     if (now - this.lockAt < CL.TOGGLE_GAP_MS) return;
     this.lockAt = now;
     this.setLocked(!this.locked);
+  }
+
+  // This device's own lock key, typed on the keyboard of the computer that drives it (ev in our key
+  // codes): used up here, the app in front never gets it.
+  _lockKeyHere(ev) {
+    const hit = this.lockKey.intercept(ev);
+    if (hit === 'press') this.toggleLock();
+    return !!hit;
   }
 
   // ---- owner (this PC drives the Mac) ----
@@ -300,10 +308,7 @@ class Kvm {
         break;
       case 'ev':
         if (this.mode === 'driving' && msg.ev && (K_TYPES.has(msg.ev.t) || (msg.ev.t === T.K_GESTURE && this.cfg.gestures !== false))) {
-          if (this.lockKey.intercept(msg.ev)) { // the lock key: used up here
-            if (msg.ev.t === T.K_KEY_DOWN) this.toggleLock();
-            break;
-          }
+          if (this.local && this.local.drives() && this._lockKeyHere(msg.ev)) break; // a phone has no lock key: ours counts there
           if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there
           if (msg.ev.t === T.K_MOVE) {
             if (!this.pendingMove) {
@@ -427,6 +432,7 @@ class Kvm {
     if (ev.t === T.K_KEY_DOWN || ev.t === T.K_KEY_UP) {
       if (typeof ev.code !== 'string') return;
       if (this.settings.keys.swapCtrlCmd && P.keySwapNeeded(P.OS.WIN, this.link.peerOs)) ev.code = P.mapKeyFromOtherPlatform(ev.code);
+      if (this._lockKeyHere(ev)) return;
     } else if (ev.t === T.K_MOVE) {
       ev.dx = (Number(ev.dx) || 0) * k.speed;
       ev.dy = (Number(ev.dy) || 0) * k.speed;
@@ -519,7 +525,7 @@ class Kvm {
       this.locked = false;
       if (was === 'home') this.applyConfig();
     }
-    if (mode !== 'driving') this.lockKey.reset();
+    if (was !== mode) this.lockKey.reset();
     if (was !== mode && this.onWhere) this.onWhere(mode, was); // the switching popup (main.js)
     if (mode === 'home' && this.dragPending) { // went home before releasing: the files don't go
       this.dragPending = false;

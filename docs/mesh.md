@@ -137,9 +137,11 @@ the phone on the Mac's right, every screen shows exactly that. The rules are in 
 - Cursor lock (`shared/cursorlock.js`): the pointer stays on the device it is on. At home no edge is
   watched; the owner tells the device it drives with `kvm.lock { on }` (either way, only between the
   owner and its partner), and that device stops its return watch, so neither `kvm.home` nor `kvm.next`
-  happens. The lock key (Scroll Lock, F14 on a Mac) is used up by the owner while it drives; at home the
-  Linux helper sees it (`shortcut { action: 'lock' }`), Mac and Windows hold it as a global shortcut
-  while a device is connected. Going home or away any other way (the hotkey, the tray, a disconnect)
+  happens. Each device has its own lock key (Scroll Lock, F14 on a Mac), and the one that counts is the
+  key of the device the pointer is on: on its own keyboard the Linux helper sees it (`shortcut { action:
+  'lock' }`) and Mac and Windows hold it as a global shortcut while a device is connected; typed on the
+  owner's keyboard it arrives as `k.kd` and the driven device uses it up before injecting. A phone has
+  none: the owner's key counts there. Going home or away any other way (the hotkey, the tray, a disconnect)
   ends the lock.
 - Reach (`reach`, in the layout state for the editor): a chain gets only to devices the owner is connected
   to, as the owner takes each one itself (`kvm.next` past a device it has no link to is ignored, and a

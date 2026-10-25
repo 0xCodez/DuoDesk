@@ -2,7 +2,8 @@
 // Cursor lock (shared/cursorlock.js) on real sockets, set up as kvm-edges.test.js: node A has a real Kvm
 // with a recording helper, B and C are other computers whose hub bus records what they get. Locked, the
 // pointer stays where it is: at home no edge crosses, driving the device we drive is told (kvm.lock),
-// driven the edges aren't watched; going home or away any other way ends the lock.
+// driven the edges aren't watched; going home or away any other way ends the lock. The lock key that
+// counts is the one of the device the pointer is on.
 // Run with: node linux/mesh/test/kvm-lock.test.js  (NODE_PATH as in CI)
 'use strict';
 
@@ -163,7 +164,7 @@ test('at home: locked, no side is watched and an edge is refused; the lock key r
   }
 });
 
-test('driving: the lock key is used up here, the device we drive is told, its kvm.next is ignored; going home ends the lock', async () => {
+test('driving: our lock key is not ours to use on B, it goes through as a key; B locks with its own key and A follows; kvm.next is ignored; going home ends the lock', async () => {
   const N = await world(['A', 'B', 'C'], TRIANGLE);
   try {
     const { A, B, C } = N;
@@ -171,18 +172,20 @@ test('driving: the lock key is used up here, the device we drive is told, its kv
     const kvm = kvmOn(A);
     lay(A, { top: B, bottom: C });
     const take = await driveVia(A, B, 'top');
-    key(A, T.K_KEY_DOWN, 'KeyA');
     key(A, T.K_KEY_DOWN, 'ScrollLock');
     key(A, T.K_KEY_UP, 'ScrollLock');
-    key(A, T.K_KEY_UP, 'KeyA');
-    await waitFor(() => got(B, T.KVM_LOCK).length === 1, 'B gets kvm.lock');
-    assert.strictEqual(got(B, T.KVM_LOCK)[0].m.on, true);
-    await waitFor(() => got(B, T.K_KEY_UP).length === 1, 'B gets the release of A');
-    assert.deepStrictEqual(got(B, T.K_KEY_DOWN).map((x) => x.m.code), ['KeyA'], 'Scroll Lock never reaches B');
-    assert.deepStrictEqual(got(B, T.K_KEY_UP).map((x) => x.m.code), ['KeyA']);
-    assert.strictEqual(got(C, T.KVM_LOCK).length, 0, 'only the device we drive is told');
-    assert.strictEqual(kvm.locked, true);
-    assert.deepStrictEqual(A.locks.slice(-1)[0], { on: true, mode: 'driving' });
+    await waitFor(() => got(B, T.K_KEY_UP).length === 1, 'B gets the key and its release');
+    assert.deepStrictEqual(got(B, T.K_KEY_DOWN).map((x) => x.m.code), ['ScrollLock'], 'the pointer is on B: B’s key decides');
+    assert.strictEqual(kvm.locked, false, 'A did not lock');
+    assert.strictEqual(got(B, T.KVM_LOCK).length, 0);
+
+    // B saw its own lock key in A's keys and locked: it tells A, which follows (no echo).
+    B.hub.bus.send(A.id, { t: T.KVM_LOCK, on: true });
+    await waitFor(() => kvm.locked === true, 'A follows B');
+    assert.deepStrictEqual(A.locks.slice(-1)[0], { on: true, mode: 'driving' }, 'driving a computer: its popup, not ours');
+    await sleep(100);
+    assert.strictEqual(got(B, T.KVM_LOCK).length, 0, 'no echo back to B');
+    assert.strictEqual(got(C, T.KVM_LOCK).length, 0);
 
     // B's pointer reached its edge towards C anyway (an older B): A doesn't take C.
     B.hub.bus.send(A.id, { t: T.KVM_NEXT, route: take.m.route, to: C.id, side: 'top', offset: 0.5 });
@@ -190,20 +193,60 @@ test('driving: the lock key is used up here, the device we drive is told, its kv
     assert.strictEqual(kvm.partner, B.id, 'still driving B');
     assert.strictEqual(got(C, T.KVM_TAKE).length, 0);
 
-    // B unlocks from its side (its Cursor tab): A follows, no echo.
-    B.hub.bus.send(A.id, { t: T.KVM_LOCK, on: false });
-    await waitFor(() => kvm.locked === false, 'A follows B');
-    await sleep(100);
-    assert.strictEqual(got(B, T.KVM_LOCK).length, 1, 'no echo back to B');
+    // The tray locks or unlocks from A too: B is told.
+    kvm.setLocked(false);
+    await waitFor(() => got(B, T.KVM_LOCK).length === 1, 'B is told');
+    assert.strictEqual(got(B, T.KVM_LOCK)[0].m.on, false);
 
     // Locked again, then the hotkey / tray brings everything home: the lock ends with it.
-    await sleep(350);
-    key(A, T.K_KEY_DOWN, 'ScrollLock');
-    await waitFor(() => got(B, T.KVM_LOCK).length === 2, 'B gets kvm.lock again');
+    B.hub.bus.send(A.id, { t: T.KVM_LOCK, on: true });
+    await waitFor(() => kvm.locked === true, 'locked by B');
     kvm.home();
     await waitFor(() => got(B, T.KVM_RELEASE).length === 1, 'B gets kvm.release');
     assert.strictEqual(kvm.locked, false, 'home: the lock was for B');
     assert.deepStrictEqual(sides(A), ['top', 'bottom'], 'and the edges cross again');
+  } finally {
+    closeAll(N);
+  }
+});
+
+test('driven: our own lock key typed on the driver’s keyboard locks here and is used up; after a change only the new key does', async () => {
+  const N = await world(['A', 'B', 'C'], TRIANGLE);
+  try {
+    const { A, B, C } = N;
+    record(B); record(C);
+    const kvm = kvmOn(A);
+    lay(A, { top: B, bottom: C });
+    B.hub.bus.send(A.id, { t: T.KVM_TAKE, route: 1, side: 'top', offset: 0.5, mouse: true, keyboard: true });
+    await waitFor(() => kvm.mode === 'driven', 'A is driven by B');
+    const injected = () => A.helper.sent.filter((x) => x.name === 'inject' && (x.args.ev.t === T.K_KEY_DOWN || x.args.ev.t === T.K_KEY_UP)).map((x) => x.args.ev.t + ' ' + x.args.ev.code);
+    const typed = (t, code) => B.hub.bus.send(A.id, { t, code });
+
+    typed(T.K_KEY_DOWN, 'ScrollLock');
+    typed(T.K_KEY_DOWN, 'ScrollLock'); // autorepeat
+    typed(T.K_KEY_UP, 'ScrollLock');
+    await waitFor(() => got(B, T.KVM_LOCK).length === 1, 'the driver is told');
+    assert.strictEqual(kvm.locked, true, 'A locked with its own key');
+    assert.strictEqual(got(B, T.KVM_LOCK)[0].m.on, true);
+    assert.strictEqual(A.helper.last('armReturn').on, false, 'not watched');
+    assert.deepStrictEqual(injected(), [], 'the key is used up here, the app in front never gets it');
+    assert.deepStrictEqual(A.locks.slice(-1)[0], { on: true, mode: 'driven' }, 'the popup is shown here');
+
+    // A picks another key (its Cursor tab): Scroll Lock is a key like any other now, Ctrl+Alt+L locks.
+    await sleep(350);
+    typed(T.K_KEY_DOWN, 'ScrollLock');
+    typed(T.K_KEY_UP, 'ScrollLock');
+    await waitFor(() => kvm.locked === false, 'unlocked with the same key');
+    A.settings.keys.lockKeys = 'Control+Alt+L';
+    await sleep(350);
+    typed(T.K_KEY_DOWN, 'ScrollLock');
+    typed(T.K_KEY_UP, 'ScrollLock');
+    await waitFor(() => injected().length === 2, 'Scroll Lock is injected');
+    assert.strictEqual(kvm.locked, false);
+    for (const [t, code] of [[T.K_KEY_DOWN, 'ControlLeft'], [T.K_KEY_DOWN, 'AltLeft'], [T.K_KEY_DOWN, 'KeyL'], [T.K_KEY_UP, 'KeyL'], [T.K_KEY_UP, 'AltLeft'], [T.K_KEY_UP, 'ControlLeft']]) typed(t, code);
+    await waitFor(() => kvm.locked === true, 'the new key locks');
+    await waitFor(() => injected().length === 6, 'the modifiers are injected');
+    assert.ok(!injected().some((x) => x.endsWith(' KeyL')), 'L is used up');
   } finally {
     closeAll(N);
   }
@@ -235,7 +278,7 @@ test('driven: locked, the edges are not watched and a return is ignored; the dri
     await sleep(100);
     assert.strictEqual(kvm.locked, true, 'only the driver may unlock it');
 
-    B.hub.bus.send(A.id, { t: T.KVM_LOCK, on: false }); // the driver's lock key
+    B.hub.bus.send(A.id, { t: T.KVM_LOCK, on: false }); // the driver's tray
     await waitFor(() => kvm.locked === false, 'unlocked by the driver');
     assert.strictEqual(A.helper.last('armReturn').on, true, 'watched again');
     assert.strictEqual(got(B, T.KVM_LOCK).length, 1, 'no echo');

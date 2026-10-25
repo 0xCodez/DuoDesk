@@ -29,12 +29,13 @@ assert.strictEqual(CL.keysLabel('Control+Alt+L', 'win'), 'Ctrl+Alt+L');
 assert.strictEqual(CL.keysLabel('Control+Command+L', 'mac'), '⌃⌘L');
 assert.strictEqual(CL.keysLabel('', 'win'), 'None');
 
-// LockKey: the key and its release are used up, everything else (modifiers included) goes through.
+// LockKey: 'press' for the key, its release and autorepeat used up too; everything else (modifiers included) goes through.
 const down = (code) => ({ t: 'k.kd', code });
 const up = (code) => ({ t: 'k.ku', code });
 let acc = 'Scrolllock';
 const k = new CL.LockKey(() => acc);
-assert.strictEqual(k.intercept(down('ScrollLock')), true);
+assert.strictEqual(k.intercept(down('ScrollLock')), 'press');
+assert.strictEqual(k.intercept(down('ScrollLock')), true, 'autorepeat: used up, not another press');
 assert.strictEqual(k.intercept(up('ScrollLock')), true, 'its release is used up too');
 assert.strictEqual(k.intercept(up('ScrollLock')), false, 'only once');
 assert.strictEqual(k.intercept(down('KeyA')), false);
@@ -47,17 +48,27 @@ acc = 'Control+Alt+L';
 assert.strictEqual(k.intercept(down('KeyL')), false, 'no modifiers: not it');
 k.intercept(down('ControlRight'));
 k.intercept(down('AltLeft'));
-assert.strictEqual(k.intercept(down('KeyL')), true, 'either side of a modifier');
+assert.strictEqual(k.intercept(down('KeyL')), 'press', 'either side of a modifier');
 k.intercept(up('AltLeft'));
 k.intercept(up('ControlRight'));
 assert.strictEqual(k.intercept(up('KeyL')), true);
 
 acc = 'Command+L'; // a Mac accelerator: Command is the Meta key
 k.intercept(down('MetaLeft'));
-assert.strictEqual(k.intercept(down('KeyL')), true);
+assert.strictEqual(k.intercept(down('KeyL')), 'press');
 k.reset();
 assert.strictEqual(k.intercept(up('KeyL')), false, 'reset forgets what was used up');
 assert.strictEqual(k.intercept(down('KeyL')), false, 'and what was held');
+
+acc = 'F14'; // a Mac: a PC keyboard's Scroll Lock is its F14
+k.reset();
+assert.strictEqual(k.intercept(down('ScrollLock')), 'press');
+k.intercept(up('ScrollLock'));
+assert.strictEqual(k.intercept(down('F14')), 'press');
+k.intercept(up('F14'));
+acc = 'Scrolllock'; // and a Mac keyboard's F14 is Scroll Lock on a PC
+assert.strictEqual(k.intercept(down('F14')), 'press');
+k.intercept(up('F14'));
 
 acc = '';
 assert.strictEqual(k.intercept(down('ScrollLock')), false, 'no lock key: nothing is used up');

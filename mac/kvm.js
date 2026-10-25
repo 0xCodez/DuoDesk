@@ -135,12 +135,20 @@ class Kvm extends EventEmitter {
     this.emit('change');
   }
 
-  // The lock key (main.js's global shortcut, or ours while driving): a press and its echo count once.
+  // The lock key (main.js's global shortcut, or the driver's keyboard): a press and its echo count once.
   toggleLock() {
     const now = Date.now();
     if (now - this.lockAt < CL.TOGGLE_GAP_MS) return;
     this.lockAt = now;
     this.setLocked(!this.locked);
+  }
+
+  // This device's own lock key, typed on the keyboard of the computer that drives it (ev in our key
+  // codes): used up here, the app in front never gets it.
+  _lockKeyHere(ev) {
+    const hit = this.lockKey.intercept(ev);
+    if (hit === 'press') this.toggleLock();
+    return !!hit;
   }
 
   // Tell the helper where the crossing side is and whether edge crossing is armed.
@@ -246,7 +254,7 @@ class Kvm extends EventEmitter {
       this.locked = false;
       if (prev === 'home') this.config();
     }
-    if (mode !== 'driving') this.lockKey.reset();
+    if (prev !== mode) this.lockKey.reset();
     if (prev !== mode) this.emit('where', mode, prev); // hud.js shows it
     this.message = message || '';
     if (mode !== 'driving') {
@@ -377,10 +385,7 @@ class Kvm extends EventEmitter {
       case 'ev': {
         if (this.mode !== 'driving' || !ev.ev) return;
         const e = ev.ev;
-        if (this.lockKey.intercept(e)) { // the lock key: used up here
-          if (e.t === P.T.K_KEY_DOWN) this.toggleLock();
-          return;
-        }
+        if (this.local && this.local.drives() && this._lockKeyHere(e)) return; // a phone has no lock key: ours counts there
         if (this.fileClip && this.fileClip.intercept(e)) return; // copy/paste shortcut: done over there
         if (e.t === P.T.K_MOVE) {
           if (!this.pendingMove) {
@@ -455,6 +460,7 @@ class Kvm extends EventEmitter {
           return;
         }
         ev = { t: m.t, code: this.server.keySwap(this.getSettings()) ? P.mapKeyFromOtherPlatform(m.code) : m.code };
+        if (this._lockKeyHere(ev)) return;
     }
     this.helper.send('inject', { ev });
   }

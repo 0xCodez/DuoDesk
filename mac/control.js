@@ -344,7 +344,7 @@ const UI = {
         lock.disable(!s.client);
         key.set(keys);
         const where = i.where === 'driving' ? p.name : p.me;
-        const press = keys ? ` Press ${UI.keysLabel(keys)} on the keyboard you use to lock or unlock.` : '';
+        const press = keys ? ` While the pointer is on ${p.me}, ${UI.keysLabel(keys)} on either keyboard locks or unlocks it (each computer has its own key).` : '';
         lockRow.setHint(i.lockError ? i.lockError : !s.client ? `Keeps the pointer on one computer, even when the mouse is plugged into another.${press}`
           : i.locked ? `The pointer stays on ${where}: the screen edges don’t cross.${press}`
             : `Keeps the pointer on ${where}, where it is now, even when the mouse is plugged into another computer.${press}`);

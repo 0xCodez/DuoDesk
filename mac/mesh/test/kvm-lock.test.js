@@ -168,7 +168,7 @@ test('at home: locked, no side is watched and an edge is refused; unlocked, they
   }
 });
 
-test('driving the phone: F14 is used up, the phone bridge keeps the pointer at its edge; unlocked, the push goes home', async () => {
+test('driving the phone (it has no lock key): this Mac’s F14 is used up, the phone bridge keeps the pointer at its edge; unlocked, the push goes home', async () => {
   const s = await setup();
   const { A, B, kvm, bridge, helper } = s;
   try {
@@ -196,22 +196,21 @@ test('driving the phone: F14 is used up, the phone bridge keeps the pointer at i
   }
 });
 
-test('driving the computer: the lock key never reaches it, it is told instead; going home ends the lock', async () => {
+test('driving the computer: F14 goes through to it as a key (its own key decides there); it locks and this Mac follows; going home ends the lock', async () => {
   const s = await setup();
   const { A, B, kvm, helper } = s;
   try {
     helper.emit('event', 'edge', { side: 'top', offset: 0.6 });
     await waitFor(() => s.of('B', T.KVM_TAKE).length === 1, 'B gets kvm.take', 3000);
     B.hub.bus.send(A.id, { t: T.KVM_ACCEPT, route: s.of('B', T.KVM_TAKE)[0].m.route });
-    key(helper, T.K_KEY_DOWN, 'KeyA');
     key(helper, T.K_KEY_DOWN, 'F14');
     key(helper, T.K_KEY_UP, 'F14');
-    key(helper, T.K_KEY_UP, 'KeyA');
-    await waitFor(() => s.of('B', T.KVM_LOCK).length === 1, 'B gets kvm.lock');
-    await waitFor(() => s.of('B', T.K_KEY_UP).length === 1, 'B gets the release of A');
-    assert.deepStrictEqual(s.of('B', T.K_KEY_DOWN).map((x) => x.m.code), ['KeyA'], 'F14 never reaches B');
-    assert.strictEqual(s.of('B', T.KVM_LOCK)[0].m.on, true);
-    assert.strictEqual(s.locks.length, 1);
+    await waitFor(() => s.of('B', T.K_KEY_UP).length === 1, 'B gets F14 and its release');
+    assert.deepStrictEqual(s.of('B', T.K_KEY_DOWN).map((x) => x.m.code), ['F14']);
+    assert.strictEqual(kvm.locked, false, 'the pointer is on B: not this Mac’s key to use');
+    B.hub.bus.send(A.id, { t: T.KVM_LOCK, on: true }); // B's own key
+    await waitFor(() => kvm.locked === true, 'this Mac follows B');
+    assert.strictEqual(s.of('B', T.KVM_LOCK).length, 0, 'no echo');
     kvm.home();
     await waitFor(() => s.of('B', T.KVM_RELEASE).length === 1, 'B gets kvm.release');
     assert.strictEqual(kvm.locked, false, 'home: the lock was for B');
@@ -221,16 +220,21 @@ test('driving the computer: the lock key never reaches it, it is told instead; g
   }
 });
 
-test('driven by the computer: locked, the edges are not watched and a return is ignored; the driver is told and may unlock it', async () => {
+test('driven by the computer: its Scroll Lock is this Mac’s F14: it locks here and is used up; locked, the edges are not watched and a return is ignored; the driver may unlock it', async () => {
   const s = await setup();
   const { A, B, kvm, helper } = s;
   try {
     B.hub.bus.send(A.id, { t: T.KVM_TAKE, route: 1, side: 'top', offset: 0.5, mouse: true, keyboard: true });
     await waitFor(() => kvm.mode === 'driven', 'this Mac is driven by B');
     assert.strictEqual(lastSent(helper, 'armReturn').on, true);
-    kvm.setLocked(true); // the Cursor tab or the menu bar
-    assert.strictEqual(lastSent(helper, 'armReturn').on, false, 'locked: not watched');
+    const injectedKeys = () => helper.sent.filter((x) => x.name === 'inject' && x.args.ev.code).length;
+    B.hub.bus.send(A.id, { t: T.K_KEY_DOWN, code: 'ScrollLock' });
+    B.hub.bus.send(A.id, { t: T.K_KEY_UP, code: 'ScrollLock' });
     await waitFor(() => s.of('B', T.KVM_LOCK).length === 1, 'the driver is told');
+    assert.strictEqual(kvm.locked, true);
+    assert.strictEqual(injectedKeys(), 0, 'used up: never injected');
+    assert.strictEqual(lastSent(helper, 'armReturn').on, false, 'locked: not watched');
+    assert.deepStrictEqual(s.locks.slice(-1)[0], { on: true, mode: 'driven' });
     helper.emit('event', 'return', { side: 'top', offset: 0.5 });
     await sleep(150);
     assert.strictEqual(kvm.mode, 'driven');

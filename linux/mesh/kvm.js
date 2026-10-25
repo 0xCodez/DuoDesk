@@ -381,12 +381,20 @@ class Kvm {
     this.onChange();
   }
 
-  // The lock key (the helper's, or ours while driving): a press and its echo count once.
+  // The lock key (the helper's, or the driver's keyboard): a press and its echo count once.
   toggleLock() {
     const now = Date.now();
     if (now - this.lockAt < CL.TOGGLE_GAP_MS) return;
     this.lockAt = now;
     this.setLocked(!this.locked);
+  }
+
+  // This device's own lock key, typed on the keyboard of the computer that drives it (ev in our key
+  // codes): used up here, the app in front never gets it.
+  _lockKeyHere(ev) {
+    const hit = this.lockKey.intercept(ev);
+    if (hit === 'press') this.toggleLock();
+    return !!hit;
   }
 
   // ---- owner (this computer drives a device) ----
@@ -446,10 +454,7 @@ class Kvm {
         break;
       case 'ev':
         if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) {
-          if (this.lockKey.intercept(msg.ev)) { // the lock key: used up here
-            if (msg.ev.t === T.K_KEY_DOWN) this.toggleLock();
-            break;
-          }
+          if (this.local && this.local.drives(this.partner) && this._lockKeyHere(msg.ev)) break; // a phone has no lock key: ours counts there
           if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there
           if (msg.ev.t === T.K_MOVE) { // moves are summed (see _scheduleMove)
             if (!this.pendingMove) {
@@ -656,6 +661,10 @@ class Kvm {
     if (this.mode !== 'driven' || from !== this.partner) return;
     const k = this.cfg;
     const ev = { ...m };
+    if ((ev.t === T.K_KEY_DOWN || ev.t === T.K_KEY_UP) && typeof ev.code === 'string') {
+      const swap = this.settings.keys.swapCtrlCmd && P.keySwapNeeded(P.OS.LINUX, this._peerOs(from) || P.OS.MAC);
+      if (this._lockKeyHere({ t: ev.t, code: swap ? P.mapKeyFromOtherPlatform(ev.code) : ev.code })) return;
+    }
     if (this.sub) { // the input goes on to the phone, in this computer's key codes (the bridge swaps for the phone)
       if ((ev.t === T.K_KEY_DOWN || ev.t === T.K_KEY_UP) && typeof ev.code === 'string' && this.settings.keys.swapCtrlCmd && P.keySwapNeeded(P.OS.LINUX, this._peerOs(from) || P.OS.MAC)) ev.code = P.mapKeyFromOtherPlatform(ev.code);
       this.local.handle(ev, this.sub.to);
@@ -800,7 +809,7 @@ class Kvm {
       this.locked = false;
       if (was === 'home') this.applyConfig();
     }
-    if (mode !== 'driving') this.lockKey.reset();
+    if (was !== mode) this.lockKey.reset();
     if (mode !== 'driving') this.pendingMove = null;
     if (was !== mode) console.log('[kvm] ' + was + ' -> ' + mode + ' (partner ' + (this.partner || '-') + ')' + (message ? ': ' + message : ''));
     if (mode === 'home') this.partner = null;
