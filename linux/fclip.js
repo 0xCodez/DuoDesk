@@ -9,12 +9,15 @@
 // app count too. The helper reads the clipboard as an X client (xclip.c): a Wayland desktop only
 // shows it to the app in front, but mirrors it to XWayland. `fclip.offer` announces them; the other computer's paste asks for them with
 // `fclip.paste` and they go as a batch (filedrop.js, drop:'paste'). Paste here: the batch lands in
-// the folder of the file manager window in front, else Downloads (filerecv.js).
+// the folder of the file manager window in front, else Downloads (filerecv.js); with an app in
+// front instead (a chat, a mail, a document) it goes into it (shared/pastefiles.js: on the
+// clipboard as files, then Ctrl+V there).
 const { app, clipboard } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
 const P = require('../shared/protocol.js');
 const fm = require('./fm');
+const pastefiles = require('../shared/pastefiles.js');
 
 const T = P.T;
 
@@ -73,8 +76,16 @@ class FileClip {
 
   // The paste batch landed (filerecv.js onBatch).
   pasted(b) {
+    const p = this.pasting;
     this.pasting = null;
-    this.popup('home', b.ok ? 'Pasted ' + plural(b.files, 'file') : 'Pasted ' + b.files + ' of ' + b.count + ' files');
+    const done = b.ok ? 'Pasted ' + plural(b.files, 'file') : 'Pasted ' + b.files + ' of ' + b.count + ' files';
+    if (p && p.into && b.files && b.placed && b.placed.length) {
+      pastefiles.pasteInto(this.helper, b.placed)
+        .then(() => this.popup('home', done))
+        .catch(() => this.popup('home', done + ': they’re on the clipboard, paste them with Ctrl+V'));
+    } else {
+      this.popup('home', done);
+    }
     this.onChange();
   }
 
@@ -168,7 +179,10 @@ class FileClip {
     this.pasting = { id: inc.id, files: inc.files };
     const win = await fm.front(this.helper);
     const front = win && win.folder && fs.existsSync(win.folder) ? win.folder : '';
-    this.fileRecv.expectBatch(inc.id, front || app.getPath('downloads'), inc.bytes, !front);
+    // An app in front (not a file manager, the desktop or TwinDesk itself): the files go into it.
+    const into = !front && win && win.app && !win.fm && !win.desktop && !/twindesk/i.test(win.app) ? pastefiles.pasteDir() : '';
+    if (into) this.pasting.into = { app: win.app };
+    this.fileRecv.expectBatch(inc.id, front || into || app.getPath('downloads'), inc.bytes, !front && !into);
     this.link.send({ t: T.FCLIP_PASTE, id: inc.id });
     this.popup('driven', 'Pasting ' + plural(inc.files, 'file') + '…');
     this.onChange();

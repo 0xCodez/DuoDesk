@@ -98,7 +98,7 @@ UI.tab({
       copyRow.hidden = pasteRow.hidden = !f.shortcuts;
       pasteRow.setHint(ck.pasting ? 'Pasting…'
         : ck.incoming ? p.them + ' copied ' + (ck.incoming.name || ck.incoming.items + ' items') + ' · press ' + UI.keysLabel(f.pasteKeys)
-          : 'Into the File Explorer window in front, else the Desktop');
+          : 'Into the app in front (a chat, a mail…), or the File Explorer folder in front, else the Desktop');
       edgeDrag.set(f.edgeDrag);
       edgeRow.setHint(f.edgeDrag && f.macDrags === false ? 'Turned off on {name}' : f.edgeDrag ? 'Drag through the screen edge and drop anywhere' : '');
       mount.set(f.mountMac);

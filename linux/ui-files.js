@@ -98,7 +98,7 @@ UI.tab({
       copyRow.hidden = pasteRow.hidden = !f.shortcuts;
       pasteRow.setHint(ck.pasting ? 'Pasting…'
         : ck.incoming ? p.them + ' copied ' + (ck.incoming.name || ck.incoming.items + ' items') + ' · press ' + UI.keysLabel(f.pasteKeys)
-          : 'Into the file manager window in front, else Downloads');
+          : 'Into the app in front (a chat, a mail…), or the file manager folder in front, else Downloads');
       edgeDrag.set(f.edgeDrag);
       edgeRow.setHint(f.edgeDrag && f.macDrags === false ? 'Turned off on {name}'
         : !f.edgeDrag ? '' : f.session === 'wayland' ? 'From ' + p.the + ': drop on a folder or the desktop. From here: needs an Xorg session'

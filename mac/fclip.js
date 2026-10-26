@@ -3,6 +3,8 @@
 // ⌃⌥C / ⌃⌥V, Files tab). Copy announces the files selected in Finder (else the files on the
 // clipboard) with `fclip.offer`; paste on the other computer asks for them with `fclip.paste` and
 // they arrive as a batch (filesend.js / drop.js, drop:'paste') in the folder that was in front.
+// With an app in front instead of Finder (a chat, a mail, a document), they go into it
+// (shared/pastefiles.js: on the clipboard as files, then ⌘V there).
 //
 // Events: 'change' — this.view changed; 'popup' (kind, text) — for hud.js.
 'use strict';
@@ -15,6 +17,7 @@ const { execFile } = require('child_process');
 const { globalShortcut } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const pastefiles = require('../shared/pastefiles.js');
 
 const T = P.T;
 const DESKTOP = path.join(os.homedir(), 'Desktop');
@@ -70,8 +73,16 @@ class FileClip extends EventEmitter {
     });
     drop.on('batch', (b) => {
       if (b.kind !== 'paste') return;
+      const p = this.pasting;
       this.pasting = null;
-      this.emit('popup', 'home', b.ok ? `Pasted ${plural(b.files, 'file')}` : `Pasted ${b.files} of ${b.count} files`);
+      const done = b.ok ? `Pasted ${plural(b.files, 'file')}` : `Pasted ${b.files} of ${b.count} files`;
+      if (p && p.into && b.files && b.placed && b.placed.length) {
+        pastefiles.pasteInto(this.helper, b.placed)
+          .then(() => this.emit('popup', 'home', done))
+          .catch(() => this.emit('popup', 'home', `${done}: they’re on the clipboard, paste them with ⌘V`));
+      } else {
+        this.emit('popup', 'home', done);
+      }
       this.emit('change');
     });
     this.apply();
@@ -159,13 +170,18 @@ class FileClip extends EventEmitter {
     if (!this.server.current) return this.emit('popup', 'home', 'Not connected');
     if (!inc) return this.emit('popup', 'home', `Nothing copied on ${this.peerName}`);
     let dir = '';
+    let into = null;
     try {
       const src = await this.helper.request('fileSource');
       if (src.front === 'com.apple.finder') dir = await finderFolder();
+      // An app in front (not Finder, nor TwinDesk and its windows): the files go into it.
+      else if (src.front && !src.front.startsWith('org.macshare.')) into = { app: src.front };
     } catch { /* Desktop */ }
+    if (into) dir = pastefiles.pasteDir();
     dir = dir && fs.existsSync(dir) ? dir.replace(/\/$/, '') : DESKTOP;
-    this.drop.expectBatch(inc.id, dir);
-    this.pasting = { id: inc.id, files: inc.files };
+    if (dir === DESKTOP) into = null;
+    this.drop.expectBatch(inc.id, dir, !!into);
+    this.pasting = { id: inc.id, files: inc.files, into };
     this.server.sendToClient({ t: T.FCLIP_PASTE, id: inc.id });
     this.emit('popup', 'driven', `Pasting ${plural(inc.files, 'file')}…`);
     this.emit('change');

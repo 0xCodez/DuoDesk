@@ -120,6 +120,29 @@ namespace MacShare
             return paths;
         }
 
+        [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int max);
+        [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+
+        // The window in front when it's an app's, not Explorer's or the desktop's (a paste of files
+        // goes into it): its handle, process id and title; 0 when it isn't.
+        public static long FrontApp(out uint pid, out string title)
+        {
+            pid = 0;
+            title = "";
+            IntPtr root = GetAncestor(GetForegroundWindow(), 2); // GA_ROOT
+            if (root == IntPtr.Zero || !IsWindowVisible(root)) return 0;
+            StringBuilder cls = new StringBuilder(64);
+            GetClassName(root, cls, cls.Capacity);
+            string c = cls.ToString();
+            if (c == "Progman" || c == "WorkerW" || c == "CabinetWClass" || c == "ExploreWClass" || c == "Shell_TrayWnd" || c == "Shell_SecondaryTrayWnd") return 0;
+            GetWindowThreadProcessId(root, out pid);
+            StringBuilder t = new StringBuilder(256);
+            GetWindowText(root, t, t.Capacity);
+            title = t.ToString();
+            return root.ToInt64();
+        }
+
         // The folder of the Explorer window in front, or null (the caller uses the Desktop).
         public static string FrontFolder()
         {

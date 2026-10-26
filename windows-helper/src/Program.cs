@@ -6,7 +6,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -101,6 +103,40 @@ namespace MacShare
                 capture.Shutdown();
                 injector.ReleaseAll();
                 Application.Exit();
+            });
+        }
+
+        [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vk);
+        [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+        [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+
+        // Files onto the clipboard as Explorer's Copy puts them, then Ctrl+V into the window the
+        // paste was asked in, once the shortcut's keys are let go (held, it would be Ctrl+Alt+V
+        // again). On the STA thread Async gives it; the keys go through the injector on the UI thread.
+        static void PasteFiles(List<string> paths, long hwnd)
+        {
+            System.Collections.Specialized.StringCollection list = new System.Collections.Specialized.StringCollection();
+            foreach (string p in paths) if (File.Exists(p) || Directory.Exists(p)) list.Add(p);
+            if (list.Count == 0) throw new Exception("nothing to paste");
+            DataObject data = new DataObject();
+            data.SetFileDropList(list);
+            data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(1))); // DROPEFFECT_COPY
+            Clipboard.SetDataObject(data, true);
+            int[] mods = { 0x10, 0x11, 0x12, 0x5B, 0x5C }; // Shift, Ctrl, Alt, both Windows keys
+            for (int i = 0; i < 150 && Array.Exists(mods, k => (GetAsyncKeyState(k) & 0x8000) != 0); i++) Thread.Sleep(20);
+            IntPtr w = new IntPtr(hwnd);
+            if (hwnd != 0 && IsWindow(w) && GetForegroundWindow() != w) SetForegroundWindow(w);
+            Thread.Sleep(80);
+            invoker.Invoke((MethodInvoker)delegate
+            {
+                foreach (string[] k in new[] { new[] { "k.kd", "ControlLeft" }, new[] { "k.kd", "KeyV" }, new[] { "k.ku", "KeyV" }, new[] { "k.ku", "ControlLeft" } })
+                {
+                    Dictionary<string, object> ev = new Dictionary<string, object>();
+                    ev["t"] = k[0];
+                    ev["code"] = k[1];
+                    injector.Apply(ev);
+                }
             });
         }
 
@@ -322,7 +358,24 @@ namespace MacShare
                             string ff = null;
                             try { ff = Shell.FrontFolder(); } catch (Exception) { }
                             r["path"] = ff;
+                            // An app in front instead (fclip.js pastes the files into it).
+                            uint appPid = 0;
+                            string appTitle = "";
+                            long appWin = 0;
+                            try { if (ff == null) appWin = Shell.FrontApp(out appPid, out appTitle); } catch (Exception) { appWin = 0; }
+                            if (appWin != 0)
+                            {
+                                r["app"] = true;
+                                r["hwnd"] = (double)appWin;
+                                r["pid"] = (double)appPid;
+                                r["title"] = appTitle;
+                            }
                         }, true);
+                        return;
+                    case "pasteFiles": // files received for a paste into an app: onto the clipboard, then Ctrl+V there
+                        List<string> pastePaths = Strings(c, "paths");
+                        long pasteWin = (long)Json.Num(c, "hwnd", 0);
+                        Async(c, delegate (Dictionary<string, object> r) { PasteFiles(pastePaths, pasteWin); }, true);
                         return;
                     case "selectItems":
                         string selDir = Json.Str(c, "dir", "");

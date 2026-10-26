@@ -101,7 +101,7 @@ UI.tab({
       keysRow.hint.classList.toggle('bad', !!ck.error);
       pasteRow.setHint(ck.pasting ? 'Pasting…'
         : ck.incoming ? `${pc} copied ${ck.incoming.name || `${ck.incoming.items} items`} · press ${UI.keysLabel(f.pasteKeys)}`
-          : 'Into the Finder window in front, else the Desktop');
+          : 'Into the app in front (a chat, a mail…), or the Finder folder in front, else the Desktop');
       dragSw.set(f.dragEdge !== false);
       dragRow.setHint(f.dragEdge !== false && !f.peerDrag ? `Turned off on ${pc}` : 'Drag through the screen edge and drop anywhere');
       shareSw.set(m.sharing);

@@ -7,12 +7,16 @@
 // Port of mac/fclip.js. When the offer lists every file (`list`, `dirs`), the paste is
 // done by Windows itself — dragrecv.js drops the files as virtual files onto the folder, so the
 // native copy dialog (progress, replace/skip) shows, as for a drag.
+// With an app in front instead (a chat, a mail, a document), the files go into it: they arrive in
+// a folder of ours, then go on the clipboard as files and the helper presses Ctrl+V there.
 const { app, globalShortcut } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
+const path = require('path');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
+const PASTE_KEEP_MS = 24 * 3600 * 1000; // files pasted into apps stay this long (an app may read them late)
 
 class FileClip {
   // opts: link, helper, fileDrop, fileRecv, dragRecv, settings (shared), peerName(), popup(kind, text), onChange()
@@ -64,10 +68,18 @@ class FileClip {
     return this.link.status.state === 'connected';
   }
 
-  // The paste batch landed (filerecv.js onBatch).
+  // The paste batch landed (filerecv.js onBatch). For an app: into it, as files on the clipboard.
   pasted(b) {
+    const p = this.pasting;
     this.pasting = null;
-    this.popup('home', b.ok ? 'Pasted ' + plural(b.files, 'file') : 'Pasted ' + b.files + ' of ' + b.count + ' files');
+    const done = b.ok ? 'Pasted ' + plural(b.files, 'file') : 'Pasted ' + b.files + ' of ' + b.count + ' files';
+    if (p && p.into && b.files && b.placed && b.placed.length) {
+      this.helper.request('pasteFiles', { paths: b.placed, hwnd: p.into.hwnd })
+        .then(() => this.popup('home', done + (p.into.title ? ' into ' + short(p.into.title) : '')))
+        .catch(() => this.popup('home', done + ': they’re on the clipboard, paste them with Ctrl+V'));
+    } else {
+      this.popup('home', done);
+    }
     this.onChange();
   }
 
@@ -147,18 +159,40 @@ class FileClip {
     const inc = this.incoming;
     if (!this.connected) return this.popup('home', 'Not connected');
     if (!inc) return this.popup('home', 'Nothing copied on ' + this.peerName());
-    let dir = '';
+    let front = {};
     try {
-      dir = (await this.helper.request('frontFolder')).path || '';
+      front = (await this.helper.request('frontFolder')) || {};
     } catch (_) { /* Desktop */ }
+    let dir = front.path || '';
+    // An app in front (not File Explorer, the desktop or TwinDesk itself): the files go into it.
+    const into = !dir && front.app && front.pid !== process.pid ? { hwnd: front.hwnd, title: String(front.title || '') } : null;
+    if (into) dir = this._pasteDir();
     if (!dir || !fs.existsSync(dir)) dir = app.getPath('desktop');
     // Windows' own copy (its dialog) when we know the whole tree; else straight in.
-    const native = inc.list && this.dragRecv && this.dragRecv.startPaste({ batch: inc.id, list: inc.list, dirs: inc.dirs, items: inc.items, dir });
-    if (!native) this.fileRecv.expectBatch(inc.id, dir, inc.bytes);
-    this.pasting = { id: inc.id, files: inc.files };
+    const native = !into && inc.list && this.dragRecv && this.dragRecv.startPaste({ batch: inc.id, list: inc.list, dirs: inc.dirs, items: inc.items, dir });
+    if (!native) this.fileRecv.expectBatch(inc.id, dir, inc.bytes, !!into);
+    this.pasting = { id: inc.id, files: inc.files, into };
     this.link.send({ t: T.FCLIP_PASTE, id: inc.id });
-    if (!native) this.popup('driven', 'Pasting ' + plural(inc.files, 'file') + '…');
+    if (!native) this.popup('driven', 'Pasting ' + plural(inc.files, 'file') + (into && into.title ? ' into ' + short(into.title) : '') + '…');
     this.onChange();
+  }
+
+  // A new folder for files pasted into an app; the ones from earlier pastes go after a day.
+  _pasteDir() {
+    const root = path.join(app.getPath('temp'), 'TwinDesk Paste');
+    try {
+      for (const d of fs.readdirSync(root)) {
+        const p = path.join(root, d);
+        if (Date.now() - fs.statSync(p).mtimeMs > PASTE_KEEP_MS) fs.rmSync(p, { recursive: true, force: true });
+      }
+    } catch (_) { /* none yet */ }
+    const dir = path.join(root, String(Date.now()));
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      return dir;
+    } catch (_) {
+      return '';
+    }
   }
 
   // The other side pasted: send our copied files (or say they're gone).
@@ -180,6 +214,12 @@ class FileClip {
       pasting: !!this.pasting,
     };
   }
+}
+
+// A window's title for a popup ("Chat - Slack" → as it is, long ones cut).
+function short(title) {
+  const t = String(title || '').trim();
+  return t.length > 40 ? t.slice(0, 39) + '…' : t;
 }
 
 function plural(n, word) {
