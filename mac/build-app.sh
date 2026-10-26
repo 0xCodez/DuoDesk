@@ -52,7 +52,8 @@ cat > dist/extra.plist <<'EOF'
   <key>NSLocalNetworkUsageDescription</key><string>TwinDesk finds and connects to your PC on the local network.</string>
   <key>NSMicrophoneUsageDescription</key><string>TwinDesk sends sound between your Mac and your PC.</string>
   <key>NSAudioCaptureUsageDescription</key><string>TwinDesk sends your Mac's sound to your PC.</string>
-  <key>NSCameraUsageDescription</key><string>TwinDesk does not use the camera.</string>
+  <key>NSCameraUsageDescription</key><string>TwinDesk shows this Mac's camera on your other computer when you share it there.</string>
+  <key>NSAppleEventsUsageDescription</key><string>TwinDesk asks Finder which folder is in front, to copy and paste files there.</string>
   <key>NSBluetoothAlwaysUsageDescription</key><string>TwinDesk connects to your phone and computers over Bluetooth when they aren't on your network.</string>
   <key>NSLocationUsageDescription</key><string>macOS shows Wi-Fi networks only to apps with Location. TwinDesk joins your phone's or PC's Wi-Fi to send files when they aren't on your network.</string>
   <key>NSLocationWhenInUseUsageDescription</key><string>macOS shows Wi-Fi networks only to apps with Location. TwinDesk joins your phone's or PC's Wi-Fi to send files when they aren't on your network.</string>
@@ -130,15 +131,31 @@ else
   ID="-"
   OPTIONS=""
 fi
-for b in dist/TwinDesk.app/Contents/Resources/app/mac-helper/.build/release/*; do
-  [ -f "$b" ] && codesign --force $OPTIONS $SIGN "$ID" "$b"
-done
-codesign --force --deep $OPTIONS $SIGN "$ID" dist/TwinDesk.app
-codesign --force $OPTIONS $SIGN "$ID" --entitlements dist/share.entitlements "$APPEX" # --deep dropped its sandbox
-if [ -f "$ENTITLEMENTS" ]; then
-  codesign --force $OPTIONS --entitlements "$ENTITLEMENTS" $SIGN "$ID" dist/TwinDesk.app
+APP=dist/TwinDesk.app
+if [ -n "$MAC_IDENTITY" ]; then
+  # Hardened runtime (for notarization): every piece of code signed on its own, inside out, with
+  # the entitlements: Electron's helper apps need JIT, and macOS gives the microphone, camera and
+  # location only to code that has them (the helpers too). --deep would sign the nested code with
+  # none. Each Mach-O file first (deepest first: adb, the helpers, Electron's libraries), then
+  # the frameworks and helper apps as bundles, the share extension, the app.
+  find "$APP/Contents" -type f ! -path "$APP/Contents/MacOS/*" ! -path "$APPEX/*" | while IFS= read -r f; do
+    file -b "$f" | grep -q 'Mach-O' && printf '%s\t%s\n' "$(printf '%s' "$f" | tr -cd / | wc -c)" "$f"
+  done | sort -rn | cut -f2- | while IFS= read -r f; do
+    codesign --force $OPTIONS $SIGN "$ID" --entitlements "$ENTITLEMENTS" "$f"
+  done
+  for b in "$APP"/Contents/Frameworks/*.framework "$APP"/Contents/Frameworks/*.app; do
+    [ -e "$b" ] && codesign --force $OPTIONS $SIGN "$ID" --entitlements "$ENTITLEMENTS" "$b"
+  done
+  codesign --force $OPTIONS $SIGN "$ID" --entitlements dist/share.entitlements "$APPEX"
+  codesign --force $OPTIONS $SIGN "$ID" --entitlements "$ENTITLEMENTS" "$APP"
 else
-  codesign --force $OPTIONS $SIGN "$ID" dist/TwinDesk.app
+  # One signature over the whole bundle (helpers first), so the edited Info.plist is sealed. With
+  # TwinDesk's own certificate macOS keeps its permissions across updates; ad-hoc works, but each
+  # update asks for them again.
+  for b in "$APP"/Contents/Resources/app/mac-helper/.build/release/*; do [ -f "$b" ] && codesign --force $SIGN "$ID" "$b"; done
+  codesign --force --deep $SIGN "$ID" "$APP"
+  codesign --force $SIGN "$ID" --entitlements dist/share.entitlements "$APPEX" # --deep dropped its sandbox
+  codesign --force $SIGN "$ID" "$APP"
 fi
 rm -f dist/share.entitlements
 codesign -dr - dist/TwinDesk.app 2>&1 | grep designated

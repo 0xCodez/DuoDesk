@@ -8,7 +8,8 @@
 'use strict';
 
 const path = require('path');
-const { BrowserWindow, ipcMain, session, desktopCapturer } = require('electron');
+const util = require('util');
+const { BrowserWindow, ipcMain, session, desktopCapturer, systemPreferences } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 
@@ -193,8 +194,10 @@ class Stream extends EventEmitter {
         fps: Math.min(120, Math.max(30, Math.round(target.hz || 60))),
       });
     } catch (e) {
-      console.error(`[stream] start failed: ${e && e.message} | raw=${require('util').inspect(e)} | screen=${require('electron').systemPreferences.getMediaAccessStatus('screen')}`);
-      this._setStatus(`error: ${e.message}`);
+      // The rejection isn't always an Error (Screen Recording not allowed): say what it was.
+      const why = (e && e.message) || util.inspect(e);
+      console.error(`[stream] start failed: ${why} (Screen Recording: ${systemPreferences.getMediaAccessStatus('screen')})`);
+      this._setStatus(`error: ${why}`);
       this._scheduleRetry();
     }
   }

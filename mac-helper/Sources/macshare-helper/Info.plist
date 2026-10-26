@@ -3,8 +3,6 @@
 <plist version="1.0"><dict>
   <key>CFBundleIdentifier</key><string>org.macshare.mac.helper</string>
   <key>CFBundleName</key><string>TwinDesk Helper</string>
-  <key>CFBundleShortVersionString</key><string>2.1.0</string>
-  <key>CFBundleVersion</key><string>2.1.0</string>
   <key>NSBluetoothAlwaysUsageDescription</key><string>TwinDesk connects to your phone and computers over Bluetooth when they aren't on your network.</string>
   <key>NSBluetoothPeripheralUsageDescription</key><string>TwinDesk connects to your phone and computers over Bluetooth when they aren't on your network.</string>
   <key>NSLocationUsageDescription</key><string>macOS shows Wi-Fi networks only to apps with Location. TwinDesk joins your phone's or PC's Wi-Fi to send files when they aren't on your network.</string>
