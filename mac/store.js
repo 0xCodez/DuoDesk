@@ -71,6 +71,7 @@ const DEFAULT_SETTINGS = {
     skipConcealed: true, // passwords from password managers
     maxKB: 256,
     historySize: 20, // memory only
+    images: false, // pictures too, up to 10 MB (shared/clipimage.js); screenshots put on the clipboard among them
   },
   // setupSkipped: the missing items when Setup was skipped; setupDone: Setup has been through once
   // (everything allowed, or skipped), so it never takes over the window again (General shows the rest).

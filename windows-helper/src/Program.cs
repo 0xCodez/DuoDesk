@@ -24,6 +24,7 @@ namespace MacShare
         static Capture capture;
         static Injector injector;
         static Smoother smoother; // the phone Remote's moves, eased out (k.mm with smooth)
+        static ClipWatch clipWatch; // "clipboard" events: something was copied (ClipWatch.cs)
         static DropEdge dropEdge;
         static DragSession drag; // the drag from the Mac on this PC
 
@@ -52,6 +53,7 @@ namespace MacShare
             capture.Flash = new Flash();
             AppWindows.Watch(delegate { Dictionary<string, object> e = new Dictionary<string, object>(); e["event"] = "winShown"; Emit(e); }); // Menus
             dropEdge = new DropEdge(capture, Emit);
+            try { clipWatch = new ClipWatch(Emit); } catch (Exception) { /* no clipboard events: clip.js polls */ }
             Notifs.Emit = Emit; // // file drags across the edge (shown only while dragging)
 
             Thread writer = new Thread(WriteLoop);

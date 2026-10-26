@@ -1,6 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Clipboard text sharing: directions, switch/instant mode, concealed
-// filter, size limit, clip.policy both ways, and the in-memory Recent list.
+// Clipboard sharing: directions, switch/instant mode, concealed filter, size limit, clip.policy
+// both ways, and the in-memory Recent list. Text here; pictures, screenshots put on the clipboard
+// among them (Clipboard › Pictures, up to 10 MB), through shared/clipimage.js.
 //
 // Events: 'change' — this.view changed.
 'use strict';
@@ -8,6 +9,7 @@
 const { clipboard } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const { ClipImages, trimPictures, itemView } = require('../shared/clipimage.js');
 
 // Electron 44's clipboard.readText() returns a Promise in the main process (older: a string).
 const readText = async () => String((await clipboard.readText()) || '');
@@ -23,16 +25,34 @@ class Clipboard extends EventEmitter {
     this.lastReceived = null;
     this.concealed = false; // last helper report for the current item
     this.peerAccepts = true; // the PC's last clip.policy
-    this.history = []; // newest first: {dir: 'out'|'in', at, text, size}
+    this.history = []; // newest first: {dir: 'out'|'in', at, text, size} or a picture (clipimage.js)
     this.lastSkip = '';
+    const ws = () => this.server.current && this.server.current.ws;
+    this.images = new ClipImages({
+      cfg: () => this.cfg,
+      send: (m) => this.server.sendToClient(m),
+      backlog: () => (ws() ? ws().bufferedAmount : 0),
+      connected: () => !!this.server.current,
+      ble: () => !!(this.server.current && this.server.current.transport === 'ble'),
+      peerName: () => (this.server.current && this.server.current.name) || 'the other device',
+      remember: (dir, item) => this._remember(dir, item),
+      popup: (kind, text) => this.emit('popup', kind, text),
+      onChange: () => this.emit('change'),
+      pasteKeys: '⌘V',
+    });
 
     server.on('client', () => {
       this.peerAccepts = true;
+      this.images.reset();
       this.sendPolicy();
     });
+    server.on('closed', () => this.images.reset());
     server.on(`t:${P.T.CLIP}`, (msg) => this._onClip(msg));
+    server.on(`t:${P.T.CLIP_IMAGE}`, (msg) => this.images.header(msg));
+    server.on(`t:${P.T.CLIP_IMAGE_PART}`, (msg) => this.images.part(msg));
     server.on(`t:${P.T.CLIP_POLICY}`, (msg) => {
       this.peerAccepts = msg.accept !== false;
+      this.images.policy(msg);
       this.emit('change');
     });
     server.on(`t:${P.T.CLIP_REQUEST}`, () => this.sendIfChanged('request'));
@@ -60,33 +80,40 @@ class Clipboard extends EventEmitter {
 
   sendPolicy() {
     const c = this.cfg;
-    this.server.sendToClient({ t: P.T.CLIP_POLICY, accept: !!(c.enabled && c.receive) });
+    this.server.sendToClient({ t: P.T.CLIP_POLICY, accept: !!(c.enabled && c.receive), images: this.images.accept });
   }
 
-  _remember(dir, text) {
+  _remember(dir, item) {
     const n = this.cfg.historySize;
     if (!n) return;
-    this.history = this.history.filter((h) => h.text !== text || h.dir !== dir);
-    this.history.unshift({ dir, at: Date.now(), text, size: Buffer.byteLength(text, 'utf8') });
+    if (typeof item === 'string') {
+      this.history = this.history.filter((h) => h.text !== item || h.dir !== dir);
+      item = { text: item, size: Buffer.byteLength(item, 'utf8') };
+    }
+    this.history.unshift({ dir, at: Date.now(), ...item });
     if (this.history.length > n) this.history.length = n;
+    trimPictures(this.history);
   }
 
   async _onClip(msg) {
     const c = this.cfg;
     if (!c.enabled || !c.receive || !P.clipAllowed(msg.text)) return;
+    this.images.text();
     this.lastReceived = msg.text;
     if ((await readText()) !== msg.text) clipboard.writeText(msg.text);
     this._remember('in', msg.text);
     this.emit('change');
   }
 
-  // Send our clipboard text if allowed and changed since it was last sent or received.
+  // Send our clipboard if allowed and changed since it was last sent or received: its text, else
+  // its picture (Clipboard › Pictures).
   async sendIfChanged(why) {
     const c = this.cfg;
     if (!c.enabled || !c.send || !this.server.current) return;
     if (!this.peerAccepts) return this._skip(`${this.server.current ? this.server.current.name : 'the other computer'} doesn’t take the clipboard`);
     const text = await readText();
-    if (!text || text === this.lastSent || text === this.lastReceived) return;
+    if (!text) return this._picture(why);
+    if (text === this.lastSent || text === this.lastReceived) return;
     if (c.skipConcealed) {
       // The watcher's flag may be stale for a request; ask the helper about the current item.
       const info = why === 'instant' ? { concealed: this.concealed } : await this.helper.request('clipboardInfo').catch(() => ({}));
@@ -100,10 +127,28 @@ class Clipboard extends EventEmitter {
       return this._skip(`skipped ${Math.round(Buffer.byteLength(text, 'utf8') / 1024)} KB (over ${c.maxKB} KB)`);
     }
     this.lastSent = text;
+    this.images.text();
     this.server.sendToClient({ t: P.T.CLIP, text });
     this._remember('out', text);
     this.lastSkip = '';
     this.emit('change');
+  }
+
+  // No text on the clipboard: its picture, if any.
+  async _picture(why) {
+    if (!this.images.canSend) return;
+    let concealed = false;
+    if (this.cfg.skipConcealed) {
+      const info = why === 'instant' ? { concealed: this.concealed } : await this.helper.request('clipboardInfo').catch(() => ({}));
+      concealed = !!info.concealed;
+    }
+    const r = await this.images.offerClipboard(concealed);
+    if (r === 'sent') {
+      this.lastSkip = '';
+      this.emit('change');
+    } else if (r) {
+      this._skip(r);
+    }
   }
 
   _skip(why) {
@@ -117,6 +162,7 @@ class Clipboard extends EventEmitter {
   copyHistory(index) {
     const h = this.history[index];
     if (!h) return;
+    if (h.image) return this.images.copy(h, h.dir);
     clipboard.writeText(h.text);
     this.lastSent = h.dir === 'out' ? null : this.lastSent;
   }
@@ -129,8 +175,10 @@ class Clipboard extends EventEmitter {
   get view() {
     return {
       peerAccepts: this.peerAccepts,
+      peerImages: this.images.peerImages,
+      imageSupport: true, // the one-to-one clipboard (Multi-device's has no pictures yet)
       lastSkip: this.lastSkip,
-      history: this.history.map((h) => ({ dir: h.dir, at: h.at, size: h.size, text: h.text.slice(0, PREVIEW) })),
+      history: this.history.map((h) => itemView(h, PREVIEW)),
     };
   }
 }

@@ -186,7 +186,7 @@ function start() {
     discovery.wantProbes = link.snapshot().link.state !== 'connected'; // probe every 10 s only while not connected
     pushState();
   });
-  clip = new Clip(link, () => settings.clipboard, pushState);
+  clip = new Clip(link, () => settings.clipboard, pushState, { popup: (kind, text) => hud && hud.show(kind, text), peerName });
   screen = new Screen({
     link,
     clip,

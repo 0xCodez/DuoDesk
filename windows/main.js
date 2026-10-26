@@ -46,7 +46,6 @@ const { PhoneDrive } = require('./phonedrive');
 const { Phone } = require('./phone');
 const { PhoneBridge } = require('./phone-bridge');
 const { PhoneViews } = require('./phoneview');
-const { PhoneShots } = require('./phone-shots');
 const { PhoneRemote } = require('./phone-remote');
 const { BleHost, BleGuest, BlePhones } = require('../shared/blepipe.js');
 const { wifiQuiet } = require('../shared/blepolicy.js');
@@ -121,7 +120,6 @@ let phone = null; // A phone as the peer: phone.js (its .bridge: phone-bridge.js
 let phoneViews = null; // its screen and apps in windows here (phoneview.js)
 let phoneRemote = null; // its Remote page: touchpad, keyboard and gamepad here (phone-remote.js)
 let phoneDrive = null; // its storage as a drive here (phonedrive.js)
-let phoneShots = null; // screenshots both ways with it, onto the other clipboard (phone-shots.js)
 let bleHost = null; // Bluetooth, for devices not on this network: we host (blepipe.js)
 let bleGuest = null; // … we connect to a host
 let blePhones = null; // phones that advertise: we connect to them (a PC's Bluetooth often can't advertise)
@@ -180,7 +178,7 @@ function start() {
     discovery.wantProbes = link.snapshot().link.state !== 'connected'; // probe every 10 s only while not connected
     pushState();
   });
-  clip = new Clip(link, () => settings.clipboard, pushState);
+  clip = new Clip(link, () => settings.clipboard, pushState, { popup: (kind, text) => hud && hud.show(kind, text), peerName });
   screen = new Screen({
     link,
     clip,
@@ -199,6 +197,7 @@ function start() {
   sound = new Sound({ link, settings, onChange: pushState });
   smb = new Smb({ link, settings, save: saveSettings, onChange: pushState });
   helper = new Helper();
+  clip.useHelper(helper); // its "clipboard" event: something was copied
   fileRecv = new FileRecv({ link, helper, settings, onChange: pushState });
   const dragRecv = new DragRecv({ link, helper, settings, isDriven: () => kvm && kvm.mode === 'driven', onChange: pushState });
   kvm = new Kvm({ link, helper, clip, fileDrop, fileRecv, dragRecv, settings, save: saveSettings, onChange: onKvmChange });
@@ -370,8 +369,6 @@ function startPhone(server, pairing) {
   phone.wired = wired;
   phoneDrive = new PhoneDrive({ adb: phone.bridge.adb, bridge: phone.bridge, phone });
   phoneDrive.on('change', pushState);
-  // Screenshots both ways, onto the other clipboard (Clipboard › Screenshots go to / Also save).
-  phoneShots = new PhoneShots({ server: pl, clip, getSettings: () => settings, popup: (kind, text) => hud.show(kind, text) });
   phone.bridge.on('change', () => {
     pushState();
     if (pendingView && phone.bridge.serial) {
@@ -775,7 +772,7 @@ function buildState() {
     kvm: { ...settings.kvm, pcSide: kvm.pcSide },
     keys: settings.keys,
     monitor: settings.monitor,
-    clipboard: { ...settings.clipboard, ...clip.view, phoneShots: !!phoneShots }, // phoneShots: its rows (not in Multi-device yet)
+    clipboard: { ...settings.clipboard, ...clip.view },
     ui: settings.ui,
     app: settings.app,
     version: app.getVersion(),

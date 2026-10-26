@@ -28,6 +28,9 @@ UI.tab({
     const maxKB = UI.select([
       { value: 16, label: '16 KB' }, { value: 64, label: '64 KB' }, { value: 256, label: '256 KB' },
     ], (v) => set({ maxKB: Number(v) }));
+    // Pictures (clipimage.js): screenshots put on the clipboard among them. Not in Multi-device yet.
+    const pictures = UI.switch((v) => set({ images: v }), { label: 'Pictures' });
+    const picturesRow = UI.row('Pictures', '', [pictures]);
     const historySize = UI.select([
       { value: 0, label: 'Off' }, { value: 10, label: '10 items' }, { value: 20, label: '20 items' },
       { value: 50, label: '50 items' }, { value: 100, label: '100 items' },
@@ -49,6 +52,7 @@ UI.tab({
       ),
       UI.card('Options', [
         modeRow,
+        picturesRow,
         UI.row('Skip passwords', 'From password managers', [concealed]),
         UI.row('Largest item', '', [maxKB]),
         UI.row('Recent items', 'Never saved to disk', [historySize]),
@@ -65,6 +69,11 @@ UI.tab({
       receive.set(c.receive);
       mode.set(c.mode);
       modeRow.setHint(c.mode === 'instant' ? 'As soon as you copy' : 'When you move to the other computer');
+      picturesRow.hidden = !c.imageSupport;
+      pictures.set(!!c.images);
+      picturesRow.setHint(!c.images ? 'Pictures and screenshots you copy, up to 10 MB, both ways'
+        : s.client && !c.peerImages ? `Turn on Pictures on ${s.client.name} too (TwinDesk 2.3 or later there)`
+          : 'Pictures and screenshots you copy, up to 10 MB, both ways. Not over Bluetooth');
       concealed.set(c.skipConcealed);
       maxKB.set(c.maxKB);
       historySize.set(c.historySize);
@@ -73,17 +82,20 @@ UI.tab({
       clearBtn.disabled = !c.history.length;
 
       // Rebuild the list only when it changed (or every 15 s for the relative times).
-      const key = JSON.stringify(c.history.map((h) => [h.at, h.dir])) + Math.floor(Date.now() / 15000);
+      const key = JSON.stringify(c.history.map((h) => [h.at, h.dir, !!(h.image && h.image.copy)])) + Math.floor(Date.now() / 15000);
       if (key === lastKey) return;
       lastKey = key;
       list.replaceChildren(...(c.history.length
         ? c.history.map((h, i) => el('div', { class: 'hist-item' }, [
           el('span', { class: `hist-dir ${h.dir}`, title: UI.fill(h.dir === 'out' ? 'Sent to {name}' : 'From {name}') }, [UI.icon(h.dir === 'out' ? 'up' : 'down')]),
+          h.image && h.image.thumb ? el('img', { class: 'hist-thumb', src: h.image.thumb, alt: '' }) : null,
           el('div', { class: 'hist-text' }, [
-            el('div', { class: 'hist-preview selectable', text: h.text.replace(/\s+/g, ' ').trim() || '(whitespace)' }),
+            h.image
+              ? el('div', { class: 'hist-preview', text: `${h.image.shot ? 'Screenshot' : 'Picture'} · ${h.image.w} × ${h.image.h}` })
+              : el('div', { class: 'hist-preview selectable', text: h.text.replace(/\s+/g, ' ').trim() || '(whitespace)' }),
             el('div', { class: 'hint', text: `${UI.fill(h.dir === 'out' ? 'To {name}' : 'From {name}')} · ${UI.ago(h.at)} · ${UI.bytes(h.size)}` }),
           ]),
-          UI.button('Copy', () => api.copyHistory(i), 'small'),
+          !h.image || h.image.copy ? UI.button('Copy', () => api.copyHistory(i), 'small') : null,
         ]))
         : [UI.row(c.historySize ? 'Nothing yet' : 'Recent items are off', '')]));
     };

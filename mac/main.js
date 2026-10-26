@@ -573,6 +573,7 @@ app.whenReady().then(() => {
     else hud.show('home', `Back on ${id.macName}`);
   });
   svc.fileClip.on('popup', (kind, text) => hud.show(kind, text));
+  svc.clipboard.on('popup', (kind, text) => hud.show(kind, text)); // a picture from the other side
   svc.pcApps.on('popup', (kind, text) => hud.show(kind, text));
   svc.phone.bridge.on('popup', (kind, text) => hud.show(kind, text));
   if (app.isPackaged) app.setAsDefaultProtocolClient('macshare');

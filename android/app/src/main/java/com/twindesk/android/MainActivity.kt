@@ -1060,26 +1060,28 @@ private fun ClipboardPage(core: Core, v: Int) {
         SwitchRow("Copies here go to $name", "While TwinDesk is open, or always with wireless debugging", core.sync.get("clipboard", "out"), first = true) { core.sync.set("clipboard", "out", it) }
         if (core.host != null) MacRow("Send the clipboard now", "Also: the Send clipboard tile in Quick Settings") { Secondary("Send") { core.clip.sendCurrent(true) } }
     }
-    // Screenshots both ways, onto the other clipboard (Screenshots.kt; only TwinDesk for Windows takes
-    // them so far). Finding this device's new ones needs photo access.
+    // Pictures both ways, this device's screenshots among them (Clip.kt, Screenshots.kt). Finding
+    // new screenshots needs photo access.
+    val clip = core.clip
     val shots = core.shots
     val askPhotos = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted && !shots.canRead) ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")))
         core.changed()
     }
-    if (shots.computerTakes) MacCard("Screenshots") {
-        SwitchRow("Screenshots go to $name", "Each one taken here lands on $name’s clipboard: paste it there. Not over Bluetooth", shots.on, first = true) { shots.setOn(it) }
-        if (shots.on && !shots.canRead) MacRow("Allow photo access", "TwinDesk looks only for new screenshots") { Primary("Allow") { askPhotos.launch(shots.permission) } }
-        SwitchRow("Screenshots from $name land here", "On this device’s clipboard: paste with a long press. Not saved", shots.receive) { shots.setReceive(it) }
-        if (shots.receive) SwitchRow("Also save the ones from $name", "In Pictures › TwinDesk", shots.save) { shots.setSave(it) }
-        if (shots.lastSent.isNotEmpty()) MacRow("Last sent", shots.lastSent)
-        if (shots.lastIn.isNotEmpty()) MacRow("Last received", shots.lastIn)
+    MacCard("Pictures") {
+        SwitchRow("Pictures", "Pictures and screenshots up to 10 MB, both ways, with Clipboard › Pictures on on $name too. Not over Bluetooth", clip.picturesOn, first = true) { clip.setPictures(it); shots.watch() }
+        if (clip.picturesOn && core.host != null && !clip.peerImages) MacRow("Off on $name", "Turn on Clipboard › Pictures there (TwinDesk 2.3 or later)")
+        if (clip.picturesOn) {
+            SwitchRow("Screenshots go to $name", "Each one taken here lands on $name’s clipboard: paste it there", shots.on) { shots.setOn(it) }
+            if (shots.on && !shots.canRead) MacRow("Allow photo access", "TwinDesk looks only for new screenshots") { Primary("Allow") { askPhotos.launch(shots.permission) } }
+            if (shots.lastSent.isNotEmpty()) MacRow("Last screenshot sent", shots.lastSent)
+        }
     }
-    if (core.clip.history.isNotEmpty()) MacCard("Recent") {
-        core.clip.history.toList().take(12).forEachIndexed { i, (dir, text) ->
-            MacRow(text.replace('\n', ' ').take(120), if (dir == "in") "From $name · tap to copy" else "To $name · tap to copy", first = i == 0, onClick = {
-                ctx.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("TwinDesk", text))
-            })
+    if (clip.history.isNotEmpty()) MacCard("Recent") {
+        clip.history.toList().take(12).forEachIndexed { i, item ->
+            // A picture of ours isn't kept here: only the computer's copy again.
+            val again = item.dir == "in" || item.picture == null
+            MacRow(item.text.replace('\n', ' ').take(120), (if (item.dir == "in") "From $name" else "To $name") + if (again) " · tap to copy" else "", first = i == 0, onClick = if (again) ({ clip.copyAgain(item) }) else null)
         }
     }
 }

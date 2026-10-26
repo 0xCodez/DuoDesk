@@ -54,6 +54,7 @@ kbd, kbd.key { font: 12px "Segoe UI", sans-serif; padding: 2px 7px; border-radiu
 .hist-dir.out { background: var(--accent); }
 .hist-dir.in { background: var(--good); }
 .hist-text { flex: 1; min-width: 0; }
+.hist-thumb { height: 40px; max-width: 72px; border-radius: 4px; object-fit: cover; flex: none; }
 .hist-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hist-text .hint { color: var(--muted); font-size: 12px; }
 
