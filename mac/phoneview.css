@@ -25,5 +25,6 @@ body.app #b-recents, body.app #b-notifs, body.app #b-rotate { display: none; }
 body.camera #b-torch, body.camera #b-flip, body.camera #b-zoomin, body.camera #b-zoomout { display: grid; }
 body.camera #b-back, body.camera #b-home, body.camera #b-recents, body.camera #b-notifs, body.camera #b-rotate { display: none; }
 button.active { background: rgba(10, 132, 255, 0.4); }
+body.app #b-power, body.camera #b-power, body.camera #b-enter-send, body.camera #b-swipe { display: none; }
 body.drop #stage { outline: 3px solid #0a84ff; outline-offset: -3px; }
 body.sound #bar { display: none; }

@@ -126,7 +126,7 @@ function setupIpc(ctx) {
   });
   handle('muteNotifApp', (arg) => arg && typeof arg.app === 'string' && notifs.setMuted(arg.app.slice(0, 300), arg.muted === true));
   handle('clearNotifHistory', () => notifs.clearHistory && notifs.clearHistory());
-  handle('openNotifiedApp', (arg) => arg && typeof arg.app === 'string' && phoneViews.openNotified(arg.app, arg.appName));
+  handle('openNotifiedApp', (arg) => arg && typeof arg.app === 'string' && ctx.phoneViews && ctx.phoneViews.openNotified(arg.app.slice(0, 200), String(arg.appName || '').slice(0, 100)));
   handle('setShareOn', (on) => smb.setShareOn(on === true));
   handle('chooseShareFolder', async () => {
     const win = BrowserWindow.getFocusedWindow();
@@ -155,6 +155,7 @@ function setupIpc(ctx) {
   handle('setPhone', (partial) => change('phone', partial, () => {
     if (partial && 'input' in partial && ctx.phone) ctx.phone.bridge.tellVia();
     if (partial && 'controls' in partial && ctx.phoneViews) ctx.phoneViews.applyControls(); // the open phone windows move theirs
+    if (partial && ('enterSends' in partial || 'arrowSwipe' in partial) && ctx.phoneViews) ctx.phoneViews.applyOpts(); // and light their switches
   }));
   // The phone as a drive (phonedrive.js). The Mount page's switch: off unmounts and stops
   // everything (nothing runs until Mount anyway).

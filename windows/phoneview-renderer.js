@@ -19,7 +19,6 @@
   const ACTION = { DOWN: 0, UP: 1, MOVE: 2, HOVER_MOVE: 7 };
   const FINGER = -2; // scrcpy's generic finger
   let size = null; // video size
-  let enterIsSend = true;
   let decoder = null;
   let config = null; // SPS/PPS, sent in front of the next key frame
   let waitingKey = true;
@@ -312,36 +311,10 @@
     api.send({ t: 'scroll', ...p, hs: -e.deltaX * k, vs: -e.deltaY * k });
   }, { passive: false });
 
-  // Keys go to the phone; Alt+F4 closes the window like any other.
+  // Keys go to the phone; Alt+F4 closes the window like any other. Enter in a chat app and the
+  // arrows that swipe are worked out in phoneview.js (shared/phonechat.js).
   const onKey = (e) => {
     if (e.altKey && e.code === 'F4') return;
-    // Arrow keys: full direction swipe across the phone screen (unless Ctrl/Alt/Shift held)
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-      e.preventDefault();
-      if (e.type === 'keydown') {
-        const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.code];
-        if (dir) api.send({ t: 'swipe', dir });
-      }
-      return;
-    }
-    // Enter / NumpadEnter: send message or newline
-    if (['Enter', 'NumpadEnter'].includes(e.code)) {
-      e.preventDefault();
-      if (e.shiftKey) {
-        // Shift+Enter: always insert newline
-        if (e.type === 'keydown' && !e.repeat) {
-          api.send({ t: 'newline' });
-        }
-        return;
-      }
-      if (enterIsSend) {
-        // Enter without Shift: trigger Send button
-        if (e.type === 'keydown' && !e.repeat) {
-          api.send({ t: 'sendMsg' });
-        }
-        return;
-      }
-    }
     e.preventDefault();
     api.send({ t: 'key', code: e.code, down: e.type === 'keydown', repeat: e.repeat });
   };
@@ -375,7 +348,7 @@
   // In a side panel down the right (the default), the title bar, or Back/Home/Recents in a bar
   // under the picture (Phone page › Settings › Window controls). An app window runs on a display
   // of its own, so what acts on the phone's main screen (Recents, the shade, Power) isn't there,
-  // and its Rotate turns the window round.
+  // and its Rotate turns the window round. A camera window has the camera's own.
   const ICONS = {
     back: '<path d="M12.5 4.5 7 10l5.5 5.5"/>',
     home: '<circle cx="10" cy="10" r="5.5"/>',
@@ -387,26 +360,45 @@
     volumeDown: '<path d="M3.5 8h2.5l3.5-3v10l-3.5-3H3.5z M11.5 10h5"/>',
     mute: '<path d="M3.5 8h2.5l3.5-3v10l-3.5-3H3.5z M12 8l4 4 M16 8l-4 4"/>',
     power: '<path d="M10 3.5v6 M6.2 6a5.5 5.5 0 1 0 7.6 0"/>',
+    screenOff: '<rect x="6" y="3" width="8" height="14" rx="1.5"/><path d="M3.5 3.5l13 13"/>',
+    enterSends: '<path d="M3.5 10l13-5.5-4 11-2.5-4.5z M10 11l6.5-6.5"/>',
+    arrowSwipe: '<path d="M10 3.5v13 M7.5 6 10 3.5 12.5 6 M7.5 14l2.5 2.5 2.5-2.5"/>',
     shot: '<path d="M3.5 6.5h3l1.5-2h4l1.5 2h3v9h-13z"/><circle cx="10" cy="11" r="2.8"/>',
     pin: '<path d="M8 3.5h4l-.5 5 2.5 2.5h-8l2.5-2.5z M10 11v5.5"/>',
+    torch: '<path d="M7 3.5h6v3.5l-2 3v6.5H9v-6.5l-2-3z M7 7h6"/>',
+    flip: '<path d="M3.5 7h11 M12 4.5 14.5 7 12 9.5 M16.5 13h-11 M8 10.5 5.5 13 8 15.5"/>',
+    zoomIn: '<circle cx="9" cy="9" r="5.5"/><path d="M13 13l3.5 3.5 M9 6.5v5 M6.5 9h5"/>',
+    zoomOut: '<circle cx="9" cy="9" r="5.5"/><path d="M13 13l3.5 3.5 M6.5 9h5"/>',
   };
-  // nav: Back, Home and Recents (the side panel's foot, or the bottom bar); screen: not in app windows.
+  // in: the windows it shows in (default the screen and app windows); nav: Back, Home and Recents
+  // (the side panel's foot, or the bottom bar); toggle: lit while on (phoneview.js says, 'opts').
+  const PHONE = ['screen', 'app'];
+  const CAMERA = ['torch', 'flip', 'zoomIn', 'zoomOut'];
   const CONTROLS = [
     { k: 'volumeUp', title: 'Volume up' },
     { k: 'volumeDown', title: 'Volume down' },
     { k: 'mute', title: 'Mute' },
     { k: 'rotate', title: kind === 'app' ? 'Rotate the window' : 'Rotate' },
-    { k: 'shot', title: 'Screenshot (copies it: paste with Ctrl+V)' },
-    { k: 'notifications', title: 'Notifications', screen: true },
-    { k: 'settings', title: 'Quick settings', screen: true },
-    { k: 'power', title: 'Power (lock or wake the phone)', screen: true },
-    { k: 'pin', title: 'Keep on top' },
+    { k: 'torch', title: 'Light', in: ['camera'], toggle: true },
+    { k: 'flip', title: 'Front or back camera', in: ['camera'] },
+    { k: 'zoomIn', title: 'Zoom in', in: ['camera'] },
+    { k: 'zoomOut', title: 'Zoom out', in: ['camera'] },
+    { k: 'shot', title: 'Screenshot (copies it: paste with Ctrl+V)', in: ['screen', 'app', 'camera'] },
+    { k: 'notifications', title: 'Notifications', in: ['screen'] },
+    { k: 'settings', title: 'Quick settings', in: ['screen'] },
+    { k: 'power', title: 'Power (lock or wake the phone)', in: ['screen'] },
+    { k: 'screenOff', title: 'Phone screen off (it keeps showing here, and saves the battery)', in: ['screen'], toggle: true },
+    { k: 'enterSends', title: 'Enter sends in WhatsApp, Instagram and Telegram (Shift+Enter: a new line)', toggle: true },
+    { k: 'arrowSwipe', title: 'Arrow keys swipe the screen (feeds, Reels, Shorts)', toggle: true },
+    { k: 'pin', title: 'Keep on top', in: ['screen', 'app', 'camera'], toggle: true },
     { k: 'back', title: 'Back (right click, Esc)', nav: true },
     { k: 'home', title: 'Home (middle click)', nav: true },
-    { k: 'recents', title: 'Recent apps', nav: true, screen: true },
-  ].filter((c) => kind !== 'app' || !c.screen);
-  // The title bar layouts carry what the title bar always had: Back, Home, Recents, Notifications, Rotate.
-  const TOP = ['notifications', 'rotate'];
+    { k: 'recents', title: 'Recent apps', nav: true, in: ['screen'] },
+  ].filter((c) => (c.in || PHONE).includes(kind));
+  // The title bar layouts carry what the title bar always had: Back, Home, Recents, Notifications,
+  // Rotate; the screen-off and Enter switches, and a camera's own, too.
+  const TOP = ['notifications', 'rotate', 'screenOff', 'enterSends', ...CAMERA];
+  const OPT = { pin: 'pinned', screenOff: 'screenOff', enterSends: 'enterSends', arrowSwipe: 'arrowSwipe', torch: 'torch' };
   for (const c of CONTROLS) {
     c.el = document.createElement('button');
     c.el.className = 'ctl';
@@ -416,7 +408,10 @@
     c.el.onclick = () => {
       if (c.k === 'shot') return shot();
       if (c.k === 'pin') return api.send({ t: 'pin' });
-      api.send({ t: 'nav', key: c.k });
+      if (c.k === 'enterSends' || c.k === 'arrowSwipe') api.send({ t: 'toggle', what: c.k });
+      else if (c.k === 'screenOff') api.send({ t: 'nav', key: 'screenPower' });
+      else if (CAMERA.includes(c.k)) api.send({ t: 'camera', what: c.k });
+      else api.send({ t: 'nav', key: c.k });
       canvas.focus();
     };
   }
@@ -442,7 +437,7 @@
   api.on('opts', (m) => {
     if (!m) return;
     if (m.controls) layout(m.controls);
-    if (typeof m.pinned === 'boolean') CONTROLS.find((c) => c.k === 'pin').el.classList.toggle('on', m.pinned);
+    for (const c of CONTROLS) if (c.toggle && typeof m[OPT[c.k]] === 'boolean') c.el.classList.toggle('on', m[OPT[c.k]]);
   });
 
   // The picture as it is now, as a PNG (phoneview.js puts it on the clipboard).
@@ -451,27 +446,5 @@
     canvas.toBlob((blob) => { if (blob) blob.arrayBuffer().then((b) => api.send({ t: 'shot', png: new Uint8Array(b) })); }, 'image/png');
   }
 
-  // A camera window (openCamera): torch, front/back and zoom.
-  let torchOn = false;
-  let currentFacing = 'back';
-  const bTorch = document.getElementById('b-torch');
-  if (bTorch) {
-    bTorch.onclick = () => {
-      torchOn = !torchOn;
-      bTorch.classList.toggle('active', torchOn);
-      api.send({ t: 'cameraTorch', on: torchOn });
-    };
-  }
-  const bFlip = document.getElementById('b-flip');
-  if (bFlip) {
-    bFlip.onclick = () => {
-      currentFacing = currentFacing === 'front' ? 'back' : 'front';
-      api.send({ t: 'cameraSwitch', facing: currentFacing });
-    };
-  }
-  const bZoomIn = document.getElementById('b-zoomin');
-  if (bZoomIn) bZoomIn.onclick = () => api.send({ t: 'cameraZoomIn' });
-  const bZoomOut = document.getElementById('b-zoomout');
-  if (bZoomOut) bZoomOut.onclick = () => api.send({ t: 'cameraZoomOut' });
   canvas.focus();
 })();

@@ -291,7 +291,6 @@
   }
   // A camera window (openCamera): torch, front/back and zoom.
   let torchOn = false;
-  let currentFacing = 'back';
   const bTorch = document.getElementById('b-torch');
   if (bTorch) {
     bTorch.onclick = () => {
@@ -303,8 +302,7 @@
   const bFlip = document.getElementById('b-flip');
   if (bFlip) {
     bFlip.onclick = () => {
-      currentFacing = currentFacing === 'front' ? 'back' : 'front';
-      api.send({ t: 'cameraSwitch', facing: currentFacing });
+      api.send({ t: 'cameraSwitch' });
     };
   }
   const bZoomIn = document.getElementById('b-zoomin');

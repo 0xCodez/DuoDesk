@@ -183,6 +183,7 @@ function setupIpc(ctx) {
     if (partial && 'input' in partial && ctx.phone) ctx.phone.bridge.tellVia();
     // Every phone's open windows move their controls (phones.js: a stack per phone).
     if (partial && 'controls' in partial && ctx.phone) for (const u of ctx.phone.all || []) if (u.views) u.views.applyControls();
+    if (partial && ('enterSends' in partial || 'arrowSwipe' in partial) && ctx.phone) for (const u of ctx.phone.all || []) if (u.views) u.views.applyOpts();
   }));
   // The phone as a drive (phonedrive.js). The Mount page's switch: off unmounts and stops
   // everything (nothing runs until Mount anyway).

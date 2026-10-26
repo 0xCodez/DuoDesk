@@ -18,6 +18,7 @@ const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { Session, ACTION, TYPE } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
+const chat = require('../shared/phonechat.js');
 const { DockStub, addToDock } = require('./dockstub');
 
 const T = P.T;
@@ -33,8 +34,19 @@ class PhoneViews extends EventEmitter {
     bridge.views = this;
     this.on('change', () => bridge._tellPhone());
     this.notified = null; // {pkg, name, at, unlocked}: a clicked notification's app, waiting to open
+    // The app in front on the phone, which its Accessibility says (the full app): Return in a chat
+    // app sends (shared/phonechat.js); a11y: the phone clicks Send itself.
     this.activeApp = '';
-    server.on(`t:${T.PHONE_ACTIVE_APP}`, (m) => { if (m && m.pkg) this.activeApp = m.pkg; });
+    this.a11y = false;
+    server.on(`t:${T.PHONE_ACTIVE_APP}`, (m) => {
+      if (!m || typeof m.pkg !== 'string') return;
+      this.activeApp = m.pkg.slice(0, 200);
+      this.a11y = true;
+    });
+    server.on('closed', () => {
+      this.activeApp = '';
+      this.a11y = false;
+    });
     server.on(`t:${T.PHONE_AWAKE}`, (m) => this._awake(m));
     // The phone's own Show and Close (its Screen page): its screen in a window here (openScreen
     // decides how: wireless debugging, Wi-Fi first when on Bluetooth, or a popup saying what's
@@ -99,29 +111,17 @@ class PhoneViews extends EventEmitter {
     this._open({ kind: 'screen', title: name, width: w, height: h, opts: this.bridge.sessionOpts('screen') });
   }
 
-  // Opens the phone camera as a high-definition webcam feed using scrcpy camera mode.
+  // The phone's camera in a window (scrcpy's camera source, Android 12 or later): facing 'back' or
+  // 'front'; the camera picks its best size up to 1920 on the long side (a size it doesn't have
+  // would fail), at 30 fps. Its light and zoom from the window's buttons.
   openCamera(opts = {}) {
     const open = [...this.views.values()].find((v) => v.kind === 'camera');
     if (open) return open.win.show(), open.win.focus();
+    this.cameraFacing = opts.facing === 'front' ? 'front' : 'back';
     const name = ((this.server.current && this.server.current.name) || 'Phone') + ' Camera';
-    const cameraOpts = {
-      videoSource: 'camera',
-      cameraFacing: opts.facing || 'back',
-      cameraSize: opts.size || '1920x1080',
-      cameraFps: opts.fps || 30,
-      control: true,
-      stayAwake: true,
-      ...opts,
-    };
-    const w = 960;
-    const h = 540;
-    this._open({
-      kind: 'camera',
-      title: name,
-      width: w,
-      height: h,
-      opts: this.bridge.sessionOpts('camera', cameraOpts),
-    });
+    const cam = { videoSource: 'camera', cameraFacing: this.cameraFacing, cameraFps: 30, maxSize: 1920 };
+    if (/^\d{2,5}x\d{2,5}$/.test(String(opts.size || ''))) cam.cameraSize = opts.size;
+    this._open({ kind: 'camera', title: name, width: 854, height: 512, opts: this.bridge.sessionOpts('camera', cam) });
   }
 
   openApp(pkg, name) {
@@ -198,7 +198,8 @@ class PhoneViews extends EventEmitter {
       titleBarStyle: 'hiddenInset', backgroundColor: '#000000',
       webPreferences: { preload: path.join(__dirname, 'preload-phoneview.js'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
     });
-    const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [], screenOff: false };
+    const v = { id, kind, app, title, win, session: null, keys: new KeyState(), size: null, ready: false, queue: [], screenOff: false, eaten: new Set() };
+    this._send(v, 'phoneview:opts', this._opts(v));
     this.views.set(id, v);
     if (kind === 'app') setImmediate(() => this._stubs());
     win.loadFile(path.join(__dirname, 'phoneview.html'), { query: { kind, title } });
@@ -247,10 +248,57 @@ class PhoneViews extends EventEmitter {
     this._send(v, 'phoneview:status', { ready: true, via });
   }
 
+  // The window's switches as they are now (its buttons light up).
+  _opts(v) {
+    const ph = this.getSettings().phone || {};
+    return { enterSends: ph.enterSends !== false, arrowSwipe: ph.arrowSwipe === true, screenOff: !!v.screenOff };
+  }
+
+  // Return sends / Arrow keys swipe changed (here, or on the Phone page): every window shows it.
+  applyOpts() {
+    for (const v of this.views.values()) if (v.kind !== 'sound' && v.kind !== 'netsound') this._send(v, 'phoneview:opts', this._opts(v));
+  }
+
+  // Return in a chat app, an arrow that swipes (shared/phonechat.js): done here, the key (and its
+  // release) left out. True when the key was used up.
+  _special(v, code, down) {
+    if (!down) return v.eaten.delete(code);
+    if (v.eaten.has(code)) return true; // held: once
+    const ph = this.getSettings().phone || {};
+    const s = v.session;
+    let done = false;
+    const dir = chat.swipeOf(code, ph.arrowSwipe === true, v.keys.held);
+    if (dir) {
+      this._swipe(v, dir);
+      done = true;
+    } else if (chat.isEnter(code)) {
+      done = chat.enter({
+        on: ph.enterSends !== false,
+        pkg: v.app || this.activeApp,
+        shift: v.keys.held.has('ShiftLeft') || v.keys.held.has('ShiftRight'),
+        a11y: this.a11y,
+        phoneSend: () => this.server.sendToClient({ t: T.PHONE_SEND }),
+        tap: (k) => !s.closed && s.tap(k),
+        text: (t) => s.text(t),
+      });
+    }
+    if (done) v.eaten.add(code);
+    return done;
+  }
+
   _input(v, m) {
+    if (m.t === 'toggle' && (m.what === 'enterSends' || m.what === 'arrowSwipe')) {
+      const ph = this.getSettings().phone;
+      ph[m.what] = m.what === 'enterSends' ? ph.enterSends === false : ph.arrowSwipe !== true;
+      this.bridge.emit('save');
+      this.applyOpts();
+      return this.emit('change');
+    }
     const s = v.session;
     const size = v.size;
     if (!s || s.closed) return;
+    // A camera's picture isn't the phone's screen: touches and keys there would land on whatever the screen shows.
+    if (v.kind === 'camera' && (m.t === 'touch' || m.t === 'scroll' || m.t === 'key')) return;
     const num = (x) => (Number.isFinite(x) ? x : 0);
     switch (m.t) {
       case 'touch': // a finger (pointer ≥ 0) or the mouse (-1) at video coordinates
@@ -265,25 +313,22 @@ class PhoneViews extends EventEmitter {
       case 'key': {
         if (typeof m.code !== 'string') return;
         const swap = P.keySwapNeeded(P.OS.MAC, P.OS.ANDROID) && this.getSettings().keys.swapCtrlCmd !== false;
-        const e = v.keys.event(swap ? P.mapKeyFromOtherPlatform(m.code) : m.code, !!m.down);
+        const code = swap ? P.mapKeyFromOtherPlatform(m.code) : m.code;
+        if (this._special(v, code, !!m.down)) break;
+        const e = v.keys.event(code, !!m.down);
         if (e) s.key(m.down ? ACTION.DOWN : ACTION.UP, e.keycode, e.meta, m.repeat ? 1 : 0);
         break;
       }
-      case 'newline':
-        if (s && !s.closed) s.text('\n');
-        break;
-      case 'sendMsg':
-        this._sendMsg(v);
-        break;
       case 'nav': {
         const k = { back: ANDROID.BACK, home: ANDROID.HOME, recents: ANDROID.APP_SWITCH, power: ANDROID.POWER }[m.key];
         if (m.key === 'back') { s.backOrScreenOn(ACTION.DOWN); s.backOrScreenOn(ACTION.UP); } else if (k) s.tap(k);
         if (m.key === 'notifications') s.simple(TYPE.EXPAND_NOTIFICATIONS);
         if (m.key === 'rotate') s.simple(TYPE.ROTATE);
-        if (m.key === 'screenPower') {
+        // The phone's own screen off, its picture still here (scrcpy's display power).
+        if (m.key === 'screenPower' && v.kind === 'screen') {
           v.screenOff = !v.screenOff;
           s.setDisplayPower(!v.screenOff);
-          this._send(v, 'phoneview:screenPower', { off: v.screenOff });
+          this._send(v, 'phoneview:opts', { screenOff: v.screenOff });
         }
         break;
       }
@@ -291,18 +336,19 @@ class PhoneViews extends EventEmitter {
         s.simple(TYPE.RESET_VIDEO);
         break;
       case 'cameraTorch':
-        if (s && s.setTorch) s.setTorch(!!m.on);
+        if (v.kind === 'camera') s.setTorch(!!m.on);
         break;
       case 'cameraZoomIn':
-        if (s && s.zoomIn) s.zoomIn();
+        if (v.kind === 'camera') s.zoomIn();
         break;
       case 'cameraZoomOut':
-        if (s && s.zoomOut) s.zoomOut();
+        if (v.kind === 'camera') s.zoomOut();
         break;
-      case 'cameraSwitch': {
-        const newFacing = m.facing === 'front' ? 'back' : 'front';
+      case 'cameraSwitch': { // the other camera: a session of its own
+        if (v.kind !== 'camera') break;
+        const facing = this.cameraFacing === 'front' ? 'back' : 'front';
         this.close(v.id);
-        this.openCamera({ facing: newFacing });
+        this.openCamera({ facing });
         break;
       }
       case 'resize': // an app window changed size: its virtual display follows (flex)
@@ -312,55 +358,6 @@ class PhoneViews extends EventEmitter {
         if (typeof m.dir === 'string') this._swipe(v, m.dir);
         break;
       default: break;
-    }
-  }
-
-  _sendMsg(v) {
-    const s = v.session;
-    if (!s || s.closed) return;
-
-    // 1. Tell companion app on phone to click Send button via Accessibility (InputService)
-    if (this.server) {
-      try { this.server.sendToClient({ t: T.PHONE_SEND }); } catch {}
-    }
-
-    const pkg = (v.app || this.activeApp || '').toLowerCase();
-    const isInsta = pkg.includes('instagram');
-    const isWhatsApp = pkg.includes('whatsapp');
-
-    if (isInsta) {
-      // Instagram direct message composer:
-      // Tab to focus Send button, then Enter to click it.
-      s.tap(61); // KEYCODE_TAB
-      setTimeout(() => {
-        if (v.session && !v.session.closed) {
-          s.tap(66); // KEYCODE_ENTER
-        }
-      }, 40);
-    } else if (isWhatsApp) {
-      // WhatsApp:
-      // 1. Enter key sends natively if "Enter is send" is enabled in WhatsApp settings
-      s.tap(66); // KEYCODE_ENTER
-      // 2. Tab + Enter if "Enter is send" was not toggled in WhatsApp settings
-      setTimeout(() => {
-        if (v.session && !v.session.closed) {
-          s.tap(61);
-          setTimeout(() => {
-            if (v.session && !v.session.closed) s.tap(66);
-          }, 35);
-        }
-      }, 50);
-    } else {
-      // General chat / messaging apps:
-      s.tap(66);
-      setTimeout(() => {
-        if (v.session && !v.session.closed) {
-          s.tap(61);
-          setTimeout(() => {
-            if (v.session && !v.session.closed) s.tap(66);
-          }, 35);
-        }
-      }, 50);
     }
   }
 

@@ -8,7 +8,7 @@
 
 const dgram = require('dgram');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFile } = require('child_process');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 
@@ -40,23 +40,24 @@ const isIPv4 = (s) => /^(\d{1,3})(\.\d{1,3}){3}$/.test(s) && s.split('.').every(
 
 const DEFAULT_NAME = { mac: 'Mac', win: 'PC', linux: 'Linux' };
 
+// The default gateways (route print), looked up in the background every 30 s: on a phone's
+// hotspot that is the phone, which may not get broadcasts its own hotspot passes on, so beacons go
+// to it directly too. Never waited for: the beacon goes with what is known.
 let cachedGateways = [];
 let lastGwCheck = 0;
 function defaultGateways() {
   const now = Date.now();
-  if (now - lastGwCheck < 10000 && cachedGateways.length) return cachedGateways;
-  lastGwCheck = now;
-  const gws = [];
-  try {
-    const txt = execSync('route print 0.0.0.0', { windowsHide: true, timeout: 2000 }).toString();
-    const matches = txt.matchAll(/0\.0\.0\.0\s+0\.0\.0\.0\s+([0-9.]+)/g);
-    for (const m of matches) {
-      if (m[1] && isIPv4(m[1]) && !m[1].startsWith('127.') && !m[1].startsWith('0.')) {
-        if (!gws.includes(m[1])) gws.push(m[1]);
+  if (now - lastGwCheck > 30000) {
+    lastGwCheck = now;
+    execFile('route', ['print', '0.0.0.0'], { windowsHide: true, timeout: 3000 }, (err, out) => {
+      if (err) return;
+      const gws = [];
+      for (const m of String(out).matchAll(/0\.0\.0\.0\s+0\.0\.0\.0\s+([0-9.]+)/g)) {
+        if (isIPv4(m[1]) && !m[1].startsWith('127.') && !m[1].startsWith('0.') && !gws.includes(m[1])) gws.push(m[1]);
       }
-    }
-    cachedGateways = gws;
-  } catch {}
+      cachedGateways = gws;
+    });
+  }
   return cachedGateways;
 }
 

@@ -22,6 +22,7 @@ const P = require('../shared/protocol.js');
 const { Adb } = require('./adb');
 const { Session, ACTION } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
+const chat = require('../shared/phonechat.js');
 const { PhoneInput } = require('../shared/phoneinput.js');
 
 const T = P.T;
@@ -268,12 +269,12 @@ class PhoneBridge extends EventEmitter {
     // port 5555 is this computer's Android emulator, and the phone's Wi-Fi address is out of reach.
     const c = this.server.current;
     const sessionIp = c && c.transport !== 'ble' && c.address && !/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(c.address) ? c.address.replace(/^::ffff:/, '') : '';
-    const connectIp = sessionIp && sessionIp === address ? address : (address && a.hotspot ? address : (sessionIp || address));
-    if (connectIp && !/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(connectIp)) {
-      const serial = `${connectIp}:${TCPIP_PORT}`;
-      const r = await this.adb.connect(connectIp, TCPIP_PORT);
-      if (r.ok && await this._findDevice(connectIp)) {
-        this.lastPort.set(connectIp, TCPIP_PORT);
+    // On the phone's own hotspot that is the phone's address there, which it says (adb.state address).
+    if (sessionIp && sessionIp === address) {
+      const serial = `${address}:${TCPIP_PORT}`;
+      const r = await this.adb.connect(address, TCPIP_PORT);
+      if (r.ok && await this._findDevice(address)) {
+        this.lastPort.set(address, TCPIP_PORT);
         this.misses = 0;
         return this._kick();
       }
@@ -301,7 +302,7 @@ class PhoneBridge extends EventEmitter {
     await this._dropStale(address);
     const services = await this.adb.mdns();
     const seen = services.filter((s) => s.type === 'connect' && s.address === address).map((s) => s.port);
-    const ports = [...new Set([5555, a.port, ...seen, this.lastPort.get(address)])].filter((n) => n > 0 && n < 65536);
+    const ports = [...new Set([a.port, ...seen, this.lastPort.get(address)])].filter((n) => n > 0 && n < 65536);
     let unpaired = false;
     for (const port of ports) {
       const r = await this.adb.connect(address, port);
@@ -670,29 +671,28 @@ class PhoneBridge extends EventEmitter {
     const code = swap ? P.mapKeyFromOtherPlatform(m.code) : m.code;
     const down = m.t === T.K_KEY_DOWN;
 
-    if (['Enter', 'NumpadEnter'].includes(code)) {
-      const shiftHeld = this.keys.held.has('ShiftLeft') || this.keys.held.has('ShiftRight');
-      if (down) {
-        if (shiftHeld) {
-          this.ctl.text('\n');
-          return;
-        } else {
-          if (this.server) {
-            try { this.server.sendToClient({ t: T.PHONE_SEND }); } catch {}
-          }
-          this.ctl.tap(66);
-          setTimeout(() => {
-            if (this.ctl && !this.closed) {
-              this.ctl.tap(61);
-              setTimeout(() => {
-                if (this.ctl && !this.closed) this.ctl.tap(66);
-              }, 35);
-            }
-          }, 50);
-          return;
-        }
+    // Enter in a chat app sends (shared/phonechat.js; the setting is the phone windows' one). Its
+    // release goes with it. Through the phone's own input (Accessibility) there's no text to type:
+    // Shift+Enter is a key there, which it makes a new line itself.
+    if (chat.isEnter(code)) {
+      if (!down && this.enterEaten) {
+        this.enterEaten = false;
+        return;
       }
-      return;
+      const views = this.views || {};
+      const ctl = this.ctl;
+      if (down && chat.enter({
+        on: (this.getSettings().phone || {}).enterSends !== false,
+        pkg: views.activeApp,
+        shift: this.keys.held.has('ShiftLeft') || this.keys.held.has('ShiftRight'),
+        a11y: !!views.a11y,
+        phoneSend: () => this.server.sendToClient({ t: T.PHONE_SEND }),
+        tap: (k) => this.ctl === ctl && ctl.tap(k),
+        text: typeof ctl.text === 'function' ? (t) => ctl.text(t) : null,
+      })) {
+        this.enterEaten = true;
+        return;
+      }
     }
 
     const e = this.keys.event(code, down);

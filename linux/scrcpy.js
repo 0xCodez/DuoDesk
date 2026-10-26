@@ -25,7 +25,7 @@ const TYPE = {
   INJECT_KEYCODE: 0, INJECT_TEXT: 1, INJECT_TOUCH: 2, INJECT_SCROLL: 3, BACK_OR_SCREEN_ON: 4,
   EXPAND_NOTIFICATIONS: 5, EXPAND_SETTINGS: 6, COLLAPSE_PANELS: 7, GET_CLIPBOARD: 8, SET_CLIPBOARD: 9,
   SET_DISPLAY_POWER: 10, ROTATE: 11, START_APP: 16, RESET_VIDEO: 17, RESIZE_DISPLAY: 21, SCAN_FILE: 22,
-  CAMERA_SET_TORCH: 23, CAMERA_ZOOM_IN: 24, CAMERA_ZOOM_OUT: 25,
+  CAMERA_SET_TORCH: 18, CAMERA_ZOOM_IN: 19, CAMERA_ZOOM_OUT: 20, // scrcpy 5.0.1's ControlMessage
 };
 // MotionEvent / KeyEvent actions
 const ACTION = { DOWN: 0, UP: 1, MOVE: 2, HOVER_MOVE: 7 };
@@ -394,21 +394,14 @@ class Session extends EventEmitter {
     return Session.parseCameras(text);
   }
 
+  // scrcpy's list_cameras: a line per camera, "--camera-id=0    (back, 4000x3000, fps=[15, 30])".
   static parseCameras(text) {
     const list = [];
-    const lines = String(text || '').split('\n');
-    for (const l of lines) {
-      const facingMatch = l.match(/--camera-facing=([a-z0-9_-]+)/i);
-      const idMatch = l.match(/--camera-id=([a-z0-9_-]+)/i);
-      if (facingMatch || idMatch) {
-        const sizesMatch = l.match(/\(([^)]+)\)/);
-        const sizes = sizesMatch ? sizesMatch[1].split(',').map((s) => s.trim()).filter((s) => /^\d+x\d+$/.test(s)) : [];
-        list.push({
-          facing: facingMatch ? facingMatch[1].toLowerCase() : 'back',
-          id: idMatch ? idMatch[1] : '0',
-          sizes,
-        });
-      }
+    for (const l of String(text || '').split('\n')) {
+      const id = /--camera-id=(\S+)/.exec(l);
+      if (!id) continue;
+      const facing = /\((back|front|external)\b/i.exec(l);
+      list.push({ id: id[1], facing: facing ? facing[1].toLowerCase() : 'back', sizes: l.match(/\b\d{2,5}x\d{2,5}\b/g) || [] });
     }
     return list;
   }

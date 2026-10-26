@@ -143,6 +143,10 @@ function normalize(s) {
       // Where a phone window's controls sit (phoneview.js): 'side' (a panel down the right), 'top'
       // (the title bar), 'bottom' (Back, Home and Recents under the picture).
       controls: ['side', 'top', 'bottom'].includes(ph.controls) ? ph.controls : 'side',
+      // Keys in a phone window and on the phone (shared/phonechat.js): Enter sends in WhatsApp,
+      // Instagram and Telegram (Shift+Enter a new line); the arrow keys swipe the screen.
+      enterSends: bool(ph.enterSends, true),
+      arrowSwipe: bool(ph.arrowSwipe, false),
     },
     // Bluetooth for devices not on this network (blepipe.js, netlink.js): with phones (ble), with computers (blePc);
     // bleWifiOff: none at all while the session is on the same Wi-Fi (blepolicy.js wifiQuiet)

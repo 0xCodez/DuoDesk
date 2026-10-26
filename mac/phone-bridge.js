@@ -21,6 +21,7 @@ const P = require('../shared/protocol.js');
 const { Adb } = require('./adb');
 const { Session, ACTION } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
+const chat = require('../shared/phonechat.js');
 const { PhoneInput } = require('../shared/phoneinput.js');
 
 const T = P.T;
@@ -671,29 +672,28 @@ class PhoneBridge extends EventEmitter {
     const code = swap ? P.mapKeyFromOtherPlatform(m.code) : m.code;
     const down = m.t === T.K_KEY_DOWN;
 
-    if (['Enter', 'NumpadEnter'].includes(code)) {
-      const shiftHeld = this.keys.held.has('ShiftLeft') || this.keys.held.has('ShiftRight');
-      if (down) {
-        if (shiftHeld) {
-          this.ctl.text('\n');
-          return;
-        } else {
-          if (this.server) {
-            try { this.server.sendToClient({ t: T.PHONE_SEND }); } catch {}
-          }
-          this.ctl.tap(66);
-          setTimeout(() => {
-            if (this.ctl && !this.closed) {
-              this.ctl.tap(61);
-              setTimeout(() => {
-                if (this.ctl && !this.closed) this.ctl.tap(66);
-              }, 35);
-            }
-          }, 50);
-          return;
-        }
+    // Enter in a chat app sends (shared/phonechat.js; the setting is the phone windows' one). Its
+    // release goes with it. Through the phone's own input (Accessibility) there's no text to type:
+    // Shift+Enter is a key there, which it makes a new line itself.
+    if (chat.isEnter(code)) {
+      if (!down && this.enterEaten) {
+        this.enterEaten = false;
+        return;
       }
-      return;
+      const views = this.views || {};
+      const ctl = this.ctl;
+      if (down && chat.enter({
+        on: (this.getSettings().phone || {}).enterSends !== false,
+        pkg: views.activeApp,
+        shift: this.keys.held.has('ShiftLeft') || this.keys.held.has('ShiftRight'),
+        a11y: !!views.a11y,
+        phoneSend: () => this.server.sendToClient({ t: T.PHONE_SEND }),
+        tap: (k) => this.ctl === ctl && ctl.tap(k),
+        text: typeof ctl.text === 'function' ? (t) => ctl.text(t) : null,
+      })) {
+        this.enterEaten = true;
+        return;
+      }
     }
 
     const e = this.keys.event(code, down);

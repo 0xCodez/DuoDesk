@@ -18,7 +18,6 @@
   const ACTION = { DOWN: 0, UP: 1, MOVE: 2, HOVER_MOVE: 7 };
   const FINGER = -2; // scrcpy's generic finger
   let size = null; // video size
-  let enterIsSend = true;
   let decoder = null;
   let config = null; // SPS/PPS, sent in front of the next key frame
   let waitingKey = true;
@@ -311,36 +310,10 @@
     api.send({ t: 'scroll', ...p, hs: -e.deltaX * k, vs: -e.deltaY * k });
   }, { passive: false });
 
-  // Keys go to the phone; ⌘W closes the window like any other.
+  // Keys go to the phone; ⌘W closes the window like any other. Return in a chat app and the
+  // arrows that swipe are worked out in phoneview.js (shared/phonechat.js).
   const onKey = (e) => {
     if (e.metaKey && (e.code === 'KeyW' || e.code === 'KeyQ') && e.type === 'keydown') return;
-    // Arrow keys: full direction swipe across the phone screen (unless ⌘/⌥/⌃/⇧ held)
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
-      e.preventDefault();
-      if (e.type === 'keydown') {
-        const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.code];
-        if (dir) api.send({ t: 'swipe', dir });
-      }
-      return;
-    }
-    // Enter / NumpadEnter: send message or newline
-    if (['Enter', 'NumpadEnter'].includes(e.code)) {
-      e.preventDefault();
-      if (e.shiftKey) {
-        // Shift+Enter: always insert newline
-        if (e.type === 'keydown' && !e.repeat) {
-          api.send({ t: 'newline' });
-        }
-        return;
-      }
-      if (enterIsSend) {
-        // Enter without Shift: trigger Send button
-        if (e.type === 'keydown' && !e.repeat) {
-          api.send({ t: 'sendMsg' });
-        }
-        return;
-      }
-    }
     e.preventDefault();
     api.send({ t: 'key', code: e.code, down: e.type === 'keydown', repeat: e.repeat });
   };
@@ -375,6 +348,8 @@
     if (el) el.onclick = () => api.send({ t: 'nav', key: k === 'notifs' ? 'notifications' : k });
   }
 
+  // The phone's screen off (its picture stays here; right click: the power key), Return sends in
+  // chat apps, the arrows swipe: lit while on (phoneview.js says, 'opts').
   const powerBtn = document.getElementById('b-power');
   if (powerBtn) {
     powerBtn.onclick = () => api.send({ t: 'nav', key: 'screenPower' });
@@ -383,29 +358,19 @@
       api.send({ t: 'nav', key: 'power' });
     };
   }
-
-  const enterSendBtn = document.getElementById('b-enter-send');
-  if (enterSendBtn) {
-    enterSendBtn.onclick = () => {
-      enterIsSend = !enterIsSend;
-      enterSendBtn.classList.toggle('active', enterIsSend);
-      enterSendBtn.title = enterIsSend
-        ? 'Enter sends message (Shift+Enter for new line)'
-        : 'Enter inserts new line (Enter sends message is OFF)';
-    };
-  }
-
-  api.on('screenPower', (state) => {
-    if (!powerBtn) return;
-    const off = !!(state && state.off);
-    powerBtn.classList.toggle('active', off);
-    powerBtn.title = off
-      ? 'Phone display is OFF (saving battery). Click to turn back on.'
-      : 'Turn phone screen off (saves battery) · Right-click for power key';
+  const enterBtn = document.getElementById('b-enter-send');
+  if (enterBtn) enterBtn.onclick = () => api.send({ t: 'toggle', what: 'enterSends' });
+  const swipeBtn = document.getElementById('b-swipe');
+  if (swipeBtn) swipeBtn.onclick = () => api.send({ t: 'toggle', what: 'arrowSwipe' });
+  api.on('opts', (m) => {
+    if (!m) return;
+    if (powerBtn && typeof m.screenOff === 'boolean') powerBtn.classList.toggle('active', m.screenOff);
+    if (enterBtn && typeof m.enterSends === 'boolean') enterBtn.classList.toggle('active', m.enterSends);
+    if (swipeBtn && typeof m.arrowSwipe === 'boolean') swipeBtn.classList.toggle('active', m.arrowSwipe);
   });
+
   // A camera window (openCamera): torch, front/back and zoom.
   let torchOn = false;
-  let currentFacing = 'back';
   const bTorch = document.getElementById('b-torch');
   if (bTorch) {
     bTorch.onclick = () => {
@@ -417,8 +382,7 @@
   const bFlip = document.getElementById('b-flip');
   if (bFlip) {
     bFlip.onclick = () => {
-      currentFacing = currentFacing === 'front' ? 'back' : 'front';
-      api.send({ t: 'cameraSwitch', facing: currentFacing });
+      api.send({ t: 'cameraSwitch' });
     };
   }
   const bZoomIn = document.getElementById('b-zoomin');

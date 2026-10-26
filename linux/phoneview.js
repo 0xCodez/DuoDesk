@@ -92,29 +92,17 @@ class PhoneViews extends EventEmitter {
     this._open({ kind: 'screen', title: name, width: w, height: h, opts: this.bridge.sessionOpts('screen') });
   }
 
-  // Opens the phone camera as a high-definition webcam feed using scrcpy camera mode.
+  // The phone's camera in a window (scrcpy's camera source, Android 12 or later): facing 'back' or
+  // 'front'; the camera picks its best size up to 1920 on the long side (a size it doesn't have
+  // would fail), at 30 fps. Its light and zoom from the window's buttons.
   openCamera(opts = {}) {
     const open = [...this.views.values()].find((v) => v.kind === 'camera');
     if (open) return open.win.show(), open.win.focus();
+    this.cameraFacing = opts.facing === 'front' ? 'front' : 'back';
     const name = ((this.server.current && this.server.current.name) || 'Phone') + ' Camera';
-    const cameraOpts = {
-      videoSource: 'camera',
-      cameraFacing: opts.facing || 'back',
-      cameraSize: opts.size || '1920x1080',
-      cameraFps: opts.fps || 30,
-      control: true,
-      stayAwake: true,
-      ...opts,
-    };
-    const w = 960;
-    const h = 540;
-    this._open({
-      kind: 'camera',
-      title: name,
-      width: w,
-      height: h,
-      opts: this.bridge.sessionOpts('camera', cameraOpts),
-    });
+    const cam = { videoSource: 'camera', cameraFacing: this.cameraFacing, cameraFps: 30, maxSize: 1920 };
+    if (/^\d{2,5}x\d{2,5}$/.test(String(opts.size || ''))) cam.cameraSize = opts.size;
+    this._open({ kind: 'camera', title: name, width: 854, height: 512, opts: this.bridge.sessionOpts('camera', cam) });
   }
 
   openApp(pkg, name) {
@@ -243,6 +231,8 @@ class PhoneViews extends EventEmitter {
     const s = v.session;
     const size = v.size;
     if (!s || s.closed) return;
+    // A camera's picture isn't the phone's screen: touches and keys there would land on whatever the screen shows.
+    if (v.kind === 'camera' && (m.t === 'touch' || m.t === 'scroll' || m.t === 'key')) return;
     const num = (x) => (Number.isFinite(x) ? x : 0);
     switch (m.t) {
       case 'touch': // a finger (pointer ≥ 0) or the mouse (-1) at video coordinates
@@ -272,18 +262,19 @@ class PhoneViews extends EventEmitter {
         s.simple(TYPE.RESET_VIDEO);
         break;
       case 'cameraTorch':
-        if (s && s.setTorch) s.setTorch(!!m.on);
+        if (v.kind === 'camera') s.setTorch(!!m.on);
         break;
       case 'cameraZoomIn':
-        if (s && s.zoomIn) s.zoomIn();
+        if (v.kind === 'camera') s.zoomIn();
         break;
       case 'cameraZoomOut':
-        if (s && s.zoomOut) s.zoomOut();
+        if (v.kind === 'camera') s.zoomOut();
         break;
-      case 'cameraSwitch': {
-        const newFacing = m.facing === 'front' ? 'back' : 'front';
+      case 'cameraSwitch': { // the other camera: a session of its own
+        if (v.kind !== 'camera') break;
+        const facing = this.cameraFacing === 'front' ? 'back' : 'front';
         this.close(v.id);
-        this.openCamera({ facing: newFacing });
+        this.openCamera({ facing });
         break;
       }
       case 'resize': // an app window changed size: its virtual display follows (flex)

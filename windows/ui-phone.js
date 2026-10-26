@@ -22,7 +22,7 @@ UI.tab({
     const name = el('div', { class: 'hero-name' });
     const sub = el('div', { class: 'hero-status' });
     const showBtn = UI.button('Show Phone Screen', () => api.phoneScreen(true), 'primary');
-    const camBtn = UI.button('Use as Webcam', () => api.phoneCamera(true), 'secondary');
+    const camBtn = UI.button('Show Camera', () => api.phoneCamera(true));
     const discBtn = UI.button('Disconnect', () => api.disconnectPhone());
     // On Bluetooth: onto a direct Wi-Fi link on request, until Back to Bluetooth (netlink.js 'user').
     let wifiOn = false;
@@ -85,6 +85,8 @@ UI.tab({
       { value: '16', label: 'Sharp (16 Mb/s)' }, { value: '24', label: 'Sharpest (24 Mb/s)' },
     ], (v) => api.setPhone({ bitrateMbps: Number(v) }));
     const wall = UI.switch((v) => api.setPhone({ wallpaper: v }), { label: 'Wallpaper' });
+    const enterSends = UI.switch((v) => api.setPhone({ enterSends: v }), { label: 'Enter sends messages' });
+    const arrowSwipe = UI.switch((v) => api.setPhone({ arrowSwipe: v }), { label: 'Arrow keys swipe' });
     const controls = UI.select([
       { value: 'side', label: 'Side panel' }, { value: 'top', label: 'Title bar' }, { value: 'bottom', label: 'Bottom bar' },
     ], (v) => api.setPhone({ controls: v }));
@@ -92,6 +94,8 @@ UI.tab({
       UI.row('Phone sound in the screen window', 'Android 11 or later', [sound]),
       UI.row('Picture', 'For the screen window and app windows', [quality]),
       UI.row('Window controls', 'Side panel: Back, Home, Recents, volume, rotate, screenshot and more down the right of each phone window. Title bar: the main ones up top. Bottom bar: Back, Home and Recents under the picture', [controls]),
+      UI.row('Enter sends messages', 'In WhatsApp, Instagram and Telegram, in a phone window or with this keyboard on the phone. Shift+Enter: a new line', [enterSends]),
+      UI.row('Arrow keys swipe', 'In a phone window: up and down through feeds, Reels and Shorts, left and right through pages. Off: they move the cursor', [arrowSwipe]),
       UI.row('Show the phone’s wallpaper here', 'Lets TwinDesk on the phone read it (set up over wireless debugging)', [wall]),
       UI.row('Mouse and keyboard', 'Push the pointer off the edge of the screen to use the phone. Double-tap the hotkey to come back.', [UI.button('Cursor Settings', () => UI.go('cursor'), 'small')]),
     ]);
@@ -107,7 +111,6 @@ UI.tab({
     const STATES = {
       ready: ['good', 'Ready'], connecting: ['muted', 'Connecting…'], needsPair: ['bad', 'Pair once'],
       waitingWifi: ['bad', 'Off'], missing: ['bad', 'Missing'], error: ['bad', 'Problem'], off: ['muted', '—'],
-      hotspotReady: ['good', 'Hotspot Ready'],
     };
 
     function render(s) {
@@ -129,6 +132,8 @@ UI.tab({
 
       const ready = br.state === 'ready';
       showBtn.disabled = !ready;
+      camBtn.disabled = !ready; // the camera through wireless debugging too (Android 12 or later)
+      camBtn.title = 'The phone’s camera in a window here (Android 12 or later)';
       const n = s.net || {};
       wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
       wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
@@ -161,6 +166,8 @@ UI.tab({
       sound.set(!!settings.sound);
       quality.set(String(settings.bitrateMbps || 8));
       wall.set(settings.wallpaper !== false);
+      enterSends.set(settings.enterSends !== false);
+      arrowSwipe.set(settings.arrowSwipe === true);
       controls.set(settings.controls || 'side');
       via.set(br.input || (settings.input === 'phone' ? 'phone' : 'adb'));
       viaRow.setHint(br.inputMode === 'auto' ? (br.state === 'ready' ? 'Automatic: ADB, wireless debugging is ready' : 'Automatic: Accessibility until wireless debugging is ready')

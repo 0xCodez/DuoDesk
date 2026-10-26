@@ -183,7 +183,7 @@ class Adb(core: Core) : Feature(core) {
     // a while (canPair), asks again.
     private fun knownKey() = core.host?.let { "adb.known.${it.id}" }
     val known get() = knownKey()?.let { core.store.flag(it, false) } ?: false
-    val setupNeeded get() = (bridge != "hotspotReady" && !paired && (!known || bridge == "needsPair" || canPair)) || inputBlocked
+    val setupNeeded get() = (!paired && (!known || bridge == "needsPair" || canPair)) || inputBlocked
     @Volatile var pairing = false; private set // a code went to the computer, waiting for the answer
     private var nsd: android.net.nsd.NsdManager.DiscoveryListener? = null
     @Volatile private var pairPort = 0 // our own "Pair device with pairing code" port, from mDNS
@@ -235,9 +235,12 @@ class Adb(core: Core) : Feature(core) {
         cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true }
     }.getOrDefault(true)
 
+    // Where the computer reaches this phone for wireless debugging: its Wi-Fi address, or on its own
+    // hotspot (no Wi-Fi network here) the hotspot's, which a computer joined to it reaches.
     fun address(): String = runCatching {
         val ifaces = NetworkInterface.getNetworkInterfaces().toList().filter { it.isUp && !it.isLoopback }
-        val preferredPrefixes = listOf("ap", "swlan", "rndis", "tether", "wlan", "eth")
+        val hotspot = listOf("ap", "swlan", "rndis", "tether")
+        val preferredPrefixes = if (onWifiNetwork) listOf("wlan", "eth") + hotspot else hotspot + listOf("wlan", "eth")
         for (prefix in preferredPrefixes) {
             val addr = ifaces.filter { it.name.startsWith(prefix) }
                 .flatMap { it.inetAddresses.toList() }
@@ -290,12 +293,12 @@ class Adb(core: Core) : Feature(core) {
     fun check(tries: Int = 3) {
         main.removeCallbacksAndMessages(null)
         trying = false
-        if (!core.link.connected || wifiDebugging || !onWifiNetwork || isHotspotActive) return settle(false)
+        if (!core.link.connected || wifiDebugging || !onWifiNetwork) return settle(false)
         if (!unlocked) return
         trying = enable(true)
         main.postDelayed({
             trying = false
-            if (!core.link.connected || wifiDebugging || isHotspotActive) settle(false)
+            if (!core.link.connected || wifiDebugging) settle(false)
             else if (canEnable && tries > 1) check(tries - 1)
             else settle(true)
         }, 2000)

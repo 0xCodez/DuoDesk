@@ -27,6 +27,12 @@ import kotlin.math.hypot
 class InputService : AccessibilityService() {
     companion object {
         @Volatile var running: InputService? = null; private set
+        // The chat apps whose Send the computer's Enter presses (shared/phonechat.js), and their buttons' ids.
+        private val SEND_IDS = mapOf(
+            "com.whatsapp" to listOf("send"), "com.whatsapp.w4b" to listOf("send"),
+            "com.instagram.android" to listOf("row_thread_composer_button_send", "row_thread_composer_send_button_container", "button_send"),
+        )
+        private val CHATS = SEND_IDS.keys + setOf("com.instagram.lite", "org.telegram.messenger", "org.telegram.messenger.web", "org.telegram.plus")
     }
 
     override fun onServiceConnected() {
@@ -46,16 +52,21 @@ class InputService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
-    var activePackage: String = ""
+    // The app in front, for the computer: Enter in a chat app there sends the message (phone.send,
+    // shared/phonechat.js). Said again after each connect (resend).
+    @Volatile var activePackage: String = ""; private set
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            val pkg = event.packageName?.toString() ?: ""
-            if (pkg.isNotEmpty() && pkg != activePackage) {
-                activePackage = pkg
-                Core.get(this).link.send(JSONObject().put("t", Proto.T.PHONE_ACTIVE_APP).put("pkg", pkg))
-            }
-        }
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val pkg = event.packageName?.toString() ?: ""
+        if (pkg.isEmpty() || pkg == activePackage || pkg == "com.android.systemui") return
+        activePackage = pkg
+        resend()
+    }
+
+    fun resend() {
+        val core = Core.get(this)
+        if (activePackage.isNotEmpty() && core.link.connected) core.send(msg(Proto.T.PHONE_ACTIVE_APP, "pkg" to activePackage))
     }
     override fun onInterrupt() {}
 
@@ -146,8 +157,6 @@ class InputService : AccessibilityService() {
             KeyEvent.KEYCODE_MOVE_HOME, KeyEvent.KEYCODE_DPAD_UP -> select(node, 0, 0)
             KeyEvent.KEYCODE_MOVE_END, KeyEvent.KEYCODE_DPAD_DOWN -> select(node, t.length, t.length)
             KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                val shift = meta and KeyEvent.META_SHIFT_MASK != 0
-                if (!shift && clickSendButton()) return
                 val ime = Build.VERSION.SDK_INT >= 30 && node.actionList.any { it.id == android.R.id.accessibilityActionImeEnter }
                 if (ime) node.performAction(android.R.id.accessibilityActionImeEnter)
                 else if (node.isMultiLine) insert(node, t, s, e, "\n")
@@ -159,56 +168,39 @@ class InputService : AccessibilityService() {
         }
     }
 
-    fun clickSendButton(): Boolean {
-        val root = rootInActiveWindow ?: return false
-        val pkg = root.packageName?.toString() ?: activePackage
-
-        // Specific IDs for WhatsApp and Instagram
-        if (pkg.contains("whatsapp")) {
-            val list = root.findAccessibilityNodeInfosByViewId("com.whatsapp:id/send")
-            if (!list.isNullOrEmpty()) {
-                val btn = list.firstOrNull { it.isClickable || it.isEnabled } ?: list[0]
-                if (btn.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+    // The computer's Enter in a chat app (phone.send): the app's own Send button, found by its id
+    // (WhatsApp, Instagram) or, in that app only, a button named Send (Telegram has no ids); else
+    // the keyboard's Enter action on the field (it sends where the app makes Enter send).
+    fun sendMessage() {
+        val root = rootInActiveWindow ?: return
+        val pkg = root.packageName?.toString() ?: ""
+        val ids = SEND_IDS[pkg]
+        if (ids != null) {
+            for (id in ids) {
+                val btn = root.findAccessibilityNodeInfosByViewId("$pkg:id/$id").orEmpty().firstOrNull { it.isVisibleToUser && it.isEnabled }
+                if (btn != null && clickable(btn)?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) return
             }
         }
-        if (pkg.contains("instagram")) {
-            for (id in listOf("com.instagram.android:id/row_thread_composer_button_send", "com.instagram.android:id/button_send")) {
-                val list = root.findAccessibilityNodeInfosByViewId(id)
-                if (!list.isNullOrEmpty()) {
-                    val btn = list.firstOrNull { it.isClickable || it.isEnabled } ?: list[0]
-                    if (btn.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
-                }
+        if (pkg in CHATS) {
+            val btn = root.findAccessibilityNodeInfosByText("Send").orEmpty().firstOrNull {
+                it.isVisibleToUser && it.isEnabled && (it.contentDescription?.toString().equals("Send", true) || it.text?.toString().equals("Send", true))
             }
+            if (btn != null && clickable(btn)?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) return
         }
-
-        // Generic search by text or content description
-        for (q in listOf("Send", "send", "Send message")) {
-            val list = root.findAccessibilityNodeInfosByText(q)
-            for (n in list) {
-                if (n.isClickable && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
-                val p = n.parent
-                if (p != null && p.isClickable && p.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
-            }
+        val field = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return
+        if (Build.VERSION.SDK_INT >= 30 && field.actionList.any { it.id == android.R.id.accessibilityActionImeEnter }) {
+            field.performAction(android.R.id.accessibilityActionImeEnter)
         }
-
-        return findAndClickSendNode(root)
     }
 
-    private fun findAndClickSendNode(n: AccessibilityNodeInfo?): Boolean {
-        if (n == null) return false
-        val id = n.viewIdResourceName?.lowercase() ?: ""
-        val desc = n.contentDescription?.toString()?.lowercase() ?: ""
-        val text = n.text?.toString()?.lowercase() ?: ""
-        if (n.isClickable) {
-            if (id.endsWith(":id/send") || id.contains("button_send") || id.contains("send_button") ||
-                desc == "send" || desc == "send message" || text == "send") {
-                return n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            }
+    // The node itself, or the nearest one above it that takes a click (an icon inside a button).
+    private fun clickable(n: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var c: AccessibilityNodeInfo? = n
+        for (i in 0 until 3) {
+            if (c == null || c.isClickable) return c
+            c = c.parent
         }
-        for (i in 0 until n.childCount) {
-            if (findAndClickSendNode(n.getChild(i))) return true
-        }
-        return false
+        return null
     }
 
     // The field's text (not its hint, which some fields report as their text while empty).
@@ -266,6 +258,7 @@ class Input(core: Core) : Feature(core) {
     override fun onWelcome(host: Host) {
         told = null
         changed()
+        InputService.running?.resend() // the app in front, for Enter in a chat app there
     }
 
     override fun onClosed() { told = null }
@@ -287,10 +280,7 @@ class Input(core: Core) : Feature(core) {
                 val v = m.optString("via")
                 if (v == "adb" || v == "phone" || v == "auto") { core.store.setPrefsString("inputVia", v); told = "$on/$v"; core.changed() }
             }
-            Proto.T.PHONE_SEND -> {
-                val s = InputService.running ?: return true
-                s.clickSendButton()
-            }
+            Proto.T.PHONE_SEND -> InputService.running?.sendMessage()
             else -> return false
         }
         return true

@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Base64
-import android.util.Log
 import java.io.ByteArrayOutputStream
 import android.service.notification.StatusBarNotification
 import org.json.JSONObject
@@ -76,13 +75,16 @@ class Notifs(core: Core) : Feature(core) {
         if (!text.isNullOrEmpty()) return text
 
         // 2. MessagingStyle (used by WhatsApp, Telegram, Google Messages)
-        val msgs = x.getParcelableArray(Notification.EXTRA_MESSAGES)
+        val msgs = if (Build.VERSION.SDK_INT >= 33) x.getParcelableArray(Notification.EXTRA_MESSAGES, android.os.Parcelable::class.java)
+            else @Suppress("DEPRECATION") x.getParcelableArray(Notification.EXTRA_MESSAGES)
         if (!msgs.isNullOrEmpty()) {
             val lastMsg = msgs.lastOrNull()
             if (lastMsg is Bundle) {
-                val senderPerson = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    (lastMsg.getParcelable<android.app.Person>("sender_person"))?.name?.toString()?.trim() ?: ""
-                } else ""
+                val senderPerson = when {
+                    Build.VERSION.SDK_INT >= 33 -> lastMsg.getParcelable("sender_person", android.app.Person::class.java)?.name?.toString()?.trim() ?: ""
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> @Suppress("DEPRECATION") lastMsg.getParcelable<android.app.Person>("sender_person")?.name?.toString()?.trim() ?: ""
+                    else -> ""
+                }
                 val sender = senderPerson.ifEmpty { lastMsg.getCharSequence("sender")?.toString()?.trim() ?: "" }
                 val msgText = lastMsg.getCharSequence("text")?.toString()?.trim() ?: ""
                 if (msgText.isNotEmpty()) {
@@ -118,9 +120,7 @@ class Notifs(core: Core) : Feature(core) {
         val pkg = sbn.packageName
         if (pkg == core.ctx.packageName || sbn.isOngoing) return
 
-        val isMessaging = pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" || pkg == "com.instagram.android" || pkg == "org.telegram.messenger"
-        // Don't drop group summaries for messaging apps if they contain message text
-        if (!isMessaging && (n.flags and Notification.FLAG_GROUP_SUMMARY != 0)) return
+        if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) return // the group's children come too (a summary is "3 messages from 2 chats")
         if (n.category == Notification.CATEGORY_TRANSPORT || n.category == Notification.CATEGORY_PROGRESS || n.category == Notification.CATEGORY_SERVICE) return
         if (n.category == Notification.CATEGORY_CALL && core.hub.callsOn) return // the computer shows the call itself
         if (pkg in muted) return
@@ -150,7 +150,6 @@ class Notifs(core: Core) : Feature(core) {
 
         val hide = core.store.flag("notifs.hideText", false)
         val icon = if (synchronized(iconsSent) { iconsSent.add(pkg) }) appIcon(pkg) else null
-        Log.d("TwinDeskNotifs", "Sending notif from $appName: $title -> $text")
         core.send(
             msg(
                 Proto.T.NOTIF, "id" to sbn.key.take(200), "app" to pkg, "appName" to appName,
