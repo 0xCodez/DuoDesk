@@ -1,7 +1,7 @@
 name: Build AUR
 
 # twindesk-bin (linux/aur/PKGBUILD) from the release's .deb (Build Linux puts it there first), built
-# and installed on Arch to check it. The PKGBUILD and .SRCINFO to push to the AUR are the artifact.
+# and installed on Arch to check it, then put on the release. The PKGBUILD and .SRCINFO to push to the AUR are the artifact.
 on:
   workflow_dispatch:
     inputs:
@@ -66,7 +66,15 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: twindesk-aur
+          include-hidden-files: true # .SRCINFO
           path: |
             linux/aur/PKGBUILD
             linux/aur/.SRCINFO
             linux/aur/twindesk-bin-*.pkg.tar.zst
+
+      # The package onto the release too, for `pacman -U` (the updater takes only .deb and .AppImage).
+      - name: Upload to the release
+        working-directory: linux/aur
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" -R "${{ github.repository }}" twindesk-bin-*.pkg.tar.zst --clobber
