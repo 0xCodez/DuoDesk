@@ -11,11 +11,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/InukaAsith/TwinDesk/releases/latest"><b>⬇️ Download 2.3</b></a> ·
+  <a href="#download"><b>⬇️ Download 2.3</b></a> ·
   <a href="https://twin-desk.vercel.app"><b>Website</b></a> ·
   <a href="#-new-in-23"><b>What's new</b></a> ·
   <a href="#-get-started"><b>Get started</b></a> ·
-  <a href="#under-the-hood"><b>How it works</b></a>
+  <a href="#how-it-works"><b>How it works</b></a>
 </p>
 
 <p align="center">
@@ -64,7 +64,72 @@ Same Wi-Fi · USB cable · **Bluetooth** · **Wi-Fi Direct** and **hotspot** lin
 
 </td>
 </tr>
+<tr>
+<td width="33%" valign="top">
+
+### 🚀 [Get started](#-get-started)
+Download · open on both · pair once with a code · turn on what you want · [privacy](#privacy): no account, no telemetry
+
+</td>
+<td width="33%" valign="top">
+
+### 🐧 [Linux](#linux) and 🤖 [Android](#android-in-detail) in detail
+X11 and Wayland · shared folders through Samba · the phone app page by page · [wireless debugging](#wireless-debugging), set up once
+
+</td>
+<td width="33%" valign="top">
+
+### 🛠 [Under the hood](#how-it-works)
+[How it works](#how-it-works) · [build and run](#build-and-run) on macOS, Windows, Linux, NixOS and Android · [GitHub Actions](#github-actions)
+
+</td>
+</tr>
 </table>
+
+<a name="download"></a>
+
+## ⬇️ Download
+
+<table>
+<tr>
+<td width="25%" align="center" valign="top">
+
+**🍎 macOS**<br><sub>13 Ventura or later</sub>
+
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/TwinDesk-2.3.0-arm64.dmg"><img src="https://img.shields.io/badge/Apple_Silicon-.dmg-000000?style=for-the-badge" alt="macOS, Apple Silicon"></a><br>
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/TwinDesk-2.3.0-x64_Intel.dmg"><img src="https://img.shields.io/badge/Intel-.dmg-555555?style=for-the-badge" alt="macOS, Intel"></a>
+
+</td>
+<td width="25%" align="center" valign="top">
+
+**🪟 Windows**<br><sub>10 and 11</sub>
+
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/TwinDesk-Setup-2.3.0.exe"><img src="https://img.shields.io/badge/x64-Installer-0078d4?style=for-the-badge" alt="Windows, x64"></a><br>
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/TwinDesk-Setup-2.3.0-arm64.exe"><img src="https://img.shields.io/badge/ARM64-Installer-005a9e?style=for-the-badge" alt="Windows on ARM"></a>
+
+</td>
+<td width="25%" align="center" valign="top">
+
+**🐧 Linux**<br><sub>X11 and Wayland, x86_64</sub>
+
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/TwinDesk-2.3.0-amd64.deb"><img src="https://img.shields.io/badge/Debian_·_Ubuntu-.deb-d70a53?style=for-the-badge" alt="Linux, .deb"></a><br>
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/TwinDesk-2.3.0-x86_64.AppImage"><img src="https://img.shields.io/badge/Any_distro-AppImage-f0a30a?style=for-the-badge" alt="Linux, AppImage"></a><br>
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/twindesk-bin-2.3.0-1-x86_64.pkg.tar.zst"><img src="https://img.shields.io/badge/Arch-pkg.tar.zst-1793d1?style=for-the-badge" alt="Linux, Arch package"></a><br>
+<sub>NixOS: <code>nix run github:InukaAsith/TwinDesk</code> (<a href="#nixos--nix-flakes">more</a>)</sub>
+
+</td>
+<td width="25%" align="center" valign="top">
+
+**🤖 Android**<br><sub>10 or later, phones and tablets</sub>
+
+<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.3.0/TwinDesk-2.3.0.apk"><img src="https://img.shields.io/badge/Phone_app-.apk-3ddc84?style=for-the-badge" alt="Android app"></a><br>
+<sub>The full app (notifications, texts, Accessibility) is installed by the computer over wireless debugging</sub>
+
+</td>
+</tr>
+</table>
+
+<p align="center"><sub>Every file and older version is on the <a href="https://github.com/InukaAsith/TwinDesk/releases">releases page</a>.</sub></p>
 
 ---
 
@@ -356,7 +421,7 @@ computers** (off until you want it), on the Overview and in General.
   <img src=".github/assets/tour.gif" alt="A tour of the TwinDesk window" width="820">
 </p>
 
-1. **Download** TwinDesk for each computer and your phone from the [releases](https://github.com/InukaAsith/TwinDesk/releases/latest).
+1. **Download** TwinDesk for each computer and your phone ([above](#download), or from the [releases](https://github.com/InukaAsith/TwinDesk/releases/latest)).
 2. **Open it on both.** They find each other on the same network, over Bluetooth, or over a USB cable for a phone.
 3. **Pair once** by comparing a code (on a USB cable, just click Allow). From then on they connect by themselves.
 4. **Turn on what you want.** Each feature has a tab with a switch, and shows what it does until you turn it on.
@@ -387,7 +452,9 @@ internet request is an update check against GitHub's public releases, which you 
 
 Everything below is for the curious and for people building TwinDesk themselves.
 
-## Linux
+<a name="linux"></a>
+<details>
+<summary><h2>🐧 Linux</h2> <sub>X11 and Wayland, shared folders, Extend, virtual camera and gamepad</sub></summary>
 
 On Linux, TwinDesk runs on both X11 and Wayland. On Wayland, the mouse and keyboard go through
 evdev and uinput (the Setup screen grants access once), and screens are captured through the
@@ -420,7 +487,11 @@ desktop portal. A few things work a little differently:
   sound. The package carries adb; the Setup screen's firewall fix opens mDNS (5353/udp) so the
   phone's wireless debugging is found.
 
-## Android in detail
+</details>
+
+<a name="android-in-detail"></a>
+<details>
+<summary><h2>🤖 Android in detail</h2> <sub>the phone app page by page, and wireless debugging</sub></summary>
 
 Install TwinDesk on the phone, open it next to TwinDesk on the computer and pair from Overview › Nearby. The phone needs Android 10, and Android 11 for everything that goes through wireless debugging.
 
@@ -456,6 +527,8 @@ And outside the app:
   from the phone): Play Protect blocks downloaded apps that read notifications or texts, or use
   Accessibility, so the download leaves those out and the computer adds them. Settings and pairing stay.
 
+<a name="wireless-debugging"></a>
+
 ### Wireless debugging
 
 Files, the clipboard and notifications work right away. The phone's screen, its apps in windows,
@@ -483,7 +556,11 @@ TwinDesk pairs with once:
   under Locations like any server. Until then TwinDesk never looks at the phone's files. It goes
   through the cable when USB debugging is allowed, else over wireless debugging. Finder's `.DS_Store` and `._` files never land on the phone.
 
-## How it works
+</details>
+
+<a name="how-it-works"></a>
+<details>
+<summary><h2>⚙️ How it works</h2> <sub>the Electron app, the native helpers and the link between devices</sub></summary>
 
 <p align="center">
   <img src=".github/assets/how-it-works.svg" alt="Architecture: an Electron app and a native helper on each computer, linked by a TLS control channel, WebRTC media and system services" width="100%">
@@ -513,7 +590,11 @@ the computers, answered by TwinDesk on the phone.
 
 Ports: TCP **47800** (control link) and UDP **47801** (discovery) on the local network.
 
-## Build and run
+</details>
+
+<a name="build-and-run"></a>
+<details>
+<summary><h2>🛠 Build and run</h2> <sub>macOS, Windows, Linux, NixOS, Android and GitHub Actions</sub></summary>
 
 You need [Node.js](https://nodejs.org) 18+ on every platform.
 
@@ -590,6 +671,8 @@ prompt, then log out and back in once). It can also install OpenSSH for the term
 GNOME Wayland uses Python 3 with GObject and GStreamer's PipeWire plugin (`python3-gi`,
 `gstreamer1.0-pipewire`), which GNOME desktops already have.
 
+<a name="nixos--nix-flakes"></a>
+
 #### NixOS & Nix Flakes
 
 TwinDesk includes a `flake.nix` with package, dev shell, and NixOS module support:
@@ -643,6 +726,8 @@ cd android
 Notifications from the phone), so `npm run dist` on each platform bundles the newest
 `android/dist/*-full.apk`.
 
+<a name="github-actions"></a>
+
 ### GitHub Actions
 
 **Build Android**, **Build Linux** and **Build Windows** (Actions tab › Run workflow) make the
@@ -658,6 +743,8 @@ certificate and password out of the repository. When `WIN_CSC_LINK` is set, the 
 if signing cannot complete instead of silently publishing an unsigned installer. Signing gives
 users a verified publisher and can help SmartScreen reputation build over time; it does not
 guarantee that antivirus products will stop flagging a file.
+
+</details>
 
 ## Thanks
 
