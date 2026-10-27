@@ -449,6 +449,7 @@ function updateTray() {
       { type: 'separator' },
       ...(updates && updates.status.available ? [{ label: `Download TwinDesk ${updates.status.latest}…`, click: () => updates.open() }] : []),
       { label: 'Open TwinDesk…', click: showWindow },
+      { label: 'Open Log Folder', click: () => require('../../shared/applog.js').open() },
       { label: 'Quit TwinDesk', click: () => app.quit() },
     ]),
   );

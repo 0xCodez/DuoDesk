@@ -8,6 +8,8 @@
 
 Please include your OS and version, the TwinDesk version, which devices were connected and the steps to reproduce. Logs and screenshots help a lot.
 
+To find the logs, choose **Open Log Folder** in TwinDesk's menu bar or tray menu, or **Open log folder** under About. Attach `TwinDesk.log`, and `crash.log` if there is one, from each computer involved.
+
 ## Pull requests
 
 During the freeze, only bug fixes and performance fixes will be merged. Keep each PR to one fix and say which issue it fixes.

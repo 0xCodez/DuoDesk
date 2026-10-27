@@ -397,6 +397,12 @@ class Kvm extends EventEmitter {
     return c && c.ws ? c.ws.bufferedAmount || 0 : 0;
   }
 
+  // The link now, for the log's line every 30 s (shared/applog.js): null when not connected.
+  linkSample() {
+    const c = this.server.current;
+    return c ? { rtt: c.rttMs, queued: c.ws ? c.ws.bufferedAmount || 0 : 0 } : null;
+  }
+
   _flushMove() {
     this.moves.flush();
   }

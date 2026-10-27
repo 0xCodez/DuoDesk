@@ -160,6 +160,13 @@ class Peer {
     return this.hosting ? this.server.current.ws.bufferedAmount : this.link.bufferedAmount;
   }
 
+  // The link now, for the log's line every 30 s (shared/applog.js): null when not connected.
+  linkSample() {
+    if (this.hosting) return { rtt: this.server.current.rttMs, queued: this.bufferedAmount || 0 };
+    if (!this.link.authed) return null;
+    return { rtt: this.link.status.rtt, queued: this.bufferedAmount || 0 };
+  }
+
   // Link-shaped snapshot for the UI, plus the host side: guests (paired.json) and a pairing
   // request to Allow/Deny.
   snapshot() {

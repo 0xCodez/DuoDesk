@@ -544,6 +544,15 @@ class Kvm {
     return s ? s.bufferedAmount || 0 : 0;
   }
 
+  // The link to the device driven or driving now, for the log's line every 30 s (shared/applog.js):
+  // null when there's none.
+  linkSample() {
+    const s = this.partner && this.hub.sessions.get(this.partner);
+    if (!s || !s.connected) return null;
+    const rtt = s.status && s.status.rtt != null ? s.status.rtt : s.ctx ? s.ctx.rttMs : null;
+    return { rtt, queued: s.bufferedAmount || 0 };
+  }
+
   _flushMove() {
     this.moves.flush();
   }

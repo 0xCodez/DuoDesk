@@ -498,8 +498,9 @@ function setupIpc(ctx) {
     openUpdate() {
       ctx.updates.open();
     },
-    openLink(key) { // About page: only its own links
-      if (Object.hasOwn(LINKS, key)) shell.openExternal(LINKS[key]);
+    openLink(key) { // About page: only its own links, and the log folder
+      if (key === 'logs') require('../../shared/applog.js').open();
+      else if (Object.hasOwn(LINKS, key)) shell.openExternal(LINKS[key]);
     },
     setKeys(partial) {
       setGroup('keys', partial);

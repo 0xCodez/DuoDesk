@@ -216,6 +216,7 @@ function start() {
     onChange: () => { if (kvm) kvm.layoutChanged(); pushState(); },
   });
   kvm = new Kvm({ hub, layoutSync, helper, clip, fileDrop, fileRecv, dragRecv, settings, save: saveSettings, onChange: onKvmChange });
+  require('../../shared/applog.js').linkStats(() => kvm.linkSample()); // the link's line in the log every 30 s
   const hudShow = hud.show.bind(hud);
   hud.show = (kind, text, sub) => hudShow(kind, fillNames(text), fillNames(sub || '')); // device names in popups
   // Cursor sharing switched on/off (hotkey double-tap, tray, the Cursor tab or the other side): the big card.
@@ -1097,6 +1098,7 @@ function updateTray(s) {
     { type: 'separator' },
     ...(s.updates && s.updates.available ? [{ label: 'Download TwinDesk ' + s.updates.latest + '…', click: () => updates.open() }] : []),
     { label: 'Open TwinDesk…', click: showMain },
+    { label: 'Open Log Folder', click: () => require('../../shared/applog.js').open() },
     { label: 'Quit TwinDesk', click: () => app.quit() },
   ]));
 }

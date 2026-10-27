@@ -22,6 +22,7 @@ class KvmMoves {
   }
 
   add(dx, dy) {
+    KvmMoves.count++;
     if (!this.pending) {
       this.pending = { dx: 0, dy: 0 };
       this._schedule(this.o.delay ? this.o.delay() : 0);
@@ -75,5 +76,7 @@ class KvmMoves {
     this.flush();
   }
 }
+
+KvmMoves.count = 0; // moves added, all of them (shared/applog.js: moves a second in the log)
 
 module.exports = { KvmMoves };

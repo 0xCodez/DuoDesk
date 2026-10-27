@@ -432,6 +432,11 @@ class Kvm {
     return this.link.bufferedAmount || 0;
   }
 
+  // The link now, for the log's line every 30 s (shared/applog.js): null when not connected.
+  linkSample() {
+    return this.link.linkSample ? this.link.linkSample() : null;
+  }
+
   _flushMove() {
     this.moves.flush();
   }
