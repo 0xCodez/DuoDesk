@@ -1068,7 +1068,7 @@ function updateTray(s) {
   const host = s.paired && s.paired.macName;
   const again = !connected && host && (s.link.state === 'stopped' || !!s.link.busy);
   const key = JSON.stringify([name, rtt, again, away, kvm.linked, kvm.paused, kvm.locked, kvm.mode, settings.keys.lockKeys, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
-    settings.audio.send, settings.app.hud, found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
+    settings.audio.send, settings.app.hud, k.keyboard, settings.files.edgeDrag, settings.files.shortcuts, settings.files.copyKeys, found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
   if (key === trayKey) return;
   trayKey = key;
   const other = name || 'Other Computer';
@@ -1085,6 +1085,7 @@ function updateTray(s) {
     home: away ? () => kvm.home() : null,
     shared: { checked: kvm.linked && !kvm.paused, set: (on) => kvm.setShared(on) },
     lock: connected ? { label: 'Lock Cursor on ' + (kvm.mode === 'driving' ? other : device.name) + ' (' + CL.keysLabel(settings.keys.lockKeys, 'linux') + ')', checked: kvm.locked, set: (on) => kvm.setLocked(on) } : null,
+    keyboard: { checked: k.keyboard, set: (on) => set('kvm', { keyboard: on }, () => kvm.applyConfig()) },
     drive: { label: 'Use Mouse and Keyboard on ' + other, checked: k.driveOther, set: (on) => set('kvm', { driveOther: on }, () => kvm.applyConfig()) },
     driven: { label: 'Let ' + other + ' Control ' + device.name, checked: k.beDriven, set: (on) => set('kvm', { beDriven: on }, () => kvm.applyConfig()) },
     popup: { checked: settings.app.hud, set: (on) => set('app', { hud: on }) },
@@ -1095,6 +1096,8 @@ function updateTray(s) {
     ],
     clipboard: { checked: settings.clipboard.enabled, set: (on) => set('clipboard', { enabled: on }, () => clip.applySettings()) },
     sound: { checked: settings.audio.send, set: (on) => set('audio', { send: on }, () => sound.apply()) },
+    drag: { checked: settings.files.edgeDrag, set: (on) => set('files', { edgeDrag: on }, () => kvm.applyConfig()) },
+    shortcuts: { label: 'Copy and Paste Files (' + CL.keysLabel(settings.files.copyKeys, 'linux') + ', ' + CL.keysLabel(settings.files.pasteKeys, 'linux') + ')', checked: settings.files.shortcuts, set: (on) => set('files', { shortcuts: on }, () => { kvm.applyConfig(); fileClip.apply(); }) },
     found: found.map((d) => ({ label: d.name + ' (' + kind(d.os) + ')', click: () => {
       if (d.os === P.OS.ANDROID) return connectPhoneDev(d);
       discovery.clearInvite(d.id);

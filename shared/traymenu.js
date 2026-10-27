@@ -1,11 +1,13 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The menu bar / tray menu, laid out the same on every platform (each main.js gives the model).
-// Connected: the status, the way home, Cursor Sharing, then the switches by kind (Cursor, Screen,
-// Clipboard and Sound, Connection) and the app. Not connected: only connecting, the window, Quit.
+// Connected: the status, the way home, Cursor Sharing, then the switches by kind (Mouse and
+// Keyboard, Screen, Clipboard and Sound, Files, Connection) and the app. Not connected: only
+// connecting, the window, Quit.
 //   template(m) -> an Electron menu template
 //   m: {status, connected, home?(), shared: {checked, set(on)}, lock?: {label, checked, set},
-//       drive: {label, checked, set}, driven?: {label, checked, set}, popup: {checked, set},
-//       screen: [{label, checked, set}], clipboard: {checked, set}, sound: {checked, set},
+//       keyboard: {checked, set}, drive: {label, checked, set}, driven?: {label, checked, set},
+//       popup: {checked, set}, screen: [{label, checked, set}], clipboard: {checked, set},
+//       sound: {checked, set}, drag: {checked, set}, shortcuts: {label, checked, set},
 //       found: [{label, click}], byAddress(), lookAgain(), again?: {label, click},
 //       disconnect?: {label, click}, update?: {label, click}, open(), log(), quit()}
 'use strict';
@@ -36,9 +38,11 @@ function template(m) {
     check('Cursor Sharing', m.shared),
     sep,
     {
-      label: 'Cursor',
+      label: 'Mouse and Keyboard',
       submenu: [
-        ...(m.lock ? [check(m.lock.label, m.lock), sep] : []),
+        check('Share Keyboard', m.keyboard),
+        ...(m.lock ? [check(m.lock.label, m.lock)] : []),
+        sep,
         check(m.drive.label, m.drive),
         ...(m.driven ? [check(m.driven.label, m.driven)] : []),
         sep,
@@ -47,6 +51,7 @@ function template(m) {
     },
     { label: 'Screen', submenu: m.screen.map((x) => check(x.label, x)) },
     { label: 'Clipboard and Sound', submenu: [check('Share Clipboard', m.clipboard), check('Send Sound', m.sound)] },
+    { label: 'Files', submenu: [check('Drag Files Across the Screen Edge', m.drag), check(m.shortcuts.label, m.shortcuts)] },
     { label: 'Connection', submenu: [...(m.disconnect ? [m.disconnect, sep] : []), connectTo(m)] },
     sep,
     ...(m.update ? [m.update] : []),

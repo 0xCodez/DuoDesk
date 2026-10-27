@@ -425,7 +425,7 @@ function updateTray() {
   const g = (svc && link && link.view()) || { status: {}, hosts: [] };
   const again = !c && g.hosts.length && (g.status.state === 'stopped' || !!g.status.busy);
   const key = JSON.stringify([c && c.name, c && c.transport, phone, again, where, k.linked, k.ble, svc && svc.kvm.locked, settings.keys.lockKeys, k.driveOther, k.beDriven, settings.sharing.on,
-    !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud,
+    !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud, k.keyboard, settings.files.dragEdge, settings.files.shortcuts, settings.files.copyKeys,
     found.map((d) => [d.id, d.name, d.os]), updates && updates.status.available && updates.status.latest]);
   if (key === trayKey) return;
   trayKey = key;
@@ -436,6 +436,7 @@ function updateTray() {
     home: where === 'driving' || where === 'driven' ? () => svc.kvm.home() : null,
     shared: { checked: k.linked !== false && !(svc && svc.kvm.paused), set: (on) => actions.setKvm({ shared: on }) },
     lock: c ? { label: `Lock Cursor on ${where === 'driving' ? name : id.macName} (${CL.keysLabel(settings.keys.lockKeys, 'mac')})`, checked: svc && svc.kvm.locked, set: (on) => svc.kvm.setLocked(on) } : null,
+    keyboard: { checked: k.keyboard, set: (on) => actions.setKvm({ keyboard: on }) },
     drive: { label: `Use Mouse and Keyboard on ${name}`, checked: k.driveOther, set: (on) => actions.setKvm({ driveOther: on }) },
     driven: phone ? null : { label: `Let ${name} Control ${id.macName}`, checked: k.beDriven, set: (on) => actions.setKvm({ beDriven: on }) },
     popup: { checked: settings.app.hud !== false, set: (on) => actions.setApp({ hud: on }) },
@@ -447,6 +448,8 @@ function updateTray() {
     ],
     clipboard: { checked: settings.clipboard.enabled, set: (on) => actions.setClipboard({ enabled: on }) },
     sound: { checked: settings.audio.send, set: (on) => actions.setAudio({ send: on }) },
+    drag: { checked: settings.files.dragEdge !== false, set: (on) => actions.setFiles({ dragEdge: on }) },
+    shortcuts: { label: `Copy and Paste Files (${CL.keysLabel(settings.files.copyKeys, 'mac')}, ${CL.keysLabel(settings.files.pasteKeys, 'mac')})`, checked: settings.files.shortcuts !== false, set: (on) => actions.setFiles({ shortcuts: on }) },
     found: found.map((d) => ({ label: `${d.name} (${OS[d.os] || 'PC'})`, click: () => actions.pairWith(d.id) })),
     byAddress: () => { actions.setTab('overview'); showWindow(); },
     lookAgain: () => actions.refreshDiscovery(),
