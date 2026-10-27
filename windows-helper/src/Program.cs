@@ -216,6 +216,7 @@ namespace MacShare
 #endif
                         capture.ResistancePx = Json.Num(c, "resistancePx", 120);
                         capture.CooldownMs = (int)Json.Num(c, "cooldownMs", 250);
+                        capture.EdgeZones = Capture.ParseZones(Json.Str(c, "zones", null));
                         capture.HotkeyVks = HotkeyVks(Json.Str(c, "hotkey", "AltRight"));
                         capture.DriveOther = Json.Bool(c, "driveOther", false);
                         capture.EdgeKeyboard = Json.Bool(c, "keyboard", true);
@@ -236,6 +237,7 @@ namespace MacShare
                         capture.Flash.Play(p, center ? null : Json.Str(c, "side", "left"), false); // the Mac arrives here
                         break;
                     case "armReturn":
+                        capture.ReturnZones = Capture.ParseZones(Json.Str(c, "zones", null));
 #if MULTI
                         // sides: every side with a device behind it; without it, the one side.
                         List<string> retSides = Json.Strs(c, "sides");

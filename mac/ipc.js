@@ -302,6 +302,12 @@ function setupIpc(ctx) {
       save();
       ctx.stream.restart('bitrate changed');
     },
+    moveKvm(arg) {
+      if (arg && typeof arg === 'object') ctx.kvm.moveTo(arg.side, Number(arg.along));
+    },
+    identifyDisplays() {
+      ctx.kvm.map.identify();
+    },
     setKvm(partial) {
       const prev = { ...settings.kvm };
       setGroup('kvm', partial);

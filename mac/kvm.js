@@ -12,6 +12,7 @@ const P = require('../shared/protocol.js');
 const blepipe = require('../shared/blepipe.js');
 const CL = require('../shared/cursorlock.js');
 const store = require('./store');
+const { KvmMap } = require('../shared/kvm-map.js');
 
 // {them} = the other computer's name (Kvm._them).
 const REFUSED = { busy: '{them} is using this computer right now', not_allowed: '{them} doesn’t accept input from here' };
@@ -40,6 +41,22 @@ class Kvm extends EventEmitter {
     this.lockAt = 0;
     this.lockKey = new CL.LockKey(() => this.getSettings().keys.lockKeys);
     this.drivenMouse = false; // driven with the mouse too (not keyboard only): the way back is watched
+    // The crossing map: both computers' monitors, where they touch (shared/kvm-map.js).
+    this.map = new KvmMap({
+      electron: require('electron'),
+      send: (m) => server.current && server.sendToClient(m),
+      side: () => this.cfg.pcSide,
+      getAlong: () => (typeof this.cfg.along === 'number' ? this.cfg.along : null),
+      setAlong: (v) => {
+        this.cfg.along = v;
+        store.saveSettings(this.getSettings());
+      },
+    });
+    this.map.on('change', () => {
+      this.config();
+      this._rearmReturn();
+      this.emit('change');
+    });
 
     setInterval(() => this._tick(), 250);
     // The host tells the layout on connect; after that either side sends it when its user changes it.
@@ -47,6 +64,8 @@ class Kvm extends EventEmitter {
     // host tells it so both computers agree; after that kvm.link keeps them in step.
     server.on('client', (ctx) => {
       this.lastName = ctx.name;
+      this.map.reset();
+      this.map.sendDisplays();
       const by = this.cfg.linkedBy || {};
       if (ctx.deviceId in by && by[ctx.deviceId] !== this.linked) this.setLinked(by[ctx.deviceId], false, false);
       if (ctx.role !== 'host') {
@@ -67,15 +86,24 @@ class Kvm extends EventEmitter {
     const on = (t, fn) => server.on(`t:${t}`, fn);
     on(P.T.KVM_TAKE, (m) => this._onTake(m));
     on(P.T.KVM_LINK, (m) => this.setLinked(m.on !== false, false));
-    // kvm.layout {pcSide} = the sender's crossing side; ours is the opposite (no echo).
+    // kvm.layout {pcSide, along} = the sender's crossing side and where we are along it; ours is the
+    // opposite side and -along (no echo). An older sender has no along: a new side starts centred.
     on(P.T.KVM_LAYOUT, (m) => {
       const side = P.opposite(m.pcSide);
-      if (!side || side === this.cfg.pcSide) return;
-      this.getSettings().kvm.pcSide = side;
+      if (!side) return;
+      const k = this.cfg;
+      let along = typeof m.along === 'number' && Number.isFinite(m.along) ? -m.along : m.along === null ? null : undefined;
+      if (along === undefined) along = side === k.pcSide ? k.along : null;
+      if (side === k.pcSide && along === k.along) return;
+      k.pcSide = side;
+      k.along = along;
       store.saveSettings(this.getSettings());
       this.config();
+      this._rearmReturn();
       this.emit('change');
     });
+    on(P.T.KVM_DISPLAYS, (m) => this.map.onDisplays(m));
+    on(P.T.KVM_IDENTIFY, () => this.map.identify(false));
     on(P.T.KVM_ACCEPT, (m) => {
       if (this.mode === 'driving' && m.route === this.route) clearTimeout(this.acceptTimer);
     });
@@ -116,7 +144,7 @@ class Kvm extends EventEmitter {
   }
 
   get view() {
-    return { where: this.mode, message: this.message, tapError: this.tapError, paused: this.paused, locked: this.locked };
+    return { where: this.mode, message: this.message, tapError: this.tapError, paused: this.paused, locked: this.locked, map: this.map.view };
   }
 
   // Cursor lock: at home the edge doesn't cross, driven the way back isn't watched, driving the
@@ -128,7 +156,7 @@ class Kvm extends EventEmitter {
     if (tell && this.mode === 'driving') this._drive({ t: P.T.KVM_LOCK, on });
     else if (tell && this.mode === 'driven') this.server.sendToClient({ t: P.T.KVM_LOCK, on });
     if (this.mode === 'driven' && this.drivenMouse) {
-      this.helper.send('armReturn', on ? { on: false } : { on: true, side: this.cfg.pcSide, resistancePx: this.cfg.resistancePx });
+      this.helper.send('armReturn', on ? { on: false } : this._returnCfg());
     }
     this.config();
     this.emit('lock', on, this.mode); // main.js: the popup
@@ -161,6 +189,7 @@ class Kvm extends EventEmitter {
         driveOther: !!(this.linked && k.driveOther && k.mouse && this.server.current && !this.paused && !(this.locked && this.mode === 'home')),
         hotkey: this.getSettings().keys.hotkey || P.HOTKEY_MAC,
         cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
+        zones: this.map.zones(), // only where the monitors touch (null: anywhere on the side)
         gestures: k.gestures !== false, // Trackpad gestures go over as k.ge
         dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
       })
@@ -230,7 +259,11 @@ class Kvm extends EventEmitter {
       this.cfg.linked = prev.linked; // setLinked does the work (home first, tell the peer)
       return this.setLinked(on);
     }
-    if (!prev || prev.pcSide !== this.cfg.pcSide) this._sendLayout();
+    if (prev && prev.pcSide !== this.cfg.pcSide && prev.along === this.cfg.along) this.cfg.along = null; // a new side starts centred
+    if (!prev || prev.pcSide !== this.cfg.pcSide || prev.along !== this.cfg.along) {
+      this._sendLayout();
+      this._rearmReturn();
+    }
     this._bleCheck(); // config() too
     const k = this.cfg;
     if (this.mode === 'driving' && !k.driveOther) this.goHome('Turned off');
@@ -244,7 +277,27 @@ class Kvm extends EventEmitter {
   }
 
   _sendLayout() {
-    this.server.sendToClient({ t: P.T.KVM_LAYOUT, pcSide: this.cfg.pcSide });
+    this.server.sendToClient({ t: P.T.KVM_LAYOUT, pcSide: this.cfg.pcSide, along: typeof this.cfg.along === 'number' ? this.cfg.along : null });
+  }
+
+  // The Cursor tab dragged the other computer: to `side`, `along` it (points, shared/kvm-geom.js).
+  moveTo(side, along) {
+    if (P.SIDES.includes(side) && side !== this.cfg.pcSide) this.cfg.pcSide = side;
+    if (this.map.move(along) === null) return;
+    this._sendLayout();
+    this.config();
+    this._rearmReturn();
+    this.emit('change');
+  }
+
+  // armReturn while driven: the way back, only where the monitors touch.
+  _returnCfg() {
+    return { on: true, side: this.cfg.pcSide, resistancePx: this.cfg.resistancePx, zones: this.map.zones() };
+  }
+
+  // The layout or the monitors changed while driven: the way back follows.
+  _rearmReturn() {
+    if (this.mode === 'driven' && this.drivenMouse && !this.locked) this.helper.send('armReturn', this._returnCfg());
   }
 
   _setMode(mode, message) {
@@ -349,7 +402,7 @@ class Kvm extends EventEmitter {
           if (!this.server.current) this._setMode('home', 'Nothing connected');
           return;
         }
-        this._take({ mouse: true, where: { side: P.opposite(k.pcSide), offset: ev.offset }, paths: ev.drag && ev.drag.paths });
+        this._take({ mouse: true, where: { side: P.opposite(k.pcSide), offset: this.map.toPeer(ev.offset) }, paths: ev.drag && ev.drag.paths });
         break;
       // Double-tap: switches mouse and keyboard sharing off (everything home)
       // and on again. In keyboard-only mode (Cursor off + "Switch the keyboard with the hotkey") it
@@ -429,7 +482,7 @@ class Kvm extends EventEmitter {
     if (m.mouse !== false) {
       if (typeof m.side === 'string') this.helper.send('place', { side: m.side, offset: Number(m.offset) || 0.5 });
       else if (first) this.helper.send('place', { center: true });
-      if (!this.locked) this.helper.send('armReturn', { on: true, side: this.cfg.pcSide, resistancePx: this.cfg.resistancePx });
+      if (!this.locked) this.helper.send('armReturn', this._returnCfg());
     }
     this.drop.dragIn.onDriven(); // after 'place': the native drag starts where the pointer came in
   }
@@ -535,7 +588,7 @@ class Kvm extends EventEmitter {
   _sendHome(offset, message) {
     if (this.mode !== 'driven') return;
     const msg = { t: P.T.KVM_HOME, route: this.peerRoute };
-    if (typeof offset === 'number') msg.offset = offset;
+    if (typeof offset === 'number') msg.offset = this.map.toPeer(offset);
     this.server.sendToClient(msg);
     this._drivenHome(message);
   }

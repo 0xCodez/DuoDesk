@@ -4,6 +4,7 @@
 #include "helper.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <X11/extensions/Xrandr.h>
 
@@ -204,6 +205,34 @@ void screens_walk(int x, int y, int fromX, int fromY, const int *stops, int nsto
     px = nx; py = ny;
   }
   screens_clamp(x, y, fromX, fromY, ox, oy);
+}
+
+// kvmConfig / armReturn `zones` (shared/kvm-geom.js zonesText): "0.1-0.5,0.7-1" (a little wider, for
+// rounding) or "none" (0 zones: nothing crosses). Missing or unreadable: -1 (the whole side).
+int zones_parse(const char *text, double z[][2], int max) {
+  if (!text) return -1;
+  if (!strcmp(text, "none")) return 0;
+  int n = 0;
+  const char *p = text;
+  while (*p && n < max) {
+    char *end;
+    double a = strtod(p, &end);
+    if (end == p || *end != '-') break;
+    p = end + 1;
+    double b = strtod(p, &end);
+    if (end == p || a > b) break;
+    z[n][0] = a - 0.002; z[n][1] = b + 0.002; n++;
+    p = *end == ',' ? end + 1 : end;
+  }
+  return n ? n : -1;
+}
+
+// Inside one of the zones along `side` (n < 0: anywhere).
+int zones_contain(double z[][2], int n, int x, int y, int side) {
+  if (n < 0) return 1;
+  double o = screens_offset(x, y, side);
+  for (int i = 0; i < n; i++) if (o >= z[i][0] && o <= z[i][1]) return 1;
+  return 0;
 }
 
 // The monitor under a point (drop.c's edge strip); 0 when none.

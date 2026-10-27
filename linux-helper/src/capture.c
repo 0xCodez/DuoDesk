@@ -44,6 +44,10 @@ static double retResistance, retPush, retLast;
 static double cooldownMs = 250, lastCross;
 static int arrivalSide = SIDE_NONE;
 static double arrivalAt, arrivalInward;
+// Where along the side the other computer's monitors touch ours (shared/kvm-geom.js zones): the edge
+// and the way back only cross inside them. -1: anywhere.
+static double edgeZ[8][2], retZ[8][2];
+static int nEdgeZ = -1, nRetZ = -1;
 
 #ifdef MULTI
 // Multi-device's helper (macshare-linuxhelper-multi, built with -DMULTI, docs/multi-device.md):
@@ -190,6 +194,7 @@ void capture_config(const JObj *c) {
   deadmanMs = jnum(c, "deadmanMs", 1500);
   doubleTapMs = jnum(c, "doubleTapMs", 400);
   cooldownMs = jnum(c, "cooldownMs", 250);
+  nEdgeZ = zones_parse(jstr(c, "zones", NULL), edgeZ, 8);
   shortcut_config(c);
   drop_config(c);
 #ifdef MULTI
@@ -341,6 +346,8 @@ void capture_stop(int toSide, double offset, int hasSide) {
   release_grabs();
   capture_arrived(hasSide ? toSide : SIDE_NONE);
 }
+
+void capture_return_zones(const char *text) { nRetZ = zones_parse(text, retZ, 8); }
 
 void capture_arm_return(int on, int s, double resistance) {
   retArmed = on && s != SIDE_NONE;
@@ -584,7 +591,7 @@ void capture_feed_return(int x, int y, double dx, double dy) {
     int s = retSides[i];
     double outward = screens_outward(s, dx, dy);
     if (!may_cross(s, outward)) { retPushBy[s] = 0; continue; }
-    if (outward <= 0 || !screens_on_outer_edge(x, y, s)) { retPushBy[s] = 0; continue; }
+    if (outward <= 0 || !screens_on_outer_edge(x, y, s) || !zones_contain(retZ, nRetZ, x, y, s)) { retPushBy[s] = 0; continue; }
     if (now - retLastBy[s] > 300) retPushBy[s] = 0;
     retLastBy[s] = now;
     retPushBy[s] += outward;
@@ -610,7 +617,7 @@ static void multi_edge_push(int x, int y, unsigned mask, double rdx, double rdy)
     int s = sides[i];
     double outward = screens_outward(s, rdx, rdy);
     if (!may_cross(s, outward)) { pushBy[s] = 0; continue; }
-    if (outward <= 0 || !screens_on_outer_edge(x, y, s)) { pushBy[s] = 0; continue; }
+    if (outward <= 0 || !screens_on_outer_edge(x, y, s) || !zones_contain(edgeZ, nEdgeZ, x, y, s)) { pushBy[s] = 0; continue; }
     if (now - lastPushBy[s] > 300) pushBy[s] = 0;
     lastPushBy[s] = now;
     pushBy[s] += outward;
@@ -633,7 +640,7 @@ void capture_feed_return(int x, int y, double dx, double dy) {
   if (!retArmed) return;
   double outward = screens_outward(retSide, dx, dy);
   if (!may_cross(retSide, outward)) { retPush = 0; return; }
-  if (outward <= 0 || !screens_on_outer_edge(x, y, retSide)) { retPush = 0; return; }
+  if (outward <= 0 || !screens_on_outer_edge(x, y, retSide) || !zones_contain(retZ, nRetZ, x, y, retSide)) { retPush = 0; return; }
   double now = now_ms();
   if (now - retLast > 300) retPush = 0;
   retLast = now;
@@ -671,7 +678,7 @@ static void on_motion(double dx, double dy, double rdx, double rdy) {
   if (!driveOther || side == SIDE_NONE || (mask & (Button1Mask | Button2Mask | Button3Mask))) { push = 0; return; } // rule 6
   double outward = screens_outward(side, rdx, rdy);
   if (!may_cross(side, outward)) { push = 0; return; }
-  if (outward <= 0 || !screens_on_outer_edge(x, y, side)) { push = 0; return; }
+  if (outward <= 0 || !screens_on_outer_edge(x, y, side) || !zones_contain(edgeZ, nEdgeZ, x, y, side)) { push = 0; return; }
   double now = now_ms();
   if (now - lastPush > 300) push = 0;
   lastPush = now;

@@ -7,6 +7,8 @@ const P = require('../shared/protocol.js');
 const blepipe = require('../shared/blepipe.js');
 const CL = require('../shared/cursorlock.js');
 
+const { KvmMap } = require('../shared/kvm-map.js');
+
 const T = P.T;
 const K_TYPES = new Set([T.K_MOVE, T.K_DOWN, T.K_UP, T.K_WHEEL, T.K_KEY_DOWN, T.K_KEY_UP]);
 
@@ -31,14 +33,36 @@ class Kvm {
     this.locked = false; // cursor lock (shared/cursorlock.js): the pointer stays on the computer it is on
     this.lockAt = 0;
     this.lockKey = new CL.LockKey(() => this.settings.keys.lockKeys);
+    // The crossing map: both computers' monitors, where they touch (shared/kvm-map.js). Our `along`
+    // is where the other computer is along our crossing side.
+    this.map = new KvmMap({
+      electron: require('electron'),
+      send: (m) => this.connected && this.link.send(m),
+      side: () => this.crossingSide,
+      getAlong: () => (typeof this.cfg.along === 'number' ? this.cfg.along : null),
+      setAlong: (v) => {
+        this.cfg.along = v;
+        if (this.save) this.save();
+      },
+    });
+    this.map.on('change', () => {
+      this.applyConfig();
+      this._rearmReturn();
+      this.onChange();
+    });
 
     const link = this.link;
     // kvm.layout is "either": pcSide = the sender's crossing side, which is where this
     // computer is seen from the sender. Adopt it, save it, never echo.
+    // Its along is where we are along its side: ours is -along. An older sender has none: a new side
+    // starts centred.
     link.on(T.KVM_LAYOUT, (m) => {
       if (!P.SIDES.includes(m.pcSide)) return;
-      this._setPcSide(m.pcSide);
+      const along = typeof m.along === 'number' && Number.isFinite(m.along) ? -m.along : m.along === null || m.pcSide !== this.pcSide ? null : this.cfg.along;
+      this._setPcSide(m.pcSide, along);
     });
+    link.on(T.KVM_DISPLAYS, (m) => this.map.onDisplays(m));
+    link.on(T.KVM_IDENTIFY, () => this.map.identify(false));
     link.on(T.KVM_TAKE, (m) => this._onTake(m));
     link.on(T.KVM_LINK, (m) => this.setLinked(m.on !== false, false)); // the other side switched it: follow, no echo
     link.on(T.KVM_ACCEPT, (m) => {
@@ -65,9 +89,11 @@ class Kvm {
     link.on('welcome', () => {
       this.peerDrags = true;
       this.sentDragPolicy = undefined;
+      this.map.reset();
+      this.map.sendDisplays();
       this.applyConfig(); // re-sends our drag.policy
       // As the host this computer sends the layout (a Mac host sends its own). Default: the other one on the right.
-      if (link.hosting) link.send({ t: T.KVM_LAYOUT, pcSide: this.crossingSide || 'right' });
+      if (link.hosting) link.send({ t: T.KVM_LAYOUT, pcSide: this.crossingSide || 'right', along: this._along() });
       if (link.hosting && !this.pcSide) this._setPcSide('left');
       // Cursor sharing is remembered per paired device; take this pair's value, and as
       // the host tell it so both computers agree (kvm.link keeps them in step after that).
@@ -100,13 +126,40 @@ class Kvm {
   // The user picked where the other computer is (side of this computer): tell the other side.
   setLayout(side) {
     if (!P.SIDES.includes(side)) return;
-    this._setPcSide(P.opposite(side));
-    this.link.send({ t: T.KVM_LAYOUT, pcSide: side });
+    this._setPcSide(P.opposite(side), side === this.crossingSide ? this.cfg.along : null);
+    this.link.send({ t: T.KVM_LAYOUT, pcSide: side, along: this._along() });
   }
 
-  _setPcSide(pcSide) {
+  // The Cursor tab dragged the other computer: to `side` of this computer, `along` it (points,
+  // shared/kvm-geom.js). Snapped and saved, and the other side told.
+  moveTo(side, along) {
+    if (!P.SIDES.includes(side)) return;
+    if (side !== this.crossingSide) this._setPcSide(P.opposite(side), null);
+    if (this.map.move(along) === null) return;
+    this.link.send({ t: T.KVM_LAYOUT, pcSide: side, along: this._along() });
+    this.applyConfig();
+    this._rearmReturn();
+    this.onChange();
+  }
+
+  _along() {
+    return typeof this.cfg.along === 'number' ? this.cfg.along : null;
+  }
+
+  // armReturn while driven: the way back, only where the monitors touch.
+  _returnCfg() {
+    return { on: true, side: this.crossingSide, resistancePx: this.cfg.resistancePx, zones: this.map.zones() };
+  }
+
+  // The layout or the monitors changed while driven: the way back follows.
+  _rearmReturn() {
+    if (this.mode === 'driven' && !this.keyboardOnly && !this.locked && this.crossingSide) this.helper.send('armReturn', this._returnCfg());
+  }
+
+  _setPcSide(pcSide, along) {
     this.pcSide = pcSide;
     this.settings.kvm.pcSide = pcSide;
+    if (along !== undefined) this.settings.kvm.along = along;
     if (this.save) this.save();
     this.applyConfig();
     this.onChange();
@@ -144,6 +197,7 @@ class Kvm {
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
       cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
+      zones: this.map.zones(), // only where the monitors touch (null: anywhere on the side)
       dragFiles: this._dragsOut(), // the edge strip that picks up file drags (X11)
       shortcuts: !!f.shortcuts, // the copy/paste-files shortcuts at home (fclip.js)
       copyKeys: f.copyKeys,
@@ -220,7 +274,7 @@ class Kvm {
   }
 
   view() {
-    return { linked: this.linked, paused: this.paused, mode: this.mode, locked: this.locked, message: this.message, pcSide: this.pcSide, helper: this.helper.running ? '' : this.helper.error || 'starting' };
+    return { linked: this.linked, paused: this.paused, mode: this.mode, locked: this.locked, message: this.message, pcSide: this.pcSide, map: this.map.view, helper: this.helper.running ? '' : this.helper.error || 'starting' };
   }
 
   // Cursor lock: at home the edge doesn't cross, driven the way back isn't watched, driving the
@@ -232,7 +286,7 @@ class Kvm {
     if (tell && this.mode === 'driving') this._drive({ t: T.KVM_LOCK, on });
     else if (tell && this.mode === 'driven') this.link.send({ t: T.KVM_LOCK, on });
     if (this.mode === 'driven' && !this.keyboardOnly && this.crossingSide) {
-      this.helper.send('armReturn', on ? { on: false } : { on: true, side: this.crossingSide, resistancePx: this.cfg.resistancePx });
+      this.helper.send('armReturn', on ? { on: false } : this._returnCfg());
     }
     this.applyConfig();
     if (this.onLock) this.onLock(on, this.mode); // main.js: the popup
@@ -276,7 +330,7 @@ class Kvm {
           // A file/folder drag crossed (X11 strip): the other side shows it as its own drag; the data follows.
           const paths = msg.drag && Array.isArray(msg.drag.paths) && this._dragsOut() ? msg.drag.paths.filter((p) => typeof p === 'string') : [];
           const drag = paths.length ? this.fileDrop.prepareDrag(paths) : null;
-          this._take({ side: P.opposite(this.crossingSide), offset: msg.offset, ...(drag ? { drag: { count: drag.count } } : {}) });
+          this._take({ side: P.opposite(this.crossingSide), offset: this.map.toPeer(msg.offset), ...(drag ? { drag: { count: drag.count } } : {}) });
           if (drag) { // order: kvm.take, drag.start, then the files
             this.fileDrop.beginDrag(drag);
             this.dragPending = true;
@@ -443,7 +497,7 @@ class Kvm {
     this._setMode('driven', '');
     if (m.mouse !== false) {
       this.helper.send('place', P.SIDES.includes(m.side) ? { side: m.side, offset: Number(m.offset) || 0 } : { center: true });
-      if (this.crossingSide) this.helper.send('armReturn', { on: true, side: this.crossingSide, resistancePx: this.cfg.resistancePx });
+      if (this.crossingSide) this.helper.send('armReturn', this._returnCfg());
     }
   }
 
@@ -511,7 +565,7 @@ class Kvm {
 
   // Row 8c: we send the input home (return edge or hotkey).
   _sendHome(offset) {
-    this.link.send(typeof offset === 'number' ? { t: T.KVM_HOME, route: this.peerRoute, offset } : { t: T.KVM_HOME, route: this.peerRoute });
+    this.link.send(typeof offset === 'number' ? { t: T.KVM_HOME, route: this.peerRoute, offset: this.map.toPeer(offset) } : { t: T.KVM_HOME, route: this.peerRoute });
     this._drivenHome('', true);
   }
 

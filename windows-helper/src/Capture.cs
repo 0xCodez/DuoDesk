@@ -46,6 +46,35 @@ namespace MacShare
         // KVM_CROSS_COOLDOWN_MS). After arriving, the edge it came through only counts once the pointer
         // moved 8 px inward or GuardMs passed, so the end of a flick doesn't bounce straight back.
         public int CooldownMs = 250;
+        // Where along the side the other computer's monitors touch ours (shared/kvm-geom.js zones, 0–1
+        // of the bounding box, as Offset): the edge and the way back only cross inside them. null: anywhere.
+        public List<double[]> EdgeZones, ReturnZones;
+
+        // kvmConfig / armReturn `zones`: "0.1-0.5,0.7-1" (a little wider, for rounding), "none" (nothing
+        // crosses), anything else null (the whole side).
+        public static List<double[]> ParseZones(string text)
+        {
+            if (text == null) return null;
+            List<double[]> list = new List<double[]>();
+            if (text == "none") return list;
+            foreach (string part in text.Split(','))
+            {
+                string[] ab = part.Split('-');
+                double a, b;
+                if (ab.Length == 2 && double.TryParse(ab[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out a)
+                    && double.TryParse(ab[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out b) && a <= b)
+                    list.Add(new double[] { a - 0.002, b + 0.002 });
+            }
+            return list.Count > 0 ? list : null;
+        }
+
+        static bool InZone(List<double[]> zones, int x, int y, string side)
+        {
+            if (zones == null) return true;
+            double o = Screens.Offset(x, y, side);
+            foreach (double[] z in zones) if (o >= z[0] && o <= z[1]) return true;
+            return false;
+        }
         const int GuardMs = 500;
         DateTime lastCross = DateTime.MinValue, arrivalAt;
         string arrivalSide; double arrivalInward;
@@ -471,7 +500,7 @@ namespace MacShare
             if (!DriveOther || Side == null || AnyButtonDown()) { push = 0; return; } // Rule 6: no crossing mid-drag
             double outward = Screens.Outward(Side, dx, dy);
             if (!MayCross(Side, outward)) { push = 0; return; }
-            if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, Side)) { push = 0; return; }
+            if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, Side) || !InZone(EdgeZones, p.x, p.y, Side)) { push = 0; return; }
             DateTime now = DateTime.UtcNow;
             if ((now - lastPush).TotalMilliseconds > 300) push = 0;
             lastPush = now;
@@ -491,7 +520,7 @@ namespace MacShare
             if (!retArmed) return;
             double outward = Screens.Outward(retSide, dx, dy);
             if (!MayCross(retSide, outward)) { retPush = 0; return; }
-            if (outward <= 0 || !Screens.OnOuterEdge(x, y, retSide)) { retPush = 0; return; }
+            if (outward <= 0 || !Screens.OnOuterEdge(x, y, retSide) || !InZone(ReturnZones, x, y, retSide)) { retPush = 0; return; }
             DateTime now = DateTime.UtcNow;
             if ((now - retLast).TotalMilliseconds > 300) retPush = 0;
             retLast = now;

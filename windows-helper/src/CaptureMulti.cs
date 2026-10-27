@@ -120,7 +120,7 @@ namespace MacShare
             {
                 double outward = Screens.Outward(side, dx, dy);
                 if (!MayCross(side, outward)) { pushes.Remove(side); continue; }
-                if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, side)) { pushes.Remove(side); continue; }
+                if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, side) || !InZone(EdgeZones, p.x, p.y, side)) { pushes.Remove(side); continue; }
                 DateTime now = DateTime.UtcNow;
                 EdgePush e;
                 if (!pushes.TryGetValue(side, out e)) { e = new EdgePush(); pushes[side] = e; }
@@ -150,7 +150,7 @@ namespace MacShare
             {
                 double outward = Screens.Outward(side, dx, dy);
                 if (!MayCross(side, outward)) { retPushes.Remove(side); continue; }
-                if (outward <= 0 || !Screens.OnOuterEdge(x, y, side)) { retPushes.Remove(side); continue; }
+                if (outward <= 0 || !Screens.OnOuterEdge(x, y, side) || !InZone(ReturnZones, x, y, side)) { retPushes.Remove(side); continue; }
                 EdgePush e;
                 if (!retPushes.TryGetValue(side, out e)) { e = new EdgePush(); retPushes[side] = e; }
                 if ((now - e.Last).TotalMilliseconds > 300) e.Amount = 0;

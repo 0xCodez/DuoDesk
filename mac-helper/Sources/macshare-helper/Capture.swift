@@ -76,6 +76,10 @@ final class Capture {
   private var returnSide: String?
 #endif
   private var returnResistance = 120.0
+  // Where along the side the other computer's monitors touch ours (shared/kvm-geom.js zones, 0–1 of
+  // the bounding box, as `offset`): the edge and the way back only cross inside them. nil: anywhere.
+  var edgeZones: [ClosedRange<Double>]?
+  var returnZones: [ClosedRange<Double>]?
   // No new crossing within `cooldown` of the last one, either way (kvmConfig `cooldownMs`,
   // KVM_CROSS_COOLDOWN_MS). After arriving, the edge it came through only counts once the pointer
   // moved 8 pt inward or `guardWindow` passed, so the end of a flick doesn't bounce straight back.
@@ -246,7 +250,7 @@ final class Capture {
     var hit: (side: String, offset: Double)? = nil
     for side in returnSides {
       var st = retBy[side] ?? (push: 0.0, at: 0.0)
-      let off = push(&st, p, dx, dy, side, returnResistance)
+      let off = push(&st, p, dx, dy, side, returnResistance, returnZones)
       retBy[side] = st
       if hit == nil, let off = off { hit = (side: side, offset: off) }
     }
@@ -262,7 +266,7 @@ final class Capture {
     var hit: (side: String, offset: Double)? = nil
     for side in sides {
       var st = edgeBy[side] ?? (push: 0.0, at: 0.0)
-      let off = push(&st, p, dx, dy, side, resistance)
+      let off = push(&st, p, dx, dy, side, resistance, edgeZones)
       edgeBy[side] = st
       if hit == nil, let off = off { hit = (side: side, offset: off) }
     }
@@ -277,7 +281,7 @@ final class Capture {
 
   /// Return-edge check while driven; called for local moves and for injected relative moves.
   func checkReturn(_ p: CGPoint, dx: Double, dy: Double) {
-    guard let side = returnSide, let off = push(&ret, p, dx, dy, side, returnResistance) else { return }
+    guard let side = returnSide, let off = push(&ret, p, dx, dy, side, returnResistance, returnZones) else { return }
     returnSide = nil
     lastCross = now()
     Flash.shared.leave(at: p, side: side)
@@ -287,7 +291,7 @@ final class Capture {
 
   /// Accumulate outward motion on an outer edge; returns the offset when it went through.
   private func push(_ st: inout (push: Double, at: Double), _ p: CGPoint, _ dx: Double, _ dy: Double,
-                    _ side: String, _ resistance: Double) -> Double? {
+                    _ side: String, _ resistance: Double, _ zones: [ClosedRange<Double>]?) -> Double? {
     let out = side == "right" ? dx : side == "left" ? -dx : side == "bottom" ? dy : -dy
     let t = now()
     if t - st.at > 0.3 { st.push = 0 }
@@ -304,7 +308,8 @@ final class Capture {
       }
       arrival = nil
     }
-    guard out > 0, Screens.isOuterEdge(p, side: side) else {
+    guard out > 0, Screens.isOuterEdge(p, side: side),
+          zones.map({ z in z.contains { $0.contains(Screens.offset(p, side: side)) } }) ?? true else {
       st.push = 0
       return nil
     }
@@ -516,7 +521,7 @@ final class Capture {
     }
 #else
     if type == .leftMouseDragged, !capturing, edgeEnabled, dragFiles,
-       let off = push(&edge, e.location, dx, dy, side, resistance) {
+       let off = push(&edge, e.location, dx, dy, side, resistance, edgeZones) {
       let paths = draggedFiles()
       log("edge: drag through the edge, \(paths.count) file(s) on the drag pasteboard")
       if !paths.isEmpty {
@@ -541,7 +546,7 @@ final class Capture {
       }
 #else
       if !capturing, edgeEnabled, NSEvent.pressedMouseButtons == 0,
-         let off = push(&edge, e.location, dx, dy, side, resistance) {
+         let off = push(&edge, e.location, dx, dy, side, resistance, edgeZones) {
         startCapture(mouse: true, keyboard: cfgKeyboard) // capture first, so no motion leaks
         Flash.shared.leave(at: e.location, side: side)
         emit(["event": "edge", "offset": off])

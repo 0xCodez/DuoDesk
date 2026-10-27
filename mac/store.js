@@ -57,6 +57,7 @@ const DEFAULT_SETTINGS = {
   streamMaxHeight: 1080, // 0 = capture at the display's pixel size; else scale down (GPU) to this height
   kvm: {
     pcSide: 'right',
+    along: null, // the other computer's place along that side, points (shared/kvm-geom.js); null: centred
     mouse: false, // Cursor tab
     keyboard: false, // Keyboard tab
     driveOther: true,

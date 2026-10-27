@@ -63,6 +63,8 @@ static double retResistance, retPush, retLast;
 static double cooldownMs = 250, lastCross;
 static int arrivalSide = SIDE_NONE;
 static double arrivalAt, arrivalInward;
+static double edgeZ[8][2], retZ[8][2]; // zones, as in capture.c
+static int nEdgeZ = -1, nRetZ = -1;
 static int hkDown;
 static double lastTapUp = -1;
 static int hkPending = -1;
@@ -346,6 +348,8 @@ void wl_capture_stop(int toSide, double offset, int hasSide) {
   wl_arrived(capMouse && hasSide ? toSide : SIDE_NONE);
 }
 
+void wl_return_zones(const char *text) { nRetZ = zones_parse(text, retZ, 8); }
+
 void wl_arm_return(int on, int s, double resistance) {
   retArmed = on && s != SIDE_NONE;
   retSide = s;
@@ -357,7 +361,7 @@ static void feed_return(double dx, double dy) {
   if (!retArmed) return;
   double outward = screens_outward(retSide, dx, dy);
   if (!may_cross(retSide, outward)) { retPush = 0; return; }
-  if (outward <= 0 || !screens_on_outer_edge((int)px, (int)py, retSide)) { retPush = 0; return; }
+  if (outward <= 0 || !screens_on_outer_edge((int)px, (int)py, retSide) || !zones_contain(retZ, nRetZ, (int)px, (int)py, retSide)) { retPush = 0; return; }
   double now = now_ms();
   if (now - retLast > 300) retPush = 0;
   retLast = now;
@@ -376,6 +380,7 @@ void wl_config(const JObj *c) {
   side = side_of(jstr(c, "side", NULL));
   resistancePx = jnum(c, "resistancePx", 120);
   cooldownMs = jnum(c, "cooldownMs", 250);
+  nEdgeZ = zones_parse(jstr(c, "zones", NULL), edgeZ, 8);
   const char *hk = jstr(c, "hotkey", "AltRight");
   char l[24], r[24];
   snprintf(l, sizeof l, "%sLeft", hk);
@@ -523,7 +528,7 @@ static void on_motion(double rdx, double rdy) {
   if (!driveOther || side == SIDE_NONE || any(localButtons, 8)) { push = 0; return; } // rule 6
   double outward = screens_outward(side, rdx, rdy);
   if (!may_cross(side, outward)) { push = 0; return; }
-  if (outward <= 0 || !screens_on_outer_edge((int)px, (int)py, side)) { push = 0; return; }
+  if (outward <= 0 || !screens_on_outer_edge((int)px, (int)py, side) || !zones_contain(edgeZ, nEdgeZ, (int)px, (int)py, side)) { push = 0; return; }
   if (now - lastPush > 300) push = 0;
   lastPush = now;
   push += outward;

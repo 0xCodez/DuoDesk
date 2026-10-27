@@ -76,6 +76,7 @@ static void dispatch(const char *line) {
       wl_move_to(x, y);
       wl_arrived(jbool(c, "center", 0) ? SIDE_NONE : side_of(jstr(c, "side", "left")) < 0 ? SIDE_LEFT : side_of(jstr(c, "side", "left")));
     } else if (!strcmp(cmd, "armReturn")) {
+      wl_return_zones(jstr(c, "zones", NULL));
       wl_arm_return(jbool(c, "on", 0), side_of(jstr(c, "side", NULL)), jnum(c, "resistancePx", 120));
     } else if (!strcmp(cmd, "inject")) {
       JObj *ev = jobj(c, "ev");
@@ -137,6 +138,7 @@ static void dispatch(const char *line) {
     inject_move_to(x, y);
     capture_arrived(jbool(c, "center", 0) ? SIDE_NONE : side_of(jstr(c, "side", "left")) < 0 ? SIDE_LEFT : side_of(jstr(c, "side", "left")));
   } else if (!strcmp(cmd, "armReturn")) {
+    capture_return_zones(jstr(c, "zones", NULL));
 #ifdef MULTI
     // sideList: every edge with a device behind it (Multi-device, capture.c); without it, the one side.
     capture_arm_return_list(jbool(c, "on", 0), jstr(c, "sideList", NULL), side_of(jstr(c, "side", NULL)), jnum(c, "resistancePx", 120));
