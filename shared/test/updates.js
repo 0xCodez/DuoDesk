@@ -47,7 +47,7 @@ assert(formatted.includes('<span class="updater-mention">@InukaAsith</span>'));
 assert(formatted.includes('<span class="updater-issue">#54</span>'));
 assert(formatted.includes('<strong>improvements</strong>'));
 assert(formatted.includes('<code class="mono">zero-gc</code>'));
-assert(formatted.includes('<a href="https://github.com/InukaAsith/TwinDesk"'));
+assert(formatted.includes('https://github.com/InukaAsith/TwinDesk') && !formatted.includes('<a '));
 
 // HTML escaping verification
 const dirty = '## <script>alert(1)</script>\n* <img src=x onerror=alert(2)>';

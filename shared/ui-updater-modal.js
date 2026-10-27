@@ -62,8 +62,8 @@
       s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
       s = s.replace(/(^|[\s(])#(\d+)([\s),.]|$)/g, '$1<span class="updater-issue">#$2</span>$3');
       s = s.replace(/(^|[\s(])@([a-zA-Z0-9_-]+)([\s),.]|$)/g, '$1<span class="updater-mention">@$2</span>$3');
-      s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-      s = s.replace(/(^|[\s(])(https?:\/\/[^\s)<>]+)([\s),.]|$)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>$3');
+      // Links stay text: this window doesn't open new windows, so a click would open a bare one
+      s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)');
       return s;
     };
 

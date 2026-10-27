@@ -53,10 +53,8 @@ function formatReleaseNotes(raw) {
     s = s.replace(/(^|[\s(])#(\d+)([\s),.]|$)/g, '$1<span class="updater-issue">#$2</span>$3');
     // User mentions @username
     s = s.replace(/(^|[\s(])@([a-zA-Z0-9_-]+)([\s),.]|$)/g, '$1<span class="updater-mention">@$2</span>$3');
-    // Markdown links [text](url) (only http/https allowed)
-    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    // Plain URLs
-    s = s.replace(/(^|[\s(])(https?:\/\/[^\s)<>]+)([\s),.]|$)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>$3');
+    // Links stay text: this window doesn't open new windows, so a click would open a bare one
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)');
     return s;
   };
 
