@@ -10,6 +10,7 @@
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const blepipe = require('../shared/blepipe.js');
+const { KvmMoves } = require('../shared/kvm-moves.js');
 const CL = require('../shared/cursorlock.js');
 const store = require('./store');
 const { KvmMap } = require('../shared/kvm-map.js');
@@ -34,8 +35,19 @@ class Kvm extends EventEmitter {
     this.message = '';
     this.tapError = null;
     this.acceptTimer = null;
-    this.pendingMove = null; // coalesced k.mm while driving
-    this.moveTimer = null; // its flush, through Bluetooth
+    // k.mm summed while driving, sent as one (shared/kvm-moves.js): paced for Bluetooth, and held
+    // (still summed) while the socket is backed up, so the pointer never replays old moves.
+    this.moves = new KvmMoves({
+      send: (m) => this.mode === 'driving' && this._drive({ t: P.T.K_MOVE, dx: m.dx, dy: m.dy }),
+      delay: () => (this._movesBle() ? P.KVM_MOVE_BLE_MS : 0),
+      backlog: () => (this._movesBle() ? blepipe.backlog() : this._movesQueued()),
+      limit: () => (this._movesBle() ? P.KVM_BLE_BACKLOG : P.KVM_IP_BACKLOG),
+      maxWait: () => (this._movesBle() ? Infinity : P.KVM_MOVE_MAX_WAIT_MS),
+    });
+    // … and on the driven side, the moves that came in the same turn go to the helper as one.
+    this.injectMoves = new KvmMoves({
+      send: (m) => this.mode === 'driven' && this.helper.send('inject', { ev: { t: P.T.K_MOVE, dx: m.dx, dy: m.dy } }),
+    });
     this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
     this.locked = false; // cursor lock (shared/cursorlock.js): the pointer stays on the computer it is on
     this.lockAt = 0;
@@ -313,7 +325,7 @@ class Kvm extends EventEmitter {
     this.message = message || '';
     if (mode !== 'driving') {
       clearTimeout(this.acceptTimer);
-      this.pendingMove = null;
+      this.moves.drop();
     }
     this.emit('change');
   }
@@ -367,23 +379,28 @@ class Kvm extends EventEmitter {
     this._setMode('home', message);
   }
 
-  // Through Bluetooth every message is a round trip on the radio: moves go at most every
-  // KVM_MOVE_BLE_MS, and wait (still summed) while earlier bytes haven't gone out yet.
-  _scheduleMove() {
-    if (!this.onBle || (this.local && this.local.drives())) return setImmediate(() => this._flushMove());
-    if (this.moveTimer) return;
-    this.moveTimer = setTimeout(() => {
-      this.moveTimer = null;
-      if (!this.pendingMove) return;
-      if (blepipe.backlog() > P.KVM_BLE_BACKLOG) return this._scheduleMove();
-      this._flushMove();
-    }, P.KVM_MOVE_BLE_MS);
+  // Moves through Bluetooth (not to the phone bridge): paced for the radio.
+  _movesBle() {
+    return this.onBle && !(this.local && this.local.drives());
+  }
+
+  // Bytes waiting on the session's socket.
+  _movesQueued() {
+    if (this.local && this.local.drives()) return 0;
+    const c = this.server.current;
+    return c && c.ws ? c.ws.bufferedAmount || 0 : 0;
   }
 
   _flushMove() {
-    const m = this.pendingMove;
-    this.pendingMove = null;
-    if (m && this.mode === 'driving') this._drive({ t: P.T.K_MOVE, dx: m.dx, dy: m.dy });
+    this.moves.flush();
+  }
+
+  // To the helper: a move summed with the others of this turn; anything else after them. The phone
+  // Remote's moves (smooth: the helper eases them out) go as they are.
+  _injectEv(ev) {
+    if (ev.t === P.T.K_MOVE && !ev.smooth) return this.injectMoves.add(ev.dx, ev.dy);
+    this.injectMoves.flush();
+    this.helper.send('inject', { ev });
   }
 
   // Input while driving goes to the other computer, or to the phone bridge when a phone is the peer.
@@ -442,12 +459,7 @@ class Kvm extends EventEmitter {
         if (this.local && this.local.drives() && this._lockKeyHere(e)) return; // a phone has no lock key: ours counts there
         if (this.fileClip && this.fileClip.intercept(e)) return; // copy/paste shortcut: done over there
         if (e.t === P.T.K_MOVE) {
-          if (!this.pendingMove) {
-            this.pendingMove = { dx: 0, dy: 0 };
-            this._scheduleMove();
-          }
-          this.pendingMove.dx += e.dx;
-          this.pendingMove.dy += e.dy;
+          this.moves.add(e.dx, e.dy);
           return;
         }
         this._flushMove();
@@ -516,7 +528,7 @@ class Kvm extends EventEmitter {
         ev = { t: m.t, code: this.server.keySwap(this.getSettings()) ? P.mapKeyFromOtherPlatform(m.code) : m.code };
         if (this._lockKeyHere(ev)) return;
     }
-    this.helper.send('inject', { ev });
+    this._injectEv(ev);
   }
 
   // A trackpad gesture from the other computer, done the Mac way. Pinches and

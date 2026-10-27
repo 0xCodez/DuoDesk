@@ -16,6 +16,7 @@
 const P = require('../../shared/protocol.js');
 const E = require('../../shared/kvm-edges.js');
 const blepipe = require('../../shared/blepipe.js');
+const { KvmMoves } = require('../../shared/kvm-moves.js');
 const CL = require('../../shared/cursorlock.js');
 
 const T = P.T;
@@ -41,8 +42,19 @@ class Kvm {
     this.blockEdge = () => false; // main.js: true while the edge must not cross (a phone window has focus)
     this.dragPolicyBy = new Map(); // device id -> its drag.policy (its switch for drags towards it); default yes
     this.sentDragPolicy = undefined;
-    this.pendingMove = null; // k.mm summed while driving, sent as one
-    this.moveTimer = null; // its flush, through Bluetooth
+    // k.mm summed while driving, sent as one (shared/kvm-moves.js): paced for Bluetooth, and held
+    // (still summed) while the socket is backed up, so the pointer never replays old moves.
+    this.moves = new KvmMoves({
+      send: (m) => this.mode === 'driving' && this._drive({ t: P.T.K_MOVE, dx: m.dx, dy: m.dy }),
+      delay: () => (this._movesBle() ? P.KVM_MOVE_BLE_MS : 0),
+      backlog: () => (this._movesBle() ? blepipe.backlog() : this._movesQueued()),
+      limit: () => (this._movesBle() ? P.KVM_BLE_BACKLOG : P.KVM_IP_BACKLOG),
+      maxWait: () => (this._movesBle() ? Infinity : P.KVM_MOVE_MAX_WAIT_MS),
+    });
+    // … and on the driven side, the moves that came in the same turn go to the helper as one.
+    this.injectMoves = new KvmMoves({
+      send: (m) => this.mode === 'driven' && this.helper.send('inject', { ev: { t: P.T.K_MOVE, dx: m.dx, dy: m.dy } }),
+    });
     this.locked = false; // cursor lock (shared/cursorlock.js): the pointer stays on the device it is on
     this.lockAt = 0;
     this.lockKey = new CL.LockKey(() => this.settings.keys.lockKeys);
@@ -457,13 +469,8 @@ class Kvm {
         if (this.mode === 'driving' && msg.ev && K_TYPES.has(msg.ev.t)) {
           if (this.local && this.local.drives(this.partner) && this._lockKeyHere(msg.ev)) break; // a phone has no lock key: ours counts there
           if (this.fileClip && this.fileClip.intercept(msg.ev)) break; // copy/paste shortcut: done over there
-          if (msg.ev.t === T.K_MOVE) { // moves are summed (see _scheduleMove)
-            if (!this.pendingMove) {
-              this.pendingMove = { dx: 0, dy: 0 };
-              this._scheduleMove();
-            }
-            this.pendingMove.dx += Number(msg.ev.dx) || 0;
-            this.pendingMove.dy += Number(msg.ev.dy) || 0;
+          if (msg.ev.t === T.K_MOVE) { // moves are summed (shared/kvm-moves.js)
+            this.moves.add(Number(msg.ev.dx) || 0, Number(msg.ev.dy) || 0);
             break;
           }
           this._flushMove(); // a click goes where the moves before it took the pointer
@@ -526,24 +533,28 @@ class Kvm {
     this._setMode('home', message);
   }
 
-  // Moves summed: one message per turn of the event loop. Through Bluetooth every message is a
-  // round trip on the radio, so they go at most every KVM_MOVE_BLE_MS and wait (still summed)
-  // while earlier bytes haven't gone out: otherwise they queue up and the cursor lags minutes.
-  _scheduleMove() {
-    if (this._transportOf(this.partner) !== 'ble' || (this.local && this.local.drives(this.partner))) return setImmediate(() => this._flushMove());
-    if (this.moveTimer) return;
-    this.moveTimer = setTimeout(() => {
-      this.moveTimer = null;
-      if (!this.pendingMove) return;
-      if (blepipe.backlog() > P.KVM_BLE_BACKLOG) return this._scheduleMove();
-      this._flushMove();
-    }, P.KVM_MOVE_BLE_MS);
+  // Moves to the partner through Bluetooth (not to the phone bridge): paced for the radio.
+  _movesBle() {
+    return this._transportOf(this.partner) === 'ble' && !(this.local && this.local.drives(this.partner));
+  }
+
+  // Bytes waiting on the partner's socket.
+  _movesQueued() {
+    if (!this.partner || (this.local && this.local.drives(this.partner))) return 0;
+    const s = this.hub.sessions.get(this.partner);
+    return s ? s.bufferedAmount || 0 : 0;
   }
 
   _flushMove() {
-    const m = this.pendingMove;
-    this.pendingMove = null;
-    if (m && this.mode === 'driving') this._drive({ t: T.K_MOVE, dx: m.dx, dy: m.dy });
+    this.moves.flush();
+  }
+
+  // To the helper: a move summed with the others of this turn; anything else after them. The phone
+  // Remote's moves (smooth: the helper eases them out) go as they are.
+  _injectEv(ev) {
+    if (ev.t === P.T.K_MOVE && !ev.smooth) return this.injectMoves.add(ev.dx, ev.dy);
+    this.injectMoves.flush();
+    this.helper.send('inject', { ev });
   }
 
   // Input while driving goes to the partner device, or to the phone bridge when a phone is the peer.
@@ -682,7 +693,7 @@ class Kvm {
       ev.dy = -(Number(ev.dy) || 0);
     }
     if (ev.t === T.K_KEY_DOWN && ev.code === 'Escape' && this.dragRecv && this.dragRecv.dragging) this.dragRecv.cancel('cancelled');
-    this.helper.send('inject', { ev });
+    this._injectEv(ev);
     // The other device released its left button here: its drag drops where the pointer is.
     if (ev.t === T.K_UP && ev.b === P.BUTTON.LEFT) { this.fileRecv.onRelease(); if (this.dragRecv) this.dragRecv.onRelease(); }
   }
@@ -811,7 +822,7 @@ class Kvm {
       if (was === 'home') this.applyConfig();
     }
     if (was !== mode) this.lockKey.reset();
-    if (mode !== 'driving') this.pendingMove = null;
+    if (mode !== 'driving') this.moves.drop();
     if (was !== mode) console.log('[kvm] ' + was + ' -> ' + mode + ' (partner ' + (this.partner || '-') + ')' + (message ? ': ' + message : ''));
     if (mode === 'home') this.partner = null;
     if (was !== mode && this.onWhere) this.onWhere(mode, was); // the switching popup (main.js)
