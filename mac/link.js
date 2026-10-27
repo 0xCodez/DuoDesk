@@ -167,7 +167,7 @@ class Link extends EventEmitter {
   }
 
   _hello() {
-    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.id.macId, name: this.id.macName, os: P.OS.MAC, token: this.host.token, ...(this.takeover ? { takeover: true } : {}) });
+    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.id.macId, name: this.id.macName, os: P.OS.MAC, token: this.host.token, fx: 1, ...(this.takeover ? { takeover: true } : {}) });
     this.timers.hello = setTimeout(() => {
       this.lastError = 'No answer';
       if (this.ws) this.ws.terminate();
@@ -253,6 +253,7 @@ class Link extends EventEmitter {
     this.ctx = {
       ws: this.ws, authed: true, deviceId: h.id, name: h.name, os: msg.os || P.OS.MAC, role: 'host',
       address: this.address, lastRx: Date.now(), rttMs: null,
+      fx: typeof msg.fx === 'string' && /^[0-9a-f]{32}$/.test(msg.fx) ? msg.fx : '', // fast files (shared/fastfile.js); older hosts: none
     };
     this.timers.ping = setInterval(() => {
       if (Date.now() - this.lastRx > P.TIMEOUT_MS) {

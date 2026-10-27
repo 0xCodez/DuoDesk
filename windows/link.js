@@ -203,7 +203,7 @@ class Link {
       maxPayload: P.MAX_PAYLOAD,
       handshakeTimeout: transport === 'ble' ? P.BLE_TIMEOUT_MS : 5000,
     });
-    Object.assign(ws, { transport, fp: '', lastRx: Date.now() });
+    Object.assign(ws, { transport, fp: '', lastRx: Date.now(), address, port });
     ws.on('upgrade', (res) => {
       ws.fp = P.normFingerprint(res.socket.getPeerCertificate().fingerprint256);
     });
@@ -306,7 +306,7 @@ class Link {
 
   _hello() {
     const p = this.pairing;
-    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.WIN, token: p.token, ...(this.takeover ? { takeover: true } : {}) });
+    this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.WIN, token: p.token, fx: 1, ...(this.takeover ? { takeover: true } : {}) });
     this.timers.hello = setTimeout(() => {
       this.lastError = 'No welcome from {name}';
       if (this.ws) this.ws.terminate();
@@ -384,6 +384,7 @@ class Link {
     this.authed = true;
     this.attempt = 0;
     this.resumeKey = typeof msg.resume === 'string' ? msg.resume : ''; // older hosts: none, no moving
+    this.fxToken = typeof msg.fx === 'string' && /^[0-9a-f]{32}$/.test(msg.fx) ? msg.fx : ''; // fast files (shared/fastfile.js); older hosts: none
     this.resumeAt = 0;
     const os = osOf(msg.os || this.pairing.os);
     if ((typeof msg.macName === 'string' && msg.macName && msg.macName !== this.pairing.macName) || os !== this.pairing.os) {

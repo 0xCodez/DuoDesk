@@ -142,6 +142,9 @@
       FILE_END: 'file.end', // W->M {id, sha256}
       FILE_DONE: 'file.done', // M->W {id, ok, path?, error?}
       FILE_CANCEL: 'file.cancel', // either {id}
+      // Fast files (shared/fastfile.js), only between two apps that both said so (hello {fx: 1},
+      // welcome {fx: token}) on Wi-Fi or a cable: the bytes go over HTTPS on PORT instead of file.chunk.
+      FILE_PULL: 'file.pull', // host->guest {id}: come and get it (GET); guest->host {id, failed: true}: couldn't
       // drag across the edge: a native drag on the receiver, files + folders
       DRAG_START: 'drag.start', // owner->receiver {drag, items: [{name, dir, size}], dirs: [rel], list: [{rel, size}], files, bytes}
       DRAG_CANCEL: 'drag.cancel', // owner->receiver {drag}

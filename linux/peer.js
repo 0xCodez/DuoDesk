@@ -9,6 +9,7 @@
 'use strict';
 
 const P = require('../shared/protocol.js');
+const { FastFiles } = require('../shared/fastfile.js');
 
 // The Mac's apps (app.*) only come from a Mac; app windows (papp.*) with a PC or a Linux computer.
 // Terminal (ssh.*) works with every computer.
@@ -28,10 +29,13 @@ class Peer {
     this.hold = null; // (msg) -> true: held for Wi-Fi (netlink.js), sent later through sendNow
     this.tap = null; // (msg): every message from the peer (netlink.js)
 
+    // Fast files with an app that can (shared/fastfile.js): file bytes over HTTPS on the host's port.
+    this.fx = new FastFiles({ session: () => this._fxSession(), deliver: (m) => this._deliver(m), send: (m) => this.sendNow(m) });
+
     link.onState(() => this._changed());
-    link.onAny = (msg) => this._deliver(msg);
-    link.on('welcome', (msg) => this._emit('welcome', msg));
-    link.on('closed', (msg) => this._emit('closed', msg));
+    link.onAny = (msg) => this.fx.incoming(msg) || this._deliver(msg);
+    link.on('welcome', (msg) => { this.fx.reset(); this._emit('welcome', msg); });
+    link.on('closed', (msg) => { this.fx.reset(); this._emit('closed', msg); });
     link.on('transport', () => { this._emit('transport', {}); this._changed(); });
   }
 
@@ -39,6 +43,12 @@ class Peer {
   attachHost(server, pairing) {
     this.server = server;
     this.pairing = pairing;
+    server.fxOn = true;
+    server.https.on('request', (req, res) => {
+      if (this.fx.request(req, res)) return;
+      res.writeHead(404);
+      res.end();
+    });
     server.on('listening', () => { this.host = { on: true, error: '' }; this._changed(); });
     server.on('listenError', (err) => {
       console.error('[server]', err.code || err.message);
@@ -48,11 +58,13 @@ class Peer {
     server.on('client', (ctx) => {
       this.swapIn = P.newRoleSwapState(ctx.name);
       this.swapOut = P.newRoleSwapState(ctx.name);
+      this.fx.reset();
       this._changed();
       this._emit('welcome', { macId: ctx.deviceId, macName: ctx.name, os: ctx.os });
     });
     server.on('closed', (ctx) => {
       if (ctx.authed && !server.current) {
+        this.fx.reset();
         this._emit('closed', {});
         this._changed();
       }
@@ -65,7 +77,7 @@ class Peer {
     });
     server.on('message', (msg, ctx) => {
       if (ctx !== server.current) return;
-      for (const m of P.swapRole(msg, this.swapIn)) this._deliver(m);
+      for (const m of P.swapRole(msg, this.swapIn)) if (!this.fx.incoming(m)) this._deliver(m);
     });
     pairing.on('change', () => this._changed());
     pairing.on('request', () => this._changed());
@@ -132,6 +144,17 @@ class Peer {
   // Last time anything arrived (kvm.js silence check).
   get lastRx() {
     return this.hosting ? this.server.current.lastRx : this.link.lastRx;
+  }
+
+  // For fast files: {host, token, transport, address, port?, fp?}, or null (an older app).
+  _fxSession() {
+    if (this.hosting) {
+      const c = this.server.current;
+      return c.fx ? { host: true, token: c.fx, transport: c.transport, address: c.address } : null;
+    }
+    const ws = this.link.ws;
+    if (!this.link.authed || !this.link.fxToken || !ws || !this.link.pairing) return null;
+    return { host: false, token: this.link.fxToken, transport: this.link.transport, address: ws.address, port: ws.port, fp: this.link.pairing.fp };
   }
 
   get bufferedAmount() {
