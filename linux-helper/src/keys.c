@@ -3,6 +3,7 @@
 // evdev + 8 with the evdev/libinput drivers. Same keys as windows-helper/src/Keys.cs.
 #include "helper.h"
 #include <string.h>
+#include <X11/XKBlib.h>
 
 typedef struct { const char *code; int ev; } Key;
 
@@ -53,4 +54,49 @@ int key_evdev(const char *code) {
 const char *key_code(int ev) {
   for (int i = 0; i < NKEYS; i++) if (KEYS[i].ev == ev) return KEYS[i].code;
   return NULL;
+}
+
+// Keys that type a character: letters, digits, punctuation.
+static int typing(const char *code) {
+  static const char *PUNCT[] = { "Minus", "Equal", "BracketLeft", "BracketRight", "Backslash", "Semicolon",
+    "Quote", "Backquote", "Comma", "Period", "Slash", "IntlBackslash", NULL };
+  if (!strncmp(code, "Key", 3) || !strncmp(code, "Digit", 5)) return 1;
+  for (int i = 0; PUNCT[i]; i++) if (!strcmp(code, PUNCT[i])) return 1;
+  return 0;
+}
+
+static void utf8(unsigned cp, char *out) {
+  if (cp < 0x80) { out[0] = (char)cp; out[1] = 0; }
+  else if (cp < 0x800) { out[0] = (char)(0xc0 | cp >> 6); out[1] = (char)(0x80 | (cp & 0x3f)); out[2] = 0; }
+  else if (cp < 0x10000) { out[0] = (char)(0xe0 | cp >> 12); out[1] = (char)(0x80 | (cp >> 6 & 0x3f)); out[2] = (char)(0x80 | (cp & 0x3f)); out[3] = 0; }
+  else { out[0] = (char)(0xf0 | cp >> 18); out[1] = (char)(0x80 | (cp >> 12 & 0x3f)); out[2] = (char)(0x80 | (cp >> 6 & 0x3f)); out[3] = (char)(0x80 | (cp & 0x3f)); out[4] = 0; }
+}
+
+// keyLayout: what each of those keys types alone in the current X layout (its active group), lower
+// case: {"KeyY":"z",…} with a German layout (shared/keylayout.js). Latin-1 and Unicode keysyms; on
+// Wayland (no X display here) nothing.
+void keys_layout(double id, Display *dpy) {
+  JOut map;
+  jo_begin(&map);
+  XkbStateRec st;
+  int group = 0;
+  if (dpy && XkbGetState(dpy, XkbUseCoreKbd, &st) == Success) group = st.group;
+  for (int i = 0; dpy && i < NKEYS; i++) {
+    if (!typing(KEYS[i].code)) continue;
+    KeySym ks = XkbKeycodeToKeysym(dpy, (KeyCode)(KEYS[i].ev + 8), group, 0);
+    unsigned cp = 0;
+    if ((ks >= 0x20 && ks <= 0x7e) || (ks >= 0xa0 && ks <= 0xff)) cp = (unsigned)ks;
+    else if ((ks & 0xff000000) == 0x01000000) cp = (unsigned)(ks & 0xffffff);
+    if (!cp) continue;
+    if ((cp >= 'A' && cp <= 'Z') || (cp >= 0xc0 && cp <= 0xde && cp != 0xd7)) cp += 32;
+    char u[8];
+    utf8(cp, u);
+    jo_str(&map, KEYS[i].code, u);
+  }
+  JOut o;
+  jo_begin(&o);
+  jo_num(&o, "id", id);
+  jo_bool(&o, "ok", 1);
+  jo_raw(&o, "layout", jo_end(&map));
+  emit(jo_end(&o));
 }

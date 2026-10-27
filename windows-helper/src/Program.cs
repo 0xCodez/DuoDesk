@@ -388,6 +388,9 @@ namespace MacShare
                         List<string> selNames = Strings(c, "names");
                         Async(c, delegate (Dictionary<string, object> r) { Shell.SelectIn(selDir, selNames); }, true);
                         return;
+                    case "keyLayout": // what each key types alone in the layout in front (shared/keylayout.js)
+                        c["layout"] = Keys.Layout();
+                        break;
                     case "info":
                         Native.POINT cur;
                         Native.GetCursorPos(out cur);

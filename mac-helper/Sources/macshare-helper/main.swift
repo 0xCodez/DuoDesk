@@ -117,6 +117,8 @@ func handle(_ line: String) {
     if let ev = msg["ev"] as? [String: Any] { injector.injectRel(ev) }
   case "ping":
     reply(id)
+  case "keyLayout": // what each key types alone in the current layout (shared/keylayout.js)
+    reply(id, ["layout": KeyLayout.current(sourceID: msg["source"] as? String)])
   case "permissions":
     reply(id, [
       "accessibility": AXIsProcessTrusted(),

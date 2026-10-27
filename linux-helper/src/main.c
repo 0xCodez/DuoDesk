@@ -59,6 +59,11 @@ static void dispatch(const char *line) {
     json_free(c);
     return;
   }
+  if (!strcmp(cmd, "keyLayout")) { // what each key types alone (keys.c); X11 only
+    keys_layout(jnum(c, "id", 0), wl ? NULL : dpy_in);
+    json_free(c);
+    return;
+  }
   if (wl) {
     wl_touch();
     if (!strcmp(cmd, "ping") || !strcmp(cmd, "keepalive")) {

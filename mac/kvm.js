@@ -11,6 +11,7 @@ const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const blepipe = require('../shared/blepipe.js');
 const { KvmMoves } = require('../shared/kvm-moves.js');
+const { KeyLayout } = require('../shared/keylayout.js');
 const CL = require('../shared/cursorlock.js');
 const store = require('./store');
 const { KvmMap } = require('../shared/kvm-map.js');
@@ -48,6 +49,7 @@ class Kvm extends EventEmitter {
     this.injectMoves = new KvmMoves({
       send: (m) => this.mode === 'driven' && this.helper.send('inject', { ev: { t: P.T.K_MOVE, dx: m.dx, dy: m.dy } }),
     });
+    this.keys = new KeyLayout((cmd, args) => this.helper.request(cmd, args)); // shortcuts by letter across layouts
     this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
     this.locked = false; // cursor lock (shared/cursorlock.js): the pointer stays on the computer it is on
     this.lockAt = 0;
@@ -321,6 +323,10 @@ class Kvm extends EventEmitter {
       if (prev === 'home') this.config();
     }
     if (prev !== mode) this.lockKey.reset();
+    if (prev !== mode) { // crossing either way: what our keys type (the layout may have changed)
+      this.keys.reset();
+      if (mode !== 'home') this.keys.refresh();
+    }
     if (prev !== mode) this.emit('where', mode, prev); // hud.js shows it
     this.message = message || '';
     if (mode !== 'driving') {
@@ -464,7 +470,7 @@ class Kvm extends EventEmitter {
         }
         this._flushMove();
         if (this.dragOut && e.t === P.T.K_UP && e.b === 0) this.dragOut = null; // dropped on the PC (drag.end follows)
-        this._drive(e);
+        this._drive(this.keys.tag(e)); // keys with the letter they type here (shared/keylayout.js)
         break;
       }
       case 'captureEnded':
@@ -527,6 +533,7 @@ class Kvm extends EventEmitter {
         }
         ev = { t: m.t, code: this.server.keySwap(this.getSettings()) ? P.mapKeyFromOtherPlatform(m.code) : m.code };
         if (this._lockKeyHere(ev)) return;
+        ev.code = this.keys.code(m.t === P.T.K_KEY_DOWN, ev.code, m.ch); // a shortcut's letter: our key for it
     }
     this._injectEv(ev);
   }

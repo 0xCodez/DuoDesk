@@ -16,6 +16,7 @@ const P = require('../../shared/protocol.js');
 const E = require('../../shared/kvm-edges.js');
 const blepipe = require('../../shared/blepipe.js');
 const { KvmMoves } = require('../../shared/kvm-moves.js');
+const { KeyLayout } = require('../../shared/keylayout.js');
 const CL = require('../../shared/cursorlock.js');
 
 const T = P.T;
@@ -54,6 +55,7 @@ class Kvm {
     this.injectMoves = new KvmMoves({
       send: (m) => this.mode === 'driven' && this.helper.send('inject', { ev: { t: P.T.K_MOVE, dx: m.dx, dy: m.dy } }),
     });
+    this.keys = new KeyLayout((cmd, args) => this.helper.request(cmd, args)); // shortcuts by letter across layouts
     this.locked = false; // cursor lock (shared/cursorlock.js): the pointer stays on the device it is on
     this.lockAt = 0;
     this.lockKey = new CL.LockKey(() => this.settings.keys.lockKeys);
@@ -466,7 +468,7 @@ class Kvm {
             break;
           }
           this._flushMove(); // a click goes where the moves before it took the pointer
-          this._drive(msg.ev);
+          this._drive(this.keys.tag(msg.ev)); // keys with the letter they type here (shared/keylayout.js)
           if (msg.ev.t === T.K_UP && msg.ev.b === P.BUTTON.LEFT) this.dragPending = false; // released on the Mac
         }
         break;
@@ -682,6 +684,8 @@ class Kvm {
     if (ev.t === T.K_KEY_DOWN || ev.t === T.K_KEY_UP) {
       if (typeof ev.code !== 'string') return;
       if (this.settings.keys.swapCtrlCmd && P.keySwapNeeded(P.OS.WIN, this._peerOs(from))) ev.code = P.mapKeyFromOtherPlatform(ev.code);
+      ev.code = this.keys.code(ev.t === T.K_KEY_DOWN, ev.code, ev.ch); // a shortcut's letter: our key for it
+      delete ev.ch;
     } else if (ev.t === T.K_MOVE) {
       ev.dx = (Number(ev.dx) || 0) * k.speed;
       ev.dy = (Number(ev.dy) || 0) * k.speed;
@@ -818,6 +822,10 @@ class Kvm {
       if (was === 'home') this.applyConfig();
     }
     if (was !== mode) this.lockKey.reset();
+    if (was !== mode) { // crossing either way: what our keys type (the layout may have changed)
+      this.keys.reset();
+      if (mode !== 'home') this.keys.refresh();
+    }
     if (mode !== 'driving') this.moves.drop();
     if (was !== mode) console.log('[kvm] ' + was + ' -> ' + mode + ' (partner ' + (this.partner || '-') + ')' + (message ? ': ' + message : ''));
     if (mode === 'home') this.partner = null;

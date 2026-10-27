@@ -233,3 +233,42 @@ enum InputSources {
     log("input source: \(id(to))")
   }
 }
+
+enum KeyLayout {
+  /// Keys that type a character: letters, digits, punctuation.
+  static let typing: Set<String> = Set(KeyCodes.toMac.keys.filter {
+    $0.hasPrefix("Key") || $0.hasPrefix("Digit") || ["Minus", "Equal", "BracketLeft", "BracketRight", "Backslash",
+      "Semicolon", "Quote", "Backquote", "Comma", "Period", "Slash", "IntlBackslash"].contains($0)
+  })
+
+  /// What each of those keys types alone in the current keyboard layout, lower case: ["KeyY": "z", …]
+  /// on a German Mac. Main uses it to send shortcuts by letter (shared/keylayout.js). With an input
+  /// method (Japanese, Chinese…) its ASCII layout; dead keys give their character.
+  /// sourceID: another installed layout instead (com.apple.keylayout.German), for tests.
+  static func current(sourceID: String? = nil) -> [String: String] {
+    var picked: TISInputSource?
+    if let sourceID {
+      let props = [kTISPropertyInputSourceID as String: sourceID] as CFDictionary
+      picked = (TISCreateInputSourceList(props, true)?.takeRetainedValue() as? [TISInputSource])?.first
+    } else {
+      picked = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue()
+    }
+    guard let src = picked,
+          let ptr = TISGetInputSourceProperty(src, kTISPropertyUnicodeKeyLayoutData) else { return [:] }
+    let data = Unmanaged<CFData>.fromOpaque(ptr).takeUnretainedValue() as Data
+    var out: [String: String] = [:]
+    data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+      guard let layout = raw.bindMemory(to: UCKeyboardLayout.self).baseAddress else { return }
+      for code in typing {
+        guard let vk = KeyCodes.toMac[code] else { continue }
+        var dead: UInt32 = 0
+        var len = 0
+        var chars = [UniChar](repeating: 0, count: 4)
+        let st = UCKeyTranslate(layout, vk, UInt16(kUCKeyActionDisplay), 0, UInt32(LMGetKbdType()),
+                                OptionBits(kUCKeyTranslateNoDeadKeysBit), &dead, chars.count, &len, &chars)
+        if st == noErr && len > 0 { out[code] = String(utf16CodeUnits: chars, count: len).lowercased() }
+      }
+    }
+    return out
+  }
+}
