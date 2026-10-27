@@ -389,11 +389,11 @@ namespace MacShare
             int msg = wParam.ToInt32();
             bool down = msg == Native.WM_KEYDOWN || msg == Native.WM_SYSKEYDOWN;
             string code = Keys.Code(k.vkCode, k.scanCode, (k.flags & Native.LLKHF_EXTENDED) != 0);
-            // AltGr (Right Alt on many layouts) sends a fake Left Ctrl first, scan 0x21D: with Right Alt
-            // as the hotkey it is part of the hotkey, so it neither breaks the double-tap nor goes over.
-            // It is never a real Ctrl press, so it never counts for a Ctrl hotkey either.
+            // AltGr (Right Alt on many layouts) sends a fake Left Ctrl first, scan 0x21D. It never goes
+            // over: Right Alt does, and the other side's layout makes that AltGr (Option on a Mac); sent,
+            // it was a Ctrl there too (Cmd on a Mac: AltGr+E was Cmd+Option+E, not €). With Right Alt as
+            // the hotkey it doesn't break the double-tap, and it never counts for a Ctrl hotkey.
             bool fakeCtrl = k.vkCode == 0xA2 && k.scanCode == 0x21D;
-            bool altGrCtrl = fakeCtrl && HotkeyVks.Contains(0xA5);
             bool hotkey = !fakeCtrl && DetectHotkey(k.vkCode, down);
 
             if (!down && swallowVks.Remove(k.vkCode)) return (IntPtr)1;
@@ -405,7 +405,7 @@ namespace MacShare
             bool isHk = HotkeyVks.Contains(k.vkCode);
             if (capturing && capKeys)
             {
-                if (altGrCtrl) { if (hotkey) FireHotkey(); return (IntPtr)1; }
+                if (fakeCtrl) return (IntPtr)1;
                 if (isHk)
                 {
                     IntPtr r = (IntPtr)1;

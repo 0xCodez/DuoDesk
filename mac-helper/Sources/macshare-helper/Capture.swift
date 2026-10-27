@@ -356,7 +356,7 @@ final class Capture {
         }
         emit(["event": "hotkey"])
       }
-      guard capturing && capKeyboard, let code = KeyCodes.fromMac[kc] else {
+      guard capturing && capKeyboard, let code = KeyCodes.code(kc, kbType: e.getIntegerValueField(.keyboardEventKeyboardType)) else {
         if down { localDown.insert(kc) } else { localDown.remove(kc); swallowUps.remove(kc) }
         return false
       }
@@ -373,7 +373,7 @@ final class Capture {
     }
     hkStage = 0
     flushHotkey()
-    guard let code = KeyCodes.fromMac[kc] else { return capturing && capKeyboard }
+    guard let code = KeyCodes.code(kc, kbType: e.getIntegerValueField(.keyboardEventKeyboardType)) else { return capturing && capKeyboard }
     if kc == 0x39 { // Caps Lock toggles: send a full press
       if capturing && capKeyboard { ev(["t": "k.kd", "code": code]); ev(["t": "k.ku", "code": code]); return true }
       return false
@@ -447,7 +447,7 @@ final class Capture {
 
   /// The held hotkey turned out to be part of a shortcut: send its press now, before the key.
   private func flushHotkey() {
-    guard let kc = hkPending, capturing && capKeyboard, let code = KeyCodes.fromMac[kc] else { hkPending = nil; return }
+    guard let kc = hkPending, capturing && capKeyboard, let code = KeyCodes.code(kc) else { hkPending = nil; return }
     hkPending = nil
     remoteDown.insert(kc)
     ev(["t": "k.kd", "code": code])
@@ -459,7 +459,7 @@ final class Capture {
     let kc = UInt16(e.getIntegerValueField(.keyboardEventKeycode))
     if capturing && capKeyboard {
       if !down && localDown.remove(kc) != nil { return false }
-      guard let code = KeyCodes.fromMac[kc] else { return true }
+      guard let code = KeyCodes.code(kc, kbType: e.getIntegerValueField(.keyboardEventKeyboardType)) else { return true }
       if down { remoteDown.insert(kc) } else { remoteDown.remove(kc) }
       ev(["t": down ? "k.kd" : "k.ku", "code": code])
       return true

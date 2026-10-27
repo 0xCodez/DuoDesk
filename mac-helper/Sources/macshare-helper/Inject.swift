@@ -160,7 +160,7 @@ final class Injector {
       }
       if code == "Fn" { return } // only its tap means something (above)
     } else if down { modsOnly = false }
-    guard let vk = KeyCodes.toMac[code] else {
+    guard let vk = KeyCodes.vk(code) else {
       log("no Mac key for \(code)")
       return
     }
@@ -260,7 +260,7 @@ enum KeyLayout {
     data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
       guard let layout = raw.bindMemory(to: UCKeyboardLayout.self).baseAddress else { return }
       for code in typing {
-        guard let vk = KeyCodes.toMac[code] else { continue }
+        guard let vk = KeyCodes.vk(code) else { continue }
         var dead: UInt32 = 0
         var len = 0
         var chars = [UniChar](repeating: 0, count: 4)
