@@ -523,6 +523,7 @@ app.whenReady().then(() => {
   peer.on('client', (ctx) => {
     console.log(`[peer] session with ${ctx.name} (${ctx.os}, ${ctx.role === 'host' ? 'we are its guest' : 'it is our guest'})`);
     peer.send(ctx, { t: P.T.STREAM_INPUT, on: settings.streamInput !== false });
+    screenStateKey = ''; // a new connection (one replacing the same device's too) hears screen.state: its Extend/Mirror
     pushState();
   });
   peer.on('closed', pushState);
