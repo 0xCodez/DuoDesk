@@ -28,7 +28,7 @@ const up = (k, code, ch) => k.code(false, code, ch);
     assert.deepStrictEqual(de.tag({ t: 'k.kd', code: 'Semicolon' }), { t: 'k.kd', code: 'Semicolon' }, 'ö: not a–z');
     assert.deepStrictEqual(de.tag({ t: 'k.kd', code: 'ShiftLeft' }), { t: 'k.kd', code: 'ShiftLeft' });
     const ru = layout(RU);
-    assert.deepStrictEqual(ru.tag({ t: 'k.kd', code: 'KeyC' }), { t: 'k.kd', code: 'KeyC' }, 'Cyrillic: as it is');
+    assert.deepStrictEqual(ru.tag({ t: 'k.kd', code: 'KeyC' }), { t: 'k.kd', code: 'KeyC', tx: 'с' }, 'Cyrillic: no ch, its letter as tx');
     const k = new KeyLayout(() => Promise.reject(new Error('unknown command')));
     await k.refresh();
     assert.deepStrictEqual(k.tag({ t: 'k.kd', code: 'KeyZ' }), { t: 'k.kd', code: 'KeyZ' }, 'an older helper: no letters');
@@ -77,6 +77,45 @@ const up = (k, code, ch) => k.code(false, code, ch);
     const old = layout(US);
     down(old, 'ControlLeft');
     assert.strictEqual(down(old, 'KeyY'), 'KeyY', 'from an older app (no ch): the place');
+  }
+
+  // Another alphabet: a Russian PC (ж in the Semicolon place, ф in the A place) on an English Mac.
+  {
+    const ru = layout({ ...RU, Semicolon: 'ж', Backquote: 'ё', Period: 'ю', Slash: '.' });
+    assert.deepStrictEqual(ru.tag({ t: 'k.kd', code: 'KeyA' }), { t: 'k.kd', code: 'KeyA', tx: 'ф' });
+    assert.deepStrictEqual(ru.tag({ t: 'k.ku', code: 'KeyA' }), { t: 'k.ku', code: 'KeyA' }, 'its key-up: nothing more');
+    assert.deepStrictEqual(ru.tag({ t: 'k.kd', code: 'Slash' }), { t: 'k.kd', code: 'Slash' }, 'not a letter: the key');
+    ru.tag({ t: 'k.kd', code: 'ShiftLeft' });
+    assert.deepStrictEqual(ru.tag({ t: 'k.kd', code: 'KeyA' }), { t: 'k.kd', code: 'KeyA', tx: 'Ф' }, 'with Shift: capital');
+    ru.tag({ t: 'k.ku', code: 'ShiftLeft' });
+    ru.tag({ t: 'k.kd', code: 'ControlLeft' });
+    assert.deepStrictEqual(ru.tag({ t: 'k.kd', code: 'KeyA' }), { t: 'k.kd', code: 'KeyA' }, 'Ctrl held: a shortcut, the key');
+    ru.tag({ t: 'k.ku', code: 'ControlLeft' });
+
+    const typed = [];
+    const us = new KeyLayout(() => Promise.resolve({ layout: US, type: true }), (cmd, a) => typed.push([cmd, a.text]));
+    await us.refresh();
+    assert.strictEqual(down(us, 'KeyA', undefined), 'KeyA');
+    up(us, 'KeyA');
+    assert.strictEqual(us.code(true, 'KeyA', undefined, 'ф'), null, 'typed, no key');
+    assert.strictEqual(us.code(true, 'KeyA', undefined, 'ф'), null, 'a repeat: typed again');
+    assert.strictEqual(us.code(false, 'KeyA'), null, 'its key-up: nothing');
+    assert.deepStrictEqual(typed, [['type', 'ф'], ['type', 'ф']]);
+    assert.strictEqual(us.code(true, 'Semicolon', undefined, 'ж'), 'Semicolon', 'a key with no Latin letter here: the key');
+    up(us, 'Semicolon');
+    down(us, 'MetaLeft');
+    assert.strictEqual(us.code(true, 'KeyA', undefined, 'ф'), 'KeyA', 'Cmd held: the key');
+    up(us, 'KeyA');
+    up(us, 'MetaLeft');
+
+    const both = new KeyLayout(() => Promise.resolve({ layout: RU, type: true }), (cmd, a) => typed.push(a.text));
+    await both.refresh();
+    assert.strictEqual(both.code(true, 'KeyA', undefined, 'ф'), 'KeyA', 'Russian here too: its own layout types it');
+    const old = new KeyLayout(() => Promise.resolve({ layout: US }), (cmd, a) => typed.push(a.text));
+    await old.refresh();
+    assert.strictEqual(old.code(true, 'KeyA', undefined, 'ф'), 'KeyA', 'a helper that can\'t type: the key');
+    assert.strictEqual(typed.length, 2);
+    us.reset();
   }
 
   // reset: nothing held.

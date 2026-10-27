@@ -114,6 +114,9 @@
       K_DOWN: 'k.md',
       K_UP: 'k.mu',
       K_WHEEL: 'k.wh',
+      // {code} the key's place; ch: the a–z letter it types on the sender's layout (shortcuts by letter);
+      // tx (k.kd): the letter of another alphabet it types there (ж), typed as it is where the key types a
+      // Latin letter (shared/keylayout.js)
       K_KEY_DOWN: 'k.kd',
       K_KEY_UP: 'k.ku',
       // A trackpad gesture by what it means, done natively by the driven computer:
@@ -230,13 +233,14 @@
       // The phone as the computer's remote (its Remote page: touchpad, keyboard, gamepad), phone->computer.
       // Relative like k.*, applied only while the computer lets the phone control it (Windows for now):
       REMOTE_HELLO: 'remote.hello', // phone->computer: the Remote page opened (the computer answers remote.state)
-      REMOTE_STATE: 'remote.state', // computer->phone {allowed, why, pad}: whether it takes the remote's input now; pad: as a real gamepad (Remote › Real gamepad)
+      REMOTE_STATE: 'remote.state', // computer->phone {allowed, why, pad, text}: whether it takes the remote's input now; pad: as a real gamepad (Remote › Real gamepad); text: it takes remote.text
       REMOTE_MOVE: 'remote.mm', // {dx, dy, smooth?} pixels; smooth: eased out over about a frame on the computer
       REMOTE_DOWN: 'remote.md', // {b}
       REMOTE_UP: 'remote.mu', // {b}
       REMOTE_WHEEL: 'remote.wh', // {dx, dy} pixels
       REMOTE_KEY_DOWN: 'remote.kd', // {code} (KeyboardEvent.code)
       REMOTE_KEY_UP: 'remote.ku', // {code}
+      REMOTE_TEXT: 'remote.text', // {text}: characters no key here types (Cyrillic, accents…), typed as they are; only while remote.state says text
       REMOTE_RELEASE: 'remote.release', // let go of every key and button the remote holds
       // {b, lx, ly, rx, ry, lt, rt}, only while remote.state says pad: b the buttons (bits 0..13: A B X Y LB RB
       // Back Start L3 R3 Up Down Left Right), the sticks -1..1 (y down), the triggers 0..1; on change, at most every 8 ms

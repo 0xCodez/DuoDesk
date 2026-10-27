@@ -41,6 +41,7 @@ void emit(const char *line); // one line to stdout (the only writer)
 int key_evdev(const char *code);   // -1 if unknown
 const char *key_code(int evdev);   // NULL if unknown
 void keys_layout(double id, Display *dpy); // keyLayout's reply: what each key types alone (NULL dpy: nothing)
+void keys_type(Display *dpy, const char *text); // text as it is, on spare key codes (NULL dpy: nothing)
 
 // ---- screens.c: XRandR monitors (physical px) ----
 enum { SIDE_NONE = -1, SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM };

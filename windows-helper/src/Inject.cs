@@ -190,6 +190,24 @@ namespace MacShare
             Send(i);
         }
 
+        // Text typed as it is, whatever this PC's layout (KEYEVENTF_UNICODE): a letter of another alphabet
+        // from the other computer's layout (shared/keylayout.js) or the phone Remote's keyboard.
+        public static void Type(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            if (text.Length > 64) text = text.Substring(0, 64);
+            foreach (char ch in text)
+                foreach (bool down in new[] { true, false })
+                {
+                    Native.INPUT i = new Native.INPUT();
+                    i.type = Native.INPUT_KEYBOARD;
+                    i.u.ki.wScan = ch;
+                    i.u.ki.dwFlags = Native.KEYEVENTF_UNICODE | (down ? 0 : Native.KEYEVENTF_KEYUP);
+                    i.u.ki.dwExtraInfo = Native.MARK;
+                    Send(i);
+                }
+        }
+
         // Esc down+up (cancels a local drag-and-drop loop).
         public static void Escape()
         {

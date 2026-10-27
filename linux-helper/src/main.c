@@ -153,6 +153,8 @@ static void dispatch(const char *line) {
   } else if (!strcmp(cmd, "inject")) {
     JObj *ev = jobj(c, "ev");
     if (ev) inject_apply(ev);
+  } else if (!strcmp(cmd, "type")) { // text as it is, whatever the layout (keys.c)
+    keys_type(dpy_in, jstr(c, "text", ""));
   } else if (!strcmp(cmd, "releaseAll")) {
     inject_release_all();
   } else if (!strcmp(cmd, "moveTo")) {

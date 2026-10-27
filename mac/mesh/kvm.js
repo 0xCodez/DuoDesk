@@ -60,7 +60,7 @@ class Kvm extends EventEmitter {
     this.injectMoves = new KvmMoves({
       send: (m) => this.mode === 'driven' && this.helper.send('inject', { ev: { t: P.T.K_MOVE, dx: m.dx, dy: m.dy } }),
     });
-    this.keys = new KeyLayout((cmd, args) => this.helper.request(cmd, args)); // shortcuts by letter across layouts
+    this.keys = new KeyLayout((cmd, args) => this.helper.request(cmd, args), (cmd, args) => this.helper.send(cmd, args)); // shortcuts and alphabets across layouts
     this.local = null; // phone-bridge.js: drives a phone itself (its input goes through adb, not the link)
     this.locked = false; // cursor lock (shared/cursorlock.js): the pointer stays on the device it is on
     this.lockAt = 0;
@@ -681,7 +681,8 @@ class Kvm extends EventEmitter {
         }
         ev = { t: m.t, code: this._swapKeys(from) ? P.mapKeyFromOtherPlatform(m.code) : m.code };
         if (this._lockKeyHere(ev)) return;
-        ev.code = this.keys.code(m.t === P.T.K_KEY_DOWN, ev.code, m.ch); // a shortcut's letter: our key for it
+        ev.code = this.keys.code(m.t === P.T.K_KEY_DOWN, ev.code, m.ch, m.tx); // a shortcut's letter: our key for it
+        if (!ev.code) return; // another alphabet's letter: typed as it is
     }
     this._injectEv(ev);
   }

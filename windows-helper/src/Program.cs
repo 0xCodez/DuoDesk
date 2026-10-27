@@ -388,8 +388,14 @@ namespace MacShare
                         List<string> selNames = Strings(c, "names");
                         Async(c, delegate (Dictionary<string, object> r) { Shell.SelectIn(selDir, selNames); }, true);
                         return;
-                    case "keyLayout": // what each key types alone in the layout in front (shared/keylayout.js)
+                    case "keyLayout": // what each key types alone in the layout in front (shared/keylayout.js); type: it takes "type"
                         c["layout"] = Keys.Layout();
+                        c["type"] = true;
+                        break;
+                    case "type": // text as it is, whatever the layout
+                        Injector.Wake();
+                        smoother.Flush(injector.Move);
+                        Injector.Type(Json.Str(c, "text", ""));
                         break;
                     case "info":
                         Native.POINT cur;
@@ -411,6 +417,7 @@ namespace MacShare
             if (cmd == "displays") reply["displays"] = c["displays"];
             if ((cmd == "displayMode" || cmd == "displayExtend") && error == null) reply["changed"] = c["changed"];
             if (cmd == "folderAt") { reply["path"] = c["path"]; reply["desktop"] = c["desktop"]; }
+            if (cmd == "keyLayout") { reply["layout"] = c["layout"]; reply["type"] = c["type"]; }
             Emit(reply);
         }
     }

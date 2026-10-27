@@ -195,6 +195,20 @@ final class Injector {
     return code
   }
 
+  /// Text typed as it is, whatever this Mac's layout: a letter of another alphabet from the other
+  /// computer's layout (shared/keylayout.js) or the phone Remote's keyboard. Without modifiers.
+  func type(_ text: String) {
+    for ch in text.prefix(64) {
+      let u = Array(String(ch).utf16)
+      for down in [true, false] {
+        let e = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down)
+        e?.flags = []
+        e?.keyboardSetUnicodeString(stringLength: u.count, unicodeString: u)
+        post(e)
+      }
+    }
+  }
+
   /// Key-up every key and button we hold, clear modifiers.
   func releaseAll() {
     for vk in heldKeys {
