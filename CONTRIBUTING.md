@@ -1,0 +1,13 @@
+# Contributing to TwinDesk
+
+> [!IMPORTANT]
+> **TwinDesk is in a feature freeze.** We are not adding new features until all current bugs and performance problems are fixed.
+> Bug reports, performance reports and fixes for them are very welcome. Feature requests and feature PRs will be closed or left for after the freeze.
+
+## Reporting a bug
+
+Please include your OS and version, the TwinDesk version, which devices were connected and the steps to reproduce. Logs and screenshots help a lot.
+
+## Pull requests
+
+During the freeze, only bug fixes and performance fixes will be merged. Keep each PR to one fix and say which issue it fixes.
