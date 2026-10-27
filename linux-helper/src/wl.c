@@ -293,6 +293,14 @@ static void inj_key(const char *code, int down) {
   usyn(urel);
 }
 
+void wl_button(int b, int down) { inj_button(b, down); }
+
+void wl_pen_moved(int x, int y) {
+  int cx, cy;
+  screens_clamp(x, y, (int)px, (int)py, &cx, &cy);
+  px = cx; py = cy;
+}
+
 void wl_release_all(void) {
   for (int i = 0; i < 256; i++) if (injKeys[i]) { injKeys[i] = 0; uemit(urel, EV_KEY, i, 0); }
   for (int b = 0; b < 5; b++) if (injButtons[b]) { injButtons[b] = 0; uemit(urel, EV_KEY, BTN[b], 0); }

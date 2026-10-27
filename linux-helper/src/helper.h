@@ -107,6 +107,7 @@ void xclip_files(double id);
 void inject_apply(const JObj *ev);
 void inject_move_to(int x, int y);
 void inject_release_all(void);
+void inject_button(int b, int down);
 
 // ---- wins.c: top-level windows for Apps (X11) ----
 void wins_list(double id);
@@ -130,6 +131,8 @@ void wl_return_zones(const char *text);
 void wl_arm_return(int on, int side, double resistance);
 void wl_inject(const JObj *ev);
 void wl_move_to(int x, int y);
+void wl_button(int b, int down);
+void wl_pen_moved(int x, int y); // the pen put the pointer there (pen.c)
 void wl_release_all(void);
 void wl_watch_release(int on); // `released` at our next left button-up at home
 void wl_touch(void);
@@ -137,6 +140,10 @@ int wl_active(void);
 void wl_position(int *x, int *y);
 void wl_shutdown(void);
 int wl_devices(void);
+
+// ---- pen.c: a phone's stylus as a uinput tablet pen (both backends; wl: on Wayland) ----
+void pen_at(int wl, int x, int y, const JObj *pen);
+void pen_leave(int wl);
 
 // ---- ble.c: Bluetooth LE through BlueZ (Ble.cs's commands and events), its own thread ----
 int ble_handle(const char *line); // 1: a ble*/blp* command, taken

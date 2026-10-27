@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Input injection with CGEvent: absolute stream input (`input`) and releaseAll.
+// Input injection with CGEvent: absolute stream input (`input`, a phone's stylus in Pen.swift) and releaseAll.
 // Relative KVM input (`inject`) is in InjectRelative.swift.
 // Every injected event is marked with eventSourceUserData = 0x4D53 so our own tap can skip it.
 import Carbon.HIToolbox
@@ -27,6 +27,8 @@ final class Injector {
   // at most once a second, reusing one assertion.
   private var activityID = IOPMAssertionID(0)
   private var lastActivity: TimeInterval = 0
+  // A phone's stylus (Pen.swift): its pointer events go as a tablet pen's.
+  lazy var pen = PenInput(source: source, post: { [unowned self] e in self.post(e) })
 
   init() {
     source = CGEventSource(stateID: .hidSystemState)
@@ -75,6 +77,7 @@ final class Injector {
     e?.setIntegerValueField(.mouseEventButtonNumber, value: Int64(b))
     if let c = clickState { e?.setIntegerValueField(.mouseEventClickState, value: c) }
     e?.flags = flags
+    if let e = e { pen.decorate(e, at: p) }
     post(e)
   }
 
@@ -88,6 +91,11 @@ final class Injector {
   /// One `in.*` message (key codes already swapped by main) onto the display at `bounds`.
   func input(_ ev: [String: Any], bounds: CGRect) {
     guard let t = ev["t"] as? String else { return }
+    if let p = ev["pen"] as? [String: Any] {
+      guard pen.arrive(p) else { return } // out of range: its proximity ended
+      pen.current = p
+    }
+    defer { pen.current = nil }
     switch t {
     case "in.mm":
       let p = point(ev, bounds)
@@ -224,6 +232,7 @@ final class Injector {
     let p = CGEvent(source: nil)?.location ?? .zero
     for b in heldButtons { mouse(mouseType(b, down: false), at: p, button: b, clickState: clickCount[b] ?? 1) }
     heldButtons.removeAll()
+    pen.leave()
   }
 }
 

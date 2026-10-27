@@ -25,6 +25,7 @@ namespace MacShare
         static Control invoker;
         static Capture capture;
         static Injector injector;
+        static Stylus stylus; // a phone's stylus (Stylus.cs)
         static Smoother smoother; // the phone Remote's moves, eased out (k.mm with smooth)
         static ClipWatch clipWatch; // "clipboard" events: something was copied (ClipWatch.cs)
         static DropEdge dropEdge;
@@ -48,6 +49,7 @@ namespace MacShare
             AppDomain.CurrentDomain.UnhandledException += delegate { HideCursor.Restore(); };
             capture = new Capture(Emit);
             injector = new Injector();
+            stylus = new Stylus(injector);
             injector.Moved = capture.FeedReturn;
             injector.Stops = capture.ReturnStops;
             smoother = new Smoother(delegate (double x, double y) { invoker.BeginInvoke((MethodInvoker)delegate { injector.Move(x, y); }); });
@@ -261,7 +263,7 @@ namespace MacShare
                         smoother.Flush(injector.Move); // a click or key lands where the pointer ends up
                         injector.Apply(ev);
                         break;
-                    case "releaseAll": smoother.Clear(); injector.ReleaseAll(); break;
+                    case "releaseAll": smoother.Clear(); stylus.Leave(); injector.ReleaseAll(); break;
                     case "toastProgress": // a live toast with a progress bar (Toast.cs)
                         Toast.Progress(Json.Str(c, "aumid", ""), Json.Str(c, "tag", "files"), Json.Str(c, "title", ""), Json.Str(c, "status", ""), Json.Num(c, "value", -1), Json.Str(c, "label", ""));
                         break;
@@ -269,6 +271,10 @@ namespace MacShare
                         Toast.Done(Json.Str(c, "aumid", ""), Json.Str(c, "tag", "files"), Json.Str(c, "title", ""), Json.Str(c, "text", ""));
                         break;
                     case "moveTo": Injector.MoveTo((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0)); break; // The Mac's pointer on this PC's screen
+                    case "pen": // a phone's stylus on this PC's screen (Stylus.cs)
+                        Dictionary<string, object> st = Json.Obj(c, "pen");
+                        if (st != null) stylus.At((int)Json.Num(c, "x", 0), (int)Json.Num(c, "y", 0), st);
+                        break;
                     case "displays": c["displays"] = Display.List(); break;
                     case "displayExtend": c["changed"] = Display.ExtendIfDuplicated(Json.Str(c, "monitor", "")); break;
                     // PC apps on the Mac

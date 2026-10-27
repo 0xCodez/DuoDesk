@@ -92,7 +92,8 @@
       RTC_OFFER: 'rtc.offer',
       RTC_ANSWER: 'rtc.answer',
       RTC_ICE: 'rtc.ice',
-      // input inside the Monitor 2 window (absolute, normalized), Windows -> Mac
+      // input inside the Monitor 2 window (absolute, normalized), Windows -> Mac. From a phone's
+      // stylus, in.mm/md/mu carry `pen` (P.penOf): the helpers inject a tablet pen; without it, a mouse
       IN_MOVE: 'in.mm',
       IN_DOWN: 'in.md',
       IN_UP: 'in.mu',
@@ -416,6 +417,21 @@
         MetaRight: 'ControlRight',
       };
       return swap[code] || code;
+    },
+
+    // A stylus's state on in.mm/md/mu (android viewer.js), checked: {p pressure 0–1, tx/ty tilt
+    // degrees −90…90, tw twist degrees 0–359, c the tip or the eraser touches, er the eraser end,
+    // bar the side button held, out it left the screen's range}; null when there is none.
+    penOf(v) {
+      if (!v || typeof v !== 'object') return null;
+      const n = (x, lo, hi) => (typeof x === 'number' && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : 0);
+      const out = v.out === true;
+      const c = v.c === true && !out;
+      return {
+        p: c ? n(v.p, 0, 1) : 0,
+        tx: n(v.tx, -90, 90), ty: n(v.ty, -90, 90), tw: ((n(v.tw, -720, 720) % 360) + 360) % 360,
+        c, er: v.er === true, bar: v.bar === true && !out, out,
+      };
     },
   };
 

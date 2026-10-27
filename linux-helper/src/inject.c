@@ -42,6 +42,8 @@ static void button(int b, int down) {
   XFlush(dpy_in);
 }
 
+void inject_button(int b, int down) { button(b, down); }
+
 void inject_button_up(int b) {
   if (b >= 0 && b <= 4 && heldButtons[b]) button(b, 0);
 }
