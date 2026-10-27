@@ -7,6 +7,7 @@
 // the session again if the network goes. A move that doesn't last is tried again later and later (resumeBackoff).
 const WebSocket = require('ws');
 const P = require('../shared/protocol.js');
+const { PairLimit, versionMessage } = require('../shared/pairlimit.js');
 
 const T = P.T;
 // A host without `os` is an older Mac.
@@ -53,6 +54,7 @@ class Link {
     this.takeover = false; // the next hello takes the session from whoever has it (Take over, an invite)
     this.busyBy = ''; // the host is in use by someone else ("In use by …"): tried again now and then
     this.timers = {};
+    this.pairLimit = new PairLimit((why) => this._pairFailed(why)); // shared/pairlimit.js
     this.handlers = new Map();
     this.stateFns = [];
     this.unknown = new Set();
@@ -425,7 +427,10 @@ class Link {
 
   _onError(msg) {
     const code = msg.code;
-    if (this.mode === 'pair') return this._pairFailed(PAIR_ERRORS[code] || 'Pairing failed (' + code + ').');
+    if (this.mode === 'pair') {
+      const name = (this.pairState && this.pairState.macName) || '{Name}';
+      return this._pairFailed((code === P.E.VERSION_MISMATCH && versionMessage(msg, name)) || PAIR_ERRORS[code] || 'Pairing failed (' + code + ').');
+    }
     if (code === P.E.BAD_TOKEN) {
       this.forget();
       this._setStatus('not_paired', 'Your Mac forgot {me}. Pair again.');
@@ -549,6 +554,8 @@ class Link {
   }
 
   _changed() {
+    const ps = this.pairState;
+    this.pairLimit.update(ps, ps && ps.macName, ps && ps.address);
     for (const fn of this.stateFns) fn();
   }
 }

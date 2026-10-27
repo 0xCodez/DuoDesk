@@ -9,6 +9,7 @@
 const WebSocket = require('ws');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
+const { PairLimit, versionMessage } = require('../shared/pairlimit.js');
 const store = require('./store');
 
 const T = P.T;
@@ -41,6 +42,7 @@ class Link extends EventEmitter {
     this.takeover = false; // the next hello takes the session from whoever has it (Take over)
     this.busyBy = ''; // the host is in use by someone else: tried again now and then
     this.timers = {};
+    this.pairLimit = new PairLimit((why) => this._pairFailed(why)); // shared/pairlimit.js
   }
 
   start() {
@@ -268,7 +270,10 @@ class Link extends EventEmitter {
 
   _onError(msg) {
     const code = msg.code;
-    if (this.mode === 'pair') return this._pairFailed(PAIR_ERRORS[code] || `Pairing failed (${code}).`);
+    if (this.mode === 'pair') {
+      const name = (this.pairState && this.pairState.name) || 'The other computer';
+      return this._pairFailed((code === P.E.VERSION_MISMATCH && versionMessage(msg, name)) || PAIR_ERRORS[code] || `Pairing failed (${code}).`);
+    }
     if (code === P.E.BAD_TOKEN && this.host) {
       const name = this.host.name;
       this.forget(this.host.id);
@@ -365,6 +370,8 @@ class Link extends EventEmitter {
   }
 
   _changed() {
+    const ps = this.pairState;
+    this.pairLimit.update(ps, ps && ps.name, ps && ps.address);
     this.emit('change');
   }
 }

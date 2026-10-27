@@ -99,7 +99,7 @@ class KvmMap extends EventEmitter {
       const w = new BrowserWindow({
         x: Math.round(d.bounds.x + (d.bounds.width - size) / 2), y: Math.round(d.bounds.y + (d.bounds.height - size) / 2),
         width: size, height: size, frame: false, transparent: true, resizable: false, movable: false, focusable: false,
-        skipTaskbar: true, hasShadow: false, alwaysOnTop: true, show: false, webPreferences: { javascript: false },
+        skipTaskbar: true, hasShadow: false, alwaysOnTop: true, show: false, backgroundColor: '#00000000', webPreferences: { javascript: false },
       });
       w.setIgnoreMouseEvents(true);
       w.setAlwaysOnTop(true, 'screen-saver');

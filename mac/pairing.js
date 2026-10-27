@@ -33,7 +33,7 @@ class Pairing extends EventEmitter {
   // What the control window shows about an in-progress request.
   pendingView() {
     const p = this.pending;
-    return p && { name: p.name, os: p.os, code: p.code, confirmed: p.confirmed, allowed: p.allowed, wired: p.wired };
+    return p && { id: p.id, name: p.name, os: p.os, code: p.code, confirmed: p.confirmed, allowed: p.allowed, wired: p.wired };
   }
 
   touch(id) {
