@@ -13,7 +13,8 @@
 const { EventEmitter } = require('events');
 const P = require('./protocol.js');
 const G = require('./kvm-geom.js');
-const { normalizeDisplays } = require('./screen-mesh.js');
+// Loaded when first needed: the one-to-one app loads nothing of Multi-device at start (switch.test.js).
+const normalizeDisplays = (list) => require('./screen-mesh.js').normalizeDisplays(list);
 
 class KvmMap extends EventEmitter {
   // electron: { screen, BrowserWindow }. send(msg): to the other computer (false when not connected).
