@@ -41,8 +41,10 @@ UI.tab({
     // Updates: new releases of TwinDesk on GitHub.
     const updStatus = el('span', { class: 'value' });
     const updCheck = UI.button('Check now', () => api.checkUpdates(), 'small');
+    const updNotes = UI.button('What’s New', () => window.UpdaterModal && window.UpdaterModal.show(), 'small');
+    const updUnskip = UI.button('Don’t skip', () => api.unskipUpdate && api.unskipUpdate(), 'small');
     const updGet = UI.button('Download', () => api.openUpdate(), 'small primary');
-    const updRow = UI.row('TwinDesk', '', [updStatus, updGet, updCheck]);
+    const updRow = UI.row('TwinDesk', '', [updStatus, updNotes, updUnskip, updGet, updCheck]);
     const updAuto = UI.switch((v) => api.setUpdates({ auto: v }), { label: 'Check for updates automatically' });
 
     const pc = facts('This computer', ['Computer name', 'System', 'Kernel', 'Processor', 'Memory', 'Architecture']);
@@ -89,7 +91,12 @@ UI.tab({
         updAuto.set(u.auto);
         updCheck.disabled = u.checking;
         updGet.hidden = !u.available;
-        updStatus.textContent = u.checking ? 'Checking…' : u.available ? u.latest + ' is available' : u.checkedAt ? 'Up to date' : '';
+        updNotes.hidden = !u.available;
+        updUnskip.hidden = !u.available || !u.skipped;
+        updStatus.textContent = u.checking ? 'Checking…'
+          : u.available
+            ? (u.skipped ? u.latest + ' is available (skipped)' : u.latest + ' is available')
+            : u.checkedAt ? 'Up to date' : '';
         updRow.setHint(u.error ? 'Couldn’t check: ' + u.error
           : u.available ? 'You have ' + u.current + '. ' + (u.download ? 'Download ' + u.download.name : 'Opens the release page')
             : u.noReleases ? 'Version ' + u.current + '. No releases published yet'
