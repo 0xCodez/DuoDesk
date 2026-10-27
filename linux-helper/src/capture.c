@@ -92,6 +92,7 @@ static double repeatAt, repeatDelay = 500, repeatInterval = 33;
 // and keyboard grabs; a barrier keeps the pointer on the strip until the real button-up, then
 // capture takes its grabs (softUp)
 static int soft, softUp, leftDown;
+static int watchRel; // capture_watch_release: say `released` at our next left button-up at home
 static double softSince;
 static PointerBarrier bars[3];
 static int nbars;
@@ -417,6 +418,30 @@ void capture_drag_cross(const char *paths, int x, int y, int sx, int sy, int sw,
   free(line);
 }
 
+// A file drag caught on the way back (drop.c, while driven): the input goes home with its files
+// (`return {offset, drag:{paths}}`), and the driver's button that holds it here is let go on the
+// strip, where the drop does nothing.
+void capture_drag_return(const char *paths, int x, int y, int s) {
+  if (!retArmed || capturing) return;
+  retArmed = 0;
+#ifdef MULTI
+  memset(retPushBy, 0, sizeof retPushBy);
+#endif
+  lastCross = now_ms();
+  size_t cap = strlen(paths) + 160;
+  char *line = malloc(cap);
+#ifdef MULTI
+  snprintf(line, cap, "{\"event\":\"return\",\"side\":\"%s\",\"offset\":%.4f,\"drag\":{\"paths\":%s}}", side_name(s), screens_offset(x, y, s), paths);
+#else
+  snprintf(line, cap, "{\"event\":\"return\",\"offset\":%.4f,\"drag\":{\"paths\":%s}}", screens_offset(x, y, s), paths);
+#endif
+  emit(line);
+  free(line);
+  inject_button_up(0);
+}
+
+void capture_watch_release(int on) { watchRel = on; }
+
 // The file manager's drag ended on the strip (drop.c): take the grabs as soon as it lets go.
 void capture_drag_dropped(void) {
   if (soft) softUp = 1;
@@ -444,7 +469,7 @@ void capture_tick(void) {
   repeat_tick(now);
   shortcut_tick();
   soft_tick(now);
-  drop_tick(capturing, side, driveOther, leftDown);
+  drop_tick(capturing, side, driveOther, leftDown, retArmed ? retSide : SIDE_NONE);
   if (capturing && now - lastCmd > deadmanMs) {
     capture_stop(SIDE_NONE, 0, 0); // rule 1: a hung main or a dead link never keeps the user's input
     JOut o;
@@ -563,6 +588,7 @@ static void on_key(int ev, int down) {
 static void on_button(int xb, int down) {
   if (xb < 0 || xb >= 32) return;
   if (xb == 1) { leftDown = down; if (!down && soft) softUp = 1; }
+  if (xb == 1 && !down && watchRel && !capturing) { watchRel = 0; emit("{\"event\":\"released\"}"); }
   if (!down && swallowButtons[xb]) { swallowButtons[xb] = 0; release_grabs(); return; }
   if (!capturing || !capMouse) return;
   if (xb >= 4 && xb <= 7) {
@@ -591,7 +617,7 @@ static void on_button(int xb, int down) {
 #ifdef MULTI
 // Every armed side counts, summed on its own; the first through says which side it left by.
 void capture_feed_return(int x, int y, double dx, double dy) {
-  if (!retArmed) return;
+  if (!retArmed || drop_holding()) return;
   double now = now_ms();
   for (int i = 0; i < nret; i++) {
     int s = retSides[i];
@@ -645,7 +671,7 @@ static void multi_edge_push(int x, int y, unsigned mask, double rdx, double rdy)
 }
 #else
 void capture_feed_return(int x, int y, double dx, double dy) {
-  if (!retArmed) return;
+  if (!retArmed || drop_holding()) return;
   double outward = screens_outward(retSide, dx, dy);
   if (!may_cross(retSide, outward)) { retPush = 0; return; }
   if (outward <= 0 || !screens_on_outer_edge(x, y, retSide) || !zones_contain(retZ, nRetZ, x, y, retSide)) { retPush = 0; return; }

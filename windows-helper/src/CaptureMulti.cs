@@ -65,6 +65,7 @@ namespace MacShare
                 HideCursor.Hide();
                 // Park in the middle so outward motion isn't clamped by the screen edge.
                 parked = Screens.Center();
+                parkedAt = DateTime.UtcNow;
                 parkPad.Cover(parked);
                 Native.SetCursorPos(parked.X, parked.Y);
             }
@@ -145,7 +146,7 @@ namespace MacShare
         // the resistance wins and the watch is off until main arms it again.
         public void FeedReturn(int x, int y, double dx, double dy)
         {
-            if (!retArmed) return;
+            if (!retArmed || HoldReturn) return;
             DateTime now = DateTime.UtcNow;
             foreach (string side in retSides)
             {

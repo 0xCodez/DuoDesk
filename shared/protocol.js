@@ -105,6 +105,9 @@
       KVM_ACCEPT: 'kvm.accept',
       KVM_REFUSE: 'kvm.refuse',
       KVM_RELEASE: 'kvm.release',
+      // driven->owner {route, offset?, drag?}: the input goes home. With the left button still held in
+      // a file drag, `drag` carries it on there: {back: id} the owner's own drag.start `id` came back
+      // (its files are on the owner), {count} the driven side's own files follow as a drag.start + files
       KVM_HOME: 'kvm.home',
       KVM_LINK: 'kvm.link', // either {on}: mouse and keyboard sharing switched on/off (hotkey double-tap); the other side follows
       KVM_LOCK: 'kvm.lock', // either {on}: the cursor is locked on the device it is on (shared/cursorlock.js); sent only while one drives the other

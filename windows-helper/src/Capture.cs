@@ -33,6 +33,12 @@ namespace MacShare
         // capture state
         bool capturing, capMouse, capKeys;
         Point saved, parked;
+        // When the pointer was parked (Begin). A capture begun outside the mouse hook (a file drag
+        // crossing, DropEdge.cs) can still get moves measured from where the pointer was: half a
+        // screen at once, which put the drag past the middle of the other screen. Dropped.
+        DateTime parkedAt;
+        const int StaleMs = 200, StalePx = 150;
+        public bool HoldReturn; // DropEdge.cs is catching a file drag on the way back: it goes home with it
         readonly HashSet<uint> heldVks = new HashSet<uint>(), swallowVks = new HashSet<uint>();
         readonly HashSet<int> heldButtons = new HashSet<int>(), swallowButtons = new HashSet<int>();
         DateTime lastCmd = DateTime.UtcNow;
@@ -211,6 +217,7 @@ namespace MacShare
                 HideCursor.Hide();
                 // Park in the middle so outward motion isn't clamped by the screen edge.
                 parked = Screens.Center();
+                parkedAt = DateTime.UtcNow;
                 parkPad.Cover(parked);
                 Native.SetCursorPos(parked.X, parked.Y);
             }
@@ -241,6 +248,33 @@ namespace MacShare
 #endif
 
         public bool Capturing { get { return capturing; } }
+        public DateTime LastCross { get { return lastCross; } } // the last crossing, either way
+
+        // A button pressed while capturing has its release swallowed at home (Stop). A drag that came
+        // home with it (dragStart home, dragLocal) is dropped by that release: let it through.
+        public void Unswallow(int button) { swallowButtons.Remove(button); }
+
+        // A file drag caught on the way back (DropEdge.cs, while driven): the input goes home with its
+        // files, `return {offset, drag:{paths}}`.
+        public void ReturnWithDrag(Point p, string side, string[] paths)
+        {
+            HoldReturn = false;
+            retArmed = false;
+#if MULTI
+            retPushes.Clear();
+#endif
+            lastCross = DateTime.UtcNow;
+            if (Flash != null) Flash.Play(p, side, true);
+            Dictionary<string, object> d = Ev("return");
+            d["offset"] = Math.Round(Screens.Offset(p.X, p.Y, side), 4);
+#if MULTI
+            d["side"] = side;
+#endif
+            Dictionary<string, object> drag = new Dictionary<string, object>();
+            drag["paths"] = paths;
+            d["drag"] = drag;
+            emit(d);
+        }
 
         // The pointer came to this PC (back home, or placed by the driver) through `side`, or by the
         // hotkey (null): starts the cooldown and the arrival guard, and clears every push.
@@ -339,6 +373,8 @@ namespace MacShare
             if (msg == Native.WM_MOUSEMOVE)
             {
                 int dx = m.pt.x - parked.X, dy = m.pt.y - parked.Y;
+                if ((DateTime.UtcNow - parkedAt).TotalMilliseconds < StaleMs && (Math.Abs(dx) > StalePx || Math.Abs(dy) > StalePx))
+                    return (IntPtr)1; // from before the park
                 if (dx != 0 || dy != 0)
                 {
                     double s = Screens.Scale(parked.X, parked.Y);
@@ -523,7 +559,7 @@ namespace MacShare
         // Injected moves report here too (Injector.Moved): the owner's hand reaches the edge.
         public void FeedReturn(int x, int y, double dx, double dy)
         {
-            if (!retArmed) return;
+            if (!retArmed || HoldReturn) return;
             double outward = Screens.Outward(retSide, dx, dy);
             if (!MayCross(retSide, outward)) { retPush = 0; return; }
             if (outward <= 0 || !Screens.OnOuterEdge(x, y, retSide) || !InZone(ReturnZones, x, y, retSide)) { retPush = 0; return; }

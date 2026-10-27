@@ -482,10 +482,14 @@ static void on_key(int ev, int value) {
   if (hot) fire_hotkey();
 }
 
+static int watchRel; // wl_watch_release: say `released` at our next left button-up at home
+void wl_watch_release(int on) { watchRel = on; }
+
 static void on_button(int code, int down) {
   int b = code == BTN_LEFT ? 0 : code == BTN_RIGHT ? 1 : code == BTN_MIDDLE ? 2 : code == BTN_SIDE ? 3 : code == BTN_EXTRA ? 4 : -1;
   if (b < 0) return;
   localButtons[b] = (unsigned char)down;
+  if (b == 0 && !down && watchRel && !capturing) { watchRel = 0; emit("{\"event\":\"released\"}"); }
   if (!capturing || !capMouse) return;
   if (!down && !sentButtons[b]) return;
   if (down) flush_hotkey();

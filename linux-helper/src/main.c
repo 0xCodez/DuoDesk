@@ -88,6 +88,8 @@ static void dispatch(const char *line) {
       if (ev) wl_inject(ev);
     } else if (!strcmp(cmd, "releaseAll")) {
       wl_release_all();
+    } else if (!strcmp(cmd, "watchRelease")) {
+      wl_watch_release(!jbool(c, "off", 0));
     } else if (!strcmp(cmd, "moveTo")) {
       wl_move_to((int)jnum(c, "x", 0), (int)jnum(c, "y", 0));
     } else if (!strcmp(cmd, "info")) {
@@ -157,6 +159,8 @@ static void dispatch(const char *line) {
     keys_type(dpy_in, jstr(c, "text", ""));
   } else if (!strcmp(cmd, "releaseAll")) {
     inject_release_all();
+  } else if (!strcmp(cmd, "watchRelease")) {
+    capture_watch_release(!jbool(c, "off", 0));
   } else if (!strcmp(cmd, "moveTo")) {
     inject_move_to((int)jnum(c, "x", 0), (int)jnum(c, "y", 0));
   } else if (!strcmp(cmd, "info")) {

@@ -531,6 +531,7 @@ class Kvm extends EventEmitter {
       // and on again. In keyboard-only mode (Cursor off + "Switch the keyboard with the hotkey") it
       // moves the keyboard over and back instead.
       case 'hotkey':
+        if (!this.hub.bus.connectedIds().length) break; // nothing connected: the hotkey does nothing (no sharing to switch)
         if (k.hotkeySwitch && !k.mouse && k.keyboard && this.linked) {
           if (this.mode === 'home') {
             if (!this._canDrive()) return;

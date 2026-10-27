@@ -88,12 +88,17 @@ void shortcut_tick(void);
 
 // ---- drop.c: file drags across the edge, out (X11): the edge strip, an XDND drop target ----
 void drop_config(const JObj *c);
-void drop_tick(int capturing, int side, int driveOther, int leftDown);
+void drop_tick(int capturing, int side, int driveOther, int leftDown, int backSide);
 void drop_xevent(XEvent *e);
 void drop_shutdown(void);
-// capture.c, called by drop.c: the drag crossed (paths: a built JSON array) / the source let go
+int drop_holding(void); // a file drag is being caught on the way back: no plain return meanwhile
+// capture.c, called by drop.c: the drag crossed (paths: a built JSON array) / the source let go /
+// a drag caught on the way back while driven
 void capture_drag_cross(const char *paths, int x, int y, int sx, int sy, int sw, int sh);
 void capture_drag_dropped(void);
+void capture_drag_return(const char *paths, int x, int y, int side);
+void capture_watch_release(int on); // `released` at our next left button-up at home
+void inject_button_up(int b);       // inject.c: an injected button's release (0 left)
 
 // ---- xclip.c: the files on the clipboard, as an X client (XWayland on Wayland) ----
 void xclip_files(double id);
@@ -126,6 +131,7 @@ void wl_arm_return(int on, int side, double resistance);
 void wl_inject(const JObj *ev);
 void wl_move_to(int x, int y);
 void wl_release_all(void);
+void wl_watch_release(int on); // `released` at our next left button-up at home
 void wl_touch(void);
 int wl_active(void);
 void wl_position(int *x, int *y);

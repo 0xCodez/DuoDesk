@@ -233,6 +233,9 @@ func handle(_ line: String) {
   case "dragCancel":
     DragIn.shared.cancel()
     reply(id)
+  case "dragLocal": // our own files, dragged back home with the button still held: a drag of them here
+    DragIn.shared.startLocal(drag: (msg["drag"] as? String) ?? "local", paths: (msg["paths"] as? [String]) ?? [])
+    reply(id)
   case "dragWritten":
     DragIn.shared.written(drag: (msg["drag"] as? String) ?? "", index: (msg["index"] as? NSNumber)?.intValue ?? -1,
                           error: msg["error"] as? String)

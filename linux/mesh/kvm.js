@@ -330,7 +330,7 @@ class Kvm {
       // the same sides for linux-helper, whose JSON reader skips arrays: its -multi build reads this one
       sideList: sides.join(','),
       dragFiles: this._dragsOut(sides.length ? this.edges[sides[0]] : null), // the edge strip that picks up file drags (X11)
-      shortcuts: !!f.shortcuts, // the copy/paste-files shortcuts at home (fclip.js)
+      shortcuts: !!f.shortcuts && this.hub.bus.connectedIds().length > 0, // the copy/paste-files shortcuts at home (fclip.js), while connected
       copyKeys: f.copyKeys,
       pasteKeys: f.pasteKeys,
       lockKeys: this.hub.bus.connectedIds().length ? this.settings.keys.lockKeys || '' : '', // the cursor lock key (shortcut.c)
@@ -441,6 +441,7 @@ class Kvm {
       // on) it moves the keyboard over and back instead.
       case 'hotkey': {
         const k = this.cfg;
+        if (!this.hub.bus.connectedIds().length) break; // nothing connected: the hotkey does nothing (no sharing to switch)
         if (k.hotkeySwitch && !k.mouse && k.keyboard && this.linked) {
           if (this.mode !== 'home') this.home();
           else if (!this._canDrive()) {

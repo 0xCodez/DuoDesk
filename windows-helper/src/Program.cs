@@ -307,7 +307,17 @@ namespace MacShare
                         if (nl != null) foreach (object o in nl) dnames.Add(Convert.ToString(o));
                         string into = Json.Str(c, "into", ""); // Paste = drop onto this folder
                         if (into != "") drag.DropDir = into;
+                        if (Json.Bool(c, "home", false)) capture.Unswallow(0); // came home with our button held: its release drops it
                         drag.Start(dnames);
+                        break;
+                    case "dragLocal": // our own files, dragged back home with the button still held: Explorer's kind of drag of them
+                        {
+                            List<string> lp = new List<string>();
+                            System.Collections.IList pl = c.ContainsKey("paths") ? c["paths"] as System.Collections.IList : null;
+                            if (pl != null) foreach (object o in pl) lp.Add(Convert.ToString(o));
+                            capture.Unswallow(0);
+                            LocalDrag.Start(lp, Json.Str(c, "drag", "local"), Emit);
+                        }
                         break;
                     case "dragFile":
                         if (drag != null && drag.Id == Json.Str(c, "drag", ""))

@@ -262,7 +262,9 @@ final class Capture {
     returnSides = []
     lastCross = now()
     Flash.shared.leave(at: p, side: found.side)
-    emit(["event": "return", "side": found.side, "offset": found.offset])
+    var out: [String: Any] = ["event": "return", "side": found.side, "offset": found.offset]
+    if let d = returnDrag(at: p) { out["drag"] = d }
+    emit(out)
   }
 
   /// The first watched edge the pointer pushed through (its side and offset), if any.
@@ -289,9 +291,32 @@ final class Capture {
     returnSide = nil
     lastCross = now()
     Flash.shared.leave(at: p, side: side)
-    emit(["event": "return", "offset": off])
+    var out: [String: Any] = ["event": "return", "offset": off]
+    if let d = returnDrag(at: p) { out["drag"] = d }
+    emit(out)
   }
 #endif
+
+  /// The driver's left button still held in a file drag as the pointer goes back: it carries on
+  /// there. Our drag in from it (DragIn) comes back (`back`: main cancels it here); a Finder drag
+  /// ends on a catcher here and its files go over (`paths`).
+  private func returnDrag(at p: CGPoint) -> [String: Any]? {
+    guard injector.heldButtons.contains(0) else { return nil }
+    if DragIn.shared.active { return ["back": true] }
+    guard dragFiles else { return nil }
+    let paths = draggedFiles()
+    guard !paths.isEmpty else { return nil }
+    injector.heldButtons.remove(0) // the catcher's button-up releases it
+    DragIn.shared.swallowLocalDrag(at: p)
+    log("return: drag through the edge, \(paths.count) file(s) on the drag pasteboard")
+    return ["paths": paths]
+  }
+
+  /// The driver pressed the left button here (injected, so the tap doesn't see it): a drag that
+  /// starts now is a new one (draggedFiles).
+  func injectedLeftDown() {
+    dragPbCount = NSPasteboard(name: .drag).changeCount
+  }
 
   /// Accumulate outward motion on an outer edge; returns the offset when it went through.
   private func push(_ st: inout (push: Double, at: Double, since: Double), _ p: CGPoint, _ dx: Double, _ dy: Double,
