@@ -27,8 +27,21 @@ namespace MacShare
         // Called after every injected move with the new position and the requested logical delta
         // (the return edge watches pushes through the edge, armReturn).
         public Action<int, int, double, double> Moved;
+        // The armed return sides (Capture.ReturnStops): a move stops at their outer edge.
+        public Func<List<string>> Stops;
 
         static readonly int Size = Marshal.SizeOf(typeof(Native.INPUT));
+
+        // SendInput usually wakes the display, but not always on the lock screen or modern-standby
+        // laptops: also reset the idle timers, at most once a second.
+        static int lastWake;
+        public static void Wake()
+        {
+            int now = Environment.TickCount;
+            if (lastWake != 0 && unchecked(now - lastWake) < 1000) return;
+            lastWake = now;
+            Native.SetThreadExecutionState(Native.ES_DISPLAY_REQUIRED | Native.ES_SYSTEM_REQUIRED);
+        }
 
         static void Send(Native.INPUT input)
         {
@@ -65,7 +78,7 @@ namespace MacShare
             double scale = Screens.Scale(cur.x, cur.y);
             double tx = cur.x + fx + dx * scale, ty = cur.y + fy + dy * scale;
             int ix = (int)Math.Round(tx), iy = (int)Math.Round(ty);
-            Point p = Screens.Clamp(ix, iy, cur.x, cur.y);
+            Point p = Screens.Walk(ix, iy, cur.x, cur.y, Stops != null ? Stops() : null);
             if (p.X != ix || p.Y != iy) { fx = 0; fy = 0; } // stopped by an edge: drop the remainder
             else { fx = tx - ix; fy = ty - iy; }
             if (p.X != cur.x || p.Y != cur.y) MoveTo(p.X, p.Y);

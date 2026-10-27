@@ -49,6 +49,7 @@ namespace MacShare
             capture = new Capture(Emit);
             injector = new Injector();
             injector.Moved = capture.FeedReturn;
+            injector.Stops = capture.ReturnStops;
             smoother = new Smoother(delegate (double x, double y) { invoker.BeginInvoke((MethodInvoker)delegate { injector.Move(x, y); }); });
             HideCursor.Restore(); // in case a crash left the cursors blank
             capture.Start();
@@ -214,6 +215,7 @@ namespace MacShare
                         capture.Side = Json.Str(c, "side", null);
 #endif
                         capture.ResistancePx = Json.Num(c, "resistancePx", 120);
+                        capture.CooldownMs = (int)Json.Num(c, "cooldownMs", 250);
                         capture.HotkeyVks = HotkeyVks(Json.Str(c, "hotkey", "AltRight"));
                         capture.DriveOther = Json.Bool(c, "driveOther", false);
                         capture.EdgeKeyboard = Json.Bool(c, "keyboard", true);
@@ -230,6 +232,7 @@ namespace MacShare
                         bool center = Json.Bool(c, "center", false);
                         Point p = center ? Screens.Center() : Screens.EdgePoint(Json.Str(c, "side", "left"), Json.Num(c, "offset", 0.5));
                         Native.SetCursorPos(p.X, p.Y);
+                        capture.Arrived(center ? null : Json.Str(c, "side", "left"));
                         capture.Flash.Play(p, center ? null : Json.Str(c, "side", "left"), false); // the Mac arrives here
                         break;
                     case "armReturn":
@@ -250,6 +253,7 @@ namespace MacShare
                     case "inject":
                         Dictionary<string, object> ev = Json.Obj(c, "ev");
                         if (ev == null) break;
+                        Injector.Wake();
                         if (Json.Str(ev, "t", "") == "k.mm" && Json.Bool(ev, "smooth", false)) { smoother.Add(Json.Num(ev, "dx", 0), Json.Num(ev, "dy", 0)); break; }
                         smoother.Flush(injector.Move); // a click or key lands where the pointer ends up
                         injector.Apply(ev);

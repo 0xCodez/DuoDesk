@@ -160,6 +160,7 @@ class Kvm extends EventEmitter {
         side: k.pcSide, resistancePx: k.resistancePx, keyboard: !!k.keyboard,
         driveOther: !!(this.linked && k.driveOther && k.mouse && this.server.current && !this.paused && !(this.locked && this.mode === 'home')),
         hotkey: this.getSettings().keys.hotkey || P.HOTKEY_MAC,
+        cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
         gestures: k.gestures !== false, // Trackpad gestures go over as k.ge
         dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
       })

@@ -37,6 +37,13 @@ static double lastCmd;
 static double push, lastPush;
 static int retArmed, retSide = SIDE_NONE;
 static double retResistance, retPush, retLast;
+// No new crossing within cooldownMs of the last one, either way (kvmConfig cooldownMs,
+// KVM_CROSS_COOLDOWN_MS). After arriving, the edge it came through only counts once the pointer
+// moved 8 px inward or GUARD_MS passed, so the end of a flick doesn't bounce straight back.
+#define GUARD_MS 500
+static double cooldownMs = 250, lastCross;
+static int arrivalSide = SIDE_NONE;
+static double arrivalAt, arrivalInward;
 
 #ifdef MULTI
 // Multi-device's helper (macshare-linuxhelper-multi, built with -DMULTI, docs/multi-device.md):
@@ -182,6 +189,7 @@ void capture_config(const JObj *c) {
   edgeKeyboard = jbool(c, "keyboard", 1);
   deadmanMs = jnum(c, "deadmanMs", 1500);
   doubleTapMs = jnum(c, "doubleTapMs", 400);
+  cooldownMs = jnum(c, "cooldownMs", 250);
   shortcut_config(c);
   drop_config(c);
 #ifdef MULTI
@@ -191,6 +199,43 @@ void capture_config(const JObj *c) {
 }
 
 void capture_touch(void) { lastCmd = now_ms(); }
+
+// The pointer came to this computer (back home, or placed by the driver) through `s`, or by the
+// hotkey (SIDE_NONE): starts the cooldown and the arrival guard, and clears every push.
+void capture_arrived(int s) {
+  lastCross = now_ms();
+  arrivalSide = s; arrivalAt = lastCross; arrivalInward = 0;
+  push = retPush = 0;
+#ifdef MULTI
+  memset(pushBy, 0, sizeof pushBy);
+  memset(retPushBy, 0, sizeof retPushBy);
+#endif
+}
+
+// 0 while a crossing through `s` has to wait (cooldown, arrival guard). `outward`: this move's
+// outward part for that side (negative = inward).
+static int may_cross(int s, double outward) {
+  double now = now_ms();
+  if (now - lastCross < cooldownMs) return 0;
+  if (arrivalSide != SIDE_NONE && arrivalSide == s) {
+    if (outward < 0) arrivalInward -= outward;
+    if (now - arrivalAt < GUARD_MS && arrivalInward < 8) return 0;
+    arrivalSide = SIDE_NONE;
+  }
+  return 1;
+}
+
+// The sides where an injected move stops at the edge rather than jump onto a monitor past it.
+int capture_return_stops(int *out) {
+  if (!retArmed) return 0;
+#ifdef MULTI
+  for (int i = 0; i < nret; i++) out[i] = retSides[i];
+  return nret;
+#else
+  out[0] = retSide;
+  return 1;
+#endif
+}
 int capture_active(void) { return capturing; }
 
 static void query(int *x, int *y, unsigned *mask) {
@@ -263,6 +308,8 @@ int capture_begin(int mouse, int keys) {
 #ifdef MULTI
   memset(pushBy, 0, sizeof pushBy);
 #endif
+  lastCross = now_ms();
+  arrivalSide = SIDE_NONE;
   return 1;
 }
 
@@ -292,10 +339,7 @@ void capture_stop(int toSide, double offset, int hasSide) {
     if (cursorHidden) { XFixesShowCursor(dpy_ev, root_ev); cursorHidden = 0; }
   }
   release_grabs();
-  push = 0;
-#ifdef MULTI
-  memset(pushBy, 0, sizeof pushBy);
-#endif
+  capture_arrived(hasSide ? toSide : SIDE_NONE);
 }
 
 void capture_arm_return(int on, int s, double resistance) {
@@ -331,6 +375,8 @@ void capture_drag_cross(const char *paths, int x, int y, int sx, int sy, int sw,
 #ifdef MULTI
   memset(pushBy, 0, sizeof pushBy);
 #endif
+  lastCross = now_ms();
+  arrivalSide = SIDE_NONE;
   savedX = x < sx ? sx : x > sx + sw - 1 ? sx + sw - 1 : x;
   savedY = y < sy ? sy : y > sy + sh - 1 ? sy + sh - 1 : y;
   XWarpPointer(dpy_in, None, root_in, 0, 0, 0, 0, savedX, savedY);
@@ -537,6 +583,7 @@ void capture_feed_return(int x, int y, double dx, double dy) {
   for (int i = 0; i < nret; i++) {
     int s = retSides[i];
     double outward = screens_outward(s, dx, dy);
+    if (!may_cross(s, outward)) { retPushBy[s] = 0; continue; }
     if (outward <= 0 || !screens_on_outer_edge(x, y, s)) { retPushBy[s] = 0; continue; }
     if (now - retLastBy[s] > 300) retPushBy[s] = 0;
     retLastBy[s] = now;
@@ -544,6 +591,7 @@ void capture_feed_return(int x, int y, double dx, double dy) {
     if (retPushBy[s] < retResistance) continue;
     retArmed = 0;
     memset(retPushBy, 0, sizeof retPushBy);
+    lastCross = now;
     JOut o;
     jo_begin(&o);
     jo_str(&o, "event", "return");
@@ -561,6 +609,7 @@ static void multi_edge_push(int x, int y, unsigned mask, double rdx, double rdy)
   for (int i = 0; i < nsides; i++) {
     int s = sides[i];
     double outward = screens_outward(s, rdx, rdy);
+    if (!may_cross(s, outward)) { pushBy[s] = 0; continue; }
     if (outward <= 0 || !screens_on_outer_edge(x, y, s)) { pushBy[s] = 0; continue; }
     if (now - lastPushBy[s] > 300) pushBy[s] = 0;
     lastPushBy[s] = now;
@@ -583,6 +632,7 @@ static void multi_edge_push(int x, int y, unsigned mask, double rdx, double rdy)
 void capture_feed_return(int x, int y, double dx, double dy) {
   if (!retArmed) return;
   double outward = screens_outward(retSide, dx, dy);
+  if (!may_cross(retSide, outward)) { retPush = 0; return; }
   if (outward <= 0 || !screens_on_outer_edge(x, y, retSide)) { retPush = 0; return; }
   double now = now_ms();
   if (now - retLast > 300) retPush = 0;
@@ -590,6 +640,7 @@ void capture_feed_return(int x, int y, double dx, double dy) {
   retPush += outward;
   if (retPush < retResistance) return;
   retArmed = 0;
+  lastCross = now;
   JOut o;
   jo_begin(&o);
   jo_str(&o, "event", "return");
@@ -619,6 +670,7 @@ static void on_motion(double dx, double dy, double rdx, double rdy) {
 #else
   if (!driveOther || side == SIDE_NONE || (mask & (Button1Mask | Button2Mask | Button3Mask))) { push = 0; return; } // rule 6
   double outward = screens_outward(side, rdx, rdy);
+  if (!may_cross(side, outward)) { push = 0; return; }
   if (outward <= 0 || !screens_on_outer_edge(x, y, side)) { push = 0; return; }
   double now = now_ms();
   if (now - lastPush > 300) push = 0;

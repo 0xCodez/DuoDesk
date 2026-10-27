@@ -42,6 +42,13 @@ namespace MacShare
         double push; DateTime lastPush;
         bool retArmed; string retSide; double retResistance, retPush; DateTime retLast;
 #endif
+        // No new crossing within CooldownMs of the last one, either way (kvmConfig cooldownMs,
+        // KVM_CROSS_COOLDOWN_MS). After arriving, the edge it came through only counts once the pointer
+        // moved 8 px inward or GuardMs passed, so the end of a flick doesn't bounce straight back.
+        public int CooldownMs = 250;
+        const int GuardMs = 500;
+        DateTime lastCross = DateTime.MinValue, arrivalAt;
+        string arrivalSide; double arrivalInward;
 
         // hotkey double-tap
         bool hkDown; DateTime lastTapUp = DateTime.MinValue;
@@ -174,6 +181,7 @@ namespace MacShare
                 Native.SetCursorPos(parked.X, parked.Y);
             }
             push = 0;
+            lastCross = DateTime.UtcNow; arrivalSide = null;
         }
 
         // side == null: put the pointer back where capture began.
@@ -194,11 +202,49 @@ namespace MacShare
                 HideCursor.Show();
                 if (Flash != null) Flash.Play(p, side ?? (Side != null && Screens.OnOuterEdge(p.X, p.Y, Side) ? Side : null), false); // arriving
             }
-            push = 0;
+            Arrived(side);
         }
 #endif
 
         public bool Capturing { get { return capturing; } }
+
+        // The pointer came to this PC (back home, or placed by the driver) through `side`, or by the
+        // hotkey (null): starts the cooldown and the arrival guard, and clears every push.
+        public void Arrived(string side)
+        {
+            lastCross = DateTime.UtcNow;
+            arrivalSide = side; arrivalAt = lastCross; arrivalInward = 0;
+#if MULTI
+            pushes.Clear(); retPushes.Clear();
+#else
+            push = 0; retPush = 0;
+#endif
+        }
+
+        // False while a crossing through `side` has to wait (cooldown, arrival guard). `outward`: this
+        // move's outward part for that side (negative = inward).
+        bool MayCross(string side, double outward)
+        {
+            DateTime now = DateTime.UtcNow;
+            if ((now - lastCross).TotalMilliseconds < CooldownMs) return false;
+            if (arrivalSide != null && arrivalSide == side)
+            {
+                if (outward < 0) arrivalInward -= outward;
+                if ((now - arrivalAt).TotalMilliseconds < GuardMs && arrivalInward < 8) return false;
+                arrivalSide = null;
+            }
+            return true;
+        }
+
+        // The sides where an injected move stops at the edge rather than jump onto a monitor past it.
+        public List<string> ReturnStops()
+        {
+#if MULTI
+            return retArmed ? retSides : new List<string>();
+#else
+            return retArmed ? new List<string> { retSide } : new List<string>();
+#endif
+        }
 
 #if !MULTI
         public void ArmReturn(bool on, string side, double resistance)
@@ -424,6 +470,7 @@ namespace MacShare
             if (retArmed) { FeedReturn(p.x, p.y, dx, dy); return; }
             if (!DriveOther || Side == null || AnyButtonDown()) { push = 0; return; } // Rule 6: no crossing mid-drag
             double outward = Screens.Outward(Side, dx, dy);
+            if (!MayCross(Side, outward)) { push = 0; return; }
             if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, Side)) { push = 0; return; }
             DateTime now = DateTime.UtcNow;
             if ((now - lastPush).TotalMilliseconds > 300) push = 0;
@@ -443,6 +490,7 @@ namespace MacShare
         {
             if (!retArmed) return;
             double outward = Screens.Outward(retSide, dx, dy);
+            if (!MayCross(retSide, outward)) { retPush = 0; return; }
             if (outward <= 0 || !Screens.OnOuterEdge(x, y, retSide)) { retPush = 0; return; }
             DateTime now = DateTime.UtcNow;
             if ((now - retLast).TotalMilliseconds > 300) retPush = 0;
@@ -450,6 +498,7 @@ namespace MacShare
             retPush += outward;
             if (retPush < retResistance) return;
             retArmed = false;
+            lastCross = now;
             if (Flash != null) Flash.Play(new Point(x, y), retSide, true); // leaving this PC for the Mac
             Dictionary<string, object> d = Ev("return");
             d["offset"] = Math.Round(Screens.Offset(x, y, retSide), 4);

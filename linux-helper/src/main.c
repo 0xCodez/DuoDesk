@@ -74,6 +74,7 @@ static void dispatch(const char *line) {
       if (jbool(c, "center", 0)) screens_center(&x, &y);
       else screens_edge_point(side_of(jstr(c, "side", "left")) < 0 ? SIDE_LEFT : side_of(jstr(c, "side", "left")), jnum(c, "offset", 0.5), &x, &y);
       wl_move_to(x, y);
+      wl_arrived(jbool(c, "center", 0) ? SIDE_NONE : side_of(jstr(c, "side", "left")) < 0 ? SIDE_LEFT : side_of(jstr(c, "side", "left")));
     } else if (!strcmp(cmd, "armReturn")) {
       wl_arm_return(jbool(c, "on", 0), side_of(jstr(c, "side", NULL)), jnum(c, "resistancePx", 120));
     } else if (!strcmp(cmd, "inject")) {
@@ -134,6 +135,7 @@ static void dispatch(const char *line) {
     if (jbool(c, "center", 0)) screens_center(&x, &y);
     else screens_edge_point(side_of(jstr(c, "side", "left")) < 0 ? SIDE_LEFT : side_of(jstr(c, "side", "left")), jnum(c, "offset", 0.5), &x, &y);
     inject_move_to(x, y);
+    capture_arrived(jbool(c, "center", 0) ? SIDE_NONE : side_of(jstr(c, "side", "left")) < 0 ? SIDE_LEFT : side_of(jstr(c, "side", "left")));
   } else if (!strcmp(cmd, "armReturn")) {
 #ifdef MULTI
     // sideList: every edge with a device behind it (Multi-device, capture.c); without it, the one side.

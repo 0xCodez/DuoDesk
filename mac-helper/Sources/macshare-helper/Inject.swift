@@ -4,6 +4,7 @@
 // Every injected event is marked with eventSourceUserData = 0x4D53 so our own tap can skip it.
 import Carbon.HIToolbox
 import Cocoa
+import IOKit.pwr_mgt
 
 let injectedMark: Int64 = 0x4D53
 
@@ -22,6 +23,10 @@ final class Injector {
   private var tapMods = Set<String>()          // modifiers (and Fn) pressed since none were held
   private var tapDown = Set<String>()          // those held now
   private var modsOnly = false                 // ...and no other key between
+  // Injected events don't count as user activity, so a sleeping display stays dark. Declare it,
+  // at most once a second, reusing one assertion.
+  private var activityID = IOPMAssertionID(0)
+  private var lastActivity: TimeInterval = 0
 
   init() {
     source = CGEventSource(stateID: .hidSystemState)
@@ -42,6 +47,14 @@ final class Injector {
     guard let e = e else { return }
     e.setIntegerValueField(.eventSourceUserData, value: injectedMark)
     e.post(tap: .cghidEventTap)
+    declareActivity()
+  }
+
+  func declareActivity() {
+    let now = ProcessInfo.processInfo.systemUptime
+    if now - lastActivity < 1 { return }
+    lastActivity = now
+    IOPMAssertionDeclareUserActivity("TwinDesk remote input" as CFString, kIOPMUserActiveLocal, &activityID)
   }
 
   private func cgButton(_ b: Int) -> CGMouseButton {

@@ -34,6 +34,10 @@ namespace MacShare
         [DllImport("user32.dll", SetLastError = true)]
         public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
+        // ---- waking the display (Injector.Wake) ----
+        public const uint ES_SYSTEM_REQUIRED = 0x1, ES_DISPLAY_REQUIRED = 0x2;
+        [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);
+
         // ---- keyboard layout (Inject.NextLayout) ----
         public const uint WM_INPUTLANGCHANGEREQUEST = 0x0050;
         public const int INPUTLANGCHANGE_FORWARD = 0x0002, HKL_NEXT = 1;

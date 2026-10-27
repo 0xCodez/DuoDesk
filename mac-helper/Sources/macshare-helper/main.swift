@@ -60,11 +60,13 @@ func handle(_ line: String) {
     let sides = (msg["sides"] as? [String]) ?? [(msg["side"] as? String) ?? "right"]
     Capture.shared.configure(sides: sides, resistance: num("resistancePx", 120),
                              edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
-                             dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight")
+                             dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight",
+                             cooldown: num("cooldownMs", 250) / 1000)
 #else
     Capture.shared.configure(side: (msg["side"] as? String) ?? "right", resistance: num("resistancePx", 120),
                              edgeEnabled: (msg["driveOther"] as? Bool) ?? false, keyboard: (msg["keyboard"] as? Bool) ?? true,
-                             dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight")
+                             dragFiles: (msg["dragFiles"] as? Bool) ?? true, hotkey: (msg["hotkey"] as? String) ?? "AltRight",
+                             cooldown: num("cooldownMs", 250) / 1000)
 #endif
     Capture.shared.gestures = (msg["gestures"] as? Bool) ?? true
     reply(id)
@@ -85,6 +87,7 @@ func handle(_ line: String) {
     let side = center ? nil : msg["side"] as? String
     let to = Screens.edgePoint(side: side, offset: center ? nil : (msg["offset"] as? NSNumber)?.doubleValue)
     Capture.shared.warp(to)
+    Capture.shared.arrived(side: side)
     Flash.shared.arrive(at: to, side: side) // the PC's pointer arrives here
     reply(id)
   case "armReturn":

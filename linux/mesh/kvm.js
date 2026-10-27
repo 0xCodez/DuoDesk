@@ -309,6 +309,7 @@ class Kvm {
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
+      cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
       // the same sides for linux-helper, whose JSON reader skips arrays: its -multi build reads this one
       sideList: sides.join(','),
       dragFiles: this._dragsOut(sides.length ? this.edges[sides[0]] : null), // the edge strip that picks up file drags (X11)

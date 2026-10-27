@@ -306,6 +306,7 @@ class Kvm {
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
+      cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
       dragFiles: this._dragsOut(sides.length ? this.edges[sides[0]] : null), // the edge strip that picks up file drags
       gestures: k.gestures !== false, // Touchpad gestures go over as k.ge while capturing
     });

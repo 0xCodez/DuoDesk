@@ -658,7 +658,7 @@ Display Driver for Extend.
 ### Linux (X11 or Wayland)
 
 ```sh
-sudo apt install build-essential libx11-dev libxi-dev libxtst-dev libxrandr-dev libxfixes-dev
+sudo apt install build-essential libx11-dev libxi-dev libxtst-dev libxext-dev libxrandr-dev libxfixes-dev
 cd linux
 npm install
 npm run build:helper

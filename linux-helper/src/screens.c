@@ -176,6 +176,36 @@ void screens_clamp(int x, int y, int fromX, int fromY, int *ox, int *oy) {
   *oy = y < m->y ? m->y : y > m->y + m->h - 1 ? m->y + m->h - 1 : y;
 }
 
+// Where a relative move from (fromX, fromY) to (x, y) ends: like screens_clamp, but it follows the
+// path monitor by monitor and stops on the edge of a `stops` side where it is an outer edge, so a
+// large jump can't land on a monitor past the return edge (the rest counts toward the resistance).
+void screens_walk(int x, int y, int fromX, int fromY, const int *stops, int nstops, int *ox, int *oy) {
+  double px = fromX, py = fromY;
+  for (int i = 0; nstops > 0 && i < 8; i++) {
+    const Rect *d = monitor_at((int)px, (int)py);
+    if (!d) break;
+    if (monitor_at(x, y) == d) { *ox = x; *oy = y; return; }
+    int r = d->x + d->w, b = d->y + d->h, s = SIDE_NONE;
+    double vx = x - px, vy = y - py, t = 1, k;
+    if (vx > 0 && x >= r && (k = (r - px) / vx) < t) { t = k; s = SIDE_RIGHT; }
+    if (vx < 0 && x < d->x && (k = (d->x - px) / vx) < t) { t = k; s = SIDE_LEFT; }
+    if (vy > 0 && y >= b && (k = (b - py) / vy) < t) { t = k; s = SIDE_BOTTOM; }
+    if (vy < 0 && y < d->y && (k = (d->y - py) / vy) < t) { t = k; s = SIDE_TOP; }
+    if (s == SIDE_NONE) break;
+    int ex = (int)lround(px + vx * t), ey = (int)lround(py + vy * t);
+    ex = ex < d->x ? d->x : ex > r - 1 ? r - 1 : ex;
+    ey = ey < d->y ? d->y : ey > b - 1 ? b - 1 : ey;
+    for (int j = 0; j < nstops; j++)
+      if (stops[j] == s && screens_on_outer_edge(ex, ey, s)) { *ox = ex; *oy = ey; return; }
+    // Step just over the edge, onto the next monitor (or off the desktop: clamp below).
+    int nx = s == SIDE_RIGHT ? r : s == SIDE_LEFT ? d->x - 1 : ex;
+    int ny = s == SIDE_BOTTOM ? b : s == SIDE_TOP ? d->y - 1 : ey;
+    if (!screens_contains(nx, ny)) break;
+    px = nx; py = ny;
+  }
+  screens_clamp(x, y, fromX, fromY, ox, oy);
+}
+
 // The monitor under a point (drop.c's edge strip); 0 when none.
 int screens_monitor(int x, int y, int *mx, int *my, int *mw, int *mh) {
   const Rect *m = monitor_at(x, y);

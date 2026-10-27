@@ -43,6 +43,7 @@
     KVM_SILENCE_BLE_MS: 6000, // the same through Bluetooth (a slower, burstier link)
     KVM_MOVE_BLE_MS: 16, // through Bluetooth: cursor moves summed and sent at most this often
     KVM_BLE_BACKLOG: 512, // … and held (still summed) while this many bytes wait for the radio
+    KVM_CROSS_COOLDOWN_MS: 250, // no new crossing this soon after the last one, either way (the helpers' edges)
     HELPER_KEEPALIVE_MS: 500, // main -> helper keepalive while capturing
     HELPER_DEADMAN_MS: 1500, // helper stops capturing by itself after this much keepalive silence
     RESISTANCE_PX: 120, // default push through an edge before crossing

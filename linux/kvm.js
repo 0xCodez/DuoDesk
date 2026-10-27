@@ -143,6 +143,7 @@ class Kvm {
       keyboard: !!k.keyboard,
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
+      cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
       dragFiles: this._dragsOut(), // the edge strip that picks up file drags (X11)
       shortcuts: !!f.shortcuts, // the copy/paste-files shortcuts at home (fclip.js)
       copyKeys: f.copyKeys,
