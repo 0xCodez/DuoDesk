@@ -307,6 +307,7 @@ function start() {
   // New releases on GitHub: a notification once per version, the tray item and About › Updates.
   updates = new Updates({
     current: app.getVersion(), platform: 'win', getSettings: () => settings, save: saveSettings, onChange: pushState,
+    onShowModal: showUpdateWindow,
     notify: (title, body, onClick) => {
       if (!Notification.isSupported()) return;
       updateNote = new Notification({ title, body });
@@ -1046,6 +1047,13 @@ function showMain() {
   mainWin.focus();
 }
 
+function showUpdateWindow() {
+  showMain();
+  if (mainWin && !mainWin.isDestroyed()) {
+    mainWin.webContents.send('show-update');
+  }
+}
+
 // Tray: the app mark's two screens, white on a dark
 // taskbar and black on a light one; the switches people reach for most, one click away.
 function trayIcon() {
@@ -1129,7 +1137,7 @@ function updateTray(s = buildState()) {
     ...(again ? [{ label: (s.link.busy ? 'Take Over ' : 'Connect to ') + host, click: () => link.connect(true) }] : []),
     check('Show a Popup When Switching', settings.app.hud, (i) => set('app', { hud: i.checked })),
     { type: 'separator' },
-    ...(s.updates && s.updates.available ? [{ label: 'Download TwinDesk ' + s.updates.latest + '…', click: () => updates.open() }] : []),
+    ...(s.updates && s.updates.available ? [{ label: 'Download TwinDesk ' + s.updates.latest + '…', click: showUpdateWindow }] : []),
     { label: 'Open TwinDesk…', click: showMain },
     { label: 'Quit TwinDesk', click: () => app.quit() },
   ]));
