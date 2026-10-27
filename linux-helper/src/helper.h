@@ -27,7 +27,7 @@ double jnum(const JObj *o, const char *k, double def);
 int jbool(const JObj *o, const char *k, int def);
 JObj *jobj(const JObj *o, const char *k);
 
-typedef struct { char buf[1024]; size_t len; int first; } JOut;
+typedef struct { char buf[4096]; size_t len; int first; } JOut; // keyLayout's two maps of Sinhala (3 UTF-8 bytes each) need ~2 KB
 void jo_begin(JOut *o);
 void jo_str(JOut *o, const char *k, const char *v);
 void jo_num(JOut *o, const char *k, double v);

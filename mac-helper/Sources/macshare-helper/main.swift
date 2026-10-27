@@ -118,8 +118,15 @@ func handle(_ line: String) {
     if let ev = msg["ev"] as? [String: Any] { injector.injectRel(ev) }
   case "ping":
     reply(id)
-  case "keyLayout": // what each key types alone in the current layout (shared/keylayout.js); type: it takes "type"
-    reply(id, ["layout": KeyLayout.current(sourceID: msg["source"] as? String), "type": true])
+  case "keyLayout": // what each key types alone and with Shift in the current layout (shared/keylayout.js); type: it takes "type"
+    let source = msg["source"] as? String
+    var r: [String: Any] = ["layout": KeyLayout.current(sourceID: source), "shift": KeyLayout.current(sourceID: source, shift: true),
+                            "type": true, "selectInput": true]
+    if let im = InputSources.currentIM() { r["im"] = im } // typing with an input method: its language
+    reply(id, r)
+  case "selectInput": // an input method of the other computer's language ({lang}), or back to ours ({restore})
+    if (msg["restore"] as? Bool) == true { InputSources.restore(); reply(id) }
+    else { reply(id, ["found": InputSources.select(language: (msg["lang"] as? String) ?? "")]) }
   case "type": // text as it is, whatever the layout
     if let text = msg["text"] as? String { injector.type(text) }
   case "permissions":

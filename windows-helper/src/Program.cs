@@ -399,9 +399,15 @@ namespace MacShare
                         List<string> selNames = Strings(c, "names");
                         Async(c, delegate (Dictionary<string, object> r) { Shell.SelectIn(selDir, selNames); }, true);
                         return;
-                    case "keyLayout": // what each key types alone in the layout in front (shared/keylayout.js); type: it takes "type"
+                    case "keyLayout": // what each key types alone and with Shift in the layout in front (shared/keylayout.js); type: it takes "type"
                         c["layout"] = Keys.Layout();
+                        c["shift"] = Keys.Layout(true);
                         c["type"] = true;
+                        c["im"] = InputMethods.Current(); // typing with an input method: its language
+                        break;
+                    case "selectInput": // an input method of the other computer's language ({lang}), or back to ours ({restore}); in line: keys after it go to it
+                        if (Json.Has(c, "restore")) InputMethods.Restore();
+                        else c["found"] = InputMethods.Select(Json.Str(c, "lang", ""));
                         break;
                     case "type": // text as it is, whatever the layout
                         Injector.Wake();
@@ -428,7 +434,12 @@ namespace MacShare
             if (cmd == "displays") reply["displays"] = c["displays"];
             if ((cmd == "displayMode" || cmd == "displayExtend") && error == null) reply["changed"] = c["changed"];
             if (cmd == "folderAt") { reply["path"] = c["path"]; reply["desktop"] = c["desktop"]; }
-            if (cmd == "keyLayout") { reply["layout"] = c["layout"]; reply["type"] = c["type"]; }
+            if (cmd == "keyLayout")
+            {
+                reply["layout"] = c["layout"]; reply["shift"] = c["shift"]; reply["type"] = c["type"]; reply["selectInput"] = true;
+                if (c["im"] != null) reply["im"] = c["im"];
+            }
+            if (cmd == "selectInput" && c.ContainsKey("found")) reply["found"] = c["found"];
             Emit(reply);
         }
     }

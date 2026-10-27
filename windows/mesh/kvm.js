@@ -695,10 +695,11 @@ class Kvm {
     if (ev.t === T.K_KEY_DOWN || ev.t === T.K_KEY_UP) {
       if (typeof ev.code !== 'string') return;
       if (this.settings.keys.swapCtrlCmd && P.keySwapNeeded(P.OS.WIN, this._peerOs(from))) ev.code = P.mapKeyFromOtherPlatform(ev.code);
-      ev.code = this.keys.code(ev.t === T.K_KEY_DOWN, ev.code, ev.ch, ev.tx); // a shortcut's letter: our key for it
+      ev.code = this.keys.code(ev.t === T.K_KEY_DOWN, ev.code, ev.ch, ev.tx, ev.im); // a shortcut's letter: our key for it
       if (!ev.code) return; // another alphabet's letter: typed as it is
       delete ev.ch;
       delete ev.tx;
+      delete ev.im;
     } else if (ev.t === T.K_MOVE) {
       ev.dx = (Number(ev.dx) || 0) * k.speed;
       ev.dy = (Number(ev.dy) || 0) * k.speed;

@@ -692,7 +692,7 @@ class Kvm extends EventEmitter {
         }
         ev = { t: m.t, code: this._swapKeys(from) ? P.mapKeyFromOtherPlatform(m.code) : m.code };
         if (this._lockKeyHere(ev)) return;
-        ev.code = this.keys.code(m.t === P.T.K_KEY_DOWN, ev.code, m.ch, m.tx); // a shortcut's letter: our key for it
+        ev.code = this.keys.code(m.t === P.T.K_KEY_DOWN, ev.code, m.ch, m.tx, m.im); // a shortcut's letter: our key for it
         if (!ev.code) return; // another alphabet's letter: typed as it is
     }
     this._injectEv(ev);

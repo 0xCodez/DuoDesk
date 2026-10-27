@@ -119,8 +119,9 @@
       K_UP: 'k.mu',
       K_WHEEL: 'k.wh',
       // {code} the key's place; ch: the a–z letter it types on the sender's layout (shortcuts by letter);
-      // tx (k.kd): the letter of another alphabet it types there (ж), typed as it is where the key types a
-      // Latin letter (shared/keylayout.js)
+      // tx (k.kd): what it types there on another alphabet's layout (ж, ක, ඛ with Shift), typed as it is
+      // where the key types something else; im (k.kd): the language of the input method typed with there
+      // (ja, zh-Hans, ko), whose own one the other side switches to (shared/keylayout.js)
       K_KEY_DOWN: 'k.kd',
       K_KEY_UP: 'k.ku',
       // A trackpad gesture by what it means, done natively by the driven computer:
