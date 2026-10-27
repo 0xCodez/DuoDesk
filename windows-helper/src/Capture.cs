@@ -39,13 +39,18 @@ namespace MacShare
 
         // edge push (home) and return edge (driven)
 #if !MULTI
-        double push; DateTime lastPush;
-        bool retArmed; string retSide; double retResistance, retPush; DateTime retLast;
+        double push; DateTime lastPush, pushSince;
+        bool retArmed; string retSide; double retResistance, retPush; DateTime retLast, retSince;
 #endif
         // No new crossing within CooldownMs of the last one, either way (kvmConfig cooldownMs,
         // KVM_CROSS_COOLDOWN_MS). After arriving, the edge it came through only counts once the pointer
         // moved 8 px inward or GuardMs passed, so the end of a flick doesn't bounce straight back.
         public int CooldownMs = 250;
+        // A push crosses once it went the resistance outward and lasted DwellMs (kvmConfig dwellMs,
+        // KVM_EDGE_DWELL_MS; none with no resistance): the end of a quick flick that reaches the edge
+        // is over by then, a push meant to cross goes on.
+        public int DwellMs = 150;
+        bool Dwelt(double resistance, DateTime since, DateTime now) { return resistance <= 0 || (now - since).TotalMilliseconds >= DwellMs; }
         // Where along the side the other computer's monitors touch ours (shared/kvm-geom.js zones, 0–1
         // of the bounding box, as Offset): the edge and the way back only cross inside them. null: anywhere.
         public List<double[]> EdgeZones, ReturnZones;
@@ -504,8 +509,9 @@ namespace MacShare
             DateTime now = DateTime.UtcNow;
             if ((now - lastPush).TotalMilliseconds > 300) push = 0;
             lastPush = now;
+            if (push == 0) pushSince = now;
             push += outward;
-            if (push < ResistancePx) return;
+            if (push < ResistancePx || !Dwelt(ResistancePx, pushSince, now)) return;
             double offset = Screens.Offset(p.x, p.y, Side);
             Begin(true, EdgeKeyboard); // start capturing at once so no motion leaks, then tell main
             saved = new Point(p.x, p.y);
@@ -524,8 +530,9 @@ namespace MacShare
             DateTime now = DateTime.UtcNow;
             if ((now - retLast).TotalMilliseconds > 300) retPush = 0;
             retLast = now;
+            if (retPush == 0) retSince = now;
             retPush += outward;
-            if (retPush < retResistance) return;
+            if (retPush < retResistance || !Dwelt(retResistance, retSince, now)) return;
             retArmed = false;
             lastCross = now;
             if (Flash != null) Flash.Play(new Point(x, y), retSide, true); // leaving this PC for the Mac

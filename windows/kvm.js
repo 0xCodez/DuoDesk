@@ -206,6 +206,7 @@ class Kvm {
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
       cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
+      dwellMs: P.KVM_EDGE_DWELL_MS,
       zones: this.map.zones(), // only where the monitors touch (null: anywhere on the side)
       dragFiles: this._dragsOut(), // the edge strip that picks up file drags
       gestures: k.gestures !== false, // Touchpad gestures go over as k.ge while capturing

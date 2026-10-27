@@ -34,9 +34,14 @@ static double swallowSince;
 static double lastCmd;
 
 // edge push (home) and return edge (driven)
-static double push, lastPush;
+static double push, lastPush, pushSince;
 static int retArmed, retSide = SIDE_NONE;
-static double retResistance, retPush, retLast;
+static double retResistance, retPush, retLast, retSince;
+// A push crosses once it went the resistance outward and lasted dwellMs (kvmConfig dwellMs,
+// KVM_EDGE_DWELL_MS; none with no resistance): the end of a quick flick that reaches the edge is
+// over by then, a push meant to cross goes on.
+static double dwellMs = 150;
+static int dwelt(double resistance, double since, double now) { return resistance <= 0 || now - since >= dwellMs; }
 // No new crossing within cooldownMs of the last one, either way (kvmConfig cooldownMs,
 // KVM_CROSS_COOLDOWN_MS). After arriving, the edge it came through only counts once the pointer
 // moved 8 px inward or GUARD_MS passed, so the end of a flick doesn't bounce straight back.
@@ -55,9 +60,9 @@ static int nEdgeZ = -1, nRetZ = -1;
 // which side. `side` stays the first one (the file-drag strip, drop.c). The lists come as sideList
 // ("left,top"): our JSON reader skips arrays. Without MULTI, the one-side code below is all there is.
 static int sides[4], nsides;                 // the edges watched at home
-static double pushBy[4], lastPushBy[4];      // the push per side (indexed by SIDE_*)
+static double pushBy[4], lastPushBy[4], pushSinceBy[4]; // the push per side (indexed by SIDE_*)
 static int retSides[4], nret;                // the edges watched while driven
-static double retPushBy[4], retLastBy[4];
+static double retPushBy[4], retLastBy[4], retSinceBy[4];
 
 // "left,top" -> out (valid, no repeats); none given: the one side `fallback`, if any.
 static int parse_sides(const char *list, int fallback, int *out) {
@@ -194,6 +199,7 @@ void capture_config(const JObj *c) {
   deadmanMs = jnum(c, "deadmanMs", 1500);
   doubleTapMs = jnum(c, "doubleTapMs", 400);
   cooldownMs = jnum(c, "cooldownMs", 250);
+  dwellMs = jnum(c, "dwellMs", 150);
   nEdgeZ = zones_parse(jstr(c, "zones", NULL), edgeZ, 8);
   shortcut_config(c);
   drop_config(c);
@@ -594,8 +600,9 @@ void capture_feed_return(int x, int y, double dx, double dy) {
     if (outward <= 0 || !screens_on_outer_edge(x, y, s) || !zones_contain(retZ, nRetZ, x, y, s)) { retPushBy[s] = 0; continue; }
     if (now - retLastBy[s] > 300) retPushBy[s] = 0;
     retLastBy[s] = now;
+    if (retPushBy[s] == 0) retSinceBy[s] = now;
     retPushBy[s] += outward;
-    if (retPushBy[s] < retResistance) continue;
+    if (retPushBy[s] < retResistance || !dwelt(retResistance, retSinceBy[s], now)) continue;
     retArmed = 0;
     memset(retPushBy, 0, sizeof retPushBy);
     lastCross = now;
@@ -620,8 +627,9 @@ static void multi_edge_push(int x, int y, unsigned mask, double rdx, double rdy)
     if (outward <= 0 || !screens_on_outer_edge(x, y, s) || !zones_contain(edgeZ, nEdgeZ, x, y, s)) { pushBy[s] = 0; continue; }
     if (now - lastPushBy[s] > 300) pushBy[s] = 0;
     lastPushBy[s] = now;
+    if (pushBy[s] == 0) pushSinceBy[s] = now;
     pushBy[s] += outward;
-    if (pushBy[s] < resistancePx) continue;
+    if (pushBy[s] < resistancePx || !dwelt(resistancePx, pushSinceBy[s], now)) continue;
     double offset = screens_offset(x, y, s);
     // Start capturing at once so no motion leaks, then tell main.
     if (!capture_begin(1, edgeKeyboard)) { memset(pushBy, 0, sizeof pushBy); return; }
@@ -644,8 +652,9 @@ void capture_feed_return(int x, int y, double dx, double dy) {
   double now = now_ms();
   if (now - retLast > 300) retPush = 0;
   retLast = now;
+  if (retPush == 0) retSince = now;
   retPush += outward;
-  if (retPush < retResistance) return;
+  if (retPush < retResistance || !dwelt(retResistance, retSince, now)) return;
   retArmed = 0;
   lastCross = now;
   JOut o;
@@ -682,8 +691,9 @@ static void on_motion(double dx, double dy, double rdx, double rdy) {
   double now = now_ms();
   if (now - lastPush > 300) push = 0;
   lastPush = now;
+  if (push == 0) pushSince = now;
   push += outward;
-  if (push < resistancePx) return;
+  if (push < resistancePx || !dwelt(resistancePx, pushSince, now)) return;
   double offset = screens_offset(x, y, side);
   // Start capturing at once so no motion leaks, then tell main.
   if (!capture_begin(1, edgeKeyboard)) { push = 0; return; }

@@ -82,6 +82,7 @@ func handle(_ line: String) {
                              cooldown: num("cooldownMs", 250) / 1000)
 #endif
     Capture.shared.gestures = (msg["gestures"] as? Bool) ?? true
+    Capture.shared.dwell = num("dwellMs", 150) / 1000
     reply(id)
   case "gesture": // A gesture from the other computer, done by macOS itself
     GesturePost.handle(msg)

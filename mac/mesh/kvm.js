@@ -302,6 +302,7 @@ class Kvm extends EventEmitter {
         driveOther: sides.length > 0,
         hotkey: this.getSettings().keys.hotkey || P.HOTKEY_MAC,
         cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
+        dwellMs: P.KVM_EDGE_DWELL_MS,
         gestures: k.gestures !== false, // Trackpad gestures go over as k.ge
         dragFiles: this.fileSend.dragOn && this.fileSend.peerDrag, // drag.policy, both sides
       })

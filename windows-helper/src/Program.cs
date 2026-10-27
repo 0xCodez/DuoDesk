@@ -216,6 +216,7 @@ namespace MacShare
 #endif
                         capture.ResistancePx = Json.Num(c, "resistancePx", 120);
                         capture.CooldownMs = (int)Json.Num(c, "cooldownMs", 250);
+                        capture.DwellMs = (int)Json.Num(c, "dwellMs", 150);
                         capture.EdgeZones = Capture.ParseZones(Json.Str(c, "zones", null));
                         capture.HotkeyVks = HotkeyVks(Json.Str(c, "hotkey", "AltRight"));
                         capture.DriveOther = Json.Bool(c, "driveOther", false);

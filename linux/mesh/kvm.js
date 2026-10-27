@@ -18,6 +18,7 @@ const E = require('../../shared/kvm-edges.js');
 const blepipe = require('../../shared/blepipe.js');
 const { KvmMoves } = require('../../shared/kvm-moves.js');
 const { KeyLayout } = require('../../shared/keylayout.js');
+const pointerAccel = require('../pointeraccel.js');
 const CL = require('../../shared/cursorlock.js');
 
 const T = P.T;
@@ -32,6 +33,7 @@ class Kvm {
     this.route = 0;
     this.peerRoute = 0;
     this.sub = null; // driven by a computer, passing its input on to a phone through our own bridge: {to, side, route}
+    pointerAccel.watch(() => this.applyConfig()); // the desktop's mouse acceleration, for the Wayland helper
     this.subRoute = 0;
     this.partner = null; // the device our input goes to (driving) or comes from (driven); null at home
     this.message = '';
@@ -324,6 +326,7 @@ class Kvm {
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
       cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
+      dwellMs: P.KVM_EDGE_DWELL_MS,
       // the same sides for linux-helper, whose JSON reader skips arrays: its -multi build reads this one
       sideList: sides.join(','),
       dragFiles: this._dragsOut(sides.length ? this.edges[sides[0]] : null), // the edge strip that picks up file drags (X11)
@@ -331,6 +334,7 @@ class Kvm {
       copyKeys: f.copyKeys,
       pasteKeys: f.pasteKeys,
       lockKeys: this.hub.bus.connectedIds().length ? this.settings.keys.lockKeys || '' : '', // the cursor lock key (shortcut.c)
+      ...pointerAccel.get(), // accelProfile, accelSpeed: how the Wayland helper follows the pointer (wl.c)
     });
     // Our switch, for every connected device (it doesn't send drags towards us while it's off).
     const accept = !!(f.edgeDrag && f.acceptFromMac);

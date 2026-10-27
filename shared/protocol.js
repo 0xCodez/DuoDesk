@@ -46,6 +46,7 @@
     KVM_IP_BACKLOG: 64 * 1024, // on the network: moves held (still summed) while this many bytes wait on the socket
     KVM_MOVE_MAX_WAIT_MS: 16, // … but one goes at least this often (behind a big message the pointer still moves)
     KVM_CROSS_COOLDOWN_MS: 250, // no new crossing this soon after the last one, either way (the helpers' edges)
+    KVM_EDGE_DWELL_MS: 150, // an edge push crosses only once it lasted this long (with Edge resistance): the end of a quick flick doesn't
     HELPER_KEEPALIVE_MS: 500, // main -> helper keepalive while capturing
     HELPER_DEADMAN_MS: 1500, // helper stops capturing by itself after this much keepalive silence
     RESISTANCE_PX: 120, // default push through an edge before crossing

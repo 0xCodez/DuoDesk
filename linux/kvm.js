@@ -8,6 +8,7 @@ const blepipe = require('../shared/blepipe.js');
 const { KvmMoves } = require('../shared/kvm-moves.js');
 const { KeyLayout } = require('../shared/keylayout.js');
 const CL = require('../shared/cursorlock.js');
+const pointerAccel = require('./pointeraccel.js');
 
 const { KvmMap } = require('../shared/kvm-map.js');
 
@@ -28,6 +29,7 @@ class Kvm {
     this.keepalive = null;
     this.silence = null;
     this.dragPending = false; // we crossed with a file drag; cleared when our left button comes up
+    pointerAccel.watch(() => this.applyConfig()); // the desktop's mouse acceleration, for the Wayland helper
     // k.mm summed while driving, sent as one (shared/kvm-moves.js): paced for Bluetooth, and held
     // (still summed) while the socket is backed up, so the pointer never replays old moves.
     this.moves = new KvmMoves({
@@ -211,12 +213,14 @@ class Kvm {
       deadmanMs: P.HELPER_DEADMAN_MS,
       doubleTapMs: P.DOUBLE_TAP_MS,
       cooldownMs: P.KVM_CROSS_COOLDOWN_MS,
+      dwellMs: P.KVM_EDGE_DWELL_MS,
       zones: this.map.zones(), // only where the monitors touch (null: anywhere on the side)
       dragFiles: this._dragsOut(), // the edge strip that picks up file drags (X11)
       shortcuts: !!f.shortcuts, // the copy/paste-files shortcuts at home (fclip.js)
       copyKeys: f.copyKeys,
       pasteKeys: f.pasteKeys,
       lockKeys: this.connected ? this.settings.keys.lockKeys || '' : '', // the cursor lock key (shortcut.c)
+      ...pointerAccel.get(), // accelProfile, accelSpeed: how the Wayland helper follows the pointer (wl.c)
     });
     // Our switch, for the other side (it doesn't send drags towards us while it's off).
     const accept = !!(f.edgeDrag && f.acceptFromMac);
