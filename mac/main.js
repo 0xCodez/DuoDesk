@@ -214,6 +214,7 @@ function pushState() {
     // on: the switch (turned off, CamShare stays loaded but stopped).
     state.camera = svc && svc.camShare ? { ...svc.camShare.state, on: settings.camera.on !== false } : svc ? { on: false } : null;
     state.vcam = svc && svc.vcam ? svc.vcam.view() : svc ? { checked: true, supported: true, on: false } : null;
+    state.rezume = svc && svc.rz ? svc.rz.view : svc ? { ...settings.rezume, connected: false } : null; // ReZume tab (shared/rezume.js)
     state.remote = svc && svc.phoneRemote ? svc.phoneRemote.view
       : svc ? { allow: false, why: '', opened: false, using: false, pad: { on: false, supported: false, live: false, busy: '', message: '', name: '' } } : null;
     state.phoneMedia = svc && svc.nowPlaying ? svc.nowPlaying.view : null;
@@ -408,6 +409,32 @@ function showUpdateWindow() {
   }
 }
 
+// The menu bar's ReZume items: Continue the other side's, Send ours there.
+function rezumeItems() {
+  const h = svc && svc.rz && settings.rezume.tray ? svc.rz.view : null;
+  if (!h || !h.connected) return [];
+  const name = (peer.current && peer.current.name) || 'the other device';
+  const cut = (t) => (t.length > 48 ? t.slice(0, 47) + '…' : t);
+  const items = [];
+  if (h.incoming) items.push({ label: `Continue ${cut(h.incoming.title || h.incoming.name || h.incoming.appName)} from ${name}`, click: () => svc.rz.take() });
+  if (h.last && h.send) items.push({ label: `Send ${cut(h.last.title)} to ${name}`, click: () => svc.rz.push() });
+  return items;
+}
+
+// The phone through wireless debugging, for ReZume: its app in front, and a tab opened there at once.
+function phoneAdb(b) {
+  if (!b || b.state !== 'ready' || !b.serial) return null;
+  return {
+    ready: true,
+    front: async () => {
+      const r = await b.adb.shell(b.serial, 'dumpsys activity activities | grep -m 1 -E "topResumedActivity|mResumedActivity"', { timeout: 4000 });
+      const m = /\s([\w.]+)\/[\w.$]+/.exec(r.out || '');
+      return m ? m[1] : '';
+    },
+    openUrl: (u) => b.adb.shell(b.serial, `am start -a android.intent.action.VIEW -d '${String(u).replace(/'/g, "'\\''")}'`, { timeout: 6000 }),
+  };
+}
+
 // Menu bar: the app mark as a template icon; its menu by kind (shared/traymenu.js), only connecting
 // while nothing is connected. Set again only when what it shows changes: a menu replaced while it's open closes (or its click
 // goes nowhere), and the state is pushed every second (the ping time isn't in it for that reason).
@@ -425,7 +452,7 @@ function updateTray() {
   const g = (svc && link && link.view()) || { status: {}, hosts: [] };
   const again = !c && g.hosts.length && (g.status.state === 'stopped' || !!g.status.busy);
   const key = JSON.stringify([c && c.name, c && c.transport, phone, again, where, k.linked, k.ble, svc && svc.kvm.locked, settings.keys.lockKeys, k.driveOther, k.beDriven, settings.sharing.on,
-    !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud, k.keyboard, settings.files.dragEdge, settings.files.shortcuts, settings.files.copyKeys,
+    !!(svc && svc.pcView.isOpen), phoneView, settings.clipboard.enabled, settings.audio.send, settings.app.hud, k.keyboard, settings.files.dragEdge, settings.files.shortcuts, settings.files.copyKeys, rezumeItems().map((i) => i.label),
     found.map((d) => [d.id, d.name, d.os]), updates && updates.status.available && updates.status.latest]);
   if (key === trayKey) return;
   trayKey = key;
@@ -456,6 +483,7 @@ function updateTray() {
     again: again ? { label: `${g.status.busy ? 'Take Over' : 'Connect to'} ${g.hosts[0].name}`, click: () => actions.connectAgain() } : null,
     disconnect: c ? { label: phone ? 'Disconnect Phone' : `Disconnect ${name}`, click: () => actions.disconnect() } : null,
     update: updates && updates.status.available ? { label: `TwinDesk ${updates.status.latest} available…`, click: showUpdateWindow } : null,
+    rezume: rezumeItems(),
     open: showWindow,
     log: () => require('../shared/applog.js').open(),
     quit: () => app.quit(),
@@ -632,6 +660,51 @@ app.whenReady().then(() => {
   peer.on(`t:${P.T.REMOTE_HELLO}`, () => !svc.phoneRemote && peer.current && peer.current.os === P.OS.ANDROID
     && peer.sendToClient({ t: P.T.REMOTE_STATE, allowed: false, why: 'Remote is off on this computer: turn it on in TwinDesk’s Remote page there' }));
   svc.loadRemote();
+  // ReZume: what's in use here goes on on the other device, and theirs here (shared/rezume.js), its
+  // offers in the Dock (a Dock icon of their app, dockstub.js), the menu bar and a notification.
+  // Loaded the first time it's turned on: until then nothing is looked at; ipc reaches it through svc.rezume().
+  svc.loadRezume = () => {
+    if (svc.rz || !settings.rezume.on) return svc.rz || null;
+    const { shell } = require('electron');
+    const { ReZume } = require('../shared/rezume.js');
+    const { ReZumeShelf } = require('../shared/rezume-shelf.js');
+    const { DockStub } = require('./dockstub');
+    svc.rzAct = require('./activity').create({ cfg: () => settings.rezume });
+    const name = () => (peer.current && peer.current.name) || 'the other device';
+    svc.rz = new ReZume({
+      link: {
+        on: (t, fn) => peer.on(`t:${t}`, (m) => fn(m)),
+        send: (m) => peer.sendToClient(m),
+        peer: () => (peer.current ? { os: peer.current.os, name: name() } : null),
+        welcome: (fn) => peer.on('client', () => fn()),
+        closed: (fn) => peer.on('closed', () => fn()),
+      },
+      cfg: () => settings.rezume,
+      detect: () => svc.rzAct.detect(),
+      appIcon: (a) => svc.rzAct.appIcon(a),
+      open: { url: (u) => shell.openExternal(u), file: (p) => shell.openPath(p), phoneApp: (pkg) => openPhoneApp(pkg) },
+      sendFile: (p, batch) => !!svc.fileSend.sendBatch([p], 'rezume', batch),
+      expectFile: (batch) => svc.drop.expectBatch(batch, '', true),
+      adb: () => phoneAdb(svc.phone && svc.phone.bridge),
+      phoneApps: () => (svc.phone && svc.phone.apps) || [],
+    });
+    svc.rz.on('change', pushState);
+    svc.rz.on('opened', (o) => hud && hud.show('home', (o.how === 'sent' ? 'Sent to {name}: ' : 'From {name}: ') + o.title));
+    let stub = null;
+    const dock = {
+      show(o, take, dismiss) {
+        if (stub) stub.stop();
+        stub = new DockStub({ id: 'rezume:' + (o.app || o.kind), name: (o.appName || 'ReZume') + ' (ReZume)', icon: o.icon }, (ev) => (ev === 'quit' ? dismiss() : take()));
+        stub.menu([o.title || o.name || o.appName || '']);
+      },
+      hide() { if (stub) { stub.stop(); stub = null; } },
+    };
+    svc.rzShelf = new ReZumeShelf({ rezume: svc.rz, cfg: () => settings.rezume, peerName: name, dock });
+    svc.rz.apply();
+    return svc.rz;
+  };
+  svc.rezume = () => svc.rz || null;
+  svc.loadRezume();
   svc.kvm.on('where', () => svc.phoneRemote && svc.phoneRemote.refresh());
   const blockEdge = svc.kvm.blockEdge;
   svc.kvm.blockEdge = () => blockEdge() || svc.phoneViews.focused; // moving inside the phone window never crosses
@@ -695,6 +768,7 @@ app.whenReady().then(() => {
     hud.show(on ? 'linkOn' : 'linkOff', `Cursor sharing ${on ? 'on' : 'off'}${!on && ble ? ' over Bluetooth' : ''}`, sub);
   });
   svc.drop.on('batch', (b) => {
+    if (svc.rz && svc.rz.received(b)) return; // a document taken here: it opens
     if (b.kind === 'send') hud.show('driven', `Received ${b.files} file${b.files === 1 ? '' : 's'} from ${peer.current ? peer.current.name : 'the other computer'}`);
   });
   // Files on their way, live: the percentage beside the menu bar icon, ↓ coming in, ↑ going out
@@ -900,6 +974,8 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll();
 });
 app.on('before-quit', () => {
+  if (svc && svc.rzShelf) svc.rzShelf.shutdown();
+  if (svc && svc.rz) svc.rz.shutdown();
   quitting = true;
   if (svc && svc.phoneViews) svc.phoneViews.shutdown();
   if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();

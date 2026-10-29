@@ -67,7 +67,12 @@
     const body = el('div', { class: 'page-body' });
     page.append(body);
     pages.append(page);
-    const render = def.build(body, page) || (() => {});
+    let render = () => {};
+    try {
+      render = def.build(body, page) || render;
+    } catch (e) { // one tab that fails to build doesn't take the rest of the sidebar with it
+      console.error('build ' + def.id + ':', e);
+    }
     return { page, body, master, render, wifiNote, art };
   }
 
@@ -138,7 +143,8 @@
     // A group with every tab hidden takes its gap with it.
     for (const v of views.values()) if (v.gap) v.gap.hidden = [...views.values()].every((x) => x.gap !== v.gap || !x.navBtn.parentElement || x.navBtn.parentElement.hidden);
     for (const v of views.values()) {
-      const b = v.def.badge ? v.def.badge(s) : v.def.phase ? `P${v.def.phase}` : '';
+      let b = v.def.badge ? v.def.badge(s) : v.def.phase ? `P${v.def.phase}` : '';
+      if (b === 'on' && !linked(s)) b = 'warn'; // on, but nothing connected: it waits (yellow), it isn't working
       v.stateEl.className = `state${b === 'on' ? ' on' : b === 'warn' ? ' warn' : ''}`;
       v.stateEl.textContent = b === 'on' || b === 'warn' ? '' : b || '';
     }

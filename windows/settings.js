@@ -5,7 +5,7 @@ const P = require('../shared/protocol.js');
 const CL = require('../shared/cursorlock.js');
 const { normalizeFolder } = require('../shared/received.js');
 
-const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'multi', 'general', 'about'];
+const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'rezume', 'multi', 'general', 'about'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 
@@ -100,6 +100,8 @@ function normalize(s) {
     // Remote tab (shared/phone-remote.js): the phone's Remote page moves the pointer and types here
     // Real gamepad (pad): its sticks and buttons as a controller here, off until turned on
     remote: { allow: bool((s.remote || {}).allow, was), pad: bool((s.remote || {}).pad, false) },
+    // ReZume tab (shared/rezume.js): off until turned on; what goes, which ways, where it shows
+    rezume: require('../shared/rezume.js').normalize(s.rezume),
     // Camera tab (shared/camshare.js): this computer's camera to the other one, off until turned
     // on; device: which camera (a deviceId), '' = the default one; virtual: the running camera's
     // picture also goes to the virtual camera (shared/vcam.js), off until turned on; rotate: its

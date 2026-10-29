@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('macshare', {
   phoneBtPick: call('phoneBtPick'),
   setTerminal: call('setTerminal'),
   setRemote: call('setRemote'), // Remote tab (shared/phone-remote.js)
+  setReZume: call('setReZume'), // ReZume tab (shared/rezume.js)
+  rezumeDo: call('rezumeDo'), // … Open, Dismiss, Send to
   openTerminal: call('openTerminal'),
   setupSshd: call('setupSshd'),
   setFiles: call('setFiles'),

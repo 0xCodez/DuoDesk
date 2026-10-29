@@ -123,6 +123,15 @@ function setupIpc(ctx) {
     else if (m.do === 'vcamRemove' && ctx.vcam) ctx.vcam.remove();
     else if (m.do === 'rotate' && ctx.vcam) ctx.vcam.turn();
   });
+  // ReZume tab (shared/rezume.js): loaded when it's first turned on.
+  handle('setReZume', (m) => change('rezume', m && typeof m === 'object' ? m : {}, () => (ctx.rezume ? ctx.rezume.apply() : ctx.loadReZume())));
+  handle('rezumeDo', (m) => {
+    const h = ctx.rezume;
+    if (!h || !m) return;
+    if (m.a === 'take') h.take();
+    else if (m.a === 'dismiss') h.dismiss();
+    else if (m.a === 'push') h.push();
+  });
   // Remote tab: the phone's Remote page here (shared/phone-remote.js).
   handle('setRemote', (m) => {
     if (!m || typeof m !== 'object') return;

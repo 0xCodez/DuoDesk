@@ -138,6 +138,7 @@ private enum class Tab(val title: String, val icon: ImageVector, val colors: Lis
     Clipboard("Clipboard", Ico.clipboard, grad(0xFF64D2FF, 0xFF30B0C7), "Share"),
     Notifications("Notifications", Ico.bell, grad(0xFFFF6961, 0xFFFF3B30), "Share"),
     Files("Files", Ico.files, grad(0xFF64D2FF, 0xFF0A84FF), "Share"),
+    Rezume("ReZume", Ico.rezume, grad(0xFF64D2FF, 0xFF0A84FF), "Share"),
     Sound("Sound", Ico.audio, grad(0xFFFF6482, 0xFFFF2D55), "More"),
     Camera("Camera", Ico.camera, grad(0xFFBF5AF2, 0xFF8944AB), "More"),
     General("General", Ico.general, grad(0xFFAEAEB2, 0xFF636366), "bottom"),
@@ -156,6 +157,7 @@ private fun isOn(core: Core, t: Tab): Boolean = when (t) {
     Tab.Notifications -> core.sync.get("notifs", "in") || core.sync.get("notifs", "out")
     Tab.Sound -> core.sync.get("audio", "in") || core.sync.get("audio", "out")
     Tab.Camera -> core.adb.camera.on
+    Tab.Rezume -> core.rezume.on
     Tab.Calls -> core.hub.callsOn
     Tab.Messages -> core.hub.messagesOn
     Tab.Photos -> core.hub.mediaOn
@@ -348,6 +350,7 @@ private fun Page(core: Core, v: Int, tab: Tab, modifier: Modifier) {
                 Tab.Clipboard -> ClipboardPage(core, v)
                 Tab.Notifications -> NotificationsPage(core, v)
                 Tab.Files -> FilesPage(core, v)
+                Tab.Rezume -> RezumePage(core, v)
                 Tab.Sound -> SoundPage(core, v)
                 Tab.Camera -> CameraPage(core, v)
                 Tab.General -> GeneralPage(core, v)
@@ -1044,6 +1047,55 @@ private fun KeyboardPage(core: Core, v: Int) {
 }
 
 // ---- Remote ----
+
+// ReZume (Rezume.kt): the computer's tab or document here, this phone's tab or app there.
+@Composable
+private fun RezumePage(core: Core, v: Int) {
+    @Suppress("UNUSED_EXPRESSION") v // redraw on every Core change (Compose skips unread parameters)
+    val r = core.rezume
+    val ctx = LocalContext.current
+    val name = them(core)
+    PageHead("ReZume", "Like Handoff on Apple devices: go on with what you were doing. $name’s page or document here, and this phone’s page or app on $name.", r.on) { r.set("on", it) }
+    if (!r.on) return Note("Off: nothing here is read or sent. Turned on, the page or app in front goes to $name, and $name’s comes here.")
+    if (core.host == null) return NotConnected(core, v)
+    val o = r.incoming
+    if (o != null) MacCard("Continue from $name") {
+        MacRow(o.title, if (o.kind == "web") (android.net.Uri.parse(o.url).host ?: o.url) else o.name, first = true) {
+            Primary("Open") { r.take(o, ctx) }
+            Spacer(Modifier.width(8.dp))
+            Secondary("Dismiss") { r.dismiss() }
+        }
+    }
+    val p = r.peer
+    Note(when {
+        p == null -> "$name has no ReZume yet: update TwinDesk there."
+        !p.optBoolean("on") -> "ReZume is off on $name: turn it on there too."
+        InputService.running == null && core.adb.wifiDebugging -> "Ready. $name sees this phone’s apps through wireless debugging; for its pages too, turn on TwinDesk’s Accessibility."
+        InputService.running == null -> "$name’s pages and documents come here. For this phone’s to go there, turn on TwinDesk’s Accessibility (or wireless debugging, for apps)."
+        r.offered.isNotEmpty() -> "Offered to $name: ${r.offered}"
+        else -> "Ready."
+    }, if (p == null || !p.optBoolean("on")) "warn" else "info")
+    if (r.message.isNotEmpty()) Note(r.message)
+    if (InputService.running == null) MacCard {
+        MacRow("Accessibility", "Says which app is in front and reads a browser’s address bar, nothing else", first = true) {
+            Secondary("Open settings") { ctx.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
+    }
+    MacCard("What goes") {
+        SwitchRow("Web pages", "The tab in front in Chrome, Firefox, Edge, Samsung Internet, Brave, Opera, Vivaldi or DuckDuckGo, and $name’s here", r.opt("web"), first = true) { r.set("web", it) }
+        SwitchRow("Documents", "$name’s document in front comes here and opens", r.opt("docs")) { r.set("docs", it) }
+        SwitchRow("Apps", "The app in front here opens on $name in a window of its own (wireless debugging)", r.opt("apps")) { r.set("apps", it) }
+    }
+    MacCard("Which ways") {
+        SwitchRow("Offer what’s in use here", "$name can go on with it", r.opt("send"), first = true) { r.set("send", it) }
+        SwitchRow("Take $name’s", "What’s in use there shows here", r.opt("receive")) { r.set("receive", it) }
+        SwitchRow("Open what’s sent at once", "Send to on $name opens it here without asking (needs Display over other apps; else a notification)", r.opt("push")) { r.set("push", it) }
+    }
+    MacCard("Where $name’s shows") {
+        SwitchRow("Notification", "A quiet one, replaced by the next. Off: only on this page", r.opt("notify"), first = true) { r.set("notify", it) }
+    }
+    Note("Share a link to “Open on computer” to open it on $name now.")
+}
 
 @Composable
 private fun RemotePage(core: Core, v: Int) {

@@ -18,7 +18,7 @@ const SETTINGS_URLS = {
   location: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
-const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'multi', 'general', 'about'];
+const TABS = ['phone', 'overview', 'calls', 'messages', 'media', 'pfiles', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'rezume', 'multi', 'general', 'about'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -488,6 +488,22 @@ function setupIpc(ctx) {
       else if (m.do === 'vcamRemove' && vcam) vcam.remove();
       else if (m.do === 'vcamTarget' && vcam) vcam.setTarget(m.target);
       else if (m.do === 'rotate' && vcam) vcam.turn();
+    },
+    // ReZume tab (shared/rezume.js): loaded when it's first turned on.
+    setRezume(m) {
+      if (!m || typeof m !== 'object') return;
+      settings.rezume = require('../shared/rezume.js').normalize({ ...settings.rezume, ...m });
+      save();
+      const r = ctx.rezume();
+      if (r) r.apply();
+      else ctx.loadRezume();
+    },
+    rezumeDo(m) {
+      const r = ctx.rezume();
+      if (!r || !m) return;
+      if (m.a === 'take') r.take();
+      else if (m.a === 'dismiss') r.dismiss();
+      else if (m.a === 'push') r.push();
     },
     // Remote tab: the phone's Remote page here (shared/phone-remote.js).
     setRemote(m) {

@@ -100,6 +100,8 @@ let camShare = null; // Camera tab: the cameras of the two computers (shared/cam
 let vcam = null; // Camera: the running camera's picture, to the tab and the virtual camera (shared/vcam.js, vcam.js)
 let nowPlaying = null; // what plays on the phone, for the Overview's media controls (shared/nowplaying.js)
 let btAudio = null; // the phone's sound here over Bluetooth (shared/btaudio.js)
+let rezume = null; // ReZume (shared/rezume.js), only once it's turned on
+let rezumeShelf = null; // … its notification and taskbar button (shared/rezume-shelf.js)
 let helper = null;
 let terminal = null; // only while Terminal is on (loadTerminal)
 let phoneServer = null; // the phones' session (PhoneLink), for features loaded later
@@ -303,6 +305,7 @@ function start() {
   });
   fileRecv.onBatch = (b) => {
     liveDone('recv', b.files ? 'Received ' + plural(b.files, 'file') : 'Nothing arrived', b.files ? 'From ' + peerName() : '');
+    if (rezume && rezume.received(b)) return; // a document taken here: it opens
     if (b.kind === 'paste') fileClip.pasted(b);
     else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
   };
@@ -328,11 +331,13 @@ function start() {
   });
   updates.start();
   const ipc = setupIpc({ link, discovery, screen, clip, kvm, sshd, fileDrop, smb, apps, sound, pcScreen, pcApps, peerApps, vdd, notifs, fileClip, wake, updates, settings, save: saveSettings, push: pushState, buildState,
+    get rezume() { return rezume; }, loadReZume,
     get phone() { return phone; }, get phoneViews() { return phoneViews; }, get camShare() { return camShare; }, get vcam() { return vcam; }, get phoneRemote() { return phoneRemote; }, get nowPlaying() { return nowPlaying; }, get btAudio() { return btAudio; }, get phoneDrive() { return phoneDrive; }, get terminal() { return terminal; }, loadRemote, setCamera, loadNowPlaying, loadBtAudio, loadTerminal, connectPhoneDev, cancelPhoneInvite, hub: loadHub,
     get net() { return net; }, applyNet, joinHotspot,
     checkFirewall, fixFirewall, setStartup, onApp: updateTray });
   pairSync = new PairSync({ link, settings, save: saveSettings, set: ipc.set }); // Two-way switches per pair
   nativeTheme.on('updated', () => { checkTaskbar(); pushState(); });
+  loadReZume(); // only while it's on
   link.start();
 
   link.on('welcome', () => { // a pinned Mac app started while the Mac wasn't connected
@@ -526,6 +531,62 @@ function loadRemote() {
     loadPad: () => require('./gamepad'), save: saveSettings }); // Real gamepad: loaded when turned on
   phoneRemote.refresh(); // its page may be open already
   return phoneRemote;
+}
+
+// ReZume: what's in use here goes on on the other device, and theirs here (shared/rezume.js).
+// Loaded the first time it's turned on: until then nothing is looked at.
+function loadReZume() {
+  if (rezume || !settings.rezume.on) return rezume;
+  const { ReZume } = require('../shared/rezume.js');
+  const { ReZumeShelf } = require('../shared/rezume-shelf.js');
+  const act = require('./activity').create({ helper });
+  rezume = new ReZume({
+    link: {
+      on: (t, fn) => link.on(t, fn),
+      send: (m) => link.send(m),
+      peer: () => (link.status.state === 'connected' && link.current ? { os: link.current.os, name: peerName() } : null),
+      welcome: (fn) => link.on('welcome', fn),
+      closed: (fn) => link.on('closed', fn),
+    },
+    cfg: () => settings.rezume,
+    detect: () => act.detect(),
+    appIcon: (exe) => (path.isAbsolute(exe) ? act.appIcon(exe) : ''),
+    open: { url: (u) => shell.openExternal(u), file: (p) => shell.openPath(p), phoneApp: (pkg) => openPhoneApp(pkg) },
+    sendFile: (p, batch) => !!fileDrop.sendBatch([p], 'rezume', batch),
+    expectFile: (batch) => fileRecv.expectBatch(batch, receivedDir(settings, app.getPath('downloads')), 0, true),
+    adb: () => phoneAdb(phone && phone.bridge),
+    phoneApps: () => (phone && phone.apps) || [],
+  });
+  rezume.on('change', pushState);
+  rezume.on('opened', (o) => hud && hud.show('home', (o.how === 'sent' ? 'Sent to {name}: ' : 'From {name}: ') + o.title));
+  rezumeShelf = new ReZumeShelf({ rezume, cfg: () => settings.rezume, peerName, appIcon: path.join(__dirname, 'assets', 'icon.png'), appId: 'org.macshare.windows.rezume' });
+  rezume.apply();
+  return rezume;
+}
+
+// The phone through wireless debugging, for ReZume: its app in front, and a tab opened there at once.
+function phoneAdb(b) {
+  if (!b || b.state !== 'ready' || !b.serial) return null;
+  return {
+    ready: true,
+    front: async () => {
+      const r = await b.adb.shell(b.serial, 'dumpsys activity activities | grep -m 1 -E "topResumedActivity|mResumedActivity"', { timeout: 4000 });
+      const m = /\s([\w.]+)\/[\w.$]+/.exec(r.out || '');
+      return m ? m[1] : '';
+    },
+    openUrl: (u) => b.adb.shell(b.serial, `am start -a android.intent.action.VIEW -d '${String(u).replace(/'/g, "'\\''")}'`, { timeout: 6000 }),
+  };
+}
+
+// The tray's ReZume items: Continue the other side's, Send ours there.
+function rezumeItems() {
+  const h = rezume && settings.rezume.tray ? rezume.view : null;
+  if (!h || !h.connected) return [];
+  const cut = (t) => (t.length > 48 ? t.slice(0, 47) + '…' : t);
+  const items = [];
+  if (h.incoming) items.push({ label: 'Continue ' + cut(h.incoming.title || h.incoming.name || h.incoming.appName) + ' from ' + peerName(), click: () => rezume.take() });
+  if (h.last && h.send) items.push({ label: 'Send ' + cut(h.last.title) + ' to ' + peerName(), click: () => rezume.push() });
+  return items;
 }
 
 // What the Remote tab shows while Remote isn't loaded.
@@ -912,6 +973,7 @@ function buildState() {
     remote: phoneRemote ? phoneRemote.view : phoneServer ? REMOTE_OFF : null,
     phoneMedia: nowPlaying ? nowPlaying.view : null,
     btAudio: btAudio ? btAudio.view : null,
+    rezume: rezume ? rezume.view : { ...settings.rezume, connected: false }, // ReZume tab (shared/rezume.js)
     ui: settings.ui,
     app: settings.app,
     version: app.getVersion(),
@@ -1109,7 +1171,7 @@ function updateTray(s = buildState()) {
   const host = s.paired && s.paired.macName;
   const again = !connected && host && (s.link.state === 'stopped' || !!s.link.busy);
   const key = JSON.stringify([name, rtt, again, away, kvm.linked, kvm.paused, kvm.locked, kvm.mode, settings.keys.lockKeys, sharing, watching, k.driveOther, k.beDriven, settings.clipboard.enabled,
-    settings.audio.send, settings.app.hud, k.keyboard, settings.files.edgeDrag, settings.files.shortcuts, settings.files.copyKeys, found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
+    settings.audio.send, settings.app.hud, k.keyboard, settings.files.edgeDrag, settings.files.shortcuts, settings.files.copyKeys, rezumeItems().map((i) => i.label), found.map((d) => [d.id, d.name, d.os]), s.updates && s.updates.available && s.updates.latest]);
   if (key === trayKey) return;
   trayKey = key;
   const other = name || 'Other Computer';
@@ -1150,6 +1212,7 @@ function updateTray(s = buildState()) {
     again: again ? { label: (s.link.busy ? 'Take Over ' : 'Connect to ') + host, click: () => link.connect(true) } : null,
     disconnect: connected ? { label: 'Disconnect ' + name, click: () => link.disconnect() } : null,
     update: s.updates && s.updates.available ? { label: 'Download TwinDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
+    rezume: rezumeItems(),
     open: showMain,
     log: () => require('../shared/applog.js').open(),
     quit: () => app.quit(),
@@ -1165,6 +1228,8 @@ app.on('before-quit', () => {
   if (peerApps) peerApps.shutdown();
   if (fileClip) fileClip.shutdown();
   if (phoneViews) phoneViews.shutdown();
+  if (rezumeShelf) rezumeShelf.shutdown();
+  if (rezume) rezume.shutdown();
   if (wired) wired.stop();
   if (phoneDrive) phoneDrive.shutdown();
   if (phone) phone.bridge.adb.killServer();

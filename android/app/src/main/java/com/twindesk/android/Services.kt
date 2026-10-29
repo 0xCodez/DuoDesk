@@ -82,6 +82,7 @@ class ActionReceiver : BroadcastReceiver() {
             FCLIP_SAVE -> core.fclip.fetch(arg, save = true)
             ADB_ON -> core.adb.turnOn()
             SOUND_STOP -> core.sound.stop()
+            REZUME_DISMISS -> core.rezume.dismiss() // ReZume's notification: Dismiss
             PAIR_CODE -> {
                 val code = android.app.RemoteInput.getResultsFromIntent(intent)?.getCharSequence("code")?.toString() ?: ""
                 core.adb.sendPairCode(code)
@@ -110,6 +111,7 @@ class ActionReceiver : BroadcastReceiver() {
         const val PAIR_CODE = "com.twindesk.android.PAIR_CODE"
         const val EXIT = "com.twindesk.android.EXIT"
         const val SOUND_STOP = "com.twindesk.android.SOUND_STOP"
+        const val REZUME_DISMISS = "com.twindesk.android.REZUME_DISMISS"
     }
 }
 
