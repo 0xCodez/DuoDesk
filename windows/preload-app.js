@@ -16,6 +16,13 @@ contextBridge.exposeInMainWorld('macshare', {
   connectAddress: call('connectAddress'),
   refreshFound: call('refreshFound'),
   copyText: call('copyText'),
+  deviceDo: call('deviceDo'),
+  setOverview: call('setOverview'),
+  setChats: call('setChats'), // Messages: chat apps in one inbox // General › Overview: what it shows
+  qrPair: call('qrPair'),
+  notifReply: call('notifReply'), // answer a phone chat's notification
+  adbQr: call('adbQr'), // wireless debugging: pair with a QR code (on / off) // Connection: pair a phone with a QR code
+  importCancel: call('importCancel'), // Explorer's Import / Capture from phone: stop // Overview: the other device's controls
   skipSetup: call('skipSetup'),
   confirmCode: call('confirmCode'),
   cancelPair: call('cancelPair'),

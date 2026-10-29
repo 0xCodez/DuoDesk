@@ -34,6 +34,10 @@
 // }
 'use strict';
 
+let qrPair = null; // Connection's phone pairing QR code: {nonce, until}
+let adbQr = null; // wireless debugging's pairing QR code while shown (shared/adbqr.js)
+const qrKnows = (nonce) => !!qrPair && typeof nonce === 'string' && nonce === qrPair.nonce && Date.now() < qrPair.until;
+
 const path = require('path');
 const { app, BrowserWindow, Tray, Menu, nativeImage, systemPreferences, Notification, dialog, globalShortcut } = require('electron');
 
@@ -230,6 +234,7 @@ function pushState() {
     if (svc) state.terminal = { ...settings.terminal, ...svc.terminal.view, toPc: svc.sshClient.view };
     if (svc) state.files = { ...settings.files, ...svc.drop.view, ...svc.fileSend.view, clip: svc.fileClip.view };
     if (svc) state.notifs = { ...settings.notifs, ...svc.notifs.view };
+    state.chats = svc && svc.chats ? svc.chats.view() : null; // Messages' WhatsApp, Instagram… conversations
     if (svc) {
       const { secret, ...smb } = settings.smb; // never send the share password to the window
       state.smb = { ...smb, ...svc.smb.view };
@@ -238,7 +243,12 @@ function pushState() {
       state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
     if (svc) state.wake = svc.wake.view;
-    if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone };
+    if (svc && svc.phone) {
+      // A phone's controls on Overview (dev.state): quick settings, volume and ringer, most used apps.
+      const v = svc.devctl && state.client && state.client.os === 'android' ? svc.devctl.view : null;
+      state.phone = { ...svc.phone.view, settings: settings.phone, ctl: v, qs: v ? v.qs || null : null, top: v ? v.top || [] : [] };
+    }
+    state.peerCtl = svc && svc.devctl && state.client && state.client.os !== 'android' ? svc.devctl.view : null; // a computer's controls on Overview
     if (svc && svc.phoneDrive) state.mount = { ...svc.phoneDrive.view, on: !!settings.mount.on };
     // Calls, Messages and Photos: the settings alone until the hub is loaded (setupHub).
     state.hub = phoneHub ? phoneHub.view : { ...settings.hub, connected: false };
@@ -565,7 +575,52 @@ app.whenReady().then(() => {
   svc.phone.bridge.on('save', () => store.saveSettings(settings));
   // A phone on a USB cable: pairing, the session, screen and sound through it (no Wi-Fi needed).
   svc.wired = new Wired({ adb: svc.phone.bridge.adb, raw: server, peer, getId: () => id.macId, getName: () => id.macName });
-  pairing.isWired = (nonce) => svc.wired.knows(nonce);
+  pairing.isWired = (nonce) => svc.wired.knows(nonce) || qrKnows(nonce); // the cable, or Connection's QR code (Allow only)
+  // Overview's controls of the other device, and this Mac's for it (shared/devctl.js): the session
+  // is peer.js here, its 'client' the start.
+  const { DevCtl } = require('../shared/devctl.js');
+  const { DevLocal } = require('../shared/devlocal.js');
+  svc.devctl = new DevCtl({
+    link: {
+      on: (ev, fn) => (ev === 'welcome' ? peer.on('client', fn) : ev === 'closed' ? peer.on('closed', fn) : peer.on('t:' + ev, fn)),
+      send: (m) => peer.sendToClient(m),
+    },
+    local: new DevLocal(),
+    adb: () => {
+      const br = svc.phone && svc.phone.bridge;
+      return br && br.state === 'ready' && br.serial ? { adb: br.adb, serial: br.serial } : null;
+    },
+  });
+  svc.devctl.on('change', pushState);
+  // Messages' chat apps from a phone, kept per phone (shared/chats.js).
+  const { Chats } = require('../shared/chats.js');
+  svc.chats = new Chats({ link: {
+      on: (ev, fn) => (ev === 'welcome' ? peer.on('client', fn) : ev === 'closed' ? peer.on('closed', fn) : peer.on('t:' + ev, fn)),
+      send: (m) => peer.sendToClient(m),
+      get current() { return peer.current; },
+    }, dir: app.getPath('userData'), want: () => settings.ui.chats === true, onChange: pushState });
+  // Connection › Pair a phone with a QR code (shared/ui-qrpair.js), and wireless debugging's (shared/adbqr.js).
+  svc.qrPair = () => {
+    if (!qrPair || Date.now() > qrPair.until) qrPair = { nonce: require('crypto').randomBytes(8).toString('hex'), until: Date.now() + 10 * 60000 };
+    const addrs = (state.addresses || []).filter((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a)).slice(0, 4);
+    if (!addrs.length) return { url: '', why: 'No network' };
+    const q = new URLSearchParams({ id: id.macId, n: id.macName, a: addrs.join(','), p: String(server.port), k: qrPair.nonce });
+    return { url: 'twindesk://pair?' + q.toString(), until: qrPair.until };
+  };
+  svc.adbQr = (on) => {
+    if (adbQr) { adbQr.stop(); adbQr = null; }
+    state.adbQr = null;
+    const br = svc.phone && svc.phone.bridge;
+    if (on && br && br.adb.available) {
+      adbQr = require('../shared/adbqr.js').startAdbQr({
+        adb: br.adb,
+        onPaired: () => br.pairedNow(),
+        onEnd: (why) => { adbQr = null; state.adbQr = { done: why }; pushState(); },
+      });
+      state.adbQr = { text: adbQr.text };
+    }
+    pushState();
+  };
   svc.wired.on('change', pushState);
   svc.phone.bridge.wired = svc.wired;
   svc.phone.wired = svc.wired;

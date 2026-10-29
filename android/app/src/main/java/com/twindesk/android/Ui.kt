@@ -105,6 +105,7 @@ private fun lineIcon(name: String, d: String): ImageVector = ImageVector.Builder
 
 object Ico {
     val overview = lineIcon("overview", "M3 9.5 10 4l7 5.5V17H3z M8 17v-4h4v4")
+    val link = lineIcon("link", "M8.5 11.5a3.2 3.2 0 0 0 4.5 0l2.5-2.5a3.2 3.2 0 0 0-4.5-4.5l-.8.8 M11.5 8.5a3.2 3.2 0 0 0-4.5 0L4.5 11a3.2 3.2 0 0 0 4.5 4.5l.8-.8")
     val display = lineIcon("display", "M3 4h14v9H3z M7 17h6 M10 13v4")
     val cursor = lineIcon("cursor", "M5 3l10 6-4.5 1.2L8.5 15z")
     val keyboard = lineIcon("keyboard", "M2.5 6h15v8h-15z M5.5 9h1 M8.5 9h1 M11.5 9h1 M14.5 9h0 M6.5 11.5h7")

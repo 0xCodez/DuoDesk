@@ -37,7 +37,10 @@ const ICON_MAX = 120000;
 
 // Defaults (each platform's settings normalize with these): off; once on, everything but the popups
 // on a computer, which every tab switch on the other one would bring up.
-const DEFAULTS = { on: false, send: true, receive: true, web: true, docs: true, apps: true, mirror: true, push: true, notify: false, taskbar: true, tray: true, tab: true };
+const mediapos = require('./mediapos.js');
+
+const DEFAULTS = { on: false, send: true, receive: true, web: true, docs: true, apps: true, mirror: true, push: true, notify: false, taskbar: true, tray: true, tab: true, video: true };
+// video: a YouTube video goes on at the same second (shared/mediapos.js)
 
 const str = (v, n) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, n) : '');
 const httpUrl = (u) => {
@@ -195,6 +198,11 @@ class ReZume extends EventEmitter {
     }
     const m = { t: T.RZ_OFFER, id, kind: a.kind, title: a.title, app: a.app, appName: a.appName, icon, at: this.out.at };
     if (a.kind === 'web') m.url = a.url;
+    // Video handoff: a YouTube video playing here opens there at the same second.
+    if (a.kind === 'web' && (this.cfg ? this.cfg().video !== false : true) && mediapos.isVideo(a.url)) {
+      try { m.url = mediapos.atTime(a.url, await mediapos.position()); } catch (_) { /* without the time */ }
+      this.out.url = m.url;
+    }
     else Object.assign(m, { name: a.name, size: a.size });
     if (push) m.push = true;
     this.link.send(m);

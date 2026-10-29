@@ -59,12 +59,22 @@ class TwinService : Service() {
 }
 
 class NotifListener : NotificationListenerService() {
+    companion object {
+        // Connected now: Do not disturb from the computer's Overview goes through it (DevCtl.kt).
+        @Volatile var running: NotifListener? = null; private set
+    }
+
+    override fun onListenerDisconnected() {
+        if (running === this) running = null
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         runCatching { Core.get(this).notifs.posted(sbn) }
     }
 
     // Allowed now (or Android started it again): the computer's media controls can see what plays.
     override fun onListenerConnected() {
+        running = this
         runCatching { Core.get(this).nowPlaying.retry() }
     }
 }

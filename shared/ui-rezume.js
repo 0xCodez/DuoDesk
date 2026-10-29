@@ -72,12 +72,13 @@
       const now = UI.card('Now', [status, out, outRow]);
 
       const sw = {};
-      for (const k of ['web', 'docs', 'apps', 'mirror', 'send', 'receive', 'push', 'notify', 'taskbar', 'tray', 'tab']) sw[k] = set(k);
+      for (const k of ['web', 'video', 'docs', 'apps', 'mirror', 'send', 'receive', 'push', 'notify', 'taskbar', 'tray', 'tab']) sw[k] = set(k);
       const webRow = UI.row('Web pages', 'The tab in front in Chrome, Edge, Firefox, Safari, Brave, Vivaldi, Opera or Arc', [sw.web.el]);
+      const videoRow = UI.row('Videos', 'A YouTube video playing here opens there at the same second', [sw.video.el]);
       const docRow = UI.row('Documents', 'The file open in front (Word, Pages, Preview, a text editor…): it comes across and opens here', [sw.docs.el]);
       const appRow = UI.row('Phone apps', 'The app in front on the phone', [sw.apps.el]);
       const mirrorRow = UI.row('Mirror apps', 'A phone app opens here in a window of its own, as it was (wireless debugging)', [sw.mirror.el]);
-      const what = UI.card('What goes', [webRow, docRow, appRow, mirrorRow]);
+      const what = UI.card('What goes', [webRow, videoRow, docRow, appRow, mirrorRow]);
 
       const sendRow = UI.row('Offer what’s in use on {me}', '{name} can go on with it', [sw.send.el]);
       const recvRow = UI.row('Take {name}’s', 'What’s in use there shows here', [sw.receive.el]);
