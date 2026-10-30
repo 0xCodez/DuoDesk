@@ -1,0 +1,326 @@
+/* DuoDesk — Aurora theme. Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
+/* The secondary windows in Aurora: the switching HUD (hud.html), the other computer's screen
+   (monitor.html, mac/pcview.html), an app window (appview.html), the phone window (phoneview.html),
+   the call window (callpop.html) and the camera window (camera-view.html). Each page loads this
+   file on its own, after its own stylesheet, so it carries its own fonts and tokens.
+   Always dark, whatever the OS says. Video and the phone picture are never covered or tinted:
+   only the bars, buttons, pills and text around them change. Transparent windows (the HUD) stay
+   transparent. Every rule is scoped to an id or class that only its page has, so one page's look
+   can't leak onto another. */
+
+/* ---------- fonts: Geist and Geist Mono, variable 100–900, local (CSP: default-src 'self') ---------- */
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-cyrillic-wght-normal.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-mono-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-mono-cyrillic-wght-normal.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+/* ---------- tokens ---------- */
+/* --au-*: Aurora's own. --bar / --text / --muted / --hover: the phone window's (phoneview.css),
+   set again here so they're dark in a light OS too. */
+:root {
+  color-scheme: dark;
+  --au-bg: #040405; --au-win: #0a0a0c; --au-raise: #121215; --au-pop: #18181c;
+  --au-glass: rgba(255, 255, 255, 0.035); --au-glass2: rgba(255, 255, 255, 0.07); --au-glass3: rgba(255, 255, 255, 0.12);
+  --au-line: rgba(255, 255, 255, 0.07); --au-line2: rgba(255, 255, 255, 0.12);
+  --au-text: #f1f1f3; --au-muted: #8c8c95; --au-dim: #55555d;
+  --au-accent: #a98bff; --au-accent2: #8a5cff; --au-accent-soft: rgba(138, 92, 255, 0.22); --au-accent-line: rgba(169, 139, 255, 0.45);
+  --au-good: #3dffa8; --au-warn: #ffb340; --au-bad: #ff5c7a;
+  --au-spec: linear-gradient(90deg, #ff3d9a, #8a5cff 30%, #2fd6ff 55%, #3dffa8 75%, #ffb340);
+  --au-ui: "Geist", system-ui, -apple-system, "Segoe UI", "Ubuntu", "Cantarell", sans-serif;
+  --au-mono: "Geist Mono", ui-monospace, "SF Mono", Consolas, "DejaVu Sans Mono", monospace;
+  --au-ease: cubic-bezier(0.2, 0.9, 0.1, 1);
+  --au-glassbar: rgba(14, 14, 17, 0.9); /* 0.9: muted labels stay AA over a bright picture */
+  --bar: #101013; --text: #f1f1f3; --muted: #8c8c95; --hover: rgba(255, 255, 255, 0.07);
+}
+@media (prefers-color-scheme: light) {
+  :root { color-scheme: dark; --bar: #101013; --text: #f1f1f3; --muted: #8c8c95; --hover: rgba(255, 255, 255, 0.07); }
+}
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: dark; --bar: #101013; --text: #f1f1f3; --muted: #8c8c95; --hover: rgba(255, 255, 255, 0.07); }
+}
+@property --au-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+/* the HUD's window is transparent: leave its colour scheme as it was so nothing paints a dark backdrop */
+:root:has(> body > #pill) { color-scheme: normal; }
+
+/* ---------- base: type, selection, scrollbars (no backgrounds: video pages stay black, the HUD transparent) ---------- */
+html, body { font-family: var(--au-ui); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+::selection { background: rgba(138, 92, 255, 0.45); color: #fff; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.22); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+@keyframes au-hue { to { filter: blur(var(--au-blur, 16px)) hue-rotate(360deg); } }
+@keyframes au-rot { to { --au-a: 360deg; } }
+@keyframes au-breathe { 0%, 100% { opacity: 0.42; } 50% { opacity: 0.75; } }
+
+/* =====================================================================================
+   HUD (hud.html, windows/linux/mac): a transparent, frameless window. The pill (switching)
+   and the card (cursor sharing on/off) become dark glass with the spectral glow at their foot.
+   ===================================================================================== */
+.pill {
+  position: relative; overflow: hidden; isolation: isolate;
+  border-radius: 99px; background: rgba(12, 12, 15, 0.93); color: var(--au-text);
+  box-shadow: inset 0 0 0 1px var(--au-line2), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 12px -4px rgba(0, 0, 0, 0.7);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3);
+  font-family: var(--au-ui);
+}
+/* the glow under the pill, behind its contents */
+.pill::before {
+  content: ""; position: absolute; z-index: -1; left: 14%; right: 14%; bottom: -26px; height: 34px; border-radius: 50%;
+  background: var(--au-spec); --au-blur: 16px; filter: blur(16px); opacity: 0.5; pointer-events: none;
+  animation: au-hue 9s linear infinite;
+}
+.pill.home::before { opacity: 0.32; }
+.pill .text { font-weight: 500; letter-spacing: -0.1px; color: var(--au-text); }
+/* the app mark: a dark tile lit from below, like the brand mark */
+.pill .mark {
+  border-radius: 11px; background: #111114; overflow: hidden; isolation: isolate;
+  box-shadow: inset 0 0 0 1px var(--au-line2);
+}
+.pill .mark::before {
+  content: ""; position: absolute; z-index: -1; left: -4px; right: -4px; bottom: -11px; height: 19px;
+  background: var(--au-spec); --au-blur: 6px; filter: blur(6px); pointer-events: none; animation: au-hue 6s linear infinite;
+}
+.pill .scr { border-color: #f1f1f3; }
+.pill .dot { background: #fff; box-shadow: 0 0 6px #fff, 0 0 12px #a98bff; }
+
+.card {
+  border-radius: 24px; overflow: hidden; isolation: isolate; color: var(--au-text); font-family: var(--au-ui);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)), rgba(10, 10, 12, 0.95);
+  box-shadow: inset 0 0 0 1px var(--au-line2), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 14px 40px -12px rgba(0, 0, 0, 0.75);
+  -webkit-backdrop-filter: blur(30px) saturate(1.3); backdrop-filter: blur(30px) saturate(1.3);
+}
+.card::before {
+  content: ""; position: absolute; z-index: -1; left: 10%; right: 10%; bottom: -64px; height: 96px; border-radius: 50%;
+  background: var(--au-spec); --au-blur: 34px; filter: blur(34px); opacity: 0.42; pointer-events: none;
+  transition: opacity 0.6s var(--au-ease); animation: au-hue 10s linear infinite;
+}
+.card.linkOff::before { opacity: 0.12; }
+.card .card-text { font-weight: 500; letter-spacing: -0.5px; color: var(--au-text); }
+.card .card-sub { opacity: 1; color: var(--au-muted); }
+.card .screen { color: var(--au-text); }
+.card.linkOff .screen { color: var(--au-muted); }
+.card .wire { background: rgba(255, 255, 255, 0.08); }
+.card .wire::before { background: var(--au-spec); }
+.card .spark { background: #fff; }
+/* the screens' ring when they link up: violet, not green (hud.css's own animation name) */
+@keyframes glow { 0% { box-shadow: 0 0 0 0 rgba(138, 92, 255, 0.6); } 100% { box-shadow: 0 0 0 14px rgba(138, 92, 255, 0); } }
+
+/* =====================================================================================
+   The other computer's screen (monitor.html, mac/pcview.html) and an app (appview.html):
+   a black video window. Only the top toolbar, the status text and the chips are restyled.
+   ===================================================================================== */
+/* the toolbar that drops in from the top edge: a glass pill */
+div#bar {
+  gap: 2px; padding: 4px; border-radius: 99px; overflow: hidden; isolation: isolate;
+  background: var(--au-glassbar); color: var(--au-text);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3); backdrop-filter: blur(24px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px var(--au-line2), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 14px 36px -12px rgba(0, 0, 0, 0.85);
+  font: 500 12px/1 var(--au-ui); letter-spacing: 0;
+  transition: transform 0.36s var(--au-ease);
+}
+div#bar::before {
+  content: ""; position: absolute; z-index: -1; left: 12%; right: 12%; bottom: -22px; height: 28px; border-radius: 50%;
+  background: var(--au-spec); --au-blur: 14px; filter: blur(14px); opacity: 0.32; pointer-events: none;
+  animation: au-hue 10s linear infinite;
+}
+div#bar:not(.show)::before { animation: none; } /* no work for a glow nobody sees: the bar is off screen */
+div#bar button {
+  position: relative; padding: 7px 12px; border-radius: 99px; color: var(--au-muted); cursor: default;
+  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+div#bar button:hover { background: var(--au-glass2); color: var(--au-text); }
+div#bar button:active { background: var(--au-glass3); }
+div#bar button:focus-visible { box-shadow: inset 0 0 0 1.5px var(--au-accent); color: var(--au-text); }
+/* on: lit glass with a spectral underline */
+div#bar button.on { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: inset 0 0 0 1px var(--au-line2); }
+div#bar button.on::after {
+  content: ""; position: absolute; left: 50%; bottom: 2px; width: 14px; height: 2px; margin-left: -7px; border-radius: 2px;
+  background: var(--au-spec);
+}
+div#bar button[disabled], div#bar button[disabled]:hover { opacity: 0.35; background: none; color: var(--au-muted); }
+div#bar #b-stop:not([disabled]):hover { color: var(--au-bad); background: rgba(255, 92, 122, 0.12); }
+div#bar .sep { width: 1px; height: 14px; background: var(--au-line2); margin: 0 3px; }
+
+/* "Not sharing" / "Connecting…": shown where there's no picture */
+body > #overlay {
+  color: var(--au-muted); font-family: var(--au-ui); font-size: 15px; font-weight: 400; letter-spacing: -0.1px;
+  text-shadow: 0 1px 14px #000;
+}
+/* the stats box (monitor.js, Ctrl+Shift+S) */
+body > #stats {
+  padding: 8px 12px; border-radius: 12px; background: rgba(10, 10, 12, 0.84); color: #c9f9e2;
+  font-family: var(--au-mono); font-size: 11.5px;
+  box-shadow: inset 0 0 0 1px var(--au-line2);
+}
+/* a file dropped on the window: how it went */
+body > #drop-status {
+  padding: 7px 16px; border-radius: 99px; background: var(--au-glassbar); color: var(--au-text);
+  font-family: var(--au-ui); font-weight: 500;
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 0 1px var(--au-line2), 0 10px 28px -10px rgba(0, 0, 0, 0.8);
+}
+body > #drop-status.ok { color: var(--au-good); box-shadow: inset 0 0 0 1px rgba(61, 255, 168, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.8); }
+body > #drop-status.bad { color: var(--au-bad); box-shadow: inset 0 0 0 1px rgba(255, 92, 122, 0.35), 0 10px 28px -10px rgba(0, 0, 0, 0.8); }
+body.dragging #video { outline: 3px solid var(--au-accent2); outline-offset: -3px; }
+
+/* =====================================================================================
+   The phone window (phoneview.html, windows/linux/mac): the title bar, the side panel and
+   the bottom bar. The picture (#screen) and the black around it are untouched.
+   ===================================================================================== */
+header#bar {
+  background: var(--bar); color: var(--au-text); font-family: var(--au-ui);
+  box-shadow: inset 0 -1px 0 var(--au-line);
+}
+header#bar #title { font-weight: 500; letter-spacing: -0.1px; color: var(--au-text); }
+/* USB or Wi-Fi */
+header#bar #via {
+  padding: 1px 7px; border-radius: 99px; font: 500 10px/1.5 var(--au-mono); letter-spacing: 0.04em;
+  background: var(--au-glass2); color: var(--au-muted); box-shadow: inset 0 0 0 1px var(--au-line);
+}
+header#bar #via.usb { background: rgba(61, 255, 168, 0.12); color: var(--au-good); box-shadow: inset 0 0 0 1px rgba(61, 255, 168, 0.28); }
+/* the controls: in the title bar's tools, the side panel (#panel) or the bottom bar (#navbar) */
+#panel { background: var(--bar); box-shadow: inset 1px 0 0 var(--au-line); }
+#navbar { background: var(--bar); box-shadow: inset 0 1px 0 var(--au-line); }
+header#bar button, #panel > button, #navbar > button {
+  border-radius: 9px; background: none; color: var(--au-text); cursor: default;
+  transition: background-color 0.2s, box-shadow 0.2s, transform 0.25s var(--au-ease);
+}
+header#bar button svg, #panel > button svg, #navbar > button svg { stroke: var(--au-text); transition: stroke 0.2s; }
+header#bar button:hover, #panel > button:hover, #navbar > button:hover { background: var(--au-glass2); }
+header#bar button:active, #panel > button:active, #navbar > button:active { background: var(--au-glass3); transform: scale(0.94); }
+header#bar button:focus-visible, #panel > button:focus-visible, #navbar > button:focus-visible { outline: 2px solid var(--au-accent); outline-offset: 1px; }
+/* on (.on: windows; .active: linux/mac — Torch, Screen off, Enter sends, Arrow swipe, the panel button) */
+header#bar button.on, header#bar button.active, #panel > button.on, #panel > button.active, #navbar > button.on, #navbar > button.active {
+  background: var(--au-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--au-accent-line), 0 4px 14px -6px var(--au-accent2);
+}
+header#bar button.on svg, header#bar button.active svg, #panel > button.on svg, #panel > button.active svg,
+#navbar > button.on svg, #navbar > button.active svg { stroke: #fff; }
+/* the side panel's Back / Home / Recents gap stays as is; the status text over the empty stage */
+#stage > #status { color: var(--au-muted); font-family: var(--au-ui); font-size: 13px; letter-spacing: -0.05px; }
+/* a file dragged over the phone */
+body.drop #stage { outline: 3px solid var(--au-accent2); outline-offset: -3px; box-shadow: inset 0 0 48px rgba(138, 92, 255, 0.28); }
+
+/* =====================================================================================
+   The call window (callpop.html): a small frameless window in a corner of the screen.
+   ===================================================================================== */
+body.callpop {
+  --text: #f1f1f3; --muted: #8c8c95; --card: #0a0a0c; --line: rgba(255, 255, 255, 0.12); --track-off: rgba(255, 255, 255, 0.08);
+  --good: #3dffa8; --bad: #ff5c7a; --accent: #8a5cff; --control: rgba(255, 255, 255, 0.07);
+  background: #0a0a0c; color: var(--au-text); font-family: var(--au-ui);
+}
+@media (prefers-color-scheme: light) {
+  body.callpop { --text: #f1f1f3; --muted: #8c8c95; --card: #0a0a0c; --line: rgba(255, 255, 255, 0.12); --track-off: rgba(255, 255, 255, 0.08); --control: rgba(255, 255, 255, 0.07); }
+}
+@media (prefers-color-scheme: dark) {
+  body.callpop { --text: #f1f1f3; --muted: #8c8c95; --card: #0a0a0c; --line: rgba(255, 255, 255, 0.12); --track-off: rgba(255, 255, 255, 0.08); --control: rgba(255, 255, 255, 0.07); }
+}
+body.callpop .cp {
+  overflow: hidden; isolation: isolate; border-color: var(--au-line2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+}
+/* the glow at its foot: soft while in a call, breathing while it rings, red-warm when missed */
+body.callpop .cp::before {
+  content: ""; position: absolute; z-index: -1; left: 8%; right: 8%; bottom: -50px; height: 70px; border-radius: 50%;
+  background: var(--au-spec); --au-blur: 28px; filter: blur(28px); opacity: 0.3; pointer-events: none;
+  transition: opacity 0.5s var(--au-ease); animation: au-hue 10s linear infinite;
+}
+body.callpop .cp:has(#answer:not([hidden]))::before { animation: au-hue 6s linear infinite, au-breathe 1.6s ease-in-out infinite; }
+body.callpop.missed .cp::before { background: linear-gradient(90deg, #ff3d9a, #ff5c7a 50%, #ffb340); opacity: 0.3; animation: none; }
+/* the avatar: a letter or the contact's photo, in a spectral ring */
+body.callpop .cp-avatar {
+  position: relative; background-color: #16161a; color: var(--au-text); font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--au-line2);
+}
+body.callpop .cp-avatar::before {
+  content: ""; position: absolute; inset: -3px; border-radius: 50%; padding: 1.5px; pointer-events: none;
+  /* written out here, not as a :root token: a token would be resolved on :root, and --au-a turning here wouldn't move it */
+  background: conic-gradient(from var(--au-a), #ff3d9a, #8a5cff, #2fd6ff, #3dffa8, #ffb340, #ff3d9a);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0.8;
+}
+body.callpop .cp:has(#answer:not([hidden])) .cp-avatar::before { opacity: 1; animation: au-rot 3s linear infinite; }
+body.callpop.missed .cp-avatar::before { opacity: 0.35; }
+body.callpop .cp-who { font-weight: 500; letter-spacing: -0.2px; color: var(--au-text); }
+body.callpop .cp-sub { color: var(--au-muted); }
+body.callpop.missed .cp-sub { color: var(--au-bad); }
+/* the round buttons: glass; Answer good, Decline/End bad, Mute on violet */
+body.callpop .cp-btn {
+  background: var(--au-glass2); color: var(--au-text); box-shadow: inset 0 0 0 1px var(--au-line2);
+  transition: background-color 0.2s, box-shadow 0.25s, transform 0.3s var(--au-ease), filter 0.2s;
+}
+body.callpop .cp-btn:hover { background: var(--au-glass3); transform: translateY(-1px); }
+body.callpop .cp-btn:active { transform: scale(0.94); filter: brightness(0.92); }
+body.callpop .cp-btn:focus-visible { outline: 2px solid var(--au-accent); outline-offset: 2px; }
+body.callpop .cp-btn.good { background: var(--au-good); color: #03140c; box-shadow: 0 6px 20px -6px rgba(61, 255, 168, 0.85); }
+body.callpop .cp-btn.good:hover { background: #6bffbe; }
+body.callpop .cp-btn.bad { background: #f0435f; /* a touch deeper than --au-bad: the white icon keeps 3:1 */ color: #fff; box-shadow: 0 6px 20px -6px rgba(255, 92, 122, 0.85); }
+body.callpop .cp-btn.bad:hover { background: var(--au-bad); }
+body.callpop .cp-btn.on { background: var(--au-accent2); color: #fff; box-shadow: 0 6px 18px -6px var(--au-accent2), inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+body.callpop .cp-x { color: var(--au-muted); border-radius: 6px; transition: opacity 0.15s, color 0.2s, background-color 0.2s; }
+body.callpop .cp-x:hover { color: var(--au-text); background: var(--au-glass2); }
+body.callpop .cp-x:focus-visible { opacity: 1; outline: 2px solid var(--au-accent); outline-offset: 1px; }
+
+/* =====================================================================================
+   The camera window (camera-view.html): the other computer's camera. The picture is
+   untouched; the status text and the Mirror / Try again buttons are restyled.
+   ===================================================================================== */
+body > #status { color: var(--au-muted); font-family: var(--au-ui); letter-spacing: -0.05px; text-shadow: 0 1px 14px #000; }
+body > #tools {
+  gap: 2px; padding: 4px; border-radius: 99px; background: var(--au-glassbar);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px var(--au-line2), 0 10px 28px -10px rgba(0, 0, 0, 0.85);
+  transition: opacity 0.3s var(--au-ease);
+}
+body > #tools button {
+  position: relative; padding: 6px 12px; border-radius: 99px; background: none; color: var(--au-muted);
+  font: 500 12px/1.2 var(--au-ui); transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+body > #tools button:hover { background: var(--au-glass2); color: var(--au-text); }
+body > #tools button:focus-visible { outline: none; box-shadow: inset 0 0 0 1.5px var(--au-accent); color: var(--au-text); }
+body > #tools button.on { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: inset 0 0 0 1px var(--au-line2); }
+body > #tools button.on::after {
+  content: ""; position: absolute; left: 50%; bottom: 2px; width: 14px; height: 2px; margin-left: -7px; border-radius: 2px;
+  background: var(--au-spec);
+}
+
+/* ---------- reduced motion: no drifting hues, no rings turning, no press bounce ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .pill::before, .pill .mark::before, .card::before, div#bar::before, body.callpop .cp::before,
+  body.callpop .cp-avatar::before { animation: none !important; }
+  .card::before, body.callpop .cp::before,
+  div#bar, div#bar button, header#bar button, #panel > button, #navbar > button, body.callpop .cp-btn,
+  body > #tools, body > #tools button { transition: none !important; }
+  header#bar button:active, #panel > button:active, #navbar > button:active,
+  body.callpop .cp-btn:hover, body.callpop .cp-btn:active { transform: none; }
+}

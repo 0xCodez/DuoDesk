@@ -28,7 +28,7 @@ UI.tab({
       connecting: 'Connecting…', live: 'Live', 'no viewer': 'Ready — starts when {name} opens it', 'waiting for Wi-Fi': 'Waiting for Wi-Fi', 'nothing connected': 'Waiting for {name}', 'no display to share': 'No display to share', disconnected: 'Reconnecting…', failed: 'Retrying…', closed: 'Closed',
     };
 
-    const helperNote = UI.note('bad', 'Something went wrong in the background. Restart TwinDesk.');
+    const helperNote = UI.note('bad', 'Something went wrong in the background. Restart DuoDesk.');
 
     const mode = UI.segmented([
       { value: 'extend', label: 'Extend' },

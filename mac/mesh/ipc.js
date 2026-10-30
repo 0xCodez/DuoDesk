@@ -221,7 +221,7 @@ function setupIpc(ctx) {
     copyText(text) {
       if (typeof text === 'string' && text.length < 200) clipboard.writeText(text);
     },
-    // Ask first (that puts TwinDesk in the System Settings list), then open the pane.
+    // Ask first (that puts DuoDesk in the System Settings list), then open the pane.
     async allowPermission(kind) {
       if (!SETTINGS_URLS[kind]) return;
       let granted = false;
@@ -363,7 +363,7 @@ function setupIpc(ctx) {
     muteNotifApp(arg) {
       if (arg && typeof arg.app === 'string') ctx.notifs.setMuted(arg.app.slice(0, 200), !!arg.muted);
     },
-    // Full Disk Access has no request API: open the pane and show TwinDesk in Finder to drag in.
+    // Full Disk Access has no request API: open the pane and show DuoDesk in Finder to drag in.
     allowFullDisk() {
       shell.openExternal(SETTINGS_URLS.fullDisk);
       const bundle = process.execPath.replace(/\/Contents\/MacOS\/[^/]+$/, '');
@@ -572,7 +572,7 @@ function setupIpc(ctx) {
       app.exit(0);
     },
     setMulti(on) {
-      require('../multi').set(on === true); // Multi-device off: TwinDesk restarts one to one
+      require('../multi').set(on === true); // Multi-device off: DuoDesk restarts one to one
     },
   };
 

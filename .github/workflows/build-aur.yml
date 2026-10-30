@@ -1,8 +1,12 @@
 name: Build AUR
 
-# twindesk-bin (linux/aur/PKGBUILD) from the release's .deb (Build Linux puts it there first), built
+# duodesk-bin (linux/aur/PKGBUILD) from the release's .deb (Build Linux puts it there first), built
 # and installed on Arch to check it, then put on the release. The PKGBUILD and .SRCINFO to push to the AUR are the artifact.
+# A pushed v* tag runs it by itself once Build Linux has put that tag's .deb on the release.
 on:
+  workflow_run:
+    workflows: [Build Linux]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -17,8 +21,18 @@ on:
 permissions:
   contents: write
 
+# The dispatch's tag, or the tag whose push started the Build Linux run (its head_branch).
+env:
+  TAG: ${{ inputs.tag || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch) || '' }}
+
 jobs:
   build:
+    # After Build Linux: only a tag push's run that worked (a dispatched one is followed by hand, as before).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-24.04
     container: archlinux:base-devel
 
@@ -28,20 +42,25 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || 'main' }}
+          # Dispatch: main unless ref says otherwise. After a tag's Build Linux: the commit it built.
+          ref: ${{ inputs.ref || github.event.workflow_run.head_sha || 'main' }}
 
       # Downloaded here, not by makepkg: a draft's files aren't at the public URL yet. makepkg uses
       # the file already in the folder under the source's name.
+      # pkgver can't hold a '-': 2.5.0-beta.1 is pkgver 2.5.0beta.1, which vercmp puts before 2.5.0 (2.5.0_beta.1
+      # or 2.5.0.beta.1 would come after it, so the final release would never replace the beta),
+      # while _ver keeps the real version the release's .deb and its URL are named with.
       - name: Fetch the .deb and set the version
         working-directory: linux/aur
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VER="${{ inputs.tag }}"; VER="${VER#v}"
-          gh release download "${{ inputs.tag }}" -R "${{ github.repository }}" -p "TwinDesk-$VER-amd64.deb"
-          SUM=$(sha256sum "TwinDesk-$VER-amd64.deb" | cut -d' ' -f1)
-          sed -i -e "s/^pkgver=.*/pkgver=$VER/" -e "s/^pkgrel=.*/pkgrel=1/" -e "s/^sha256sums=.*/sha256sums=('$SUM')/" PKGBUILD
-          grep -E '^(pkgver|pkgrel|sha256sums)=' PKGBUILD
+          VER="${TAG#v}"
+          PKGVER=$(printf '%s' "$VER" | tr -d '-')
+          gh release download "$TAG" -R "${{ github.repository }}" -p "DuoDesk-$VER-amd64.deb"
+          SUM=$(sha256sum "DuoDesk-$VER-amd64.deb" | cut -d' ' -f1)
+          sed -i -e "s/^pkgver=.*/pkgver=$PKGVER/" -e "s/^_ver=.*/_ver=$VER/" -e "s/^pkgrel=.*/pkgrel=1/" -e "s/^sha256sums=.*/sha256sums=('$SUM')/" PKGBUILD
+          grep -E '^(pkgver|_ver|pkgrel|sha256sums)=' PKGBUILD
 
       # makepkg won't run as root: a user that may sudo pacman for the dependencies.
       - name: Build
@@ -57,24 +76,24 @@ jobs:
         working-directory: linux/aur
         run: |
           namcap PKGBUILD || true
-          namcap twindesk-bin-*.pkg.tar.zst || true
-          pacman -U --noconfirm twindesk-bin-*.pkg.tar.zst
+          namcap duodesk-bin-*.pkg.tar.zst || true
+          pacman -U --noconfirm duodesk-bin-*.pkg.tar.zst
           test -x "$(readlink -f /usr/bin/twindesk)"
-          test -f /usr/share/licenses/twindesk-bin/LICENSE
+          test -f /usr/share/licenses/duodesk-bin/LICENSE
           ls /usr/share/applications/ | grep -i twindesk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: twindesk-aur
+          name: duodesk-aur
           include-hidden-files: true # .SRCINFO
           path: |
             linux/aur/PKGBUILD
             linux/aur/.SRCINFO
-            linux/aur/twindesk-bin-*.pkg.tar.zst
+            linux/aur/duodesk-bin-*.pkg.tar.zst
 
       # The package onto the release too, for `pacman -U` (the updater takes only .deb and .AppImage).
       - name: Upload to the release
         working-directory: linux/aur
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ inputs.tag }}" -R "${{ github.repository }}" twindesk-bin-*.pkg.tar.zst --clobber
+        run: gh release upload "$TAG" -R "${{ github.repository }}" duodesk-bin-*.pkg.tar.zst --clobber

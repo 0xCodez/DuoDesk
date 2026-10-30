@@ -1,16 +1,24 @@
 name: Build Android
 
 on:
+  # A pushed v* tag builds and puts the files on that tag's release (made as a prerelease).
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Release to put the files on (e.g. v2.0.1; made as a draft if it isn't there). Empty = run artifacts only.
+        description: Release to put the files on (e.g. v2.0.1; made as a draft prerelease if it isn't there). Empty = run artifacts only.
         required: false
         default: ''
       ref:
         description: Branch to build (a test branch; releases come from main).
         required: false
         default: main
+
+# The release the files go on: the dispatch's tag, or the pushed tag; empty = run artifacts only
+# (a dispatch started from a tag with no tag input builds main, so it doesn't go on that tag's release).
+env:
+  TAG: ${{ inputs.tag || (github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name) || '' }}
 
 # Write: the files can go straight onto a release.
 permissions:
@@ -21,10 +29,11 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      # main unless another branch is asked for (ref), whichever branch the run was started from.
+      # Dispatch: main unless another branch is asked for (ref), whichever branch the run was started
+      # from. Tag push: the pushed tag.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || 'main' }}
+          ref: ${{ inputs.ref || (github.event_name == 'workflow_dispatch' && 'main') || github.ref }}
 
       - uses: actions/setup-java@v4
         with:
@@ -52,20 +61,23 @@ jobs:
           ./gradlew --no-daemon assembleRelease
           v=$(grep -m1 versionName app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
           mkdir -p dist
-          cp app/build/outputs/apk/standard/release/app-standard-release.apk "dist/TwinDesk-$v.apk"
-          cp app/build/outputs/apk/full/release/app-full-release.apk "dist/TwinDesk-$v-full.apk"
+          cp app/build/outputs/apk/standard/release/app-standard-release.apk "dist/DuoDesk-$v.apk"
+          cp app/build/outputs/apk/full/release/app-full-release.apk "dist/DuoDesk-$v-full.apk"
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: twindesk-android
-          path: android/dist/TwinDesk-*.apk
+          name: duodesk-android
+          path: android/dist/DuoDesk-*.apk
 
       # Straight onto the release, no download and re-upload.
       - name: Upload to the release
-        if: inputs.tag != ''
+        if: env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          # A tag push publishes the prerelease straight away: the workflows run side by side, and
+          # drafts (no tag of their own yet) would be made once each. A dispatch makes a draft.
+          DRAFT: ${{ github.event_name != 'push' && 'true' || '' }}
         run: |
-          gh release view "${{ inputs.tag }}" >/dev/null 2>&1 || gh release create "${{ inputs.tag }}" --draft --target main --title "${{ inputs.tag }}" --notes "" || true
-          gh release upload "${{ inputs.tag }}" android/dist/TwinDesk-*.apk --clobber
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" ${DRAFT:+--draft} --prerelease --target "$(git rev-parse HEAD)" --title "$TAG" --notes "" || true
+          gh release upload "$TAG" android/dist/DuoDesk-*.apk --clobber

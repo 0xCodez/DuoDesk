@@ -28,9 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,9 +69,9 @@ fun WirelessGuide(core: Core, ctx: Context, v: Int) {
     Box(Modifier.fillMaxSize().background(pal.content).safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Tile(Ico.display, listOf(Color(0xFF5AC8FA), Color(0xFF0A84FF)), 44)
+                Tile(Ico.display, listOf(Hue.pink, Hue.pink), 44)
                 Column(Modifier.padding(start = 14.dp)) {
-                    Text("Wireless debugging", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = pal.text)
+                    Text("Wireless debugging", fontSize = 26.sp, fontWeight = FontWeight.Light, letterSpacing = (-0.6).sp, color = pal.text)
                     Text("Once, so $name can show this screen and use its mouse and keyboard here", color = pal.muted, fontSize = 13.5.sp)
                 }
             }
@@ -81,10 +79,7 @@ fun WirelessGuide(core: Core, ctx: Context, v: Int) {
             if (a.paired) Note("Done: $name is paired with this device’s wireless debugging.", "info")
             WirelessSteps(core, ctx, "")
             Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { Guide.close(core) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = pal.accent, contentColor = Color.White),
-            ) { Text("Done", modifier = Modifier.padding(vertical = 4.dp)) }
+            PrimaryButton("Done", Modifier.fillMaxWidth()) { Guide.close(core) }
         }
     }
 }
@@ -98,7 +93,7 @@ private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Compos
     val connected = core.host != null
     class S(val title: String, val hint: String, val done: Boolean, val optional: Boolean = false, val action: @Composable () -> Unit = {})
     val steps = listOfNotNull(
-        S("Connect to $name", "Open TwinDesk on $name, then tap Connect on Overview.", connected) {
+        S("Connect to $name", "Open DuoDesk on $name, then tap Connect on Overview.", connected) {
             core.hosts().firstOrNull()?.let { h -> Secondary("Connect") { core.connect(h) } }
         },
         S(
@@ -114,7 +109,7 @@ private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Compos
         S("Turn on USB and Wireless debugging", "Developer options › USB debugging and Wireless debugging: both on.", a.wifiDebugging) { Secondary("Open") { a.turnOn() } },
         S(
             "Pair with $name",
-            if (a.pairing) "Pairing…" else "“Pair device with pairing code”, then type the code in TwinDesk’s notification.", a.paired,
+            if (a.pairing) "Pairing…" else "“Pair device with pairing code”, then type the code in DuoDesk’s notification.", a.paired,
         ) { Primary("Pair") { a.askForCode(); a.openSettings() } },
     )
     val current = steps.indexOfFirst { !it.done && !it.optional }
@@ -122,7 +117,7 @@ private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Compos
         val done = steps.filter { it.done }
         if (done.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(22.dp).clip(CircleShape).background(pal.good), contentAlignment = Alignment.Center) {
-                Text("✓", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("✓", color = Color(0xFF040405), fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
             Text(done.joinToString(" · ") { it.title.removePrefix("Turn on ").removeSuffix(" with $name").removeSuffix(" to $name") }, color = pal.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 10.dp))
         }
@@ -144,8 +139,8 @@ private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Compos
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     code, { code = it.filter { c -> c.isDigit() }.take(6) }, placeholder = { Text("Or type the code here", color = pal.faint, fontSize = 14.sp) }, singleLine = true,
-                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp, color = pal.text, letterSpacing = 3.sp),
+                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp),
+                    textStyle = LocalTextStyle.current.copy(fontFamily = GeistMono, fontSize = 16.sp, color = pal.text, letterSpacing = 3.sp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 )
                 Primary("Pair") { a.askForCode(); a.sendPairCode(code) }
@@ -164,7 +159,7 @@ private fun Step(n: Int, title: String, hint: String, done: Boolean, first: Bool
             Box(
                 Modifier.size(if (compact) 22.dp else 26.dp).clip(CircleShape).background(if (done) pal.good else if (optional || compact) pal.trackOff else pal.accentSoft),
                 contentAlignment = Alignment.Center,
-            ) { Text(if (done) "✓" else "$n", color = if (done) Color.White else if (compact) pal.muted else pal.accent, fontWeight = FontWeight.Bold, fontSize = if (compact) 12.sp else 14.sp) }
+            ) { Text(if (done) "✓" else "$n", color = if (done) Color(0xFF040405) else if (compact) pal.muted else pal.accent, fontWeight = FontWeight.Bold, fontSize = if (compact) 12.sp else 14.sp) }
             Column(Modifier.weight(1f).padding(start = 12.dp, end = 10.dp)) {
                 Text(title, color = if (compact && !optional) pal.muted else pal.text, fontSize = if (compact) 13.5.sp else 15.sp)
                 if (hint.isNotEmpty()) Text(hint, color = pal.muted, fontSize = 12.5.sp)
@@ -175,7 +170,7 @@ private fun Step(n: Int, title: String, hint: String, done: Boolean, first: Bool
 }
 
 @Composable
-private fun Primary(label: String, onClick: () -> Unit) = Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = pal.accent, contentColor = Color.White), shape = RoundedCornerShape(8.dp)) { Text(label) }
+private fun Primary(label: String, onClick: () -> Unit) = PrimaryButton(label, onClick = onClick)
 
 @Composable
-private fun Secondary(label: String, onClick: () -> Unit) = OutlinedButton(onClick = onClick, shape = RoundedCornerShape(8.dp)) { Text(label, color = pal.text) }
+private fun Secondary(label: String, onClick: () -> Unit) = SecondaryButton(label, onClick = onClick)

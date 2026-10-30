@@ -166,7 +166,7 @@
                 : v.ready && v.live ? `Sharing now: in Zoom, Teams, the browser…, choose only ${vName} as the camera`
                   : v.ready ? `Ready: the camera running here goes to ${vName}. Choose only that one in the app you call from`
                     : v.on ? (v.message || 'Not installed')
-                      : v.message || `Off: the picture stays in TwinDesk. On: it’s also ${vName}, a camera other apps can pick`);
+                      : v.message || `Off: the picture stays in DuoDesk. On: it’s also ${vName}, a camera other apps can pick`);
 
         // This computer's own camera (not with a phone).
         ourCard.hidden = phone;

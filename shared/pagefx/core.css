@@ -1,0 +1,177 @@
+/* DuoDesk — PageFX core styles. Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+   Base for every page's personality (shared/pagefx/core.js): accent tokens, the .pg-hdr glass strip,
+   the switch-in cascade and a small kit of quiet motifs (chips, dots, a ring, a flow line, an equaliser).
+   Art direction: minimal (see MINIMAL). Monochrome hairlines on near-black glass, Geist 300 figures,
+   Geist Mono captions at 40 % white, ONE accent per page on the one thing that moves or matters.
+   No glows stacked, no gradients filled, no bloom. Motion is slow, eased, opacity/transform only.
+   Loads after aurora-shell.css; each page group's css loads after this one.
+   Conventions:
+   - an animated decoration lives in .pg-hdr or carries .pg-fx: both pause with html.au-paused and stop
+     under prefers-reduced-motion;
+   - a one-shot entry animation is written under .pg-in (on the page for 900 ms after it shows), the idle
+     one without it: `.pg-in .x { animation: x-in … } .x { animation: x-idle … }`;
+   - per-page overrides of the body cascade: `#page-<id>:not([hidden]) > .page-body > * { animation-name: … }`. */
+
+:root {
+  --pg-a: #8e8e93; --pg-b: #636366;
+  --pg-ease: cubic-bezier(0.2, 0.8, 0.2, 1); --pg-spring: cubic-bezier(0.3, 1.25, 0.6, 1);
+  /* the monochrome scale every page draws with */
+  --pg-w90: rgba(255, 255, 255, 0.9); --pg-w70: rgba(255, 255, 255, 0.7); --pg-w55: rgba(255, 255, 255, 0.55);
+  --pg-w40: rgba(255, 255, 255, 0.4); --pg-w25: rgba(255, 255, 255, 0.25); --pg-w18: rgba(255, 255, 255, 0.18);
+  --pg-w12: rgba(255, 255, 255, 0.12); --pg-w08: rgba(255, 255, 255, 0.08); --pg-w05: rgba(255, 255, 255, 0.05);
+}
+
+/* ---------- accent tokens (core.js sets --pg-a / --pg-b on each #page-<id>) ----------
+   --pg-acc is the accent as it is drawn: the page colour, softened toward grey (never neon). */
+#pages > .page, body {
+  --pg-acc: color-mix(in oklab, var(--pg-a) 70%, #d6d6dc);
+  --pg-glow: color-mix(in srgb, var(--pg-acc) 22%, transparent);
+  --pg-soft: color-mix(in srgb, var(--pg-acc) 8%, transparent);
+  --pg-line: color-mix(in srgb, var(--pg-acc) 28%, transparent);
+  --pg-grad: linear-gradient(90deg, var(--pg-acc), color-mix(in oklab, var(--pg-b) 60%, #d6d6dc));
+  --pg-good: color-mix(in oklab, #3dffa8 45%, #d6d6dc); --pg-warn: color-mix(in oklab, #ffb340 55%, #d6d6dc);
+  --pg-bad: color-mix(in oklab, #ff5c7a 70%, #d6d6dc); --pg-off: rgba(255, 255, 255, 0.18);
+}
+
+.pg-gone { display: none !important; }
+
+/* ---------- switch-in: the body's children rise in by --i (core.js sets it on enter) ---------- */
+:where(#pages) > .page:not([hidden]) > .page-body > :nth-child(n) {
+  animation: pg-rise 0.5s var(--pg-ease) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 35ms);
+}
+@keyframes pg-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pg-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- header insert: a thin glass strip, mostly typographic ---------- */
+.pg-hdr {
+  position: relative; isolation: isolate; overflow: hidden; contain: layout paint;
+  display: flex; align-items: center; gap: 20px;
+  min-height: var(--pg-hdr-h, 84px); margin: 0 0 14px; padding: 16px 22px; box-sizing: border-box;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.014));
+  box-shadow: inset 0 0 0 1px var(--pg-w08);
+  color: var(--au-text, #f1f1f3); font-family: var(--ui, system-ui, sans-serif);
+  user-select: none;
+}
+.pg-hdr::before { /* top edge: one hairline highlight */
+  content: ""; position: absolute; inset: 0 16px auto; height: 1px; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--pg-w12), transparent);
+}
+.pg-hdr[aria-hidden="true"], .pg-hdr [aria-hidden="true"] { pointer-events: none; }
+.pg-hdr button, .pg-hdr a { pointer-events: auto; }
+.pg-in .pg-hdr { animation: pg-hdr-in 0.6s var(--pg-ease) both; }
+@keyframes pg-hdr-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* never two heroes: the FeatureArt intro wins */
+.page:has(> .feature-art:not([hidden])) > .pg-hdr,
+.page:has(> .page-body[hidden]) > .pg-hdr { display: none; }
+.page-body > .pg-hdr { margin-bottom: 12px; }
+
+/* ---------- text bits ---------- */
+.pg-mono, .pg-num { font-family: var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.pg-num { letter-spacing: -0.02em; }
+/* the figure: a large light numeral or a short status */
+.pg-fig { font: 300 34px/1 var(--ui, system-ui, sans-serif); letter-spacing: -0.035em; color: var(--pg-w90); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-fig small { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--pg-w40); margin-left: 3px; }
+/* the kicker: a mono caption */
+.pg-kick { font: 500 10.5px/1.3 var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-w40); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-cap { font-size: 11.5px; color: var(--pg-w40); letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-title { font-size: 13px; font-weight: 500; color: var(--pg-w90); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-grad-text { color: var(--pg-acc); }
+.pg-spacer { flex: 1 1 auto; min-width: 0; }
+.pg-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pg-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pg-vr { align-self: stretch; width: 1px; flex: none; background: var(--pg-w08); }
+
+/* ---------- glyphs ---------- */
+.pg-ico { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.pg-ico-fill { fill: currentColor; stroke: none; }
+
+/* ---------- chip: a quiet hairline pill (icon + text / number) ---------- */
+.pg-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; max-width: 100%;
+  border-radius: 999px; background: transparent; box-shadow: inset 0 0 0 1px var(--pg-w08);
+  font-size: 12px; color: var(--pg-w70); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: box-shadow 0.3s, color 0.3s, opacity 0.3s;
+}
+.pg-chip .pg-ico { font-size: 13px; color: var(--pg-w55); }
+.pg-chip.dim { opacity: 0.5; }
+.pg-chip.accent { box-shadow: inset 0 0 0 1px var(--pg-line); }
+.pg-chip.accent .pg-ico { color: var(--pg-acc); }
+
+/* ---------- status dot: data-st = good | warn | bad | off | busy | on ---------- */
+.pg-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--pg-off); }
+.pg-dot[data-st="good"] { background: var(--pg-good); }
+.pg-dot[data-st="warn"], .pg-dot[data-st="busy"] { background: var(--pg-w55); }
+.pg-dot[data-st="bad"] { background: var(--pg-bad); }
+.pg-dot[data-st="on"] { background: var(--pg-acc); }
+.pg-dot[data-st="busy"], .pg-dot.pulse { animation: pg-blink 2.4s ease-in-out infinite; }
+@keyframes pg-blink { 50% { opacity: 0.3; } }
+
+/* ---------- motifs (all hairline, all slow) ---------- */
+/* sonar ring: absolutely placed by the page; scales out and fades */
+.pg-ring { position: absolute; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--pg-w25); opacity: 0; pointer-events: none;
+  animation: pg-ring var(--pg-ring-t, 6s) var(--pg-ease) infinite; animation-delay: calc(var(--i, 0) * var(--pg-ring-t, 6s) / 3); }
+@keyframes pg-ring { 0% { transform: scale(0.3); opacity: 0; } 15% { opacity: 0.7; } 100% { transform: scale(1); opacity: 0; } }
+/* breathe: a very soft swell */
+.pg-breathe { animation: pg-breathe var(--pg-breathe-t, 7s) ease-in-out infinite; }
+@keyframes pg-breathe { 0%, 100% { opacity: var(--pg-breathe-lo, 0.6); } 50% { opacity: 1; } }
+/* float: a gentle bob */
+.pg-float { animation: pg-float 7s ease-in-out infinite; }
+@keyframes pg-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+/* spin */
+.pg-spin { animation: pg-spin var(--pg-spin-t, 1.6s) linear infinite; }
+@keyframes pg-spin { to { transform: rotate(360deg); } }
+/* flow: an SVG hairline with slow moving dashes */
+.pg-flow { fill: none; stroke: var(--pg-acc); stroke-width: 1.25; stroke-linecap: round; stroke-dasharray: 1 7; opacity: 0.8; animation: pg-dash 2.4s linear infinite; }
+.pg-flow.rev { animation-direction: reverse; }
+.pg-flow.off { stroke: var(--pg-w18); opacity: 1; animation: none; }
+@keyframes pg-dash { to { stroke-dashoffset: -16; } }
+/* draw: an SVG path drawn in on entry (set pathLength="1" on it) */
+.pg-in .pg-draw { animation: pg-draw 1s var(--pg-ease) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.pg-draw { stroke-dasharray: 1; stroke-dashoffset: 0; }
+@keyframes pg-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+/* packet: a small dot travelling along x (set --pg-run to the distance) */
+.pg-packet { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--pg-acc);
+  animation: pg-packet var(--pg-packet-t, 3.2s) var(--pg-ease) infinite; animation-delay: calc(var(--i, 0) * var(--pg-packet-t, 3.2s) / 3); }
+.pg-packet.rev { animation-direction: reverse; }
+@keyframes pg-packet { from { transform: translateX(0); opacity: 0; } 20%, 80% { opacity: 0.9; } to { transform: translateX(var(--pg-run, 120px)); opacity: 0; } }
+/* shimmer: one faint sheen that sweeps across, then rests */
+.pg-shimmer { position: relative; overflow: hidden; }
+.pg-shimmer::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.06) 50%, transparent 65%);
+  transform: translateX(-100%); animation: pg-sheen var(--pg-sheen-t, 5s) ease-in-out infinite; }
+@keyframes pg-sheen { 0% { transform: translateX(-100%); } 45%, 100% { transform: translateX(100%); } }
+/* pop: one-shot (ctx.pop(el)) — a quiet hairline acknowledgement */
+.pg-pop { animation: pg-pop 0.7s var(--pg-ease) both; }
+@keyframes pg-pop { 0% { opacity: 0.55; box-shadow: inset 0 0 0 1px var(--pg-line); } 100% { opacity: 1; } }
+/* flash: one-shot for a row (ctx.pop(row, 'pg-flash', 1200)) */
+.pg-flash { animation: pg-flash 1.4s ease-out both; }
+@keyframes pg-flash { 0% { box-shadow: inset 0 0 0 1px var(--pg-line); background-color: var(--pg-soft); } 100% { box-shadow: inset 0 0 0 1px transparent; background-color: transparent; } }
+/* equaliser: <span class="pg-eq"><i></i>×4-5</span> thin white bars; .paused freezes it */
+.pg-eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+.pg-eq > i { width: 1.5px; height: 100%; border-radius: 1px; background: var(--pg-w55); transform-origin: bottom; transform: scaleY(0.3);
+  animation: pg-eq 1.6s ease-in-out infinite; }
+.pg-eq > i:nth-child(2) { animation-delay: -0.5s; animation-duration: 1.3s; }
+.pg-eq > i:nth-child(3) { animation-delay: -0.9s; animation-duration: 1.9s; }
+.pg-eq > i:nth-child(4) { animation-delay: -0.25s; animation-duration: 1.45s; }
+.pg-eq > i:nth-child(5) { animation-delay: -1.2s; animation-duration: 1.7s; }
+.pg-eq.paused > i { animation-play-state: paused; }
+@keyframes pg-eq { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+/* meter: a hairline bar (set --v 0..1 with ctx.css) */
+.pg-meter { position: relative; height: 2px; border-radius: 999px; background: var(--pg-w08); overflow: hidden; }
+.pg-meter > i { position: absolute; inset: 0; border-radius: inherit; background: var(--pg-w55); transform-origin: left; transform: scaleX(var(--v, 0)); transition: transform 0.6s var(--pg-ease); }
+.pg-meter.accent > i { background: var(--pg-acc); }
+/* staggered fade-in for items inside a header (set --i) */
+.pg-in .pg-stagger { animation: pg-rise 0.55s var(--pg-ease) both; animation-delay: calc(100ms + var(--i, 0) * 60ms); }
+
+/* ---------- pause / reduced motion ---------- */
+html.au-paused :is(.pg-hdr, .pg-hdr *, .pg-hdr::after, .pg-fx, .pg-fx *, .pg-fx::before, .pg-fx::after) { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  body[data-page] .pg-hdr, body[data-page] .pg-hdr *, .pg-in *, .pg-fx, .pg-fx *, .pg-fx::before, .pg-fx::after, .pg-shimmer::after,
+  :where(#pages) > .page:not([hidden]) > .page-body > :nth-child(n) {
+    animation: none !important; transition: opacity 0.15s !important;
+  }
+  body[data-page] .pg-hdr *, .pg-in * { transform: none !important; }
+  .pg-ring { opacity: 0.3; }
+}

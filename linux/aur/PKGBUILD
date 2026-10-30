@@ -1,11 +1,15 @@
-# Maintainer: inukaasith <inukaasith@users.noreply.github.com>
-pkgname=twindesk-bin
+# Maintainer: 0xCodez <0xCodez@users.noreply.github.com>
+# Based on TwinDesk by Inuka Asith (https://github.com/InukaAsith/TwinDesk), GPL-3.0
+pkgname=duodesk-bin
 _pkgname=twindesk
 pkgver=2.3.0
+# The release's own version (2.5.0-beta.1), which pkgver can't hold: pkgver is it without the '-'
+# (2.5.0beta.1, which vercmp puts before 2.5.0).
+_ver=2.3.0
 pkgrel=1
 pkgdesc="Share mouse, keyboard, clipboard, files, sound and screens with a Mac, a PC, another Linux computer or a phone"
 arch=('x86_64')
-url="https://github.com/InukaAsith/TwinDesk"
+url="https://github.com/0xCodez/DuoDesk"
 license=('GPL-3.0-only')
 depends=('gtk3' 'libnotify' 'nss' 'libxss' 'libxtst' 'xdg-utils' 'at-spi2-core' 'util-linux-libs'
          'libsecret' 'libxi' 'libxrandr' 'libxfixes' 'openssl' 'dbus' 'libpulse' 'polkit' 'glib2'
@@ -16,13 +20,13 @@ optdepends=('bluez: devices not on this network over Bluetooth'
 provides=("$_pkgname")
 conflicts=("$_pkgname")
 options=('!strip' '!debug')
-source=("TwinDesk-${pkgver}-amd64.deb::${url}/releases/download/v${pkgver}/TwinDesk-${pkgver}-amd64.deb")
+source=("DuoDesk-${_ver}-amd64.deb::${url}/releases/download/v${_ver}/DuoDesk-${_ver}-amd64.deb")
 sha256sums=('3a90972b447407207cc6f4cc2b10231c912f5ea48ff937d0ac4503d7ebc534ac')
 
 package() {
   bsdtar -xf "$srcdir/data.tar."* -C "$pkgdir"
-  # electron-builder's .deb installs to /opt/TwinDesk; its postinst (not run here) links /usr/bin/twindesk
+  # electron-builder's .deb installs to /opt/DuoDesk; its postinst (not run here) links /usr/bin/twindesk
   install -d "$pkgdir/usr/bin"
-  ln -sf /opt/TwinDesk/twindesk "$pkgdir/usr/bin/twindesk"
-  install -Dm644 "$pkgdir/opt/TwinDesk/resources/app/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  ln -sf /opt/DuoDesk/twindesk "$pkgdir/usr/bin/twindesk"
+  install -Dm644 "$pkgdir/opt/DuoDesk/resources/app/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

@@ -92,7 +92,7 @@ class SoundActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) ask()
-        else { Core.get(this).sound.failed("Allow the microphone permission for TwinDesk on the phone (Android asks it for any sound capture)"); finish() }
+        else { Core.get(this).sound.failed("Allow the microphone permission for DuoDesk on the phone (Android asks it for any sound capture)"); finish() }
     }
 
     private fun ask() {

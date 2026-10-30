@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// twindesk-vcam (TwinDesk.app/Contents/MacOS, beside the app: the system extension it installs
-// must be in its main bundle): the virtual camera's side in TwinDesk (mac/vcam.js).
+// twindesk-vcam (DuoDesk.app/Contents/MacOS, beside the app: the system extension it installs
+// must be in its main bundle): the virtual camera's side in DuoDesk (mac/vcam.js).
 //   activate    installs the Camera Extension (org.macshare.mac.camera); the first time macOS asks
 //               the person to allow it in System Settings: {"approval":true} is printed meanwhile,
 //               and it waits (up to 5 minutes) for the answer
@@ -89,7 +89,7 @@ func findCamera() -> CMIOObjectID? {
   property(CMIOObjectID(kCMIOObjectSystemObject), kCMIOHardwarePropertyDevices, CMIOObjectID(0)).first { name($0) == cameraName }
 }
 
-// The device's stream TwinDesk writes into: the one going into it (direction 0), else the last.
+// The device's stream DuoDesk writes into: the one going into it (direction 0), else the last.
 func sinkStream(_ device: CMIOObjectID) -> CMIOStreamID? {
   let streams = property(device, kCMIODevicePropertyStreams, CMIOStreamID(0))
   return streams.first { property($0, kCMIOStreamPropertyDirection, UInt32(1)).first == 0 } ?? streams.last

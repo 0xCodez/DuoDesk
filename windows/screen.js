@@ -236,7 +236,7 @@ class Screen {
 
   _title() {
     if (!this.win || this.win.isDestroyed()) return;
-    const macName = this.link.snapshot().link.macName || 'TwinDesk';
+    const macName = this.link.snapshot().link.macName || 'DuoDesk';
     const s = this.state;
     this.win.setTitle(s.state === 'on'
       ? macName + ' (' + s.width + ' × ' + s.height + ')'

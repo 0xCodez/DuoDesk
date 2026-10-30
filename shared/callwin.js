@@ -42,7 +42,7 @@ function open() {
   win = new BrowserWindow({
     ...at, width: W, height: H, show: false, frame: false, resizable: false, minimizable: false, maximizable: false,
     fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, focusable: true, title: 'Call',
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#2a2a2c' : '#ffffff',
+    backgroundColor: '#0a0a0c', // Aurora is dark only
     webPreferences: { preload: path.join(__dirname, 'preload-callpop.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.setAlwaysOnTop(true, 'pop-up-menu');

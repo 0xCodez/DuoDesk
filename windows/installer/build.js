@@ -21,6 +21,7 @@ const pkg = require(path.join(WIN, 'package.json'));
 const electronVersion = require(path.join(WIN, 'node_modules', 'electron', 'package.json')).version;
 
 const SKIP = new Set(['node_modules', 'dist', 'installer', 'test', 'package-lock.json']); // tests (mesh/test) stay out of the package
+const SHARED_DIRS = ['fonts', 'art', 'pagefx']; // shared/ subfolders the pages load at run time
 const ARCHS = process.argv.slice(2).length ? process.argv.slice(2) : ['x64'];
 for (const a of ARCHS) if (a !== 'x64' && a !== 'arm64') throw new Error('Unknown architecture ' + a + ' (x64 or arm64)');
 
@@ -64,6 +65,9 @@ async function main() {
   // Every shared module (a list missed new ones: the app then failed on its first require), and the
   // pages' styles and the call window (phonehub.css, callpop.html).
   copy(path.join(ROOT, 'shared'), path.join(STAGE, 'shared'), (name) => /\.(js|css|html)$/.test(name));
+  // The pages' fonts (Geist woff2 + its OFL.txt), the art kit and scenes, and the per-page effects:
+  // whole folders (the filter above skips folders; shared/test and shared/icon stay out).
+  for (const dir of SHARED_DIRS) copy(path.join(ROOT, 'shared', dir), path.join(STAGE, 'shared', dir), (name) => !name.startsWith('.'));
   copy(path.join(ROOT, 'windows-helper', 'bin', 'macshare-winhelper.exe'),
     path.join(STAGE, 'windows-helper', 'bin', 'macshare-winhelper.exe'));
   // Multi-device's helper (several watched sides, docs/multi-device.md): the same sources built with MULTI.
@@ -92,7 +96,7 @@ async function main() {
     copy(path.join(ROOT, 'mac', 'vendor', 'scrcpy-server'), path.join(STAGE, 'windows', 'vendor', 'scrcpy-server'));
   }
   await fetchAdb(path.join(STAGE, 'windows', 'vendor', 'adb'));
-  // TwinDesk for Android with notification access, which this PC installs over wireless debugging.
+  // DuoDesk for Android with notification access, which this PC installs over wireless debugging.
   const dist = path.join(ROOT, 'android', 'dist');
   const full = fs.existsSync(dist) && fs.readdirSync(dist).filter((n) => /-full\.apk$/.test(n)).sort().pop();
   if (full) copy(path.join(dist, full), path.join(STAGE, 'windows', 'vendor', 'twindesk-android-full.apk'));
@@ -103,29 +107,29 @@ async function main() {
   copyDeps(Object.keys(pkg.dependencies || {}));
   fs.writeFileSync(path.join(STAGE, 'package.json'), JSON.stringify({
     name: pkg.name, productName: pkg.productName, version: pkg.version, description: pkg.description,
-    license: pkg.license, author: 'inukaasith', main: 'windows/main.js', dependencies: pkg.dependencies,
+    license: pkg.license, author: '0xCodez', homepage: 'https://github.com/0xCodez/DuoDesk', main: 'windows/main.js', dependencies: pkg.dependencies,
   }, null, 2));
 
   for (const arch of ARCHS) await pack(arch);
 }
 
 async function pack(arch) {
-  const name = 'TwinDesk-Setup-' + pkg.version + (arch === 'x64' ? '' : '-' + arch) + '.exe';
+  const name = 'DuoDesk-Setup-' + pkg.version + (arch === 'x64' ? '' : '-' + arch) + '.exe';
   console.log('Packaging ' + arch + '…');
   await builder.build({
     targets: builder.Platform.WINDOWS.createTarget('nsis', builder.Arch[arch]),
     projectDir: WIN,
     config: {
       appId: 'org.macshare.windows',
-      productName: 'TwinDesk',
-      copyright: 'Copyright (C) 2026 inukaasith',
+      productName: 'DuoDesk',
+      copyright: 'Copyright (C) 2026 0xCodez; based on TwinDesk, Copyright (C) 2026 inukaasith',
       electronVersion,
       directories: { app: STAGE, output: path.join(WIN, 'dist') },
       asar: false,
       npmRebuild: false,
       win: {
         icon: path.join(__dirname, 'icon.ico'),
-        executableName: 'TwinDesk',
+        executableName: 'DuoDesk',
         // electron-builder signs with WIN_CSC_LINK when supplied. Don't silently release an
         // unsigned installer after the signing secret has been configured.
         forceCodeSigning: Boolean(process.env.WIN_CSC_LINK),
@@ -139,7 +143,7 @@ async function pack(arch) {
         uninstallerIcon: path.join(__dirname, 'icon.ico'),
         license: path.join(ROOT, 'LICENSE'),
         include: path.join(__dirname, 'installer.nsh'),
-        shortcutName: 'TwinDesk',
+        shortcutName: 'DuoDesk',
         createDesktopShortcut: true,
         createStartMenuShortcut: true,
         runAfterFinish: true,

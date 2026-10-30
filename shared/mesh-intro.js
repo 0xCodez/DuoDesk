@@ -51,7 +51,7 @@
       title,
       el('p', '', 'Mesh mode is still in beta, and you may run into some issues with it.'),
       el('p', '', 'If you connect only two devices, keep it off.'),
-      el('div', 'hint', 'TwinDesk restarts when you turn it on or off.'),
+      el('div', 'hint', 'DuoDesk restarts when you turn it on or off.'),
     );
     const cancel = el('button', 'btn', 'Cancel');
     const ok = el('button', 'btn primary', 'Turn on');

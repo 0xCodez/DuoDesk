@@ -1,0 +1,358 @@
+/* DuoDesk — PageFX: the Input group (cursor, keyboard, remote, terminal, rezume). Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+   Minimal (specs/MINIMAL.md): a quiet glass strip per page — light Geist type, a Geist Mono caption at
+   40 % white, hairline monochrome drawings — and the page accent (--pg-a, set by input.js) on ONE element.
+   Loads after shared/pagefx/core.css. Motion: slow, one gesture per loop, opacity / offset-distance /
+   dash only; everything moving lives in .pg-hdr or .pg-fx, so core pauses it (html.au-paused) and stops
+   it under prefers-reduced-motion. No static `transform` positioning (core's reduced rule clears it). */
+
+/* ======================================================================
+   The strip (overrides core's brighter glass: no bloom, no accent border)
+   ====================================================================== */
+body[data-page] .pg-hdr.pd-hdr {
+  --pd-w1: rgba(255, 255, 255, 0.92); --pd-w2: rgba(255, 255, 255, 0.62); --pd-w3: rgba(255, 255, 255, 0.4);
+  --pd-hair: rgba(255, 255, 255, 0.3); --pd-hair-2: rgba(255, 255, 255, 0.16); --pd-glass: rgba(255, 255, 255, 0.025);
+  min-height: 104px; padding: 12px 22px; gap: 22px; margin-bottom: 6px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+body[data-page] .pg-hdr.pd-hdr::before { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent); opacity: 1; }
+body[data-page] .pg-hdr.pd-hdr::after { content: none; }
+
+/* typography */
+.pd-hdr .pd-lead { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pd-hdr .pd-lead.right { margin-left: auto; align-items: flex-end; text-align: right; }
+.pd-hdr .pd-lead.center { align-items: center; text-align: center; }
+.pd-hdr .pd-big {
+  font-family: var(--ui, system-ui, sans-serif); font-weight: 300; font-size: 28px; line-height: 1.05; letter-spacing: -0.025em;
+  color: var(--pd-w1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.pd-hdr .pd-cap {
+  font-family: var(--mono, ui-monospace, monospace); font-size: 10.5px; line-height: 1.3; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--pd-w3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.pd-hdr .pd-cap:empty { display: none; }
+
+/* one hairline device family */
+.pd-hdr .pd-dv-body { fill: var(--pd-glass); stroke: var(--pd-hair); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.pd-hdr path.pd-dv-body, .pd-hdr path.pd-dv-hint { fill: none; }
+.pd-hdr .pd-dv-hint { fill: rgba(255, 255, 255, 0.3); stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; stroke-linecap: round; }
+.pd-hdr circle.pd-dv-hint { stroke: none; }
+.pd-hdr .pd-dv-win { fill: rgba(255, 255, 255, 0.035); stroke: var(--pd-hair-2); stroke-width: 1; }
+.pd-hdr .pd-dv-dots { fill: none; stroke: rgba(255, 255, 255, 0.32); stroke-width: 1.6; stroke-linecap: round; }
+.pd-hdr .pd-dv { transition: opacity 0.4s; }
+.pd-hdr .pd-arrow { display: block; width: 100%; height: 100%; overflow: visible; fill: rgba(255, 255, 255, 0.94); stroke: rgba(0, 0, 0, 0.55); stroke-width: 1; stroke-linejoin: round; }
+
+/* shared keyframes */
+@keyframes pd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pd-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes pd-rise-s { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pd-breathe { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.8; } }
+@keyframes pd-in-left { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes pd-in-right { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+@keyframes pd-in-drop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes pd-in-scale { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+
+/* ======================================================================
+   cursor — the layout in hairlines; amber on the contact edge only
+   ====================================================================== */
+.pd-cursor .pd-cur-stage { position: relative; flex: none; width: 340px; height: 76px; }
+.pd-cursor .pd-cur-svg { position: absolute; inset: 0; overflow: visible; }
+.pd-cursor .pd-mon { fill: var(--pd-glass); stroke: var(--pd-hair); stroke-width: 1; transition: stroke 0.6s, opacity 0.4s; }
+.pd-cursor .pd-mon.primary { stroke: rgba(255, 255, 255, 0.42); }
+.pd-cursor .placeholder .pd-mon { fill: none; stroke: rgba(255, 255, 255, 0.2); stroke-dasharray: 0.012 0.012; }
+.pd-cursor[data-mode="driving"] .pd-mon.theirs, .pd-cursor[data-mode="driven"] .pd-mon.mine { stroke: rgba(255, 255, 255, 0.6); }
+.pd-cursor .pd-touch { stroke: var(--pg-a); stroke-width: 1.5; stroke-linecap: round; opacity: 0.85; transition: opacity 0.4s; }
+.pd-cursor .pd-touch.guess { stroke-dasharray: 2 3; opacity: 0.45; }
+.pd-cursor .pd-membrane { stroke: var(--pg-a); stroke-width: var(--pd-membrane, 2px); stroke-linecap: round; opacity: 0; }
+.pd-cursor.has-res .pd-membrane { opacity: 0.14; }
+.pd-cursor .pd-lab { font-family: var(--mono, monospace); font-size: 9px; letter-spacing: 0.04em; fill: var(--pd-w3); }
+.pd-cursor[data-st="off"] .pd-touch, .pd-cursor[data-st="nopeer"] .pd-touch, .pd-cursor[data-st="paused"] .pd-touch { opacity: 0.25; }
+.pd-cursor[data-st="nopeer"] .pd-membrane { opacity: 0; }
+
+/* the pointer: one glide, long rests */
+.pd-cursor .pd-cur-ptr {
+  position: absolute; left: 0; top: 0; width: 11px; height: 15px;
+  offset-rotate: 0deg; offset-anchor: 1.5px 1.5px; offset-distance: var(--pd-rest, 0%);
+}
+.pd-cursor[data-st="off"] .pd-cur-ptr, .pd-cursor[data-st="nopeer"] .pd-cur-ptr { opacity: 0.45; }
+.pd-cursor[data-motion="glide"] .pd-cur-ptr { animation: pd-cur-glide 8s cubic-bezier(0.55, 0, 0.25, 1) infinite; }
+.pd-cursor[data-motion="wander"] .pd-cur-ptr { animation: pd-cur-wander 14s ease-in-out infinite; }
+.pd-cursor[data-motion="bump"] .pd-cur-ptr { animation: pd-cur-bump 7s ease-in-out infinite; }
+@keyframes pd-cur-glide {
+  0% { offset-distance: 0%; opacity: 0; }
+  8%, 24% { offset-distance: 0%; opacity: 1; }
+  62% { offset-distance: 100%; opacity: 1; }
+  86% { offset-distance: 100%; opacity: 1; }
+  96%, 100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes pd-cur-wander { 0% { offset-distance: 0%; } 40%, 52% { offset-distance: 50%; } 92%, 100% { offset-distance: 100%; } }
+@keyframes pd-cur-bump {
+  0%, 12% { offset-distance: 0%; }
+  42% { offset-distance: 100%; }
+  50% { offset-distance: 88%; }
+  56% { offset-distance: 98%; }
+  64%, 100% { offset-distance: 92%; }
+}
+
+/* the readout: status line, the speed numeral, the caption */
+.pd-cursor .pd-cur-info { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; margin-left: auto; min-width: 0; }
+.pd-hdr .pd-status { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12px; color: var(--pd-w2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+.pd-hdr .pd-sdot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); transition: background-color 0.4s; }
+.pd-hdr .pd-sdot[data-on] { background: rgba(255, 255, 255, 0.85); }
+.pd-hdr .pd-status-t { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* locked: a small padlock in the status line instead of the dot */
+.pd-cursor .pd-cur-lock { display: none; font-size: 12px; color: var(--pd-w2); stroke-width: 1.8; }
+.pd-cursor[data-lock] .pd-cur-lock { display: block; }
+.pd-cursor[data-lock] .pd-sdot { display: none; }
+
+/* switch-in: the monitors draw on, the cards come in from the left */
+.pg-in .pd-cursor .pd-mon { stroke-dasharray: 1; animation: pd-draw 0.7s var(--pg-ease) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.pg-in .pd-cursor .pd-touch, .pg-in .pd-cursor .pd-lab { animation: pd-fade-in 0.5s ease 0.45s both; }
+body[data-page="cursor"] #page-cursor:not([hidden]) > .page-body > * { animation-name: pd-in-left; }
+body[data-page="cursor"] #page-cursor > .page-body > .pd-hdr { animation: pd-fade-in 0.4s ease both; }
+
+/* in the page: the crossing map's contact line in the page accent, without the glow */
+body[data-page="cursor"] #page-cursor .pd-stage .kvm-map-touch { stroke: var(--pg-a); filter: none; opacity: 0.85; }
+
+/* ======================================================================
+   keyboard — flat caps, a hairline to where the keys go (white accent)
+   ====================================================================== */
+.pd-keyboard .pd-kb-keys { display: flex; flex-direction: column; gap: 9px; flex: none; min-width: 0; }
+.pd-keyboard .pd-kb-row { display: flex; align-items: center; gap: 8px; }
+.pd-keyboard .pd-key {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  height: 30px; min-width: 30px; padding: 0 10px; border-radius: 7px;
+  font-family: var(--mono, monospace); font-size: 11.5px; font-weight: 500; color: var(--pd-w2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.018));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.11), inset 0 -2px 0 rgba(255, 255, 255, 0.03), 0 1px 0 rgba(0, 0, 0, 0.45);
+  transition: color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+.pd-keyboard .pd-key.hot { min-width: 86px; color: var(--pd-w1); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pg-a) 42%, transparent), inset 0 -2px 0 rgba(255, 255, 255, 0.04), 0 1px 0 rgba(0, 0, 0, 0.45); }
+.pd-keyboard .pd-key.pd-lit { color: #fff; background-color: rgba(255, 255, 255, 0.1); }
+.pd-keyboard .pd-kb-swap { display: inline-flex; align-items: center; gap: 6px; }
+.pd-keyboard .pd-kb-swap[hidden] { display: none; }
+.pd-keyboard .pd-kb-x { font-size: 11px; color: var(--pd-w3); }
+.pd-keyboard .pd-kb-hint { text-transform: none; letter-spacing: 0.02em; font-size: 10.5px; }
+/* the hotkey teaches its gesture: a gentle double tap, then a long rest */
+.pd-keyboard[data-st="on"] .pd-key.hot { animation: pd-kb-tap 6s ease-out infinite 1.2s; }
+@keyframes pd-kb-tap {
+  0%, 100% { transform: none; background-color: transparent; }
+  3% { transform: translateY(1.5px); background-color: rgba(255, 255, 255, 0.08); }
+  6% { transform: none; background-color: transparent; }
+  9% { transform: translateY(1.5px); background-color: rgba(255, 255, 255, 0.08); }
+  13% { transform: none; background-color: transparent; }
+}
+/* the hairline and the one dot that travels it */
+.pd-keyboard .pd-kb-line { position: relative; flex: 1 1 auto; min-width: 48px; height: 1px; margin: 0 4px 20px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.24)); }
+.pd-keyboard .pd-kb-head { position: absolute; right: -1px; top: -5px; width: 8px; height: 10px; fill: none; stroke: rgba(255, 255, 255, 0.4); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.pd-keyboard .pd-kb-dot { position: absolute; top: -2px; left: 0; width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, 0.92); opacity: 0; }
+.pd-keyboard[data-st="on"] .pd-kb-dot { animation: pd-kb-run 6s ease-in-out infinite 1.8s; }
+.pd-keyboard[data-st="cut"] .pd-kb-dot { animation: pd-kb-stop 6s ease-in-out infinite; }
+@keyframes pd-kb-run { 0% { left: 0; opacity: 0; } 8% { opacity: 1; } 40% { left: calc(100% - 5px); opacity: 1; } 48%, 100% { left: calc(100% - 5px); opacity: 0; } }
+@keyframes pd-kb-stop { 0% { left: 0; opacity: 0; } 8% { opacity: 1; } 34% { left: 46%; opacity: 1; } 46%, 100% { left: 46%; opacity: 0; } }
+.pd-keyboard:is([data-st="off"], [data-st="nopeer"]) .pd-kb-line { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 3px, transparent 3px 7px); }
+.pd-keyboard:is([data-st="off"], [data-st="nopeer"]) .pd-kb-head { stroke: rgba(255, 255, 255, 0.18); }
+.pd-keyboard:is([data-st="off"], [data-st="nopeer"]) .pd-key { color: var(--pd-w3); }
+.pd-keyboard:is([data-st="off"], [data-st="nopeer"]) .pd-big { color: var(--pd-w2); }
+.pd-keyboard .pd-lead.right { margin-left: 0; flex: 0 1 auto; max-width: 300px; }
+
+/* switch-in: the caps rise one after another; the cards drop in */
+.pg-in .pd-keyboard .pd-key { animation: pd-rise-s 0.45s var(--pg-ease) both; animation-delay: calc(120ms + var(--i, 0) * 60ms); }
+body[data-page="keyboard"] #page-keyboard:not([hidden]) > .page-body > * { animation-name: pd-in-drop; }
+body[data-page="keyboard"] #page-keyboard > .page-body > .pd-hdr { animation: pd-fade-in 0.4s ease both; }
+
+/* in the page: the hotkey select reads as a keycap */
+body[data-page="keyboard"] #page-keyboard select.pd-cap-sel { font-family: var(--mono, monospace); font-size: 12px; box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.04); }
+
+/* ======================================================================
+   remote — phone and monitor; orchid on the finger only
+   ====================================================================== */
+.pd-remote .pd-rm-text { display: flex; flex-direction: column; gap: 8px; flex: 0 1 auto; min-width: 150px; max-width: 280px; }
+.pd-remote .pd-rm-warn { position: relative; padding-left: 12px; font-size: 11.5px; color: var(--pd-w2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-remote .pd-rm-warn::before { content: ""; position: absolute; left: 0; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: #ffb340; opacity: 0.75; }
+.pd-remote .pd-rm-warn[hidden] { display: none; }
+.pd-remote .pd-rm-stage { position: relative; flex: none; width: 240px; height: 80px; margin-left: auto; }
+.pd-remote .pd-rm-svg { position: absolute; inset: 0; overflow: visible; }
+.pd-remote .pd-rm-link { fill: none; stroke: rgba(255, 255, 255, 0.2); stroke-width: 1; stroke-dasharray: 2 4; stroke-linecap: round; transition: opacity 0.4s; }
+.pd-remote .pd-rm-pad {
+  flex: none; width: 170px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--mono, monospace); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--pd-w3);
+}
+.pd-remote .pd-rm-pad[data-on] { color: var(--pd-w2); }
+/* the finger (accent) and its pointer (white) walk the same loop on two scales */
+.pd-remote :is(.pd-rm-finger, .pd-rm-ptr) { position: absolute; left: 0; top: 0; offset-rotate: 0deg; offset-distance: 0%; opacity: 0; transition: opacity 0.6s; }
+.pd-remote .pd-rm-finger { width: 7px; height: 7px; border-radius: 50%; background: var(--pg-a); offset-anchor: 50% 50%; }
+.pd-remote .pd-rm-ptr { width: 9px; height: 13px; offset-anchor: 1px 1px; }
+.pd-remote[data-st="open"][data-face="touch"] .pd-rm-finger { opacity: 0.85; animation: pd-breathe 4s ease-in-out infinite; }
+.pd-remote[data-st="open"][data-face="touch"] .pd-rm-ptr { opacity: 0.55; }
+.pd-remote[data-face="touch"]:is([data-st="using"], [data-fade]) :is(.pd-rm-finger, .pd-rm-ptr) { opacity: 0.9; animation: pd-rm-loop 8s ease-in-out infinite; }
+.pd-remote[data-face="touch"][data-fade] :is(.pd-rm-finger, .pd-rm-ptr) { opacity: 0; }
+@keyframes pd-rm-loop { 0%, 14% { offset-distance: 0%; } 70%, 100% { offset-distance: 100%; } }
+.pd-remote[data-st="ready"] .pd-rm-link { animation: pd-breathe 6s ease-in-out infinite; }
+.pd-remote[data-st="off"] .pd-rm-link, .pd-remote[data-st="blocked"] .pd-rm-link { opacity: 0.35; }
+.pd-remote[data-st="off"] .pd-dv { opacity: 0.55; }
+/* the gamepad face: one button lit at a time, slowly */
+.pd-remote .pd-rm-padface, .pd-remote .pd-rm-padname { display: none; }
+.pd-remote[data-face="pad"] .pd-rm-padface, .pd-remote[data-face="pad"] .pd-rm-padname { display: inline; }
+.pd-remote .pd-rm-padname { font-family: var(--mono, monospace); font-size: 9px; letter-spacing: 0.04em; fill: var(--pd-w3); }
+.pd-remote .pd-rm-btn { fill: transparent; stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+.pd-remote[data-face="pad"] .pd-rm-btn { animation: pd-rm-btn 8s ease-in-out infinite; animation-delay: calc(var(--k, 0) * 2s); }
+@keyframes pd-rm-btn { 0%, 16%, 100% { fill: transparent; } 4%, 10% { fill: var(--pg-a); } }
+.pd-remote .pd-rm-spin { display: none; fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.2; stroke-dasharray: 0.25 0.75; stroke-linecap: round; transform-box: fill-box; transform-origin: center; }
+.pd-remote[data-busy] .pd-rm-spin { display: inline; animation: pg-spin 1.6s linear infinite; }
+.pd-remote[data-busy] .pd-rm-padface { display: none; }
+
+/* switch-in: the phone rises, the cards settle */
+.pg-in .pd-remote .pd-rm-phone { transform-box: fill-box; animation: pd-rise-s 0.5s var(--pg-ease) both 0.08s; }
+.pg-in .pd-remote .pd-rm-link { animation: pd-fade-in 0.5s ease both 0.35s; }
+body[data-page="remote"] #page-remote:not([hidden]) > .page-body > * { animation-name: pd-in-scale; }
+body[data-page="remote"] #page-remote > .page-body > .pd-hdr { animation: pd-fade-in 0.4s ease both; }
+
+/* in the page: one live dot before "Now"; the gamepad card dims where there's no gamepad */
+body[data-page="remote"] #page-remote .pd-live .label::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 8px 1px 0; border-radius: 50%; vertical-align: middle;
+  background: rgba(255, 255, 255, 0.2); transition: background-color 0.4s;
+}
+body[data-page="remote"] #page-remote .pd-live[data-live="open"] .label::before { background: rgba(255, 255, 255, 0.75); }
+body[data-page="remote"] #page-remote .pd-live[data-live="using"] .label::before { background: rgba(255, 255, 255, 0.9); animation: pd-breathe 3s ease-in-out infinite; }
+body[data-page="remote"] #page-remote .card-wrap.pd-pad[data-sup="0"] > .card { opacity: 0.6; }
+
+/* ======================================================================
+   terminal — a typographic shell window; mint on the caret only
+   ====================================================================== */
+body[data-page] .pg-hdr.pd-hdr.pd-terminal { padding: 0; min-height: 0; margin: 0 0 14px; flex-direction: column; align-items: stretch; background: rgba(12, 12, 14, 0.55); }
+.pd-terminal .pd-term-win { display: flex; flex-direction: column; font-family: var(--mono, monospace); }
+.pd-terminal .pd-term-bar { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.pd-terminal .pd-tdot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); flex: none; }
+.pd-terminal .pd-term-title { margin-left: 8px; font-size: 10.5px; letter-spacing: 0.03em; color: var(--pd-w3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pd-terminal .pd-term-rtt { font-size: 10.5px; color: var(--pd-w3); font-variant-numeric: tabular-nums; }
+.pd-terminal .pd-term-lanes { display: grid; grid-template-columns: 1fr 1fr; }
+.pd-terminal .pd-lane { padding: 11px 16px 14px; min-width: 0; }
+.pd-terminal .pd-lane-out { border-left: 1px solid rgba(255, 255, 255, 0.06); }
+.pd-terminal.pd-out-first .pd-lane-out { order: -1; border-left: 0; }
+.pd-terminal.pd-out-first .pd-lane-in { border-left: 1px solid rgba(255, 255, 255, 0.06); }
+.pd-terminal .pd-lane-h { display: block; margin-bottom: 7px; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.32); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-terminal .pd-lane-body { min-height: 40px; }
+.pd-terminal .pd-line { font-size: 12px; line-height: 20px; color: rgba(255, 255, 255, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-terminal .pd-ps { color: rgba(255, 255, 255, 0.32); }
+.pd-terminal .pd-strong { color: var(--pd-w1); }
+.pd-terminal .pd-dim, .pd-terminal .pd-comment { color: rgba(255, 255, 255, 0.38); }
+.pd-terminal .pd-bad { color: rgba(255, 128, 150, 0.82); }
+.pd-terminal .pd-comment.warn { color: rgba(255, 196, 120, 0.8); }
+/* typing: the command types in by steps, the reply follows */
+.pd-terminal .pd-typed { display: inline-block; vertical-align: bottom; overflow: hidden; white-space: nowrap; animation: pd-type calc(var(--n, 8) * 55ms) steps(var(--n, 8)) 0.25s both; }
+@keyframes pd-type { from { width: 0; } to { width: calc(var(--n, 8) * 1ch); } }
+.pd-terminal .pd-reply { animation: pd-fade-in 0.3s ease both; animation-delay: calc(var(--n, 8) * 55ms + 0.45s); }
+.pd-terminal .pd-late { animation-delay: calc(var(--n, 8) * 55ms + 0.9s); }
+.pd-terminal .pd-ell i { font-style: normal; animation: pg-blink 1.4s ease-in-out infinite; }
+.pd-terminal .pd-ell i:nth-child(2) { animation-delay: 0.2s; }
+.pd-terminal .pd-ell i:nth-child(3) { animation-delay: 0.4s; }
+.pd-terminal .pd-caret { display: inline-block; width: 7px; height: 13px; margin-left: 3px; vertical-align: -2px; background: var(--pg-a); opacity: 0.8; animation: pd-caret 1.06s steps(1) infinite; }
+.pd-terminal[data-st="off"] .pd-caret { animation-duration: 2.4s; opacity: 0.45; }
+.pd-terminal:is([data-st="nopeer"], [data-st="ble"]) .pd-caret { animation: none; background: rgba(255, 255, 255, 0.3); opacity: 1; }
+@keyframes pd-caret { 50% { opacity: 0; } }
+/* switch-in: the window opens */
+.pg-in .pd-hdr.pd-terminal { animation: pd-term-open 0.32s var(--pg-ease) both; transform-origin: 50% 0; }
+@keyframes pd-term-open { from { opacity: 0; transform: scaleY(0.94); } to { opacity: 1; transform: none; } }
+body[data-page="terminal"] #page-terminal:not([hidden]) > .page-body > * { animation-name: pg-fade; }
+
+/* in the page: the command reads as a prompt */
+body[data-page="terminal"] #page-terminal code.pd-cmd { font-family: var(--mono, monospace); }
+body[data-page="terminal"] #page-terminal code.pd-cmd::before { content: "$ "; opacity: 0.4; }
+
+/* ======================================================================
+   rezume — two devices, an arc, the chip on it; sky on the chip only
+   ====================================================================== */
+body[data-page] .pg-hdr.pd-hdr.pd-rezume { justify-content: center; padding: 10px 16px; }
+.pd-rezume .pd-rz-stage { position: relative; flex: none; width: 440px; height: 84px; }
+.pd-rezume .pd-rz-svg { position: absolute; inset: 0; overflow: visible; }
+.pd-rezume .pd-rz-arc { fill: none; stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; stroke-dasharray: 0.004 0.011; stroke-linecap: round; transition: opacity 0.4s; }
+.pd-rezume .pd-rz-head { fill: none; stroke: rgba(255, 255, 255, 0.4); stroke-width: 1.1; stroke-linecap: round; }
+.pd-rezume[data-dir-in="0"] .pd-rz-head.in, .pd-rezume[data-dir-out="0"] .pd-rz-head.out { display: none; }
+.pd-rezume .pd-rz-gate { display: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.2; stroke-linecap: round; }
+.pd-rezume[data-st="peeroff"] .pd-rz-gate { display: inline; }
+.pd-rezume .pd-rz-lab { position: absolute; bottom: -2px; width: 92px; font-family: var(--mono, monospace); font-size: 9px; letter-spacing: 0.04em; color: var(--pd-w3); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-rezume .pd-rz-lab.me { left: -2px; }
+.pd-rezume .pd-rz-lab.peer { right: -2px; }
+.pd-rezume .pd-rz-badge { position: absolute; right: 2px; top: 18px; padding: 1px 6px; border-radius: 999px; font-family: var(--mono, monospace); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--pd-w2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); background: rgba(12, 12, 14, 0.8); }
+.pd-rezume .pd-rz-badge[hidden] { display: none; }
+.pd-rezume .pd-lead.center { position: absolute; left: 96px; right: 96px; top: 38px; }
+.pd-rezume .pd-big { font-size: 22px; }
+/* states */
+.pd-rezume[data-st="nopeer"] .pd-rz-arc, .pd-rezume[data-st="nopeer"] .pd-rz-head { opacity: 0; }
+.pd-rezume[data-st="nopeer"] .pd-dv.peer .pd-dv-body { stroke-dasharray: 2 3; stroke: rgba(255, 255, 255, 0.22); }
+.pd-rezume[data-st="nopeer"] .pd-dv.peer :is(.pd-dv-win, .pd-dv-dots, .pd-dv-hint) { opacity: 0.3; }
+.pd-rezume:is([data-st="off"], [data-st="missing"]) .pd-dv { opacity: 0.55; }
+.pd-rezume:is([data-st="off"], [data-st="missing"], [data-st="peeroff"]) .pd-rz-arc { opacity: 0.45; }
+.pd-rezume[data-st="offer"] .pd-dv.peer .pd-dv-body { stroke: rgba(255, 255, 255, 0.5); }
+/* the chip: glass, a hairline in the accent; rides in and rests near here */
+.pd-rezume .pd-rz-chip {
+  position: absolute; left: 0; top: 0; offset-rotate: 0deg; offset-anchor: 50% 50%; offset-distance: 62%;
+  display: inline-flex; align-items: center; gap: 7px; height: 24px; max-width: 200px; padding: 0 11px 0 9px; box-sizing: border-box;
+  border-radius: 999px; background: rgba(16, 16, 19, 0.92);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pg-a) 55%, transparent), 0 6px 18px -8px rgba(0, 0, 0, 0.8);
+  font-size: 11.5px; color: var(--pd-w1); white-space: nowrap;
+}
+.pd-rezume .pd-rz-chip[hidden] { display: none; }
+.pd-rezume .pd-rz-glyph { flex: none; width: 12px; height: 12px; fill: none; stroke: var(--pd-w2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.pd-rezume .pd-rz-ttl { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pd-rezume .pd-rz-chip[data-pos="in"] { animation: pd-rz-ride 1.6s var(--pg-ease) both, pd-rz-bob 6s ease-in-out 1.6s infinite; }
+.pd-rezume .pd-rz-chip[data-pos="in"].pd-arrive { animation: pd-rz-ride2 1.6s var(--pg-ease) both, pd-rz-bob 6s ease-in-out 1.6s infinite; }
+@keyframes pd-rz-ride { from { offset-distance: 4%; opacity: 0; } 25% { opacity: 1; } to { offset-distance: 62%; opacity: 1; } }
+@keyframes pd-rz-ride2 { from { offset-distance: 4%; opacity: 0; } 25% { opacity: 1; } to { offset-distance: 62%; opacity: 1; } }
+@keyframes pd-rz-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+.pd-rezume .pd-rz-chip[data-pos="out"] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); color: var(--pd-w2); animation: pd-rz-away 7s ease-in-out infinite; }
+@keyframes pd-rz-away { 0% { offset-distance: 6%; opacity: 0; } 10%, 20% { offset-distance: 6%; opacity: 1; } 70% { offset-distance: 92%; opacity: 1; } 84%, 100% { offset-distance: 92%; opacity: 0; } }
+.pd-rezume .pd-rz-chip[data-pos="wait"] { offset-distance: 50%; animation: pd-breathe 2.4s ease-in-out infinite; }
+.pd-rezume .pd-rz-chip[data-pos="last"] { offset-distance: 75%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); color: var(--pd-w2); }
+/* idle: one spark rides the arc now and then */
+.pd-rezume .pd-rz-spark { position: absolute; left: 0; top: 0; width: 5px; height: 5px; border-radius: 50%; background: var(--pg-a); offset-rotate: 0deg; offset-anchor: 50% 50%; opacity: 0; }
+.pd-rezume[data-st="ready"][data-dir-in="1"]:not([data-chip]) .pd-rz-spark { animation: pd-rz-spark 8s ease-in-out infinite 1.5s; }
+@keyframes pd-rz-spark { 0% { offset-distance: 0%; opacity: 0; } 6% { opacity: 0.85; } 40% { offset-distance: 100%; opacity: 0.85; } 46%, 100% { offset-distance: 100%; opacity: 0; } }
+/* switch-in: the devices fade in, the arc after, the cards hand off from both sides */
+.pg-in .pd-rezume .pd-dv { animation: pd-fade-in 0.5s ease both; }
+.pg-in .pd-rezume .pd-dv.peer { animation-delay: 0.1s; }
+.pg-in .pd-rezume :is(.pd-rz-arc, .pd-rz-head) { animation: pd-fade-in 0.6s ease both 0.3s; }
+body[data-page="rezume"] #page-rezume:not([hidden]) > .page-body > :nth-child(odd) { animation-name: pd-in-left; }
+body[data-page="rezume"] #page-rezume:not([hidden]) > .page-body > :nth-child(even) { animation-name: pd-in-right; }
+body[data-page="rezume"] #page-rezume > .page-body > .pd-hdr { animation: pd-fade-in 0.4s ease both; }
+
+/* in the page: the offer card, a hairline in the accent (scoped: the card also sits on Apps and Phone) */
+body[data-page="rezume"] #page-rezume .card-wrap.pd-offer > .card { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pg-a) 38%, transparent); }
+body[data-page="rezume"] #page-rezume .rezume-icon.pd-bounce { animation: pd-rz-bounce 0.6s var(--pg-ease) both; }
+@keyframes pd-rz-bounce { 40% { transform: scale(1.04); } 100% { transform: none; } }
+
+/* ======================================================================
+   narrow windows: drop the secondary bits, never overflow
+   ====================================================================== */
+@media (max-width: 1080px) {
+  .pd-remote .pd-rm-pad { display: none; }
+  .pd-cursor .pd-status { max-width: 220px; }
+}
+@media (max-width: 900px) {
+  body[data-page] .pg-hdr.pd-hdr { padding-left: 16px; padding-right: 16px; gap: 16px; }
+  body[data-page] .pg-hdr.pd-hdr.pd-terminal { padding: 0; }
+  .pd-hdr .pd-big { font-size: 22px; }
+  /* the layout is drawn left-aligned, so a narrower window only trims the empty space to its right */
+  .pd-cursor .pd-cur-stage { width: 190px; overflow: hidden; }
+  /* the arc is drawn in fixed px (the chip and spark ride it by offset-path): scale the whole stage */
+  .pd-rezume .pd-rz-stage { zoom: 0.88; }
+  .pd-rezume .pd-big { font-size: 20px; }
+  .pd-keyboard .pd-kb-line { display: none; }
+}
+
+/* reduced motion: still frames (core stops every .pg-hdr animation; these set the resting places) */
+@media (prefers-reduced-motion: reduce) {
+  .pd-cursor .pd-cur-ptr { opacity: 1; }
+  .pd-remote[data-face="touch"]:is([data-st="using"], [data-st="open"]) :is(.pd-rm-finger, .pd-rm-ptr) { opacity: 0.85; offset-distance: 30%; }
+  .pd-rezume .pd-rz-chip[data-pos="in"] { offset-distance: 62%; opacity: 1; }
+  .pd-rezume .pd-rz-chip[data-pos="out"] { offset-distance: 40%; opacity: 1; }
+  .pd-keyboard .pd-kb-dot { display: none; }
+  .pd-terminal .pd-typed { width: auto; }
+  .pd-terminal .pd-reply { opacity: 1; }
+  body[data-page="remote"] #page-remote .pd-live .label::before { animation: none; }
+  body[data-page="rezume"] #page-rezume .rezume-icon.pd-bounce { animation: none; }
+}

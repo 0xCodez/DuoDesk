@@ -54,7 +54,7 @@ const driver = {
 
   async check() {
     if (Number((os.release().split('.')[2]) || 0) < 22000) return { supported: false, message: 'Needs Windows 11: Windows 10 has no virtual cameras' };
-    if (!fs.existsSync(EXE) || !fs.existsSync(DLL)) return { supported: false, message: 'Not in this build of TwinDesk' };
+    if (!fs.existsSync(EXE) || !fs.existsSync(DLL)) return { supported: false, message: 'Not in this build of DuoDesk' };
     const [reg, st] = await Promise.all([registered(), exe('status')]);
     return { supported: true, installed: reg && st.camera === true };
   },

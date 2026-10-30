@@ -33,7 +33,7 @@ class QrActivity : Activity() {
         val nonce = u?.getQueryParameter("k").orEmpty().take(64)
         val name = u?.getQueryParameter("n").orEmpty().take(64)
         if (u?.scheme != "twindesk" || id.isEmpty() || addrs.isEmpty() || port !in 1..65535) {
-            Toast.makeText(this, "That isn’t a TwinDesk pairing code", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "That isn’t a DuoDesk pairing code", Toast.LENGTH_SHORT).show()
             finish()
             return
         }

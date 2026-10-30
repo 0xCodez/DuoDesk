@@ -1,8 +1,8 @@
 <p align="center">
-  <img src=".github/assets/icon.png" width="112" alt="TwinDesk icon">
+  <img src=".github/assets/icon.png" width="112" alt="DuoDesk icon">
 </p>
 
-<h1 align="center"><a href="https://twin-desk.vercel.app">TwinDesk</a></h1>
+<h1 align="center"><a href="https://duodesk-green.vercel.app">DuoDesk</a></h1>
 
 <p align="center">
   <b>All your computers and your phone, working as one desk.</b><br>
@@ -11,34 +11,35 @@
 </p>
 
 <p align="center">
-  <a href="#download"><b>⬇️ Download 2.4</b></a> ·
-  <a href="https://twin-desk.vercel.app"><b>Website</b></a> ·
+  <a href="#download"><b>⬇️ Download 2.5 beta</b></a> ·
+  <a href="https://duodesk-green.vercel.app"><b>Website</b></a> ·
+  <a href="https://github.com/0xCodez/DuoDesk"><b>Source</b></a> ·
   <a href="#-new-in-23"><b>What's new</b></a> ·
   <a href="#-get-started"><b>Get started</b></a> ·
   <a href="#how-it-works"><b>How it works</b></a>
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/github/v/release/InukaAsith/TwinDesk?label=version&color=4b8bff">
+  <img alt="Version" src="https://img.shields.io/github/v/release/0xCodez/DuoDesk?include_prereleases&label=version&color=4b8bff">
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black">
   <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4">
   <img alt="Linux X11 and Wayland" src="https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-f0a30a">
   <img alt="Android 10+" src="https://img.shields.io/badge/Android-10%2B-3ddc84">
   <img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue">
-  <a href="https://github.com/inukaasith/twindesk/releases"><img src="https://img.shields.io/github/downloads/inukaasith/twindesk/total" alt="Downloads"></a>
+  <a href="https://github.com/0xCodez/DuoDesk/releases"><img src="https://img.shields.io/github/downloads/0xCodez/DuoDesk/total" alt="Downloads"></a>
 </p>
 
 <p align="center">
-  <img src=".github/assets/hero.jpg" alt="One Mac's extended screen in a window on another Mac, the Mac's desktop extended onto a tablet, and TwinDesk on a phone" width="100%">
+  <img src=".github/assets/hero.jpg" alt="One Mac's extended screen in a window on another Mac, the Mac's desktop extended onto a tablet, and DuoDesk on a phone" width="100%">
 </p>
 
-Your devices are good at their own jobs and bad at working together. TwinDesk fixes that.
+Your devices are good at their own jobs and bad at working together. DuoDesk fixes that.
 Put a **Mac and a Windows PC** side by side and use them with one mouse and keyboard. Open the
 PC's apps on the Mac. Turn an old laptop or your **Android tablet** into a second screen. Answer
 your **phone's calls and texts** from the computer, use its **camera in a video call**, and paste
 on one device what you copied on another.
 
-- **Any combination.** Mac ↔ Windows, Mac ↔ Mac, PC ↔ PC, Linux ↔ anything, and Android ↔ any computer. Or, with [TwinDesk Mesh](#-twindesk-mesh-every-device-at-once), all of them at once.
+- **Any combination.** Mac ↔ Windows, Mac ↔ Mac, PC ↔ PC, Linux ↔ anything, and Android ↔ any computer. Or, with [DuoDesk Mesh](#-duodesk-mesh-every-device-at-once), all of them at once.
 - **Anywhere.** Same Wi-Fi, a USB cable, or no shared network at all: Bluetooth and a direct Wi-Fi link of their own.
 - **No account, no cloud.** Devices talk only to each other, on an encrypted link.
 - **Only what you turn on.** Every feature starts off and isn't even loaded until you switch it on.
@@ -96,68 +97,60 @@ X11 and Wayland · shared folders through Samba · the phone app page by page ·
 
 **🍎 macOS**<br><sub>13 Ventura or later</sub>
 
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-2.4.0-arm64.dmg"><img src="https://img.shields.io/badge/Apple_Silicon-.dmg-000000?style=for-the-badge" alt="macOS, Apple Silicon"></a><br>
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-2.4.0-x64_Intel.dmg"><img src="https://img.shields.io/badge/Intel-.dmg-555555?style=for-the-badge" alt="macOS, Intel"></a>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-2.5.0-beta.1-arm64.dmg"><img src="https://img.shields.io/badge/Apple_Silicon-.dmg-000000?style=for-the-badge" alt="macOS, Apple Silicon"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-2.5.0-beta.1-x64.dmg"><img src="https://img.shields.io/badge/Intel-.dmg-555555?style=for-the-badge" alt="macOS, Intel"></a>
 
 </td>
 <td width="25%" align="center" valign="top">
 
 **🪟 Windows**<br><sub>10 and 11</sub>
 
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-Setup-2.4.0.exe"><img src="https://img.shields.io/badge/x64-Installer-0078d4?style=for-the-badge" alt="Windows, x64"></a><br>
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-Setup-2.4.0-arm64.exe"><img src="https://img.shields.io/badge/ARM64-Installer-005a9e?style=for-the-badge" alt="Windows on ARM"></a>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-Setup-2.5.0-beta.1.exe"><img src="https://img.shields.io/badge/x64-Installer-0078d4?style=for-the-badge" alt="Windows, x64"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-Setup-2.5.0-beta.1-arm64.exe"><img src="https://img.shields.io/badge/ARM64-Installer-005a9e?style=for-the-badge" alt="Windows on ARM"></a>
 
 </td>
 <td width="25%" align="center" valign="top">
 
 **🐧 Linux**<br><sub>X11 and Wayland, x86_64</sub>
 
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-2.4.0-amd64.deb"><img src="https://img.shields.io/badge/Debian_·_Ubuntu-.deb-d70a53?style=for-the-badge" alt="Linux, .deb"></a><br>
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-2.4.0-x86_64.AppImage"><img src="https://img.shields.io/badge/Any_distro-AppImage-f0a30a?style=for-the-badge" alt="Linux, AppImage"></a><br>
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/twindesk-bin-2.4.0-1-x86_64.pkg.tar.zst"><img src="https://img.shields.io/badge/Arch-pkg.tar.zst-1793d1?style=for-the-badge" alt="Linux, Arch package"></a><br>
-<sub>NixOS: <code>nix run github:InukaAsith/TwinDesk</code> (<a href="#nixos--nix-flakes">more</a>)</sub>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-2.5.0-beta.1-amd64.deb"><img src="https://img.shields.io/badge/Debian_·_Ubuntu-.deb-d70a53?style=for-the-badge" alt="Linux, .deb"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-2.5.0-beta.1-x86_64.AppImage"><img src="https://img.shields.io/badge/Any_distro-AppImage-f0a30a?style=for-the-badge" alt="Linux, AppImage"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases"><img src="https://img.shields.io/badge/Arch-pkg.tar.zst-1793d1?style=for-the-badge" alt="Linux, Arch package"></a><br>
+<sub>NixOS: <code>nix run github:0xCodez/DuoDesk</code> (<a href="#nixos--nix-flakes">more</a>)</sub>
 
 </td>
 <td width="25%" align="center" valign="top">
 
 **🤖 Android**<br><sub>10 or later, phones and tablets</sub>
 
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-2.4.0.apk"><img src="https://img.shields.io/badge/Phone_app-.apk-3ddc84?style=for-the-badge" alt="Android app"></a><br>
-<a href="https://github.com/InukaAsith/TwinDesk/releases/download/v2.4.0/TwinDesk-2.4.0-full.apk"><img src="https://img.shields.io/badge/Full_app-.apk-1b8a4c?style=for-the-badge" alt="Android full app"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-2.5.0-beta.1.apk"><img src="https://img.shields.io/badge/Phone_app-.apk-3ddc84?style=for-the-badge" alt="Android app"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0-beta.1/DuoDesk-2.5.0-beta.1-full.apk"><img src="https://img.shields.io/badge/Full_app-.apk-1b8a4c?style=for-the-badge" alt="Android full app"></a><br>
 <sub>The full app adds notifications, texts and Accessibility; the computer can install it for you over wireless debugging</sub>
 
 </td>
 </tr>
 </table>
 
-<p align="center">🍺 <b>Homebrew</b> on macOS: <code>brew install --cask inukaasith/twindesk/twindesk</code><br>
-<sub>Update with <code>brew upgrade --cask twindesk</code>: TwinDesk opens again by itself if it was running, so a Mac you drive only through it gets its mouse back. The <a href="https://github.com/InukaAsith/homebrew-twindesk">tap</a> follows every release.</sub></p>
-
 <a name="first-launch"></a>
 
 <details>
 <summary><b>⚠️ First launch: the apps aren't code-signed</b> <sub>how to allow them on macOS, Windows and Android</sub></summary>
 
-TwinDesk is free and has no paid Apple Developer ID or Windows code-signing certificate, so
+DuoDesk is free and has no paid Apple Developer ID or Windows code-signing certificate, so
 macOS and Windows don't know who made it and ask once before opening it. The source is all here.
 
 **🍎 macOS**
 
-The easiest way is **Homebrew**, which installs it ready to open:
-`brew install --cask inukaasith/twindesk/twindesk`
-
-From the .dmg instead:
-
-1. Drag TwinDesk into Applications and open it. macOS says it can't verify TwinDesk: click **Done**
+1. Drag DuoDesk into Applications and open it. macOS says it can't verify DuoDesk: click **Done**
    (not Move to Bin).
 2. Open **System Settings › Privacy & Security**, scroll down to Security and click **Open Anyway**
-   next to "TwinDesk was blocked". Enter your password, then click **Open Anyway** again.
+   next to "DuoDesk was blocked". Enter your password, then click **Open Anyway** again.
 
-You do this once; updates open normally. If macOS says TwinDesk **is damaged and can't be
+You do this once; updates open normally. If macOS says DuoDesk **is damaged and can't be
 opened**, it isn't: run this in Terminal, then open it again:
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/TwinDesk.app
+xattr -dr com.apple.quarantine /Applications/DuoDesk.app
 ```
 
 **🪟 Windows**
@@ -181,18 +174,18 @@ The **full app** (notifications, texts and Accessibility) is easiest installed b
 [wireless debugging](#wireless-debugging) (Phone page › Notifications from the phone): Android then
 lets you turn those on. Installed by hand, Play Protect may block it, and Android 13 and later grey
 out notification access and Accessibility as a **restricted setting**: open **Settings › Apps ›
-TwinDesk**, tap **⋮ › Allow restricted settings**, then turn them on.
+DuoDesk**, tap **⋮ › Allow restricted settings**, then turn them on.
 
 </details>
 
-<p align="center"><sub>Every file and older version is on the <a href="https://github.com/InukaAsith/TwinDesk/releases">releases page</a>.</sub></p>
+<p align="center"><sub>Every file and older version is on the <a href="https://github.com/0xCodez/DuoDesk/releases">releases page</a>.</sub></p>
 
 ---
 
 # ✨ New in 2.3
 
 <p align="center">
-  <img src=".github/assets/v23-whats-new.jpg" alt="TwinDesk 2.3: your phone is now a camera, a remote and a gamepad" width="100%">
+  <img src=".github/assets/v23-whats-new.jpg" alt="DuoDesk 2.3: your phone is now a camera, a remote and a gamepad" width="100%">
 </p>
 
 Your phone is now **a camera, a remote and a gamepad**. Use its camera in any video call, drive your
@@ -225,9 +218,9 @@ screen, and lock the pointer to one computer with a key.
 
 Thanks to everyone who sent pull requests for this release: see [Thanks](#thanks).
 
-<sub>Older releases: 2.2 brought [TwinDesk Mesh](#-twindesk-mesh-every-device-at-once), 2.1 brought
+<sub>Older releases: 2.2 brought [DuoDesk Mesh](#-duodesk-mesh-every-device-at-once), 2.1 brought
 [Bluetooth and Wi-Fi Direct](#-connections) and the phone's [calls, texts, photos and files](#-calls-and-messages).
-Every release's notes are on the [releases page](https://github.com/InukaAsith/TwinDesk/releases).</sub>
+Every release's notes are on the [releases page](https://github.com/0xCodez/DuoDesk/releases).</sub>
 
 ---
 
@@ -278,7 +271,7 @@ a [phone's camera](#-phone-camera).
 
 The virtual camera installs the first time you turn it on: a Windows 11 camera (one administrator
 prompt), v4l2loopback on Linux (one password prompt), and on the Mac it goes into **OBS Virtual
-Camera** (or TwinDesk's own camera extension, in builds signed for it).
+Camera** (or DuoDesk's own camera extension, in builds signed for it).
 
 ## 📁 Files, shared folders and terminal
 
@@ -315,7 +308,7 @@ Pair as many computers and phones as you like. **Switch** moves the session to a
 device nearby, **Take over** claims one that's busy with someone else, and **Disconnect** lets go.
 All from the Overview, the menu bar or the tray.
 
-## 🕸 TwinDesk Mesh: every device at once
+## 🕸 DuoDesk Mesh: every device at once
 
 <p align="center">
   <img src=".github/assets/v22-mesh-desk.jpg" alt="The pointer travelling from a Windows PC across a MacBook and a Linux laptop onto a phone, with the desk map below" width="100%">
@@ -338,7 +331,7 @@ time; the phone connects to one computer at a time, and Linux joins over the sam
 
 # 📱 Phone and tablet
 
-Most phone links stop at notifications and a file drop. In TwinDesk your Android phone or tablet is
+Most phone links stop at notifications and a file drop. In DuoDesk your Android phone or tablet is
 a **full peer**: it pairs like a computer and gets the same features, plus its calls, texts, photos,
 files and camera.
 
@@ -387,7 +380,7 @@ The phone's **Remote** page turns it into the computer's remote, for the couch o
 - **Gamepad,** laid out like an Xbox controller. Its buttons press the keys you choose, or turn on
   **Real gamepad** and the computer sees an actual controller: an Xbox 360 controller on Windows,
   a gamepad on Linux.
-- **A Bluetooth gamepad for any computer**, the Mac included, with no TwinDesk and no driver there:
+- **A Bluetooth gamepad for any computer**, the Mac included, with no DuoDesk and no driver there:
   pair the phone in the computer's Bluetooth settings once.
 
 Turn on **Remote** on the computer to let the phone drive it.
@@ -448,13 +441,13 @@ Every page names the computer you're connected to and shows what's shared in eac
   <img src=".github/assets/v21-connections.jpg" alt="Same Wi-Fi, Bluetooth LE, Wi-Fi Direct, phone hotspot and USB cable" width="100%">
 </p>
 
-You never have to choose. TwinDesk uses the same network when there is one, moves a phone onto
+You never have to choose. DuoDesk uses the same network when there is one, moves a phone onto
 the **USB cable** when you plug it in, and falls back to **Bluetooth** when the Wi-Fi goes: on a
 train, or in a café whose guest Wi-Fi blocks devices. The link and its latency are always shown at
 the top of the app (*38 ms · Bluetooth*).
 
 Bluetooth is great for the session but too slow for a screen or a big file. So when you start one,
-TwinDesk **brings up a direct Wi-Fi link** between the two devices for as long as it's needed, then
+DuoDesk **brings up a direct Wi-Fi link** between the two devices for as long as it's needed, then
 goes back to Bluetooth. Press **Connect with Wi-Fi Direct** to keep it, or let the computer join the
 phone's **hotspot**.
 
@@ -474,15 +467,15 @@ computers** (off until you want it), on the Overview and in General.
 # 🚀 Get started
 
 <p align="center">
-  <img src=".github/assets/tour.gif" alt="A tour of the TwinDesk window" width="820">
+  <img src=".github/assets/tour.gif" alt="A tour of the DuoDesk window" width="820">
 </p>
 
-1. **Download** TwinDesk for each computer and your phone ([above](#download), or from the [releases](https://github.com/InukaAsith/TwinDesk/releases/latest)).
+1. **Download** DuoDesk for each computer and your phone ([above](#download), or from the [releases](https://github.com/0xCodez/DuoDesk/releases)).
 2. **Open it on both.** They find each other on the same network, over Bluetooth, or over a USB cable for a phone.
 3. **Pair once** by comparing a code (on a USB cable, just click Allow). From then on they connect by themselves.
 4. **Turn on what you want.** Each feature has a tab with a switch, and shows what it does until you turn it on.
 
-For the phone's screen, apps and camera in windows, TwinDesk walks you through turning on Android's
+For the phone's screen, apps and camera in windows, DuoDesk walks you through turning on Android's
 wireless debugging once ([details](#wireless-debugging)). Files, clipboard, calls and photos work
 without it. The phone's notifications, texts, media controls and mouse and keyboard through
 Accessibility come with the full app, which the computer installs once over wireless debugging.
@@ -492,11 +485,11 @@ Accessibility come with the full app, which the computer installs once over wire
 | Mac ↔ Windows PC, Mac ↔ Mac, PC ↔ PC | Every computer feature |
 | Linux ↔ Mac, PC or Linux | Every computer feature ([a few differences](#linux)) |
 | Android ↔ Mac, Windows or Linux | Every phone and tablet feature (Real gamepad on Windows and Linux) |
-| All of them at once | [TwinDesk Mesh](#-twindesk-mesh-every-device-at-once) (beta) |
+| All of them at once | [DuoDesk Mesh](#-duodesk-mesh-every-device-at-once) (beta) |
 
 ## Privacy
 
-TwinDesk only talks to devices you've paired with, directly over your own network, Bluetooth, a
+DuoDesk only talks to devices you've paired with, directly over your own network, Bluetooth, a
 direct Wi-Fi link or a cable. There are no accounts, no telemetry and no cloud relay. Your calls,
 texts, photos and camera go straight from the phone to your computer and nowhere else. The only
 internet request is an update check against GitHub's public releases, which you can turn off.
@@ -506,13 +499,13 @@ internet request is an update check against GitHub's public releases, which you 
 ---
 
 
-Everything below is for the curious and for people building TwinDesk themselves.
+Everything below is for the curious and for people building DuoDesk themselves.
 
 <a name="linux"></a>
 <details>
 <summary><h2>🐧 Linux</h2> <sub>X11 and Wayland, shared folders, Extend, virtual camera and gamepad</sub></summary>
 
-On Linux, TwinDesk runs on both X11 and Wayland. On Wayland, the mouse and keyboard go through
+On Linux, DuoDesk runs on both X11 and Wayland. On Wayland, the mouse and keyboard go through
 evdev and uinput (the Setup screen grants access once), and screens are captured through the
 desktop portal. A few things work a little differently:
 
@@ -549,7 +542,7 @@ desktop portal. A few things work a little differently:
 <details>
 <summary><h2>🤖 Android in detail</h2> <sub>the phone app page by page, and wireless debugging</sub></summary>
 
-Install TwinDesk on the phone, open it next to TwinDesk on the computer and pair from Overview › Nearby. The phone needs Android 10, and Android 11 for everything that goes through wireless debugging.
+Install DuoDesk on the phone, open it next to DuoDesk on the computer and pair from Overview › Nearby. The phone needs Android 10, and Android 11 for everything that goes through wireless debugging.
 
 ### The phone app
 
@@ -568,7 +561,7 @@ every page names the computer it's connected to:
 | **Notifications** | The phone's notifications on the computer, with the text hidden if you like, and the computer's on the phone |
 | **Files** | Send files, copy them to paste on the computer, and see where the computer's files land |
 | **Sound** | The phone's sound on the computer, and the computer's sound on the phone |
-| **General** | The phone's name, background running, and the permissions TwinDesk uses, each with its switch |
+| **General** | The phone's name, background running, and the permissions DuoDesk uses, each with its switch |
 | **About** | Source code, releases, the license, and what goes over wireless debugging and the network |
 
 And outside the app:
@@ -589,7 +582,7 @@ And outside the app:
 
 Files, the clipboard and notifications work right away. The phone's screen, its apps in windows,
 touch, your mouse and keyboard on the phone and its sound go through **wireless debugging**, which
-TwinDesk pairs with once:
+DuoDesk pairs with once:
 
 <p align="center">
   <img src=".github/assets/ui-phone-pair.jpg" alt="Overview: the wireless debugging card under the connected computers, with the pairing code" width="820">
@@ -598,18 +591,18 @@ TwinDesk pairs with once:
 - Until it's paired, a card under the connected computers on Overview (on the computer and on the
   phone) walks you through it. Open *Developer options › Wireless debugging › Pair device with
   pairing code* on the phone and type the 6-digit code on the computer, or on the phone in
-  TwinDesk's notification (Settings' dialog stays open). The phone sends the code to whichever
+  DuoDesk's notification (Settings' dialog stays open). The phone sends the code to whichever
   computer it's connected to: Mac, PC or Linux.
-- After that TwinDesk switches wireless debugging on by itself when it needs it, follows it to its
+- After that DuoDesk switches wireless debugging on by itself when it needs it, follows it to its
   new port every time it restarts, and keeps the pairing from expiring (Android otherwise forgets
   a computer after 7 days unused). Phones that switch it off on every Wi-Fi change or screen lock
   (MIUI, HyperOS) get it switched back on as soon as they're unlocked, or a prompt if they refuse.
-  Wireless debugging only runs while **USB debugging** is on too, so TwinDesk turns both on.
+  Wireless debugging only runs while **USB debugging** is on too, so DuoDesk turns both on.
 - **Xiaomi, Redmi and POCO** also need *Developer options › USB debugging (Security settings)* for
   touch, mouse and keyboard (it asks for a Mi account). Without it the screen shows but input is
   refused; the computer's Phone page says "Touch blocked" until it's on.
 - **On a Mac, the phone in Finder.** Turn it on in the Mount tab and click Mount: the phone shows
-  under Locations like any server. Until then TwinDesk never looks at the phone's files. It goes
+  under Locations like any server. Until then DuoDesk never looks at the phone's files. It goes
   through the cable when USB debugging is allowed, else over wireless debugging. Finder's `.DS_Store` and `._` files never land on the phone.
 
 </details>
@@ -638,11 +631,11 @@ capturing and injecting input, virtual displays, gestures, window capture and na
 | `shared/` | Used by every app: the wire protocol, the Bluetooth pipe and Wi-Fi Direct links, the phone hub (Calls, Messages, Photos, Phone Files), shared folders, frame generation and icons |
 
 The link between two devices is one TLS session wherever it runs: on the local network, through
-a phone's USB cable (adb), or through **Bluetooth LE** (a GATT pipe of TwinDesk's own,
+a phone's USB cable (adb), or through **Bluetooth LE** (a GATT pipe of DuoDesk's own,
 `shared/blepipe.js`). When a session on Bluetooth needs bandwidth, `shared/netlink.js` brings up a
 **Wi-Fi Direct** group or joins a phone's hotspot, moves the session onto it, and takes it down
 again once nothing needs it. Calls, Messages, Photos and Phone Files are `shared/phonehub.js` on
-the computers, answered by TwinDesk on the phone.
+the computers, answered by DuoDesk on the phone.
 
 Files between two computers on the network or a cable stream over HTTPS on the same port, beside the
 control link and up to four at a time (`shared/fastfile.js`), so mouse and keyboard never wait
@@ -667,11 +660,11 @@ cd mac
 npm install
 npm run build:helper
 npm start                       # run from source
-npm run dist && npm run dmg     # build TwinDesk.app and TwinDesk-<version>-<arch>.dmg in mac/dist/
+npm run dist && npm run dmg     # build DuoDesk.app and DuoDesk-<version>-<arch>.dmg in mac/dist/
 ```
 
-The disk image is named after the app inside it: `TwinDesk-2.4.0-arm64.dmg` for Apple Silicon,
-`TwinDesk-2.4.0-x64.dmg` for Intel. Keep those names on a release: the in-app updater picks the
+The disk image is named after the app inside it: `DuoDesk-2.4.0-arm64.dmg` for Apple Silicon,
+`DuoDesk-2.4.0-x64.dmg` for Intel. Keep those names on a release: the in-app updater picks the
 one for each Mac by them.
 
 By default, `npm run dist` targets the Mac's current architecture. To build an Intel
@@ -682,19 +675,19 @@ npm run dist:x64 && npm run dmg
 ```
 
 To build the Intel app and its image in one step, run `npm run dmg:intel`; it writes
-`mac/dist/TwinDesk-<version>-x64.dmg`.
+`mac/dist/DuoDesk-<version>-x64.dmg`.
 
 Use `npm run dist:arm64 && npm run dmg` for Apple Silicon explicitly. The x64 build
 cross-compiles the Swift helpers and packages the x64 Electron runtime, so it does
 not require an Intel Mac.
 
-On first launch, TwinDesk asks for **Screen Recording**, **Accessibility** and **Input
+On first launch, DuoDesk asks for **Screen Recording**, **Accessibility** and **Input
 Monitoring** (once; after that the General tab shows each permission's status).
 
 `npm run dist` signs the app with a certificate of its own, made the first time in
 `~/.twindesk-signing` (keep a backup). macOS keeps permissions per signature, so with the same
 certificate they carry over when an update is dragged into Applications. An app built without it is
-signed ad-hoc, and macOS treats every update as a new app; TwinDesk then clears the stale entries so
+signed ad-hoc, and macOS treats every update as a new app; DuoDesk then clears the stale entries so
 Allow works again.
 
 ### Windows 10 / 11
@@ -736,11 +729,11 @@ GNOME Wayland uses Python 3 with GObject and GStreamer's PipeWire plugin (`pytho
 
 #### NixOS & Nix Flakes
 
-TwinDesk includes a `flake.nix` with package, dev shell, and NixOS module support:
+DuoDesk includes a `flake.nix` with package, dev shell, and NixOS module support:
 
 ```sh
 # Run directly with flakes
-nix run github:InukaAsith/TwinDesk
+nix run github:0xCodez/DuoDesk
 
 # Or enter development environment
 nix develop
@@ -764,7 +757,7 @@ See [docs/nixos.md](docs/nixos.md) for full options (firewall, Wi-Fi Direct capa
 
 `linux/scripts/vm-test.sh` runs it in a [Parallels Desktop](https://www.parallels.com) Linux VM
 (Ubuntu with the packages above and Node.js): it copies this checkout into the VM, builds the
-helper, starts TwinDesk in the VM's desktop session and drives it from the Mac.
+helper, starts DuoDesk in the VM's desktop session and drives it from the Mac.
 
 ```sh
 linux/scripts/vm-test.sh start            # sync, build and (re)start it in the VM
@@ -773,7 +766,7 @@ linux/scripts/vm-test.sh eval "UI.go('cursor')"
 linux/scripts/vm-test.sh log
 ```
 
-On the VM's shared network it finds the Mac's TwinDesk and pairs like any Linux computer.
+On the VM's shared network it finds the Mac's DuoDesk and pairs like any Linux computer.
 
 ### Android
 
@@ -809,7 +802,7 @@ guarantee that antivirus products will stop flagging a file.
 
 ## Thanks
 
-TwinDesk is better for everyone who sent a pull request:
+DuoDesk builds on TwinDesk, which is better for everyone who sent it a pull request (links go to the TwinDesk repository):
 
 - [@DevPsycho-07](https://github.com/DevPsycho-07): the phone as a remote ([#44](https://github.com/InukaAsith/TwinDesk/pull/44)), screenshots across the clipboard ([#45](https://github.com/InukaAsith/TwinDesk/pull/45)), phone window controls ([#46](https://github.com/InukaAsith/TwinDesk/pull/46)) and phone fixes ([#43](https://github.com/InukaAsith/TwinDesk/pull/43))
 - [@benzntech](https://github.com/benzntech): the phone's camera ([#48](https://github.com/InukaAsith/TwinDesk/pull/48)), Developer ID signing and notarization ([#40](https://github.com/InukaAsith/TwinDesk/pull/40)) and the Mac's downloads ([#39](https://github.com/InukaAsith/TwinDesk/pull/39))
@@ -817,15 +810,21 @@ TwinDesk is better for everyone who sent a pull request:
 - [@philopaterwaheed](https://github.com/philopaterwaheed): Cursor lock ([#49](https://github.com/InukaAsith/TwinDesk/pull/49))
 - [@ghustanov](https://github.com/ghustanov): wireless debugging's auto-off ([#31](https://github.com/InukaAsith/TwinDesk/pull/31)) and the Mac helpers' Info.plist ([#30](https://github.com/InukaAsith/TwinDesk/pull/30))
 - [@m-uvex](https://github.com/m-uvex): the Nix flake and NixOS module ([#37](https://github.com/InukaAsith/TwinDesk/pull/37))
-- Erdoğan Yeşil ([@erdodo](https://github.com/erdodo)): the mesh TwinDesk Mesh is built on ([#29](https://github.com/InukaAsith/TwinDesk/pull/29)), and [#8](https://github.com/InukaAsith/TwinDesk/pull/8) and [#9](https://github.com/InukaAsith/TwinDesk/pull/9)
+- Erdoğan Yeşil ([@erdodo](https://github.com/erdodo)): the mesh DuoDesk Mesh is built on ([#29](https://github.com/InukaAsith/TwinDesk/pull/29)), and [#8](https://github.com/InukaAsith/TwinDesk/pull/8) and [#9](https://github.com/InukaAsith/TwinDesk/pull/9)
 - [@Jay-Prajapati01](https://github.com/Jay-Prajapati01): signed Windows installers ([#13](https://github.com/InukaAsith/TwinDesk/pull/13))
 
-And thanks to everyone who reports problems and shares ideas in the [issues](https://github.com/InukaAsith/TwinDesk/issues).
+And thanks to everyone who reports problems and shares ideas in the [issues](https://github.com/0xCodez/DuoDesk/issues).
+
+## Credits
+
+DuoDesk is made by [0xCodez](https://github.com/0xCodez) ([source](https://github.com/0xCodez/DuoDesk), [website](https://duodesk-green.vercel.app)).
+It is a fork of [TwinDesk](https://github.com/InukaAsith/TwinDesk) by [Inuka Asith](https://github.com/InukaAsith),
+released under the GNU GPL v3.0; DuoDesk keeps that licence and every original copyright notice.
 
 ## License
 
-TwinDesk is free software, licensed under the [GNU General Public License v3.0](LICENSE).
-Copyright © 2026 inukaasith.
+DuoDesk is free software, licensed under the [GNU General Public License v3.0](LICENSE).
+Copyright © 2026 0xCodez; based on TwinDesk, Copyright © 2026 inukaasith.
 
 Parts are adapted from [DeskPad](https://github.com/Stengo/DeskPad) (MIT). See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES)
 for details.

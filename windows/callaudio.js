@@ -36,10 +36,10 @@ const parse = (s) => { try { return JSON.parse(String(s).trim().split('\n').pop(
 // Why Windows wouldn't add the package, in words.
 function addError(e) {
   if (/0x800B0109|0x800B010A|trust|certificate/i.test(e)) {
-    return `Windows doesn’t trust TwinDesk’s calls package. Reinstall TwinDesk, or (a dev build) as administrator: certutil -addstore TrustedPeople "${CER}"`;
+    return `Windows doesn’t trust DuoDesk’s calls package. Reinstall DuoDesk, or (a dev build) as administrator: certutil -addstore TrustedPeople "${CER}"`;
   }
-  if (/0x80073CFF|sideload|developer/i.test(e)) return 'Windows won’t add TwinDesk’s calls package: allow apps from any source in Settings › System › For developers';
-  return `TwinDesk’s calls package: ${String(e).slice(0, 140)}`;
+  if (/0x80073CFF|sideload|developer/i.test(e)) return 'Windows won’t add DuoDesk’s calls package: allow apps from any source in Settings › System › For developers';
+  return `DuoDesk’s calls package: ${String(e).slice(0, 140)}`;
 }
 
 class CallAudio extends EventEmitter {
@@ -180,7 +180,7 @@ class CallAudio extends EventEmitter {
       // copy): registered again here, once.
       if (m.identity === false) {
         this._end();
-        if (this.forced) { this.error = 'Windows didn’t give macshare-calls TwinDesk’s package identity'; return this._set('unavailable'); }
+        if (this.forced) { this.error = 'Windows didn’t give macshare-calls DuoDesk’s package identity'; return this._set('unavailable'); }
         this.forced = true;
         return this._launch(this.gen, true);
       }
@@ -211,7 +211,7 @@ class CallAudio extends EventEmitter {
       if (m.state === 'connecting') return this._set('connecting');
       if (m.access === 'DeniedByUser') {
         this.denied = true;
-        this.error = 'Windows’ privacy settings keep calls from TwinDesk: allow it in Settings › Privacy & security › Phone calls, then Connect';
+        this.error = 'Windows’ privacy settings keep calls from DuoDesk: allow it in Settings › Privacy & security › Phone calls, then Connect';
         this.tries = RETRY_MS.length + 1;
         return this._set('failed');
       }

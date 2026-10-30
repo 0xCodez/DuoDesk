@@ -38,7 +38,7 @@ function set(on) {
   fs.writeFileSync(f, [
     '[Desktop Entry]',
     'Type=Application',
-    'Name=TwinDesk',
+    'Name=DuoDesk',
     'Comment=Share mouse, keyboard, clipboard and screens with your other computer',
     'Exec=' + command().map(quote).join(' '),
     'Icon=twindesk',

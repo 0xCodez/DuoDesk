@@ -1,20 +1,28 @@
 /* TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
-:root { color-scheme: dark; --bg: #0b0b0d; --card: #1c1c1e; --pad: #151517; --line: #2c2c2e; --text: #f5f5f7; --muted: #98989d; --accent: #0a84ff; }
+/* Geist (SIL OFL 1.1, fonts/OFL.txt), the variable weight files in fonts/. */
+@font-face { font-family: Geist; font-style: normal; font-display: swap; font-weight: 100 900; src: url(fonts/geist-latin-wght-normal.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Geist; font-style: normal; font-display: swap; font-weight: 100 900; src: url(fonts/geist-latin-ext-wght-normal.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: Geist; font-style: normal; font-display: swap; font-weight: 100 900; src: url(fonts/geist-cyrillic-wght-normal.woff2) format('woff2'); unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+:root {
+  color-scheme: dark; --bg: #040405; --card: #121215; --pad: #0a0a0c; --line: rgba(255, 255, 255, 0.07); --line2: rgba(255, 255, 255, 0.12);
+  --text: #f1f1f3; --muted: #8c8c95; --dim: #55555d; --accent: #8a5cff; --good: #3dffa8; --warn: #ffb340; --bad: #ff5c7a; --on-spec: #040405;
+  --spec: linear-gradient(90deg, #ff3d9a 0%, #8a5cff 30%, #2fd6ff 55%, #3dffa8 75%, #ffb340 100%);
+}
 html, body {
-  margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 15px system-ui, sans-serif;
+  margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 15px Geist, system-ui, sans-serif;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
 }
-button { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0; touch-action: none; }
-button.down, button.on { background: var(--accent); border-color: var(--accent); }
+button { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line2); border-radius: 14px; padding: 0; touch-action: none; }
+button.down, button.on { background: var(--spec); border-color: transparent; color: var(--on-spec); }
 body:not(.pad) .pad-only, body:not(.gamepad) .game-only { display: none !important; }
 
-#top { position: fixed; top: 0; left: 0; right: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 14px; box-sizing: border-box; background: var(--card); z-index: 2; }
+#top { position: fixed; top: 0; left: 0; right: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 14px; box-sizing: border-box; background: var(--pad); border-bottom: 1px solid var(--line); z-index: 2; }
 #name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#top button { height: 34px; padding: 0 12px; font-size: 14px; }
+#top button { height: 34px; padding: 0 14px; font-size: 14px; border-radius: 99px; }
 #b-close { width: 40px; padding: 0; }
-#note { position: fixed; top: 56px; left: 12px; right: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 159, 10, 0.18); font-size: 13.5px; line-height: 1.4; z-index: 3; pointer-events: none; }
+#note { position: fixed; top: 56px; left: 12px; right: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 179, 64, 0.12); border: 1px solid rgba(255, 179, 64, 0.25); color: var(--text); font-size: 13.5px; line-height: 1.4; z-index: 3; pointer-events: none; }
 /* Remote off on the computer: turned on from here (pair.sync, like every two-way switch). */
-#note-on { display: block; margin-top: 8px; height: 34px; padding: 0 14px; font-size: 14px; background: var(--accent); border-color: var(--accent); pointer-events: auto; }
+#note-on { display: block; margin-top: 8px; height: 34px; padding: 0 16px; font-size: 14px; font-weight: 600; border-radius: 99px; background: var(--spec); border-color: transparent; color: var(--on-spec); pointer-events: auto; }
 #note-on[hidden] { display: none; }
 
 /* ---- touchpad ---- */
@@ -22,7 +30,10 @@ body:not(.pad) .pad-only, body:not(.gamepad) .game-only { display: none !importa
 #keys { flex: none; display: flex; gap: 6px; overflow-x: auto; touch-action: pan-x; scrollbar-width: none; }
 #keys::-webkit-scrollbar { display: none; }
 #keys button { flex: none; min-width: 46px; height: 40px; padding: 0 10px; font-size: 14px; }
-#pad { flex: 1; min-height: 120px; border-radius: 16px; background: var(--pad); border: 1px solid var(--line); display: grid; place-items: center; text-align: center; color: #55555a; font-size: 13px; line-height: 1.6; padding: 16px; }
+#pad { position: relative; overflow: hidden; flex: 1; min-height: 120px; border-radius: 24px; background: var(--pad); border: 1px solid var(--line); display: grid; place-items: center; text-align: center; color: var(--dim); font-size: 13px; line-height: 1.6; padding: 16px; }
+#pad > span { position: relative; z-index: 1; }
+/* The spectral glow along the pad's bottom edge (Aurora); touches go through it to the pad. */
+#pad::after { content: ''; position: absolute; left: 10%; right: 10%; bottom: -40px; height: 64px; background: var(--spec); filter: blur(32px); opacity: 0.4; pointer-events: none; }
 #clicks { flex: none; display: flex; gap: 10px; height: 64px; }
 #clicks button { flex: 1; font-size: 15px; }
 /* The soft keyboard types into this (off screen); what is typed goes to the computer as keys. */
@@ -35,7 +46,7 @@ body.gamepad #note { top: 96px; left: 28vw; right: 28vw; }
 #game { position: fixed; inset: 0; }
 .g { position: absolute; display: grid; place-items: center; font-weight: 600; }
 .shoulder { width: 26vw; font-size: 17px; letter-spacing: 0.04em; }
-.trigger { top: 0; height: 19vh; border-radius: 0 0 22px 22px; background: #232326; }
+.trigger { top: 0; height: 19vh; border-radius: 0 0 22px 22px; background: #121215; }
 .bumper { top: calc(19vh + 6px); height: 14vh; border-radius: 14px; }
 #g-lt, #g-lb { left: 0; }
 #g-rt, #g-rb { right: 0; }
@@ -51,7 +62,7 @@ body.gamepad #note { top: 96px; left: 28vw; right: 28vw; }
 .stick { position: absolute; width: 40vmin; height: 40vmin; border-radius: 50%; background: var(--pad); border: 1px solid var(--line); }
 #ls { left: 7vw; top: 37vh; }
 #rs { right: 27vw; bottom: 3vh; width: 36vmin; height: 36vmin; }
-.knob { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border-radius: 50%; background: #3a3a3c; pointer-events: none; }
+.knob { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border-radius: 50%; background: #2a2a30; pointer-events: none; }
 .stick.active .knob { background: var(--accent); }
 #dpad, #abxy { position: absolute; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); gap: 5px; }
 #dpad { left: 27vw; bottom: 3vh; width: 36vmin; height: 36vmin; }
@@ -62,16 +73,16 @@ body.gamepad #note { top: 96px; left: 28vw; right: 28vw; }
 #dpad [data-id="right"] { grid-area: 2 / 3; }
 #dpad [data-id="down"] { grid-area: 3 / 2; }
 .face { border-radius: 50%; font-size: 20px; }
-.face.y { grid-area: 1 / 2; color: #ffd60a; }
-.face.x { grid-area: 2 / 1; color: #64d2ff; }
-.face.b { grid-area: 2 / 3; color: #ff6961; }
-.face.a { grid-area: 3 / 2; color: #30d158; }
-.face.down { color: #fff; }
+.face.y { grid-area: 1 / 2; color: #ffb340; }
+.face.x { grid-area: 2 / 1; color: #2fd6ff; }
+.face.b { grid-area: 2 / 3; color: #ff5c7a; }
+.face.a { grid-area: 3 / 2; color: #3dffa8; }
+.face.down { color: var(--on-spec); }
 /* What the computer sees it as (a real controller), under the top bar. */
-#pad-note { position: fixed; top: calc(40px + 4vh + 11vh + 8px); left: 28vw; right: 28vw; text-align: center; font-size: 12.5px; line-height: 1.4; color: #8be9a8; pointer-events: none; }
+#pad-note { position: fixed; top: calc(40px + 4vh + 11vh + 8px); left: 28vw; right: 28vw; text-align: center; font-size: 12.5px; line-height: 1.4; color: #3dffa8; pointer-events: none; }
 
 /* ---- the gamepad's keys (Keys at the top): what each control presses when it isn't a real controller ---- */
-#map { position: fixed; inset: 0; z-index: 5; background: rgba(11, 11, 13, 0.97); display: flex; flex-direction: column; padding: 12px 16px; box-sizing: border-box; }
+#map { position: fixed; inset: 0; z-index: 5; background: rgba(4, 4, 5, 0.97); display: flex; flex-direction: column; padding: 12px 16px; box-sizing: border-box; }
 #map[hidden] { display: none; }
 #map header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 #map header b { flex: 1; font-size: 16px; }
@@ -79,4 +90,4 @@ body.gamepad #note { top: 96px; left: 28vw; right: 28vw; }
 #map .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
 #map-list { flex: 1; overflow-y: auto; touch-action: pan-y; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; align-content: start; }
 #map-list label { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-#map-list select { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 130px; touch-action: manipulation; }
+#map-list select { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line2); border-radius: 10px; padding: 5px 8px; max-width: 130px; touch-action: manipulation; }

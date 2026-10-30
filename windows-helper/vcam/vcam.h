@@ -2,7 +2,7 @@
 // The virtual camera (Windows 11, MFCreateVirtualCamera): what twindesk-vcam.dll (the camera's
 // media source, run by Windows' Frame Server) and twindesk-vcam.exe (adds it, feeds it) share.
 // The picture goes through shared memory: the source makes it (Frame Server is a service, so it
-// may make a Global\ one), the exe writes each frame TwinDesk sends it there, and the source hands
+// may make a Global\ one), the exe writes each frame DuoDesk sends it there, and the source hands
 // apps the newest one 30 times a second, or a black picture while none comes.
 #pragma once
 #include <windows.h>

@@ -74,12 +74,15 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   Menu.setApplicationMenu(null); // its accelerators would steal keys meant for the Mac
   app.setAppUserModelId(AUMID); // toasts need it; the installer's shortcut carries the same id
-  // A pinned Mac app starts "TwinDesk.exe --mac-app=<id>": open it, else show the window.
+  // A pinned Mac app starts "DuoDesk.exe --mac-app=<id>": open it, else show the window.
   app.on('second-instance', (_e, argv) => {
     if (sendTo && sendTo.handle(argv)) return; // Explorer › Send to
     if (!openMacAppArg(argv) && !openPhoneAppArg(argv)) showMain();
   });
-  app.whenReady().then(start);
+  app.whenReady().then(() => {
+    nativeTheme.themeSource = 'dark'; // Aurora is dark only: title bar, scrollbars and menus follow
+    start();
+  });
 }
 
 let mainWin = null;
@@ -704,7 +707,7 @@ function openMacAppArg(argv) {
   return true;
 }
 
-// A pinned phone app starts "TwinDesk.exe --phone-app=<package>": open it once the phone's
+// A pinned phone app starts "DuoDesk.exe --phone-app=<package>": open it once the phone's
 // wireless debugging is ready (connecting a paired phone nearby first, if none is connected).
 let pendingPhoneApp = null; // {pkg, until}
 let pendingView = null; // a phone window waiting for wireless debugging (phoneViews.onNoAdb)
@@ -958,9 +961,9 @@ function createMainWindow() {
     y: b.y,
     minWidth: 720,
     minHeight: 480,
-    title: 'TwinDesk',
+    title: 'DuoDesk',
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#2b2b2e' : '#e9e9ee',
+    backgroundColor: '#0a0a0c', // DuoDesk's Aurora look is dark only
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload-app.js'),
@@ -1028,7 +1031,7 @@ function checkTaskbar() {
 
 function createTray() {
   tray = new Tray(trayIcon());
-  tray.setToolTip('TwinDesk');
+  tray.setToolTip('DuoDesk');
   tray.on('click', showMain);
   checkTaskbar();
   updateTray();
@@ -1043,7 +1046,7 @@ function updateTray(s = buildState()) {
   const sharing = s.pcScreen.mode !== 'off';
   const found = s.found.filter((d) => !s.peer || d.id !== s.peer.id);
   const rtt = connected && s.link.rtt != null ? ' · ' + s.link.rtt + ' ms' : '';
-  tray.setToolTip('TwinDesk: ' + statusLine(s));
+  tray.setToolTip('DuoDesk: ' + statusLine(s));
   // Rebuild only when something in the menu changed (state pushes are frequent).
   const watching = screen.sentAccept === true;
   const host = s.paired && s.paired.macName;
@@ -1087,7 +1090,7 @@ function updateTray(s = buildState()) {
     } })),
     byAddress: () => goTab('connection'),
     lookAgain: () => discovery.probe(),
-    update: s.updates && s.updates.available ? { label: 'Download TwinDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
+    update: s.updates && s.updates.available ? { label: 'Download DuoDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
     open: showMain,
     log: () => require('../../shared/applog.js').open(),
     quit: () => app.quit(),

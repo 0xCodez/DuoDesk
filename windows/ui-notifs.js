@@ -41,7 +41,7 @@ UI.tab({
       pair.update(s);
       note.set('');
       hideSw.set(n.hideText);
-      recvRow.setHint(n.receive && n.shown ? n.shown + ' shown' : 'As Windows notifications, from TwinDesk');
+      recvRow.setHint(n.receive && n.shown ? n.shown + ' shown' : 'As Windows notifications, from DuoDesk');
       sendRow.setHint(n.readable === false ? 'Windows’ notification list can’t be read'
         : !n.send ? '' : !connected ? 'Also switches it on the other computer' : n.sent ? n.sent + ' sent' : 'As native notifications there');
 

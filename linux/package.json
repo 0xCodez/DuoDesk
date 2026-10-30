@@ -1,9 +1,18 @@
 {
   "name": "macshare-linux",
-  "productName": "TwinDesk",
+  "productName": "DuoDesk",
   "version": "2.5.0-beta.1",
-  "description": "TwinDesk for Linux: share mouse, keyboard, clipboard, files, sound and screens with a Mac, a PC or another Linux computer.",
+  "description": "DuoDesk for Linux: share mouse, keyboard, clipboard, files, sound and screens with a Mac, a PC or another Linux computer.",
   "license": "GPL-3.0",
+  "author": "0xCodez (https://github.com/0xCodez)",
+  "homepage": "https://github.com/0xCodez/DuoDesk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xCodez/DuoDesk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/0xCodez/DuoDesk/issues"
+  },
   "private": true,
   "main": "main.js",
   "scripts": {

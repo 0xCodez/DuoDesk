@@ -1,7 +1,7 @@
 # TeinDesk — Copyright (C) 2026 TeinDesk contributors. GPL-3.0, see LICENSE.
-# Usage: python make-icon.py [out_dir]  → TeinDesk app icons, light and dark (needs Pillow).
-# The mark, Liquid Glass style on a blue-violet tile: a frosted macOS window in front of
-# a frosted Windows window, and one cursor where they overlap.
+# Usage: python make-icon.py [out_dir]  → DuoDesk app icons, light and dark (needs Pillow).
+# The mark, Aurora style: a smoked-glass macOS window in front of a smoked-glass Windows
+# window on a near-black tile lit by a spectral glow, and one cursor where they overlap.
 import os
 import sys
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -62,23 +62,22 @@ def glass(im, box, r, tint):
 
 
 def icon(dark=False):
-    # Blue -> violet tile with soft cyan and pink light for the glass to blur. The dark
-    # version is a plain black tile with smoked glass.
-    if dark:
-        im = gradient([(0, hexc('#26262c')), (1, hexc('#030304'))])
-        glows = ()
-    else:
-        im = gradient([(0, hexc('#5ad1ff')), (0.5, hexc('#5b6cff')), (1, hexc('#a855f7'))])
-        glows = (((560, 120, 980, 540), '#ff9ad5', 200), ((40, 560, 460, 980), '#7cf7e4', 170))
+    # DuoDesk, Aurora: a near-black tile with a spectral glow rising from the bottom edge
+    # (pink, violet, cyan, mint, amber) for the smoked glass to blur. The light version only
+    # lifts the tile a little; both stay dark like the app.
+    im = gradient([(0, hexc('#2a2a31' if not dark else '#1d1d22')), (1, hexc('#050506'))])
+    glows = (((-60, 700, 360, 1160), '#ff3d9a', 235), ((180, 740, 560, 1180), '#8a5cff', 245),
+             ((420, 720, 800, 1170), '#2fd6ff', 235), ((640, 760, 1000, 1180), '#3dffa8', 200),
+             ((800, 800, 1120, 1190), '#ffb340', 190))
     for box, col, a in glows:
         blob = Image.new('L', (S, S), 0)
         ImageDraw.Draw(blob).ellipse(P(*box), fill=a)
-        im = paint(im, blob.filter(ImageFilter.GaussianBlur(70 * k)), hexc(col))
+        im = paint(im, blob.filter(ImageFilter.GaussianBlur(80 * k)), hexc(col))
 
     # Windows window, behind on the right.
     B = (392, 352, 872, 772)
-    im, _ = glass(im, B, 64, (200, 210, 235, 70) if dark else (225, 240, 255, 105))
-    d = ImageDraw.Draw(im); g = (255, 255, 255, 210) if dark else hexc('#1b1740', 200); w = round(9 * k); y = B[1] + 52
+    im, _ = glass(im, B, 64, (200, 210, 235, 70))
+    d = ImageDraw.Draw(im); g = (255, 255, 255, 210); w = round(9 * k); y = B[1] + 52
     d.line(P(B[2] - 190, y, B[2] - 160, y), fill=g, width=w)                              # minimise
     d.rectangle(P(B[2] - 128, y - 15, B[2] - 98, y + 15), outline=g, width=w)             # maximise
     d.line(P(B[2] - 66, y - 15, B[2] - 36, y + 15), fill=g, width=w)                      # close
@@ -86,7 +85,7 @@ def icon(dark=False):
 
     # macOS window in front, on the left.
     A = (152, 212, 632, 632)
-    im, _ = glass(im, A, 64, (255, 255, 255, 95) if dark else (255, 255, 255, 130))
+    im, _ = glass(im, A, 64, (255, 255, 255, 95))
     d = ImageDraw.Draw(im)
     for i, c in enumerate(('#ff5f57', '#febc2e', '#28c840')):
         cx, cy = A[0] + 58 + i * 52, A[1] + 52

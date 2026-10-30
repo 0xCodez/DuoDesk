@@ -1,18 +1,22 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Update check for all three apps: asks GitHub for the latest release of TwinDesk, compares its
-// tag with this app's version and picks the download for this platform and CPU. Nothing is
-// installed here; the app opens the download (or the release page) in the browser.
+// Update check for all three apps: asks GitHub for the latest release, compares its tag with this
+// app's version and picks the download for this platform and CPU. Nothing is installed here; the
+// app opens the download (or the release page) in the browser. Only DuoDesk-named files count
+// (OWN): REPO is DuoDesk's own (0xCodez/DuoDesk); upstream TwinDesk's TwinDesk-* builds are never
+// offered, and a release without any DuoDesk file is not an update.
 //
 // new Updates({ current, platform: 'mac'|'win'|'linux', getSettings, save, notify, onChange })
 //   settings.updates = { auto, notified }: check on start and every 6 hours when auto is on;
 //   notify(title, body, onClick) once per new version; open() shows the download in the browser.
 'use strict';
 
-const REPO = 'InukaAsith/TwinDesk';
+const REPO = '0xCodez/DuoDesk';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
 const RELEASES = `https://github.com/${REPO}/releases`;
 const FIRST_DELAY = 15 * 1000;
 const EVERY = 6 * 60 * 60 * 1000;
+// A release file of this app: DuoDesk-Setup-2.5.0.exe, DuoDesk-2.5.0-arm64.dmg, DuoDesk-2.5.0-x86_64.AppImage…
+const OWN = /^DuoDesk[-_. ]/i;
 
 // Escape HTML entities to prevent any injection in release notes.
 function escapeHtml(str) {
@@ -134,7 +138,7 @@ function pickAsset(assets, platform, arch, prefer) {
     win: [/setup.*\.exe$/i, /\.exe$/i, /\.msi$/i],
     linux: prefer === 'deb' ? [/\.deb$/i, /\.AppImage$/i] : [/\.AppImage$/i, /\.deb$/i],
   }[platform] || [];
-  const list = (assets || []).filter((a) => a && a.name && a.browser_download_url);
+  const list = (assets || []).filter((a) => a && a.name && a.browser_download_url && OWN.test(a.name));
   for (const kind of kinds) {
     const fit = list.filter((a) => kind.test(a.name));
     if (!fit.length) continue;
@@ -232,7 +236,7 @@ class Updates {
     try {
       const url = `${API}?_=${Date.now()}`;
       const res = await this.fetch(url, {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': `TwinDesk/${this.current}` },
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': `DuoDesk/${this.current}` },
         cache: 'no-store',
       });
       if (res.status === 404) {
@@ -246,7 +250,8 @@ class Updates {
       const r = await res.json();
       const latest = String(r.tag_name || r.name || '').replace(/^v/i, '');
       if (!parse(latest)) throw new Error('The latest release has no version number');
-      const available = compare(latest, this.current) > 0;
+      const ours = (r.assets || []).some((a) => a && a.name && OWN.test(a.name)); // not an upstream TwinDesk release
+      const available = ours && compare(latest, this.current) > 0;
       const download = pickAsset(r.assets, this.platform, this.arch, this.prefer);
       const skipped = this.cfg.skipped === latest;
       const isNewVersion = this.cfg.notified !== latest;
@@ -255,7 +260,7 @@ class Updates {
       this._set({
         checking: false,
         latest,
-        name: String(r.name || `TwinDesk ${latest}`),
+        name: String(r.name || `DuoDesk ${latest}`),
         available,
         download,
         releaseUrl: r.html_url || RELEASES,
@@ -272,7 +277,7 @@ class Updates {
         this.save();
         if (!skipped) {
           this.notify(
-            `TwinDesk ${latest} is available`,
+            `DuoDesk ${latest} is available`,
             manual ? 'Click to view update details.' : `You have ${this.current}. Click to view update details and release notes.`,
             () => this.onShowModal(),
           );

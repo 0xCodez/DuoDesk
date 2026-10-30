@@ -1,8 +1,10 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// Update check (shared/updates.js on the computers): asks GitHub for the latest release of
-// TwinDesk, compares its tag with this app's version and picks this build's APK (the full one for
-// TwinDesk with notifications, the standard one otherwise). Nothing is installed here; Download
-// opens the APK (or the release page) in the browser.
+// Update check (shared/updates.js on the computers): asks GitHub for the latest release, compares
+// its tag with this app's version and picks this build's APK (the full one for DuoDesk with
+// notifications, the standard one otherwise). Nothing is installed here; Download opens the APK (or
+// the release page) in the browser. Only DuoDesk-named APKs count: REPO is DuoDesk's own
+// (0xCodez/DuoDesk); upstream TwinDesk's TwinDesk-*.apk are never offered, and a release without
+// any DuoDesk file is not an update.
 //   prefs: updates.auto (check 15 s after start and every 6 hours), updates.notified (the last
 //   version a notification announced, so each one is told once).
 package com.twindesk.android
@@ -51,7 +53,7 @@ class Updates(private val core: Core) {
         try {
             val req = Request.Builder().url(API)
                 .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "TwinDesk/$current")
+                .header("User-Agent", "DuoDesk/$current")
                 .build()
             http.newCall(req).execute().use { res ->
                 if (res.code == 404) {
@@ -64,8 +66,9 @@ class Updates(private val core: Core) {
                 val tag = r.optString("tag_name").ifEmpty { r.optString("name") }.removePrefix("v").removePrefix("V")
                 if (parse(tag) == null) throw Exception("The latest release has no version number")
                 latest = tag
-                available = compare(tag, current) > 0
-                download = pickApk(r.optJSONArray("assets"), BuildConfig.NOTIF_LISTENER)
+                val assets = r.optJSONArray("assets")
+                download = pickApk(assets, BuildConfig.NOTIF_LISTENER)
+                available = ours(assets) && compare(tag, current) > 0 // a DuoDesk release, not an upstream TwinDesk one
                 releaseUrl = r.optString("html_url").ifEmpty { RELEASES }
                 noReleases = false
                 checkedAt = System.currentTimeMillis()
@@ -90,7 +93,7 @@ class Updates(private val core: Core) {
     }
 
     companion object {
-        private const val REPO = "InukaAsith/TwinDesk"
+        private const val REPO = "0xCodez/DuoDesk"
         private const val API = "https://api.github.com/repos/$REPO/releases/latest"
         const val RELEASES = "https://github.com/$REPO/releases"
         private const val FIRST_DELAY = 15_000L
@@ -118,14 +121,24 @@ class Updates(private val core: Core) {
             return x.pre.compareTo(y.pre)
         }
 
-        // TwinDesk-2.0.0-full.apk for the full build; the other .apk (TwinDesk-2.0.0.apk) for the standard one.
+        // Any DuoDesk-named file makes it a release of this app (as shared/updates.js OWN); without this
+        // build's APK on it, Download opens the release page.
+        private fun ours(assets: org.json.JSONArray?): Boolean {
+            if (assets == null) return false
+            for (i in 0 until assets.length()) {
+                if (assets.optJSONObject(i)?.optString("name")?.startsWith("DuoDesk-", true) == true) return true
+            }
+            return false
+        }
+
+        // DuoDesk-2.0.0-full.apk for the full build; the other DuoDesk .apk (DuoDesk-2.0.0.apk) for the standard one.
         private fun pickApk(assets: org.json.JSONArray?, full: Boolean): Apk? {
             if (assets == null) return null
             for (i in 0 until assets.length()) {
                 val a = assets.optJSONObject(i) ?: continue
                 val name = a.optString("name")
                 val url = a.optString("browser_download_url")
-                if (!name.endsWith(".apk", true) || url.isEmpty()) continue
+                if (!name.startsWith("DuoDesk-", true) || !name.endsWith(".apk", true) || url.isEmpty()) continue
                 if (name.contains("full", true) == full) return Apk(name, url)
             }
             return null

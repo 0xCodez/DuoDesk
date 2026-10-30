@@ -387,7 +387,7 @@ class Link(
         Proto.E.PAIR_REFUSED to "Pairing was refused.",
         Proto.E.PAIR_TIMEOUT to "Pairing timed out.",
         Proto.E.BUSY to "That computer is busy pairing with another device.",
-        Proto.E.VERSION_MISMATCH to "That computer runs a different TwinDesk version. Update both.",
+        Proto.E.VERSION_MISMATCH to "That computer runs a different DuoDesk version. Update both.",
     )
 
     private fun onError(m: JSONObject) {

@@ -4,7 +4,7 @@
 // (window.open, so they can show the same video stream, cropped); here they get the app's title,
 // icon and their own AppUserModelID, so each Mac app has its own taskbar button.
 // Each Mac app gets a Start menu shortcut (folder "TwinDesk Apps") that starts
-// `TwinDesk.exe --mac-app=<id>`, and its windows carry the same AppUserModelID and relaunch
+// `DuoDesk.exe --mac-app=<id>`, and its windows carry the same AppUserModelID and relaunch
 // command, so Pin to Start / Pin to taskbar work. Its windows never go full screen or past 1:1.
 const { app, BrowserWindow, nativeImage, shell, screen: displays } = require('electron');
 const crypto = require('crypto');
@@ -100,7 +100,7 @@ class Apps {
     return 'org.macshare.macapp.' + crypto.createHash('sha1').update(id).digest('hex').slice(0, 10);
   }
 
-  // How this copy of TwinDesk opens one Mac app: "TwinDesk.exe --mac-app=<id>".
+  // How this copy of TwinDesk opens one Mac app: "DuoDesk.exe --mac-app=<id>".
   static relaunch(id) {
     const args = (app.isPackaged ? [] : [app.getAppPath()]).concat('--mac-app=' + id);
     return { target: process.execPath, args: args.map((x) => (/\s/.test(x) ? '"' + x + '"' : x)).join(' ') };
@@ -137,7 +137,7 @@ class Apps {
     try {
       fs.mkdirSync(this.startDir, { recursive: true });
       const ok = shell.writeShortcutLink(file, fs.existsSync(file) ? 'replace' : 'create', {
-        target: r.target, args: r.args, description: a.name + ' on ' + this.peerName() + ' (TwinDesk)', appUserModelId: Apps.aumid(id),
+        target: r.target, args: r.args, description: a.name + ' on ' + this.peerName() + ' (DuoDesk)', appUserModelId: Apps.aumid(id),
         ...(ico ? { icon: ico, iconIndex: 0 } : {}),
       });
       if (!ok) throw new Error('Windows refused the shortcut');

@@ -1,0 +1,304 @@
+/* DuoDesk — PageFX: the screen pages. Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+   Header inserts and quiet restyles for mac-pc (receive), pc-mac (share), apps, mirror and papps (screens.js).
+   Minimal art direction (MINIMAL): white hairlines on near-black glass, a light Geist figure, Geist Mono
+   captions at 40 % white, ONE accent per page on the one element that moves. Loads after core.css.
+   Everything is scoped under #page-<id> or the header's own class (.rx .tx .ap .mi .pa, all .sx). */
+
+/* ---------- one soft accent per page (core: --pg-acc = page colour softened toward grey) ---------- */
+#pages > :is(#page-pc-mac, #page-share) { --pg-acc: color-mix(in oklab, #3dffa8 42%, #d6d6dc); }
+#pages > #page-mirror { --pg-acc: color-mix(in oklab, var(--mi-c, #64d2ff) 62%, #d6d6dc); }
+#pages > #page-papps { --pg-acc: color-mix(in oklab, #ffb340 52%, #d6d6dc); }
+
+/* =====================================================================
+   The strip: text + one hairline motif
+   ===================================================================== */
+.pg-hdr.sx { --pg-hdr-h: 116px; gap: 28px; padding: 14px 26px; container-type: inline-size; }
+.sx [hidden] { display: none !important; }
+.sx-text { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; flex: 1 1 auto; }
+.sx-fig { font-size: 40px; line-height: 0.95; }
+.sx-fig[data-word] { font-size: 28px; font-weight: 300; color: var(--pg-w70); letter-spacing: -0.025em; }
+.sx-fig small:empty { display: none; }
+.sx-cap { font-size: 12.5px; color: var(--pg-w55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.sx :is(.sx-kick, .sx-cap, .sx-meta):empty { display: none; }
+.sx-meta { color: var(--pg-w25); letter-spacing: 0.06em; max-width: 100%; }
+.sx-motif { flex: none; display: flex; align-items: center; }
+
+/* hairline drawing kit */
+.sx-svg { display: block; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.sx-svg * { vector-effect: non-scaling-stroke; }
+.sx-win { fill: rgba(14, 14, 18, 0.72); stroke: var(--pg-w40); stroke-width: 1; transition: stroke 0.6s, opacity 0.6s; }
+.sx-faint { fill: none; stroke: var(--pg-w12); stroke-width: 1; }
+.sx-dot3 { fill: var(--pg-w25); stroke: none; }
+.sx-fill { fill: var(--pg-w08); stroke: none; }
+.sx-dev { fill: none; stroke: var(--pg-w40); stroke-width: 1; transition: stroke 0.6s; }
+.sx-line { fill: none; stroke: var(--pg-w18); stroke-width: 1; transition: stroke 0.6s, opacity 0.6s; }
+/* the one moving thing: a short accent segment that travels the line, then rests */
+.sx-run {
+  fill: none; stroke: var(--pg-acc); stroke-width: 1.5; stroke-dasharray: 14 200; stroke-dashoffset: 14; opacity: 0;
+  animation: sx-run var(--sx-cycle, 6s) cubic-bezier(0.45, 0, 0.25, 1) infinite; animation-play-state: paused; visibility: hidden;
+}
+@keyframes sx-run {
+  0% { stroke-dashoffset: 14; opacity: 0; }
+  8% { opacity: 0.9; }
+  40% { opacity: 0.9; }
+  48% { stroke-dashoffset: -100; opacity: 0; }
+  100% { stroke-dashoffset: -100; opacity: 0; }
+}
+.sx-run.on, :is(.rx[data-st="live"], .tx:is([data-st="live"], [data-st="connecting"]), .mi[data-st="casting"]) .sx-run { animation-play-state: running; visibility: visible; }
+
+/* =====================================================================
+   mac-pc — "incoming window": light arrives from the other computer (right → left)
+   ===================================================================== */
+.rx-ghost { fill: none; stroke: var(--pg-w18); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; transition: opacity 0.6s; }
+.rx[data-mode="extend"] .rx-ghost { opacity: 1; }
+.rx-win { fill: #111114; }
+.rx-pause { opacity: 0; transition: opacity 0.4s; }
+.rx-pbar { fill: var(--pg-w40); }
+.rx[data-st="paused"] .rx-pause { opacity: 1; }
+.rx[data-st="live"] .rx-win { stroke: var(--pg-w70); }
+.rx[data-st="live"][data-watch="0"] .rx-frame { opacity: 0.6; }
+.rx[data-st="ready"] .rx-frame { animation: pg-breathe 7s ease-in-out infinite; --pg-breathe-lo: 0.45; }
+.rx[data-st="ready"] .rx-line, .rx[data-st="blocked"] .rx-line { stroke-dasharray: 2 4; }
+.rx[data-st="blocked"] .rx-frame { opacity: 0.55; }
+.rx[data-st="nopeer"] .rx-win { stroke: var(--pg-w25); stroke-dasharray: 3 3; }
+.rx[data-st="nopeer"] .rx-line { opacity: 0; }
+.rx[data-st="nopeer"] .rx-dev .sx-dev { stroke: var(--pg-w18); }
+.rx-spark { display: block; margin-top: 2px; line-height: 0; }
+.rx-sp { fill: none; stroke: var(--pg-w25); stroke-width: 1; }
+.rx-sp-dot { fill: var(--pg-w70); }
+/* switch-in: the window opens from the right, the text settles */
+.pg-in .rx-motif { animation: rx-wipe 0.75s var(--pg-ease) both; }
+.pg-in .rx-text { animation: sx-from-r 0.6s var(--pg-ease) 0.12s both; }
+@keyframes rx-wipe { from { clip-path: inset(0 0 0 100%); opacity: 0.2; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes sx-from-r { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+@keyframes sx-from-l { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+
+/* =====================================================================
+   pc-mac — "transmitter": this screen goes out (left → right)
+   ===================================================================== */
+.tx-virt { fill: none; stroke: var(--pg-w40); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; transition: opacity 0.5s; }
+.tx-vlbl { fill: var(--pg-w25); stroke: none; font: 500 7.5px var(--mono, ui-monospace, monospace); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.5s; }
+.tx[data-mode="extend"] :is(.tx-virt, .tx-vlbl) { opacity: 1; }
+.tx[data-mode="extend"] .tx-mon { opacity: 0.55; }
+.tx[data-mode="extend"][data-st="busy"] .tx-virt { stroke-dasharray: 100; stroke-dashoffset: 100; animation: tx-draw 3.6s ease-in-out infinite alternate; }
+@keyframes tx-draw { to { stroke-dashoffset: 0; } }
+.tx[data-st="live"] .tx-scr { stroke: var(--pg-w70); }
+.tx[data-st="live"][data-mode="extend"] .tx-virt { stroke: var(--pg-w70); }
+.tx[data-st="connecting"] { --sx-cycle: 4s; }
+.tx:is([data-st="armed"], [data-st="busy"]) .tx-line { stroke-dasharray: 2 4; }
+.tx[data-st="nopeer"] .tx-line { opacity: 0; }
+.tx[data-st="nopeer"] .tx-dev .sx-dev { stroke: var(--pg-w18); }
+.tx[data-err] .tx-line { stroke: color-mix(in srgb, var(--pg-bad) 55%, transparent); }
+.tx-text { flex: 1 1 auto; }
+.pg-in .tx-motif { animation: tx-wipe 0.75s var(--pg-ease) both; }
+.pg-in .tx-text { animation: sx-from-l 0.6s var(--pg-ease) 0.12s both; }
+@keyframes tx-wipe { from { clip-path: inset(0 100% 0 0); opacity: 0.2; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+
+/* Picture card: a hairline bitrate gauge (real feedback for the Quality select) */
+:is(#page-pc-mac, #page-share) .pg-gauge { display: flex; align-items: center; gap: 14px; padding: 12px 18px 14px; position: relative; }
+:is(#page-pc-mac, #page-share) .pg-gauge::before { content: ""; position: absolute; top: 0; left: 18px; right: 0; height: 1px; background: var(--row-line, var(--pg-w05)); }
+:is(#page-pc-mac, #page-share) .pg-gauge .g-track { position: relative; flex: 1 1 auto; height: 2px; border-radius: 2px; background: var(--pg-w08); }
+:is(#page-pc-mac, #page-share) .pg-gauge .g-fill { position: absolute; inset: 0; border-radius: inherit; background: var(--pg-w55); transform-origin: left; transform: scaleX(var(--fill, 0)); transition: transform 0.8s var(--pg-ease); }
+:is(#page-pc-mac, #page-share) .pg-gauge .g-mark { position: absolute; top: -4px; width: 1px; height: 10px; left: calc(var(--target, 0) * 100%); background: var(--pg-acc); opacity: 0; transition: left 0.8s var(--pg-ease), opacity 0.4s; }
+:is(#page-pc-mac, #page-share) .pg-gauge[data-tick] .g-mark { opacity: 0.9; }
+:is(#page-pc-mac, #page-share) .pg-gauge .g-lbl { flex: none; font-size: 11px; color: var(--pg-w40); letter-spacing: 0.02em; }
+:is(#page-pc-mac, #page-share) [data-pg-role="driver"][data-quiet] { opacity: 0.75; }
+
+/* =====================================================================
+   apps — "dock to window": a key lifts in the dock there, a line carries it into a window here
+   ===================================================================== */
+.ap-r { align-items: flex-end; text-align: right; }
+.ap-key { fill: rgba(255, 255, 255, 0.03); stroke: var(--pg-w25); stroke-width: 1; }
+.ap-dock { stroke: var(--pg-w18); }
+.ap-win .sx-win { stroke: var(--pg-w25); stroke-dasharray: 3 3; }
+.ap[data-open] .ap-win .sx-win { stroke: var(--pg-w55); stroke-dasharray: none; }
+.ap .ap-run { animation-name: ap-run; --sx-cycle: 7s; }
+.ap[data-st="ready"][data-in="1"] .ap-run { animation-play-state: running; visibility: visible; }
+.ap[data-st="ready"][data-in="1"] .ap-key.hop { animation: ap-hop 7s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
+@keyframes ap-hop {
+  0%, 30%, 100% { transform: translateY(0); stroke: var(--pg-w25); }
+  10%, 18% { transform: translateY(-4px); stroke: var(--pg-acc); }
+}
+@keyframes ap-run {
+  0%, 12% { stroke-dashoffset: 14; opacity: 0; }
+  18% { opacity: 0.9; }
+  44% { opacity: 0.9; }
+  52% { stroke-dashoffset: -100; opacity: 0; }
+  100% { stroke-dashoffset: -100; opacity: 0; }
+}
+.ap[data-in="0"] .ap-line { stroke-dasharray: 2 4; }
+.ap[data-st="nopeer"] .ap-svg { opacity: 0.4; }
+.ap[data-st="loading"] .ap-key { animation: pg-breathe 2.8s ease-in-out infinite; --pg-breathe-lo: 0.35; animation-delay: calc(sibling-index() * 180ms); }
+.ap[data-st="empty"] .ap-key { stroke-dasharray: 2 3; }
+.pg-in .ap-key { animation: ap-key-in 0.55s var(--pg-ease) both; animation-delay: calc(sibling-index() * 45ms); }
+.pg-in .ap-win, .pg-in .ap-line { animation: pg-fade 0.6s var(--pg-ease) 0.35s both; }
+.pg-in .ap-l { animation: sx-from-l 0.6s var(--pg-ease) both; }
+.pg-in .ap-r { animation: sx-from-r 0.6s var(--pg-ease) 0.1s both; }
+@keyframes ap-key-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* the page: quiet tiles, a mono count, the ReZume offer slides in */
+#page-apps [data-pg-role="list"] .app-tile { transition: background-color 0.25s, transform 0.35s var(--pg-ease); }
+#page-apps [data-pg-role="list"] .app-tile:hover { background: var(--pg-w05); transform: translateY(-1px); }
+#page-apps.pg-in [data-pg-role="list"] .app-tile { animation: pg-fade 0.5s var(--pg-ease) both; animation-delay: calc(200ms + min(sibling-index(), 24) * 14ms); }
+#page-apps .pg-count { font-size: 11px; color: var(--pg-w40); letter-spacing: 0.02em; white-space: nowrap; padding: 0 4px; }
+#page-apps .pg-count:empty { display: none; }
+#page-apps [data-pg-role="rezume"]:not([hidden]) { transition: opacity 0.5s var(--pg-ease), translate 0.5s var(--pg-ease); }
+@starting-style { #page-apps [data-pg-role="rezume"]:not([hidden]) { opacity: 0; translate: 0 -8px; } }
+
+/* =====================================================================
+   mirror — "phone to desk": a thread from the phone into this computer's screen
+   ===================================================================== */
+.mi-phone .sx-win { stroke: var(--pg-w55); }
+.mi-bat { fill: var(--pg-w55); stroke: none; transition: width 0.8s var(--pg-ease); }
+.mi-thread { fill: none; stroke: var(--pg-w25); stroke-width: 1; transition: stroke 0.6s, opacity 0.6s; }
+.mi[data-st="casting"] .mi-thread { stroke: color-mix(in srgb, var(--pg-acc) 45%, transparent); }
+.mi[data-st="casting"] { --sx-cycle: 7s; }
+.mi[data-st="connecting"] .mi-thread { stroke-dasharray: 0.02 0.03; animation: mi-dash 4s linear infinite; }
+@keyframes mi-dash { to { stroke-dashoffset: -0.25; } }
+.mi[data-st="nobridge"] .mi-thread { stroke: var(--pg-w08); }
+.mi[data-st="nobridge"] .mi-phone { opacity: 0.5; }
+.mi[data-st="nobridge"] .mi-desk { opacity: 0.45; }
+.mi[data-st="idle"] .mi-desk { animation: pg-breathe 7s ease-in-out infinite; --pg-breathe-lo: 0.5; }
+.mi-w { stroke: var(--pg-w55); }
+.mi-w.min { fill: var(--pg-w40); stroke: none; }
+.mi-w.min.err { fill: color-mix(in srgb, var(--pg-bad) 70%, transparent); }
+.mi-w.err { stroke: color-mix(in srgb, var(--pg-bad) 70%, transparent); }
+.mi-lens { stroke: var(--pg-w40); }
+.mi-more { fill: var(--pg-w40); stroke: none; font: 500 8px var(--mono, ui-monospace, monospace); }
+.mi-text { flex: 0 1 auto; align-items: flex-end; text-align: right; }
+.pg-in .mi-phone { animation: mi-rise 0.7s var(--pg-ease) both; }
+.pg-in .mi-desk, .pg-in .mi-wins { animation: pg-fade 0.7s var(--pg-ease) 0.3s both; }
+.pg-in .mi-text { animation: sx-from-r 0.6s var(--pg-ease) 0.15s both; }
+@keyframes mi-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* the page: kind glyphs on the open windows, a 4-step quality meter — hairline, grey */
+#page-mirror [data-pg-role="wins"] .row[data-kind]::after {
+  content: ""; order: -1; flex: none; box-sizing: border-box; border: 1px solid var(--pg-w40); border-radius: 3px; margin-right: 2px;
+}
+#page-mirror [data-pg-role="wins"] .row[data-kind="screen"]::after { width: 10px; height: 17px; }
+#page-mirror [data-pg-role="wins"] .row[data-kind="app"]::after { width: 17px; height: 12px; box-shadow: inset 0 3px 0 -2px var(--pg-w40); }
+#page-mirror [data-pg-role="wins"] .row[data-kind="camera"]::after { width: 13px; height: 13px; border-radius: 50%; }
+#page-mirror [data-pg-role="wins"] .row[data-min] { opacity: 0.6; }
+#page-mirror [data-pg-quality] .controls::before {
+  content: ""; width: 23px; height: 11px; flex: none; margin-right: 6px; align-self: center;
+  background:
+    linear-gradient(var(--q1, var(--pg-w12)), var(--q1, var(--pg-w12))) 0 100% / 2px 3px no-repeat,
+    linear-gradient(var(--q2, var(--pg-w12)), var(--q2, var(--pg-w12))) 7px 100% / 2px 5px no-repeat,
+    linear-gradient(var(--q3, var(--pg-w12)), var(--q3, var(--pg-w12))) 14px 100% / 2px 8px no-repeat,
+    linear-gradient(var(--q4, var(--pg-w12)), var(--q4, var(--pg-w12))) 21px 100% / 2px 11px no-repeat;
+}
+#page-mirror [data-pg-quality]:is([data-q="4"], [data-q="8"], [data-q="16"], [data-q="24"]) { --q1: var(--pg-w70); }
+#page-mirror [data-pg-quality]:is([data-q="8"], [data-q="16"], [data-q="24"]) { --q2: var(--pg-w70); }
+#page-mirror [data-pg-quality]:is([data-q="16"], [data-q="24"]) { --q3: var(--pg-w70); }
+#page-mirror [data-pg-quality][data-q="24"] { --q4: var(--pg-w70); }
+
+/* =====================================================================
+   papps — "app drawer orbit": one dot on a hairline ellipse around the count
+   ===================================================================== */
+.pa { gap: 20px; }
+.pa-l, .pa-r { flex: 1 1 0; }
+.pa-r { align-items: flex-end; text-align: right; }
+.pa :is(.pa-l, .pa-r) .sx-fig { display: none; }
+.pa-motif { position: relative; flex: 0 1 380px; min-width: 240px; height: 84px; justify-content: center; }
+.pa-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pa-ring { fill: none; stroke: var(--pg-w18); stroke-width: 1; }
+.pa-dot { fill: none; stroke: var(--pg-acc); stroke-width: 4; stroke-dasharray: 0.01 99.99; stroke-dashoffset: -30; opacity: 0.9;
+  animation: pa-orbit 24s linear infinite; }
+@keyframes pa-orbit { from { stroke-dashoffset: -30; } to { stroke-dashoffset: -130; } }
+.pa[data-st="loading"] .pa-ring { stroke-dasharray: 2 5; }
+.pa[data-st="loading"] .pa-dot { animation-duration: 8s; opacity: 0.5; }
+.pa[data-st="nobridge"] .pa-ring { stroke: var(--pg-w08); }
+.pa[data-st="nobridge"] .pa-dot { opacity: 0; animation: none; }
+.pa-mid { position: relative; flex: none; align-items: center; text-align: center; gap: 0; }
+.pa-mid .sx-fig { font-size: 36px; }
+.pa-mid .sx-fig[data-word] { font-size: 22px; }
+.pa[data-q] .pa-mid .sx-fig small { color: var(--pg-w40); }
+.pa-r[data-n="0"] .sx-cap { color: var(--pg-w25); }
+.pg-in .pa-ring { animation-duration: 1.2s; }
+.pg-in .pa-mid { animation: pa-mid-in 0.7s var(--pg-ease) 0.2s both; }
+.pg-in .pa-l { animation: sx-from-l 0.6s var(--pg-ease) 0.25s both; }
+.pg-in .pa-r { animation: sx-from-r 0.6s var(--pg-ease) 0.25s both; }
+@keyframes pa-mid-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+
+/* the page: open apps get a small white dot; a pill search field */
+#page-papps .app-grid > .app-tile.pg-open { position: relative; }
+#page-papps .app-grid > .app-tile.pg-open::after { content: ""; position: absolute; right: 10px; top: 8px; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--pg-w70); pointer-events: none; }
+#page-papps .papps-bar input { border-radius: 999px; }
+#page-papps.pg-in .app-grid > .app-tile { animation: pg-fade 0.5s var(--pg-ease) both; animation-delay: calc(200ms + min(sibling-index(), 40) * 10ms); }
+
+/* =====================================================================
+   Receive and Share: Details become a quiet telemetry grid; hairline Mirror / Extend glyphs
+   ===================================================================== */
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0; overflow: hidden;
+}
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row {
+  flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; min-height: 58px; padding: 10px 16px;
+  background: transparent; box-shadow: -1px -1px 0 0 var(--pg-w05);
+}
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row::before { display: none; }
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row .text { flex: none; }
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row .label {
+  font: 500 10px/1.3 var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-w40);
+}
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row .controls { max-width: 100%; }
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row .value {
+  font-size: 14px; font-weight: 400; color: var(--pg-w90); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row[data-pg-status] { grid-column: 1 / -1; flex-direction: row; justify-content: flex-start; align-items: center; gap: 10px; min-height: 46px; }
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row[data-pg-status] .text { order: 2; }
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row[data-pg-status] .controls { order: 3; margin-left: auto; }
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row[data-pg-status]::after {
+  content: ""; order: 1; width: 6px; height: 6px; border-radius: 50%; background: var(--pg-off); flex: none;
+}
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row[data-pg-st="good"]::after { background: var(--pg-good); }
+:is(#page-mac-pc, #page-pc-mac, #page-receive, #page-share) [data-pg-role="details"] > .card > .row[data-pg-st="warn"]::after { background: var(--pg-w55); }
+
+:is(#page-mac-pc [data-pg-role="main"], #page-receive [data-pg-role="main"], #page-pc-mac [data-pg-role="screen"]) .seg button::before {
+  content: ""; display: inline-block; box-sizing: border-box; width: 11px; height: 8px; margin-right: 7px; border-radius: 1.5px; vertical-align: -0.5px;
+  border: 1px solid currentColor; opacity: 0.6;
+}
+:is(#page-mac-pc [data-pg-role="main"], #page-receive [data-pg-role="main"], #page-pc-mac [data-pg-role="screen"]) .seg button:first-child::before { display: none; }
+/* Mirror: one frame with the same picture inside; Extend: a frame split into two screens */
+#page-mac-pc [data-pg-role="main"] .seg button:nth-child(2)::before,
+#page-receive [data-pg-role="main"] .seg button:nth-child(2)::before,
+#page-pc-mac [data-pg-role="screen"] .seg button:nth-child(3)::before { background: linear-gradient(currentColor, currentColor) center / 3px 2px no-repeat; }
+#page-mac-pc [data-pg-role="main"] .seg button:nth-child(3)::before,
+#page-receive [data-pg-role="main"] .seg button:nth-child(3)::before,
+#page-pc-mac [data-pg-role="screen"] .seg button:nth-child(2)::before { width: 15px; background: linear-gradient(currentColor, currentColor) center / 1px 100% no-repeat; }
+:is(#page-mac-pc [data-pg-role="main"], #page-receive [data-pg-role="main"], #page-pc-mac [data-pg-role="screen"]) .seg button.on::before { opacity: 0.9; }
+
+/* =====================================================================
+   Body cascade: each page settles from its own direction (core: rise)
+   ===================================================================== */
+#pages > :is(#page-mac-pc, #page-receive):not([hidden]) > .page-body > :nth-child(n) { animation-name: sx-from-r; }
+#pages > #page-mirror:not([hidden]) > .page-body > :nth-child(n) { animation-name: sx-from-l; }
+#pages > #page-papps:not([hidden]) > .page-body > :nth-child(n) { animation-name: pg-fade; }
+
+/* =====================================================================
+   Narrow: keep the text, drop what doesn't fit
+   ===================================================================== */
+@container (max-width: 620px) {
+  .ap-motif, .mi-motif { display: none; }
+  .mi-text { align-items: flex-start; text-align: left; }
+  .rx-motif, .tx-motif { transform: scale(0.85); transform-origin: center; margin: -6px; }
+}
+@container (max-width: 480px) {
+  .rx-motif, .tx-motif, .pa-l, .pa-r { display: none; }
+}
+
+/* =====================================================================
+   Pause / reduced motion: one still, meaningful frame
+   ===================================================================== */
+html.au-paused :is(.app-tile, [data-pg-role]) { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .sx .sx-run { visibility: hidden !important; }
+  :is(.rx[data-st="live"], .tx[data-st="live"]) .sx-line { stroke: color-mix(in srgb, var(--pg-acc) 55%, transparent); stroke-dasharray: none; }
+  .mi[data-st="casting"] .mi-thread { stroke: color-mix(in srgb, var(--pg-acc) 60%, transparent); }
+  .ap[data-st="ready"][data-in="1"] .ap-line { stroke: color-mix(in srgb, var(--pg-acc) 55%, transparent); }
+  .pa .pa-dot { stroke-dashoffset: -62; }
+  :is(#page-apps, #page-papps, #page-mirror, #page-pc-mac, #page-mac-pc, #page-share, #page-receive) :is(.app-tile, .dir-card, [data-pg-role]) { animation: none !important; transition: opacity 0.15s !important; }
+  #page-apps [data-pg-role="list"] .app-tile:hover { transform: none; }
+}

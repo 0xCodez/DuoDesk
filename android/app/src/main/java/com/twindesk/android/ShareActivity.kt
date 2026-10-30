@@ -20,7 +20,7 @@ class ShareActivity : Activity() {
         val open = intent.component?.className?.endsWith("OpenOnComputer") == true
         val host = core.host
         if (host == null) {
-            toast("Not connected. Open TwinDesk to connect to your computer.")
+            toast("Not connected. Open DuoDesk to connect to your computer.")
             return finish()
         }
         // ReZume's "Open on computer": the link opens there now.

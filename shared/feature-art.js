@@ -7,7 +7,11 @@
 //   FeatureArt.FREE                -> tab ids that work without a connected device; on the others (and Overview's
 //                                     feature cards) switches do nothing while body.no-peer (nothing connected)
 //   FeatureArt.has(id)             -> an introduction for that tab
-//   FeatureArt.device(kind, x, y)  -> 'monitor' | 'laptop' | 'phone' as an outline (shared/mesh-intro.js)
+//   FeatureArt.device(kind, x, y)  -> 'monitor' | 'laptop' | 'phone' centred on x, y (shared/mesh-intro.js): the
+//                                     Aurora kit's PC / Mac / Linux / phone once shared/art/kit.js has loaded,
+//                                     else an outline
+//   Aurora pictures: shared/art/kit.js (AuroraKit), shared/aurora-art.css and shared/art/scenes-*.js, loaded
+//                                     from here (see loadArt); a scene there replaces the drawing of SCENES below
 //   FeatureArt.dismissed(id)
 //   FeatureArt.create(id, { color, keep, onDismiss }) -> { el, set(show) }; color: the tab's (a CSS gradient),
 //     keep: Dismiss is remembered
@@ -21,7 +25,52 @@
     if (document.body.classList.contains('no-peer') && e.target.matches && e.target.matches(HELD)) e.preventDefault();
   }, true);
 
+  // Aurora pictures (shared/art/): the kit (art/kit.js, window.AuroraKit), its styles (aurora-art.css) and the
+  // scenes in five files (art/scenes-<group>.js, each setting window.AuroraArt[<scene>] = (id, K) => markup). Loaded
+  // from here, relative to this file, so every page with these pictures gets them; a scene whose file isn't
+  // there (or hasn't loaded yet) keeps its drawing below, and is redrawn once it loads.
+  const ART = (document.currentScript && document.currentScript.src || '').replace(/[^/]*$/, '');
+  const drawn = []; // [{ id, pic }] pictures drawn so far
+  function loadArt(scenes) {
+    if (!ART || !document.head) return;
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = ART + 'aurora-art.css';
+    document.head.append(css);
+    const redraw = (names) => drawn.forEach((d) => { if (!names || names.includes(SCENE[d.id])) paint(d.pic, d.id); });
+    let before = [];
+    ['kit', ...scenes].forEach((name) => {
+      const s = document.createElement('script');
+      s.src = ART + 'art/' + name + '.js';
+      s.async = false; // in order: the kit first
+      s.onload = () => { // the scenes this file added
+        const now = Object.keys(window.AuroraArt || {});
+        redraw(name === 'kit' ? null : now.filter((n) => !before.includes(n)));
+        before = now;
+      };
+      s.onerror = () => s.remove();
+      document.head.append(s);
+    });
+  }
+
+  // Mesh's devices (shared/mesh-intro.js): the kit's, a different computer each time a kind comes back.
+  let meshTick = false;
+  let meshCount = {};
   function device(k, x, y) {
+    const K = window.AuroraKit;
+    if (K) {
+      let pre = '';
+      if (!meshTick) { // the first device of a picture: its defs, once
+        meshTick = true;
+        meshCount = {};
+        Promise.resolve().then(() => { meshTick = false; });
+        pre = `<defs>${K.defs('mesh')}</defs>`;
+      }
+      const n = (meshCount[k] = (meshCount[k] || 0) + 1);
+      if (k === 'phone') return pre + K.phone(x - 17, y - 34, 34, 68);
+      if (k === 'laptop') return pre + (n % 2 ? K.macBook(x - 52, y - 32, 104, 66) : K.linuxPc(x - 50, y - 32, 100, 66));
+      return pre + (n % 2 ? K.winPc(x - 46, y - 36, 92, 74) : K.linuxPc(x - 46, y - 36, 92, 74, { form: 'desktop' }));
+    }
     if (k === 'phone') {
       return `<rect class="mi-body" x="${x - 16}" y="${y - 30}" width="32" height="60" rx="7"/>`
         + `<rect class="mi-screen" x="${x - 11}" y="${y - 23}" width="22" height="42" rx="3"/>`;
@@ -375,6 +424,37 @@
 
   const has = (id) => id in SCENE;
 
+  // The picture: the Aurora scene when its file has loaded, else the drawing above.
+  function paint(pic, id) {
+    const name = SCENE[id];
+    const K = window.AuroraKit;
+    const A = window.AuroraArt;
+    let inner = '';
+    let extra = '';
+    if (K && A && typeof A[name] === 'function') {
+      try {
+        extra = K.defs(id);
+        inner = A[name](id, K) || '';
+      } catch (e) {
+        console.error('feature-art: scene ' + name, e);
+        inner = '';
+      }
+    }
+    const aurora = !!inner;
+    if (!aurora) {
+      extra = '';
+      inner = SCENES[name](id);
+    }
+    pic.classList.toggle('ka-on', aurora);
+    pic.innerHTML = `<svg viewBox="0 0 400 240"${aurora ? ` class="ka-svg ka-scene-${name}"` : ''}><defs><linearGradient id="fa-g-${id}" x1="0" y1="0" x2="0.4" y2="1">`
+      + `<stop class="fa-s1" offset="0"/><stop class="fa-s2" offset="1"/></linearGradient>${extra}</defs>${inner}</svg>`;
+    const svg = pic.firstChild;
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches && svg.pauseAnimations) {
+      svg.pauseAnimations(); // one still frame, part way through
+      svg.setCurrentTime(1.6);
+    }
+  }
+
   const KEY = 'twindesk.featureArt.dismissed';
   function dismissedList() {
     try {
@@ -407,13 +487,8 @@
       const pic = document.createElement('div');
       pic.className = 'fa-pic';
       pic.setAttribute('aria-hidden', 'true');
-      pic.innerHTML = `<svg viewBox="0 0 400 240"><defs><linearGradient id="fa-g-${id}" x1="0" y1="0" x2="0.4" y2="1">`
-        + `<stop class="fa-s1" offset="0"/><stop class="fa-s2" offset="1"/></linearGradient></defs>${SCENES[SCENE[id]](id)}</svg>`;
-      const svg = pic.firstChild;
-      if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches && svg.pauseAnimations) {
-        svg.pauseAnimations(); // one still frame, part way through
-        svg.setCurrentTime(1.6);
-      }
+      paint(pic, id);
+      drawn.push({ id, pic });
       const [head, text] = TEXT[id];
       const h = document.createElement('h2');
       h.textContent = head;
@@ -441,6 +516,9 @@
       },
     };
   }
+
+  // The scenes, by group: art/scenes-<group>.js sets window.AuroraArt.<scene> for each of its own.
+  loadArt(['scenes-input', 'scenes-screens', 'scenes-files', 'scenes-phone', 'scenes-misc']);
 
   window.FeatureArt = { FREE, has, device, dismissed, create };
 })();

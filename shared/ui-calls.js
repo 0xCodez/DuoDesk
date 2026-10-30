@@ -249,7 +249,7 @@ UI.tab({
         else if (bt.le) status = `${phone} and {me} are paired over Bluetooth LE only, which can’t carry a call: Forget below, then pair them again in Bluetooth settings`;
         else if (bt.forget) status = `${phone} keeps its old pairing with {me}: forget {me} in Bluetooth settings on ${phone} (they opened there), then pair them again in Bluetooth settings`;
         else if (bt.radio === false) status = `Bluetooth is off on ${phone}`;
-        else if (a.state === 'needs-pair') status = `Not paired with ${phone} over classic Bluetooth: pair them in Bluetooth settings, as below. TwinDesk connects once they are`;
+        else if (a.state === 'needs-pair') status = `Not paired with ${phone} over classic Bluetooth: pair them in Bluetooth settings, as below. DuoDesk connects once they are`;
       }
       statusRow.setHint(status);
       retryBtn.hidden = !(a && ['failed', 'off'].includes(a.state));
@@ -277,8 +277,8 @@ UI.tab({
         step2.setHint((a && a.pairHow) || `In {me}’s Bluetooth settings, add a device and pick ${phone}`);
         settingsBtn.hidden = !h.btSettings;
         step3.setHint(bt && bt.bonding ? `Pairing… Confirm it on ${phone} and on {me}`
-          : h.pairWatch ? `Looking for ${phone}… TwinDesk connects as soon as they’re paired`
-            : 'TwinDesk connects as soon as they’re paired');
+          : h.pairWatch ? `Looking for ${phone}… DuoDesk connects as soon as they’re paired`
+            : 'DuoDesk connects as soon as they’re paired');
       }
       forgetRow.setHint(`${phone} and {me} forget each other, over classic Bluetooth and LE, then pair again from the start`);
       if (setupCard.hidden) unsure();

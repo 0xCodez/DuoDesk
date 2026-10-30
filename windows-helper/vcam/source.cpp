@@ -2,7 +2,7 @@
 // twindesk-vcam.dll: the virtual camera's media source. Windows' Frame Server makes it through
 // its COM class (CLSID_TwinDeskVcam, an IMFActivate) and hands its pictures to every app that
 // picks "TwinDesk Camera": one stream, NV12 1280×720 at 30 fps, made from the newest frame
-// TwinDesk put in shared memory (vcam.h), black while there's none.
+// DuoDesk put in shared memory (vcam.h), black while there's none.
 // Registered once, elevated (regsvr32, windows/scripts/vcam-install.ps1): HKLM, because Frame
 // Server runs as Local Service and doesn't see the user's own classes.
 #include <windows.h>
@@ -30,12 +30,12 @@ static volatile LONG g_objects;
 // PINNAME_VIDEO_CAPTURE (= PINNAME_CAPTURE)
 static const GUID PIN_CAPTURE = { 0xfb6c4281, 0x0353, 0x11d1, { 0x90, 0x5f, 0x00, 0x00, 0xc0, 0xcc, 0x16, 0xba } };
 
-// ---- the frames TwinDesk writes ----
+// ---- the frames DuoDesk writes ----
 
 class FrameMap {
 public:
   FrameMap() {
-    // Frame Server may make a Global\ one, for TwinDesk in the user's session; elsewhere (the self
+    // Frame Server may make a Global\ one, for DuoDesk in the user's session; elsewhere (the self
     // test in one process) a Local\ one.
     SECURITY_ATTRIBUTES sa = { sizeof(sa), nullptr, FALSE };
     PSECURITY_DESCRIPTOR sd = nullptr;

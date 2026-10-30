@@ -426,7 +426,7 @@ class Adb(core: Core) : Feature(core) {
     fun sendPairCode(code: String) {
         val digits = code.filter { it.isDigit() }
         if (digits.length != 6) return Notify.pairResult(core.ctx, "The pairing code has six digits", "Type the code Settings shows.", true)
-        if (!core.link.connected) return Notify.pairResult(core.ctx, "Not connected", "Connect to your computer in TwinDesk first.", true)
+        if (!core.link.connected) return Notify.pairResult(core.ctx, "Not connected", "Connect to your computer in DuoDesk first.", true)
         pairing = true
         core.send(msg(Proto.T.ADB_PAIR, "code" to digits, "port" to pairPort))
         Notify.pairResult(core.ctx, "Pairing…", "Sent to ${core.host?.name ?: "your computer"}", false, progress = true)

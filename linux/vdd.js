@@ -21,7 +21,7 @@
 //     starts (log out and back in once). Extend then switches that output on at the size nearest
 //     the other screen's shape, and off after; off at start too once the person says so (the
 //     desktop turns every connected screen on at login, and switching it off blanks every monitor).
-// It is on only while Extend is on, like the Mac's TwinDesk display.
+// It is on only while Extend is on, like the Mac's DuoDesk display.
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
@@ -52,11 +52,11 @@ const POLICY_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <vendor>TwinDesk</vendor>
-  <vendor_url>https://github.com/InukaAsith/TwinDesk</vendor_url>
+  <vendor>DuoDesk</vendor>
+  <vendor_url>https://github.com/0xCodez/DuoDesk</vendor_url>
   <action id="org.twindesk.linux.connector">
-    <description>Switch a spare display output on for TwinDesk's Extend</description>
-    <message>TwinDesk wants to switch a spare display output on or off</message>
+    <description>Switch a spare display output on for DuoDesk's Extend</description>
+    <message>DuoDesk wants to switch a spare display output on or off</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -333,7 +333,7 @@ function dtd(w, h) {
 const text13 = (tag, t) => Buffer.concat([Buffer.from([0, 0, 0, tag, 0]), Buffer.from((t + '\n').padEnd(13, ' ').slice(0, 13), 'ascii')]);
 const checksum = (b) => { b[127] = (256 - (b.subarray(0, 127).reduce((x, y) => x + y, 0) % 256)) % 256; return b; };
 
-// TwinDesk's virtual screen as NVIDIA reads it (CustomEDID): EDID 1.4 with 1920 × 1080 preferred,
+// DuoDesk's virtual screen as NVIDIA reads it (CustomEDID): EDID 1.4 with 1920 × 1080 preferred,
 // 2560 × 1440, and a CTA extension with the 16:10 and Mac shapes.
 const NV_SIZES = [[1920, 1080], [2560, 1440], [1920, 1200], [2560, 1600], [1680, 1050], [1440, 900], [2560, 1664], [1280, 720]];
 function edid() {
@@ -424,7 +424,7 @@ class Vdd {
         const { app } = require('electron');
         this._set({ checked: true, kind: 'xrandr', hint: '', installed: spare && ready, setup: spare && !ready,
           removable: ready && !(app.isPackaged && !process.env.APPIMAGE), // the .deb's own files stay
-          message: spare ? '' : NVIDIA() ? 'NVIDIA’s driver doesn’t let TwinDesk add a monitor on X11. Extend works on GNOME with Wayland, or with the open-source driver'
+          message: spare ? '' : NVIDIA() ? 'NVIDIA’s driver doesn’t let DuoDesk add a monitor on X11. Extend works on GNOME with Wayland, or with the open-source driver'
             : 'Your graphics driver has no spare output for a virtual monitor' });
       }
     } catch (e) {
@@ -434,7 +434,7 @@ class Vdd {
 
   // Our screens found on at start (the desktop's login layout, an older version's mode), to switch
   // off: asked first, not done by itself (each is a mode change, and on NVIDIA that blanks every
-  // monitor for a moment). Leave it on: not asked again until TwinDesk starts again. Off only if
+  // monitor for a moment). Leave it on: not asked again until DuoDesk starts again. Off only if
   // Extend didn't take it meanwhile.
   async _offAsked(names) {
     this.declined = this.declined || new Set();
@@ -444,9 +444,9 @@ class Vdd {
     try {
       const { dialog } = require('electron');
       const r = await dialog.showMessageBox({
-        type: 'question', title: 'TwinDesk', buttons: ['Switch it off', 'Leave it on'], defaultId: 0, cancelId: 1,
-        message: 'Switch off TwinDesk’s extra screen?',
-        detail: 'TwinDesk’s extra screen for Extend is on (' + names.join(', ') + '), so windows can end up on a screen nobody sees until Extend is on. '
+        type: 'question', title: 'DuoDesk', buttons: ['Switch it off', 'Leave it on'], defaultId: 0, cancelId: 1,
+        message: 'Switch off DuoDesk’s extra screen?',
+        detail: 'DuoDesk’s extra screen for Extend is on (' + names.join(', ') + '), so windows can end up on a screen nobody sees until Extend is on. '
           + 'Switching it off makes your monitors go black for a moment.',
       });
       if (r.response !== 0) { for (const n of names) this.declined.add(n); return; }
@@ -478,7 +478,7 @@ class Vdd {
         : conf ? 'Log out and back in once to finish installing.'
           : 'NVIDIA’s driver needs the extra screen in its settings. Install asks for your password once, then log out and back in. If you later plug a monitor into another port, install again.',
       message: ours ? (conf ? '' : 'Removed: log out and back in to finish') : conf ? 'Log out and back in once to finish adding the extra screen for Extend'
-        : ports && ports.pick ? '' : 'NVIDIA’s driver doesn’t let TwinDesk add a monitor on X11, and this card has no free DisplayPort port for one',
+        : ports && ports.pick ? '' : 'NVIDIA’s driver doesn’t let DuoDesk add a monitor on X11, and this card has no free DisplayPort port for one',
     });
   }
 
@@ -678,7 +678,7 @@ class Vdd {
       if (this.state.kind === 'nvidia') {
         const ports = nvPorts();
         if (!ports.pick) throw new Error('no free DisplayPort port');
-        const conf = `# TwinDesk: an extra screen for Extend on NVIDIA's driver (Share screen › Extend; Remove takes it away).
+        const conf = `# DuoDesk: an extra screen for Extend on NVIDIA's driver (Share screen › Extend; Remove takes it away).
 # ConnectedMonitor replaces the driver's detection: the ports in use when it was installed, and ours.
 Section "OutputClass"
     Identifier "TwinDesk virtual screen"

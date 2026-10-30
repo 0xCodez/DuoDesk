@@ -1,10 +1,13 @@
 name: Build Windows
 
 on:
+  # A pushed v* tag builds and puts the files on that tag's release (made as a prerelease).
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Release to put the files on (e.g. v2.0.1; made as a draft if it isn't there). Empty = run artifacts only.
+        description: Release to put the files on (e.g. v2.0.1; made as a draft prerelease if it isn't there). Empty = run artifacts only.
         required: false
         default: ''
       ref:
@@ -17,6 +20,11 @@ on:
         required: false
         default: false
 
+# The release the files go on: the dispatch's tag, or the pushed tag; empty = run artifacts only
+# (a dispatch started from a tag with no tag input builds main, so it doesn't go on that tag's release).
+env:
+  TAG: ${{ inputs.tag || (github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name) || '' }}
+
 # Write: the full Android APK can come from a draft release, which a read-only token can't see.
 permissions:
   contents: write
@@ -26,10 +34,11 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      # main unless another branch is asked for (ref), whichever branch the run was started from.
+      # Dispatch: main unless another branch is asked for (ref), whichever branch the run was started
+      # from. Tag push: the pushed tag.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || 'main' }}
+          ref: ${{ inputs.ref || (github.event_name == 'workflow_dispatch' && 'main') || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -69,7 +78,7 @@ jobs:
       - name: Upload the x64 installer
         uses: actions/upload-artifact@v4
         with:
-          name: twindesk-windows-x64
+          name: duodesk-windows-x64
           path: |
             windows/dist/*.exe
             !windows/dist/*-arm64.exe
@@ -77,18 +86,21 @@ jobs:
       - name: Upload the arm64 installer
         uses: actions/upload-artifact@v4
         with:
-          name: twindesk-windows-arm64
+          name: duodesk-windows-arm64
           path: windows/dist/*-arm64.exe
 
       # Straight onto the release, no download and re-upload.
       - name: Upload to the release
-        if: inputs.tag != ''
+        if: env.TAG != ''
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # A tag push publishes the prerelease straight away: the workflows run side by side, and
+          # drafts (no tag of their own yet) would be made once each. A dispatch makes a draft.
+          DRAFT: ${{ github.event_name != 'push' && 'true' || '' }}
         run: |
-          gh release view "${{ inputs.tag }}" >/dev/null 2>&1 || gh release create "${{ inputs.tag }}" --draft --target main --title "${{ inputs.tag }}" --notes "" || true
-          gh release upload "${{ inputs.tag }}" windows/dist/*.exe --clobber
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" ${DRAFT:+--draft} --prerelease --target "$(git rev-parse HEAD)" --title "$TAG" --notes "" || true
+          gh release upload "$TAG" windows/dist/*.exe --clobber
 
   # The installers uploaded to VirusTotal and scanned: what each engine said goes in the run's
   # summary, with the link to the full report. VT_API_KEY: a free VirusTotal account's API key.
@@ -108,7 +120,8 @@ jobs:
         env:
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
         run: |
-          [ -n "$VT_API_KEY" ] || { echo "::error::No VT_API_KEY secret: gh secret set VT_API_KEY"; exit 1; }
+          # No key: nothing to scan with, which isn't the build's failure.
+          [ -n "$VT_API_KEY" ] || { echo "::warning::No VT_API_KEY secret, so no VirusTotal scan (gh secret set VT_API_KEY)"; exit 0; }
           api() { curl -sS --fail-with-body -H "x-apikey: $VT_API_KEY" "$@"; }
           echo "## VirusTotal" >> "$GITHUB_STEP_SUMMARY"
           for f in $(find dist -name '*.exe' | sort); do

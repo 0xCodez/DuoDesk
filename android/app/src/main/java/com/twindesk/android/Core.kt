@@ -260,7 +260,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
                 val port = blePipe(f.id)
                 if (link.pair?.phase != "connecting" || link.pair?.port != 0) return@execute // cancelled meanwhile
                 if (port != null) link.startPairing("127.0.0.1", port, f.name, viaBle = true)
-                else link.pairUnreachable("${f.name} didn’t answer over Bluetooth. Open TwinDesk on it, or put both on the same Wi-Fi, then Pair again.")
+                else link.pairUnreachable("${f.name} didn’t answer over Bluetooth. Open DuoDesk on it, or put both on the same Wi-Fi, then Pair again.")
             }
             return
         }

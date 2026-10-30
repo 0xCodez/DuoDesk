@@ -15,7 +15,7 @@ const path = require('path');
 const tabs = require('../shared/browsertabs.js');
 
 const BROWSER = /firefox|navigator|librewolf|waterfox|chrom|brave|vivaldi|opera|msedge|microsoft-edge|zen/i;
-const SELF = /twindesk|macshare|electron/i;
+const SELF = /duodesk|twindesk|macshare|electron/i;
 const SHELL = /^(gnome-shell|plasmashell|xfdesktop|xfce4-panel|nautilus-desktop|desktop_window|gjs)$/i;
 
 const SCRIPT = String.raw`

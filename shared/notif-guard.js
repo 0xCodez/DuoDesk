@@ -28,7 +28,7 @@ class NotifGuard {
   }
 }
 
-// TwinDesk's own notifications are never forwarded: they would only come back.
-const isOwn = (...names) => names.some((n) => /twindesk|macshare/i.test(String(n || '')));
+// DuoDesk's own notifications (and TwinDesk's, which it is renamed from) are never forwarded: they would only come back.
+const isOwn = (...names) => names.some((n) => /duodesk|twindesk|macshare/i.test(String(n || '')));
 
 module.exports = { NotifGuard, isOwn };

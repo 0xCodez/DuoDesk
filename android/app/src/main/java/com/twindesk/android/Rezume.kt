@@ -224,7 +224,7 @@ class Rezume(core: Core) : Feature(core) {
         val url = URL_IN.find(text)?.value ?: return "That has no link to open"
         val p = peer
         val name = core.host?.name ?: "your computer"
-        if (p == null) return "$name has no ReZume yet: update TwinDesk there"
+        if (p == null) return "$name has no ReZume yet: update DuoDesk there"
         if (!p.optBoolean("on") || !p.optBoolean("web", true)) return "ReZume is off on $name"
         send(JSONObject().put("kind", "web").put("url", url).put("title", Uri.parse(url).host?.removePrefix("www.") ?: url).put("app", "").put("appName", ""), true)
         return null

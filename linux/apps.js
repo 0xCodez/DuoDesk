@@ -136,7 +136,7 @@ class Apps {
       fs.writeFileSync(this._desktopFile(id), [
         '[Desktop Entry]', 'Type=Application',
         'Name=' + clean(a.name),
-        'Comment=' + clean(a.name + ' on ' + this.peerName() + ' (TwinDesk)'),
+        'Comment=' + clean(a.name + ' on ' + this.peerName() + ' (DuoDesk)'),
         'Exec=' + Apps.command(id).map(q).join(' '),
         ...(icon ? ['Icon=' + icon] : []),
         'Terminal=false', 'Categories=Network;RemoteAccess;', 'X-TwinDesk-Name=' + clean(a.name), '',

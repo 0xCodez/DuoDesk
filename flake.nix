@@ -1,5 +1,5 @@
 {
-  description = "TwinDesk — All your computers and your phone, working as one desk";
+  description = "DuoDesk — All your computers and your phone, working as one desk";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -96,6 +96,8 @@
 
               # Copy shared files
               cp -r shared/*.js shared/*.css shared/*.html "$share/shared/"
+              # The pages' fonts (Geist woff2 + OFL.txt), the art kit and scenes, the per-page effects
+              cp -r shared/fonts shared/art shared/pagefx "$share/shared/"
               if [ -d shared/icon ]; then
                 cp -r shared/icon "$share/shared/"
               fi
@@ -125,11 +127,11 @@ EOF
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <vendor>TwinDesk</vendor>
-  <vendor_url>https://github.com/InukaAsith/TwinDesk</vendor_url>
+  <vendor>DuoDesk</vendor>
+  <vendor_url>https://github.com/0xCodez/DuoDesk</vendor_url>
   <action id="org.twindesk.linux.connector">
-    <description>Switch a spare display output on for TwinDesk's Extend</description>
-    <message>TwinDesk wants to switch a spare display output on or off</message>
+    <description>Switch a spare display output on for DuoDesk's Extend</description>
+    <message>DuoDesk wants to switch a spare display output on or off</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -153,12 +155,12 @@ EOF
 
               cat << 'EOF' > "$out/share/applications/twindesk.desktop"
 [Desktop Entry]
-Name=TwinDesk
+Name=DuoDesk
 Comment=Share mouse, keyboard, clipboard, files and screens with your other computer
 Exec=twindesk %U
 Icon=twindesk
 Type=Application
-StartupWMClass=TwinDesk
+StartupWMClass=DuoDesk
 Categories=Utility;
 Keywords=KVM;mouse;keyboard;clipboard;screen;share;
 EOF
@@ -177,7 +179,7 @@ EOF
 
             meta = with pkgs.lib; {
               description = "All your computers and your phone, working as one desk";
-              homepage = "https://github.com/InukaAsith/TwinDesk";
+              homepage = "https://github.com/0xCodez/DuoDesk";
               license = licenses.gpl3Only;
               platforms = supportedSystems;
               mainProgram = "twindesk";
@@ -192,7 +194,7 @@ EOF
         default = {
           type = "app";
           program = "${self.packages.${system}.default}/bin/twindesk";
-          meta.description = "TwinDesk multi-device desktop app";
+          meta.description = "DuoDesk multi-device desktop app";
         };
       });
 
@@ -247,12 +249,12 @@ EOF
           with lib;
           let
             mkTwindeskOptions = {
-              enable = mkEnableOption "TwinDesk multi-device sharing";
+              enable = mkEnableOption "DuoDesk multi-device sharing";
 
               package = mkOption {
                 type = types.package;
                 default = self.packages.${pkgs.system}.default;
-                description = "The TwinDesk package to use.";
+                description = "The DuoDesk package to use.";
               };
 
               openFirewall = mkOption {
@@ -293,7 +295,7 @@ EOF
               # Ensure polkit is enabled for Virtual Display connector and privileged helpers
               security.polkit.enable = mkDefault true;
 
-              # Open ports for TwinDesk communication and discovery
+              # Open ports for DuoDesk communication and discovery
               networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [ 47800 ];
               networking.firewall.allowedUDPPorts = mkIf cfg.openFirewall [ 47801 5353 ];
 

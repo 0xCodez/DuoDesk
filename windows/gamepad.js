@@ -29,7 +29,7 @@ const driver = {
   name: 'Xbox 360 controller',
 
   async check() {
-    if (!fs.existsSync(EXE)) return { supported: false, message: 'Not in this build of TwinDesk' };
+    if (!fs.existsSync(EXE)) return { supported: false, message: 'Not in this build of DuoDesk' };
     return { supported: true, installed: (await status()).bus === true };
   },
 

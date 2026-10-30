@@ -151,7 +151,7 @@ class Clip(core: Core) : Feature(core) {
     fun receiveText(text: String) {
         lastIn = text
         remember(Item("in", text))
-        cm.setPrimaryClip(ClipData.newPlainText("TwinDesk", text))
+        cm.setPrimaryClip(ClipData.newPlainText("DuoDesk", text))
         core.changed()
     }
 
@@ -159,7 +159,7 @@ class Clip(core: Core) : Feature(core) {
     fun copyAgain(item: Item) {
         val uri = item.picture
         if (uri != null) runCatching { cm.setPrimaryClip(ClipData.newUri(core.ctx.contentResolver, "Picture", uri)) }
-        else cm.setPrimaryClip(ClipData.newPlainText("TwinDesk", item.text))
+        else cm.setPrimaryClip(ClipData.newPlainText("DuoDesk", item.text))
     }
 
     private fun remember(item: Item) {

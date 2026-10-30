@@ -26,10 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,18 +43,18 @@ object SetupCheck {
 
     fun items(ctx: Context, core: Core): List<Item> {
         val pm = ctx.getSystemService(PowerManager::class.java)
-        val c = { a: Long, b: Long -> listOf(Color(a), Color(b)) }
+        val c = { h: Color -> listOf(h, h) }
         val list = mutableListOf<Item>()
         if (Build.VERSION.SDK_INT >= 33) list += Item(
             "notify", "Notifications", "Files arriving, copies from your computer, and its notifications",
-            Ico.bell, c(0xFFFF6961, 0xFFFF3B30), true,
+            Ico.bell, c(Hue.violet), true,
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
         )
-        if (core.notifs.supported) list += Item("listener", "Notification access", "This device’s notifications on your computer", Ico.bell, c(0xFFFFB340, 0xFFFF9500), true, core.notifs.hasAccess)
-        list += Item("battery", "Run in the background", "So your computer can reach this device any time", Ico.general, c(0xFFAEAEB2, 0xFF636366), true, pm.isIgnoringBatteryOptimizations(ctx.packageName))
-        list += Item("overlay", "Show the pointer", "Your computer’s pointer over other apps when its mouse is here", Ico.cursor, c(0xFFFFB340, 0xFFFF9500), true, core.pointer.allowed)
-        list += Item("adb", "Wireless debugging", "This screen on your computer, its mouse and keyboard here, and sound. Your Mac pairs with it once", Ico.display, c(0xFF5AC8FA, 0xFF0A84FF), false, core.adb.wifiDebugging)
-        if (Build.VERSION.SDK_INT >= 30) list += Item("wallpaper", "Wallpaper on your computer", "Optional: Android shares the wallpaper only with All files access", Ico.files, c(0xFF64D2FF, 0xFF0A84FF), false, android.os.Environment.isExternalStorageManager())
+        if (core.notifs.supported) list += Item("listener", "Notification access", "This device’s notifications on your computer", Ico.bell, c(Hue.violet), true, core.notifs.hasAccess)
+        list += Item("battery", "Run in the background", "So your computer can reach this device any time", Ico.general, c(Hue.grey), true, pm.isIgnoringBatteryOptimizations(ctx.packageName))
+        list += Item("overlay", "Show the pointer", "Your computer’s pointer over other apps when its mouse is here", Ico.cursor, c(Hue.violet), true, core.pointer.allowed)
+        list += Item("adb", "Wireless debugging", "This screen on your computer, its mouse and keyboard here, and sound. Your Mac pairs with it once", Ico.display, c(Hue.pink), false, core.adb.wifiDebugging)
+        if (Build.VERSION.SDK_INT >= 30) list += Item("wallpaper", "Wallpaper on your computer", "Optional: Android shares the wallpaper only with All files access", Ico.files, c(Hue.green), false, android.os.Environment.isExternalStorageManager())
         return list
     }
 
@@ -99,7 +96,7 @@ fun SetupScreen(core: Core, ctx: Context, v: Int, done: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Logo(84)
-            Text("Set up TwinDesk", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = pal.text, modifier = Modifier.padding(top = 12.dp))
+            Text("Set up DuoDesk", fontSize = 28.sp, fontWeight = FontWeight.Light, letterSpacing = (-0.8).sp, color = pal.text, modifier = Modifier.padding(top = 12.dp))
             Text(
                 "Allow these so this device and your computer work as one. You can change them any time in General › Setup.",
                 color = pal.muted, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp, bottom = 22.dp),
@@ -115,21 +112,17 @@ fun SetupScreen(core: Core, ctx: Context, v: Int, done: () -> Unit) {
                                 Text(it.hint, color = pal.muted, fontSize = 12.5.sp)
                             }
                             if (it.done) Pill("Allowed", "good")
-                            else Button(
-                                onClick = { SetupCheck.open(ctx, core, it.id) { askNotify.launch(Manifest.permission.POST_NOTIFICATIONS) } },
-                                colors = ButtonDefaults.buttonColors(containerColor = pal.accent, contentColor = Color.White), shape = RoundedCornerShape(8.dp),
-                            ) { Text(if (it.id == "adb") "Turn on" else "Allow") }
+                            else PrimaryButton(if (it.id == "adb") "Turn on" else "Allow") {
+                                SetupCheck.open(ctx, core, it.id) { askNotify.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                            }
                         }
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { if (ready) done() else SetupCheck.skip(ctx, core) },
-                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = pal.accent, contentColor = Color.White),
-            ) { Text(if (ready) "Continue" else "Skip for now", modifier = Modifier.padding(vertical = 4.dp)) }
-            if (!ready) Text("TwinDesk works without these, but some features won’t.", color = pal.faint, fontSize = 12.5.sp, modifier = Modifier.padding(top = 8.dp))
+            if (ready) PrimaryButton("Continue", Modifier.fillMaxWidth()) { done() }
+            else SecondaryButton("Skip for now", Modifier.fillMaxWidth()) { SetupCheck.skip(ctx, core) }
+            if (!ready) Text("DuoDesk works without these, but some features won’t.", color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }

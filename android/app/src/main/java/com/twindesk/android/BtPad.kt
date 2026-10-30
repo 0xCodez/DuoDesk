@@ -77,7 +77,7 @@ class BtPad(private val core: Core) {
     // Registered while it's on (the Remote page calls this whenever it's shown).
     fun start() {
         if (!on || state != "off" && state != "unavailable") return
-        if (!allowed()) return set("off", "Allow Nearby devices for TwinDesk first")
+        if (!allowed()) return set("off", "Allow Nearby devices for DuoDesk first")
         val adapter = manager?.adapter
         if (adapter == null || !adapter.isEnabled) return set("off", "Turn on Bluetooth first")
         set("starting", "")
@@ -86,7 +86,7 @@ class BtPad(private val core: Core) {
                 val h = proxy as BluetoothHidDevice
                 hid = h
                 if (!on) return stop()
-                val sdp = BluetoothHidDeviceAppSdpSettings("TwinDesk Gamepad", "${core.store.deviceName} as a gamepad", "TwinDesk",
+                val sdp = BluetoothHidDeviceAppSdpSettings("TwinDesk Gamepad", "${core.store.deviceName} as a gamepad", "DuoDesk",
                     BluetoothHidDevice.SUBCLASS2_GAMEPAD, DESCRIPTOR)
                 if (!h.registerApp(sdp, null, null, io, callback)) set("unavailable", "Another app is using this device as a Bluetooth keyboard or controller: turn that off first")
             }

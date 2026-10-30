@@ -1,0 +1,142 @@
+/* DuoDesk — Aurora theme, minimal. Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
+/* The pictures: the classes of the art kit (shared/art/kit.js, prefix ka-), the card of a feature's introduction
+   (shared/feature-art.js) and the Connection page's two devices drawn as what they are — a Windows PC, a Mac,
+   a Linux laptop, a phone — as hairline monochrome glass. Loaded by shared/feature-art.js (a <link> added to
+   <head>, so after every other stylesheet: equal-specificity rules here win). CSP-safe: no external URLs; the
+   device pictures are SVG data: URIs made from the kit (img-src data:).
+   The look: Apple-grade restraint. White hairlines on near-black, one accent per picture, at most one faint glow. */
+
+/* The Connection page's device pictures (made with the kit at these sizes: winPc 124 x 98, macBook 138 x 88,
+   linuxPc 130 x 88, the phone's screen 60 x 120; no glow, still). Generated: between the HEROES / END markers,
+   rewritten by the gallery's heroes.js + splice.js after the kit's devices change. */
+:root {
+/*@HEROES@*/
+  --ka-hero-win: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 124 98' width='124' height='98'%3E%3Cdefs%3E%3ClinearGradient id='ka-hw-body' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2317171b'/%3E%3Cstop offset='1' stop-color='%230c0c0f'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hw-alu' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%231b1b20'/%3E%3Cstop offset='1' stop-color='%230e0e11'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hw-rim' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.46'/%3E%3Cstop offset='0.35' stop-color='%23fff' stop-opacity='0.26'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0.16'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hw-edge' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='0.25' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='0.75' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hw-scr' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%230b0b0e'/%3E%3Cstop offset='1' stop-color='%23060608'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hw-shine' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.05'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0.01'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg class='ka-dev ka-win'%3E%3Crect x='58.04' y='77.3' width='7.93' height='17.2' fill='url(%23ka-hw-alu)' stroke='%23fff' stroke-opacity='0.18' stroke-width='0.75'/%3E%3Crect x='43.7' y='94.5' width='36.6' height='2.5' rx='1.25' fill='url(%23ka-hw-alu)' stroke='url(%23ka-hw-rim)' stroke-width='0.75'/%3E%3Crect x='46.2' y='94.15' width='31.61' height='0.7' fill='url(%23ka-hw-edge)' opacity='0.5'/%3E%3Crect x='1' y='1' width='122' height='76.8' rx='2.2' fill='url(%23ka-hw-body)' stroke='url(%23ka-hw-rim)' stroke-width='0.75'/%3E%3Crect x='3.2' y='0.65' width='117.61' height='0.7' fill='url(%23ka-hw-edge)'/%3E%3CclipPath id='ka-hw-clip1'%3E%3Crect x='2.71' y='2.71' width='118.58' height='72.36' rx='1' /%3E%3C/clipPath%3E%3Cg clip-path='url(%23ka-hw-clip1)'%3E%3Crect x='2.71' y='2.71' width='118.58' height='72.36' fill='url(%23ka-hw-scr)'/%3E%3Cg class='ka-window'%3E%3Crect x='22.87' y='11.83' width='78.27' height='46.89' rx='1.88' fill='%230f0f12' stroke='%23fff' stroke-opacity='0.15' stroke-width='0.55'/%3E%3Crect x='23.27' y='17.45' width='77.47' height='0.45' fill='%23fff' fill-opacity='0.05'/%3E%3Cpath d='M97.03 13.91l1.46 1.46M98.49 13.91l-1.46 1.46' fill='none' stroke='%23fff' stroke-opacity='0.28' stroke-width='0.44'/%3E%3Crect x='93.81' y='13.91' width='1.46' height='1.46' fill='none' stroke='%23fff' stroke-opacity='0.28' stroke-width='0.44'/%3E%3Cpath d='M90.59 14.64h1.46' fill='none' stroke='%23fff' stroke-opacity='0.28' stroke-width='0.44'/%3E%3Crect x='25.96' y='21.53' width='30.27' height='2.46' rx='1.23' fill='%23fff' fill-opacity='0.22'/%3E%3Crect x='25.96' y='27.91' width='61.99' height='2.46' rx='1.23' fill='%23fff' fill-opacity='0.1'/%3E%3Crect x='25.96' y='33.31' width='50.45' height='2.46' rx='1.23' fill='%23fff' fill-opacity='0.1'/%3E%3Crect x='25.96' y='38.71' width='36.04' height='2.46' rx='1.23' fill='%23fff' fill-opacity='0.1'/%3E%3C/g%3E%3Ccircle cx='55.31' cy='71.45' r='0.8' fill='%23fff' fill-opacity='0.42'/%3E%3Ccircle cx='58.66' cy='71.45' r='0.8' fill='%23fff' fill-opacity='0.2'/%3E%3Ccircle cx='62' cy='71.45' r='0.8' fill='%23fff' fill-opacity='0.2'/%3E%3Ccircle cx='65.34' cy='71.45' r='0.8' fill='%23fff' fill-opacity='0.2'/%3E%3Ccircle cx='68.69' cy='71.45' r='0.8' fill='%23fff' fill-opacity='0.2'/%3E%3Crect x='2.71' y='2.71' width='118.58' height='72.36' fill='url(%23ka-hw-shine)'/%3E%3C/g%3E%3Crect x='2.71' y='2.71' width='118.58' height='72.36' rx='1' fill='none' stroke='%23fff' stroke-opacity='0.07' stroke-width='0.55'/%3E%3C/g%3E%3C/svg%3E");
+  --ka-hero-mac: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 138 88' width='138' height='88'%3E%3Cdefs%3E%3ClinearGradient id='ka-hm-body' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2317171b'/%3E%3Cstop offset='1' stop-color='%230c0c0f'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hm-alu' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%231b1b20'/%3E%3Cstop offset='1' stop-color='%230e0e11'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hm-rim' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.46'/%3E%3Cstop offset='0.35' stop-color='%23fff' stop-opacity='0.26'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0.16'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hm-edge' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='0.25' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='0.75' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hm-scr' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%230b0b0e'/%3E%3Cstop offset='1' stop-color='%23060608'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hm-shine' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.05'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0.01'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg class='ka-dev ka-mac'%3E%3Crect x='10.52' y='1' width='116.96' height='80.91' rx='3.51' fill='url(%23ka-hm-body)' stroke='url(%23ka-hm-rim)' stroke-width='0.75'/%3E%3Crect x='14.03' y='0.65' width='109.94' height='0.7' fill='url(%23ka-hm-edge)'/%3E%3CclipPath id='ka-hm-clip1'%3E%3Crect x='13.09' y='3.57' width='111.81' height='75.01' rx='1.17' /%3E%3C/clipPath%3E%3Cg clip-path='url(%23ka-hm-clip1)'%3E%3Crect x='13.09' y='3.57' width='111.81' height='75.01' fill='url(%23ka-hm-scr)'/%3E%3Cg class='ka-window'%3E%3Crect x='32.1' y='16.91' width='73.8' height='52.45' rx='2.88' fill='%230f0f12' stroke='%23fff' stroke-opacity='0.15' stroke-width='0.75'/%3E%3Crect x='32.5' y='23.21' width='73' height='0.45' fill='%23fff' fill-opacity='0.05'/%3E%3Ccircle cx='35.88' cy='20.06' r='0.69' fill='%23fff' fill-opacity='0.2'/%3E%3Ccircle cx='38.09' cy='20.06' r='0.69' fill='%23fff' fill-opacity='0.2'/%3E%3Ccircle cx='40.31' cy='20.06' r='0.69' fill='%23fff' fill-opacity='0.2'/%3E%3Crect x='35.56' y='27.77' width='28.09' height='2.75' rx='1.37' fill='%23fff' fill-opacity='0.22'/%3E%3Crect x='35.56' y='34.91' width='57.51' height='2.75' rx='1.37' fill='%23fff' fill-opacity='0.1'/%3E%3Crect x='35.56' y='40.95' width='46.81' height='2.75' rx='1.37' fill='%23fff' fill-opacity='0.1'/%3E%3Crect x='35.56' y='46.99' width='33.44' height='2.75' rx='1.37' fill='%23fff' fill-opacity='0.1'/%3E%3C/g%3E%3Crect x='13.09' y='7.45' width='111.81' height='0.5' fill='%23fff' fill-opacity='0.06'/%3E%3Crect x='17.57' y='5.14' width='6.71' height='0.99' rx='0.5' fill='%23fff' fill-opacity='0.22'/%3E%3Crect x='26.51' y='5.14' width='4.47' height='0.99' rx='0.5' fill='%23fff' fill-opacity='0.1'/%3E%3Crect x='111.49' y='5.14' width='8.95' height='0.99' rx='0.5' fill='%23fff' fill-opacity='0.16'/%3E%3Crect x='13.09' y='3.57' width='111.81' height='75.01' fill='url(%23ka-hm-shine)'/%3E%3C/g%3E%3Crect x='13.09' y='3.57' width='111.81' height='75.01' rx='1.17' fill='none' stroke='%23fff' stroke-opacity='0.07' stroke-width='0.55'/%3E%3Cpath d='M61.98 3.37h14.04v1.87q0 1.35 -1.35 1.35h-11.33q-1.35 0 -1.35 -1.35z' fill='%230c0c0f'/%3E%3Cpath d='M1 81.41H137V84.21Q137 87 131.41 87H6.59Q1 87 1 84.21Z' fill='url(%23ka-hm-alu)' stroke='url(%23ka-hm-rim)' stroke-width='0.75'/%3E%3Crect x='6.44' y='81.06' width='125.12' height='0.7' fill='url(%23ka-hm-edge)' opacity='0.9'/%3E%3Crect x='60.84' y='81.76' width='16.32' height='1.57' rx='0.78' fill='%23000' fill-opacity='0.5'/%3E%3C/g%3E%3C/svg%3E");
+  --ka-hero-linux: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 130 88' width='130' height='88'%3E%3Cdefs%3E%3ClinearGradient id='ka-hl-body' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2317171b'/%3E%3Cstop offset='1' stop-color='%230c0c0f'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hl-alu' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%231b1b20'/%3E%3Cstop offset='1' stop-color='%230e0e11'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hl-rim' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.46'/%3E%3Cstop offset='0.35' stop-color='%23fff' stop-opacity='0.26'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0.16'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hl-edge' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='0.25' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='0.75' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hl-scr' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%230b0b0e'/%3E%3Cstop offset='1' stop-color='%23060608'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hl-shine' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.05'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0.01'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg class='ka-dev ka-linux'%3E%3Crect x='11.24' y='1' width='107.52' height='80.91' rx='1.94' fill='url(%23ka-hl-body)' stroke='url(%23ka-hl-rim)' stroke-width='0.75'/%3E%3Crect x='13.18' y='0.65' width='103.65' height='0.7' fill='url(%23ka-hl-edge)'/%3E%3CclipPath id='ka-hl-clip1'%3E%3Crect x='14.04' y='3.8' width='101.93' height='73.42' rx='1.08' /%3E%3C/clipPath%3E%3Cg clip-path='url(%23ka-hl-clip1)'%3E%3Crect x='14.04' y='3.8' width='101.93' height='73.42' fill='url(%23ka-hl-scr)'/%3E%3Cg class='ka-terminal'%3E%3Crect x='34.42' y='22' width='61.16' height='40.03' rx='2' fill='%2309090b' stroke='%23fff' stroke-opacity='0.15' stroke-width='0.55'/%3E%3Crect x='34.82' y='26.81' width='60.36' height='0.45' fill='%23fff' fill-opacity='0.05'/%3E%3Ccircle cx='92.7' cy='24.41' r='0.62' fill='%23fff' fill-opacity='0.2'/%3E%3Crect x='37.3' y='29.69' width='4.43' height='2.2' rx='1.1' fill='%23fff' fill-opacity='0.42'/%3E%3Crect x='43.71' y='29.69' width='22.16' height='2.2' rx='1.1' fill='%23fff' fill-opacity='0.14'/%3E%3Crect x='37.3' y='36.16' width='15.51' height='2.2' rx='1.1' fill='%23fff' fill-opacity='0.14'/%3E%3C/g%3E%3Crect x='14.04' y='7.95' width='101.93' height='0.5' fill='%23fff' fill-opacity='0.06'/%3E%3Crect x='59.9' y='5.47' width='10.19' height='1.06' rx='0.53' fill='%23fff' fill-opacity='0.22'/%3E%3Ccircle cx='18.11' cy='6' r='0.79' fill='%23fff' fill-opacity='0.22'/%3E%3Ccircle cx='111.89' cy='6' r='0.79' fill='%23fff' fill-opacity='0.16'/%3E%3Crect x='14.04' y='3.8' width='101.93' height='73.42' fill='url(%23ka-hl-shine)'/%3E%3C/g%3E%3Crect x='14.04' y='3.8' width='101.93' height='73.42' rx='1.08' fill='none' stroke='%23fff' stroke-opacity='0.07' stroke-width='0.55'/%3E%3Ccircle cx='65' cy='2.4' r='0.39' fill='%23fff' fill-opacity='0.12'/%3E%3Cpath d='M1 81.41H129V84.21Q129 87 123.41 87H6.59Q1 87 1 84.21Z' fill='url(%23ka-hl-alu)' stroke='url(%23ka-hl-rim)' stroke-width='0.75'/%3E%3Crect x='6.12' y='81.06' width='117.76' height='0.7' fill='url(%23ka-hl-edge)' opacity='0.9'/%3E%3C/g%3E%3C/svg%3E");
+  --ka-hero-phone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 120' width='60' height='120'%3E%3Cdefs%3E%3ClinearGradient id='ka-hp-body' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2317171b'/%3E%3Cstop offset='1' stop-color='%230c0c0f'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hp-rim' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.46'/%3E%3Cstop offset='0.35' stop-color='%23fff' stop-opacity='0.26'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0.16'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hp-edge' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='0.25' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='0.75' stop-color='%23fff' stop-opacity='0.72'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hp-scr' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%230b0b0e'/%3E%3Cstop offset='1' stop-color='%23060608'/%3E%3C/linearGradient%3E%3ClinearGradient id='ka-hp-shine' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0.05'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0.01'/%3E%3Cstop offset='0.5' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg class='ka-dev ka-phone'%3E%3Crect x='62.55' y='23.32' width='1.31' height='13.1' rx='0.3' fill='%23fff' fill-opacity='0.22'/%3E%3Crect x='-2.75' y='-5.5' width='65.5' height='131' rx='11.79' fill='url(%23ka-hp-body)' stroke='url(%23ka-hp-rim)' stroke-width='0.75'/%3E%3Crect x='9.04' y='-5.85' width='41.92' height='0.7' fill='url(%23ka-hp-edge)'/%3E%3CclipPath id='ka-hp-clip1'%3E%3Crect x='0' y='-2.75' width='60' height='125.5' rx='9.04' /%3E%3C/clipPath%3E%3Cg clip-path='url(%23ka-hp-clip1)'%3E%3Crect x='0' y='-2.75' width='60' height='125.5' fill='url(%23ka-hp-scr)'/%3E%3Crect x='6' y='14.87' width='48' height='26.51' rx='3.84' fill='%23fff' fill-opacity='0.04' stroke='%23fff' stroke-opacity='0.09' stroke-width='0.55'/%3E%3Crect x='6' y='52.42' width='33.6' height='2.1' rx='1.05' fill='%23fff' fill-opacity='0.14'/%3E%3Crect x='6' y='57.88' width='21.6' height='2.1' rx='1.05' fill='%23fff' fill-opacity='0.08'/%3E%3Crect x='7.2' y='1.2' width='7.2' height='1.76' rx='0.88' fill='%23fff' fill-opacity='0.3'/%3E%3Crect x='45.6' y='1.2' width='7.2' height='1.76' rx='0.88' fill='%23fff' fill-opacity='0.18'/%3E%3Crect x='21.6' y='119.49' width='16.8' height='1' rx='0.5' fill='%23fff' fill-opacity='0.4'/%3E%3Crect x='0' y='-2.75' width='60' height='125.5' fill='url(%23ka-hp-shine)'/%3E%3C/g%3E%3Crect x='0' y='-2.75' width='60' height='125.5' rx='9.04' fill='none' stroke='%23fff' stroke-opacity='0.07' stroke-width='0.55'/%3E%3Ccircle cx='30' cy='1.75' r='1.7' fill='%23000' stroke='%23fff' stroke-opacity='0.16' stroke-width='0.55'/%3E%3C/g%3E%3C/svg%3E");
+  /*@END@*/
+}
+
+/* ---------- kit classes ---------- */
+/* The one accent: the feature's colour, softened towards a cool grey so no page reads loud (a yellow or a green
+   comes out pale, never neon). The first declaration is the fallback where color-mix() isn't known. */
+.ka-s1 { stop-color: var(--fa1, #a98bff); stop-color: color-mix(in srgb, var(--fa1, #a98bff) 60%, #c7c7cc); }
+.ka-s2 { stop-color: var(--fa2, #7fdcf5); stop-color: color-mix(in srgb, var(--fa2, #7fdcf5) 60%, #c7c7cc); }
+.ka-f1 { fill: var(--fa1, #a98bff); fill: color-mix(in srgb, var(--fa1, #a98bff) 60%, #c7c7cc); }
+.ka-f2 { fill: var(--fa2, #7fdcf5); fill: color-mix(in srgb, var(--fa2, #7fdcf5) 60%, #c7c7cc); }
+.ka-st1 { stroke: var(--fa1, #a98bff); stroke: color-mix(in srgb, var(--fa1, #a98bff) 60%, #c7c7cc); }
+.ka-st2 { stroke: var(--fa2, #7fdcf5); stroke: color-mix(in srgb, var(--fa2, #7fdcf5) 60%, #c7c7cc); }
+.ka-text { font-family: var(--ui, "Geist", system-ui, sans-serif); }
+.ka-mono { font-family: var(--mono, "Geist Mono", ui-monospace, monospace); }
+.ka-svg { overflow: visible; }
+
+/* Motions for scenes, besides SMIL — slow, eased, small (an element with the class moves; ka-d1..ka-d4 start it
+   later): ka-bob floats 2 px, ka-breathe dims and brightens, ka-pop swells a little, ka-spin turns slowly,
+   ka-flow runs a dotted hairline along, ka-rise comes up once. ka-hue is kept but still: no colour cycling. */
+.ka-bob, .ka-pop, .ka-spin, .ka-rise { transform-box: fill-box; transform-origin: center; }
+.ka-bob { animation: ka-bob 6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.ka-breathe { animation: ka-breathe 6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.ka-pop { animation: ka-pop 5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.ka-spin { animation: ka-spin 24s linear infinite; }
+.ka-flow { stroke-dasharray: 1 5; animation: ka-flow 2.4s linear infinite; }
+.ka-rise { animation: ka-rise 0.9s cubic-bezier(0.2, 0.9, 0.1, 1) both; }
+.ka-d1 { animation-delay: -1.2s; } .ka-d2 { animation-delay: -2.4s; } .ka-d3 { animation-delay: -3.6s; } .ka-d4 { animation-delay: -4.8s; }
+@keyframes ka-bob { 50% { transform: translateY(-2px); } }
+@keyframes ka-breathe { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+@keyframes ka-pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+@keyframes ka-spin { to { transform: rotate(360deg); } }
+@keyframes ka-flow { to { stroke-dashoffset: -12; } }
+@keyframes ka-rise { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- a feature's introduction ---------- */
+/* A quiet glass card: no colour wash, no light running round its edge; one faint light under the picture. */
+.feature-art .fa-hero {
+  max-width: 620px; padding: 14px 14px 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 40px 80px -40px #000;
+}
+.feature-art .fa-hero::before { opacity: 0.08; filter: blur(44px); }
+.feature-art .fa-hero::after { content: none; }
+/* The picture on a stage of its own: near-black, a hairline, the faintest light from below in the feature's colour. */
+.feature-art .fa-pic {
+  position: relative; isolation: isolate; overflow: hidden; border-radius: 16px; margin-bottom: 6px;
+  background:
+    radial-gradient(70% 55% at 50% 118%, color-mix(in srgb, var(--fa1) 7%, transparent), transparent 70%),
+    linear-gradient(180deg, #0c0c0e, #08080a);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.055), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.feature-art .fa-pic svg { position: relative; }
+.feature-art:not([hidden]) .fa-hero { animation: ka-rise 0.7s cubic-bezier(0.2, 0.9, 0.1, 1) both; }
+.feature-art:not([hidden]) .fa-pic svg { animation: ka-rise 0.9s 0.08s cubic-bezier(0.2, 0.9, 0.1, 1) both; }
+.feature-art h2 { margin-top: 14px; font-weight: 400; letter-spacing: -0.02em; }
+
+/* ---------- Multi-device's mesh (shared/mesh-intro.js, devices from the kit) ---------- */
+.mesh-art { --fa1: #a98bff; --fa2: #7fdcf5; }
+.mesh-art svg { overflow: visible; }
+
+/* ---------- the Connection page's devices (windows|linux|mac ui-overview.js: .device.pc / .mac / .phone) ---------- */
+/* This computer is the first .hero-device, the other one the last; Linux is .device.pc.linux on Linux's app and
+   html.ka-me-linux / html.ka-peer-linux (set by the kit from the browser and UI.state) elsewhere.
+   Waiting: the devices a little dim. Linked: full, and a single thin line of the spectrum where they stand. */
+.hero .hero-device .device.pc, .hero .hero-device .device.mac {
+  border: 0; border-radius: 0; opacity: 0.62; background: transparent center / contain no-repeat; box-shadow: none; filter: none;
+  transition: opacity 0.6s cubic-bezier(0.2, 0.9, 0.1, 1), transform 0.6s cubic-bezier(0.2, 0.9, 0.1, 1);
+}
+.hero .hero-device .device.pc { width: 124px; height: 98px; background-image: var(--ka-hero-win); }
+.hero .hero-device .device.mac { width: 138px; height: 88px; margin-top: 10px; background-image: var(--ka-hero-mac); }
+.hero .hero-device .device.pc.linux,
+html.ka-me-linux .hero .hero-device:first-child .device.pc,
+html.ka-peer-linux .hero .hero-device:last-child .device.pc { width: 130px; height: 88px; margin-top: 10px; background-image: var(--ka-hero-linux); }
+.hero .hero-device .device.pc::after, .hero .hero-device .device.mac::after {
+  content: ""; position: absolute; inset: auto 18% -7px 18%; height: 1px; z-index: -1; border: 0; border-radius: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent); opacity: 1;
+  transition: background 0.6s, box-shadow 0.6s;
+}
+.hero:has(.hero-link.up) .hero-device .device.pc, .hero:has(.hero-link.up) .hero-device .device.mac {
+  border: 0; box-shadow: none; filter: none; opacity: 1;
+}
+.hero:has(.hero-link.up) .hero-device .device.pc::after, .hero:has(.hero-link.up) .hero-device .device.mac::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.34), transparent); box-shadow: none;
+}
+
+/* The phone: a hairline glass frame with a punch-hole dot, its own wallpaper (--phone-wall) or the kit's screen. */
+.hero-device .device.phone, .device.phone.big {
+  border: 1px solid rgba(255, 255, 255, 0.34); border-radius: 11px; opacity: 0.62;
+  background: var(--phone-wall, var(--ka-hero-phone)) center / cover no-repeat, #0a0a0c;
+  box-shadow: inset 0 0 0 2px #0c0c0f, inset 0 1px 0 2px rgba(255, 255, 255, 0.05);
+  filter: none; transition: opacity 0.6s, border-color 0.6s, transform 0.6s cubic-bezier(0.2, 0.9, 0.1, 1);
+}
+.device.phone.big { border-radius: 15px; opacity: 1; box-shadow: inset 0 0 0 3px #0c0c0f; }
+.hero-device .device.phone::before, .device.phone.big::before {
+  content: ""; position: absolute; top: 5px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%;
+  background: #000; box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.18);
+}
+.device.phone.big::before { top: 7px; width: 5px; height: 5px; margin-left: -2.5px; }
+.hero-device .device.phone::after, .device.phone.big::after { height: 1.5px; background: rgba(255, 255, 255, 0.42); }
+.hero:has(.hero-link.up) .hero-device .device.phone {
+  border-color: rgba(255, 255, 255, 0.5); opacity: 1; filter: none;
+  box-shadow: inset 0 0 0 2px #0c0c0f;
+}
+.dv-hero .device.phone, .phone-hero .device.phone.big { border-color: rgba(255, 255, 255, 0.42); }
+
+/* The link between them (aurora-pages.css draws a glowing spectral beam): a 1 px hairline. Waiting, faint dashes;
+   linked, a thin line of the spectrum at low strength with one slow soft-white pulse; no halo, no colour cycling,
+   and the card's light from below barely there. */
+.hero::after, .card.hero::after { opacity: 0.05; filter: blur(44px); }
+.hero:has(.hero-link.up)::after { opacity: 0.1; }
+.hero .hero-link { height: 1px; border-radius: 1px; margin-top: 1px;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.2) 0 4px, transparent 4px 9px); background-size: auto; }
+.hero .hero-link.up { animation: none; box-shadow: none; background-size: auto;
+  background: linear-gradient(90deg, transparent, rgba(255, 61, 154, 0.5) 12%, rgba(138, 92, 255, 0.55) 34%, rgba(47, 214, 255, 0.5) 60%, rgba(61, 255, 168, 0.42) 82%, transparent); }
+.hero:has(.hero-link.up) .hero-mid::before { content: none; animation: none; }
+.hero .hero-link.up .hero-pulse { height: 1px; width: 48px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: ap-travel 5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ka-bob, .ka-breathe, .ka-pop, .ka-spin, .ka-flow, .ka-rise,
+  .feature-art:not([hidden]) .fa-hero, .feature-art:not([hidden]) .fa-pic svg { animation: none; }
+  .hero .hero-device .device.pc, .hero .hero-device .device.mac, .hero-device .device.phone { transition: none; transform: none; }
+}

@@ -19,6 +19,7 @@ const pkg = require(path.join(LIN, 'package.json'));
 const electronVersion = require(path.join(LIN, 'node_modules', 'electron', 'package.json')).version;
 
 const SKIP = new Set(['node_modules', 'dist', 'installer', 'test', 'package-lock.json']); // tests (mesh/test) stay out of the package
+const SHARED_DIRS = ['fonts', 'art', 'pagefx']; // shared/ subfolders the pages load at run time
 
 function copy(from, to, filter = () => true) {
   const st = fs.statSync(from);
@@ -54,6 +55,9 @@ async function main() {
   for (const name of fs.readdirSync(path.join(ROOT, 'shared'))) {
     if (/\.(js|css|html)$/.test(name)) copy(path.join(ROOT, 'shared', name), path.join(STAGE, 'shared', name));
   }
+  // The pages' fonts (Geist woff2 + its OFL.txt), the art kit and scenes, and the per-page effects:
+  // whole folders (shared/test and shared/icon stay out).
+  for (const dir of SHARED_DIRS) copy(path.join(ROOT, 'shared', dir), path.join(STAGE, 'shared', dir), (name) => !name.startsWith('.'));
   copy(path.join(ROOT, 'linux-helper', 'bin', 'macshare-linuxhelper'), path.join(STAGE, 'linux-helper', 'bin', 'macshare-linuxhelper'));
   // Multi-device's helper (several watched edges, docs/multi-device.md): the same sources built with -DMULTI.
   copy(path.join(ROOT, 'linux-helper', 'bin', 'macshare-linuxhelper-multi'), path.join(STAGE, 'linux-helper', 'bin', 'macshare-linuxhelper-multi'));
@@ -90,8 +94,8 @@ async function main() {
   });
   fs.writeFileSync(path.join(STAGE, 'package.json'), JSON.stringify({
     name: 'twindesk', productName: pkg.productName, version: pkg.version, description: pkg.description,
-    license: pkg.license, author: { name: 'inukaasith', email: 'inukaasith@users.noreply.github.com' },
-    homepage: 'https://github.com/InukaAsith/TwinDesk', main: 'linux/main.js', dependencies: pkg.dependencies,
+    license: pkg.license, author: { name: '0xCodez', email: '0xCodez@users.noreply.github.com' },
+    homepage: 'https://github.com/0xCodez/DuoDesk', main: 'linux/main.js', dependencies: pkg.dependencies,
   }, null, 2));
 
   console.log('Packaging…');
@@ -100,8 +104,8 @@ async function main() {
     projectDir: LIN,
     config: {
       appId: 'org.macshare.linux',
-      productName: 'TwinDesk',
-      copyright: 'Copyright (C) 2026 inukaasith',
+      productName: 'DuoDesk',
+      copyright: 'Copyright (C) 2026 0xCodez; based on TwinDesk, Copyright (C) 2026 inukaasith',
       electronVersion,
       directories: { app: STAGE, output: path.join(LIN, 'dist') },
       asar: false,
@@ -111,12 +115,12 @@ async function main() {
         executableName: 'twindesk',
         category: 'Utility',
         synopsis: 'Share mouse, keyboard, clipboard, files and screens with your other computer',
-        maintainer: 'inukaasith',
-        desktop: { entry: { Name: 'TwinDesk', StartupWMClass: 'TwinDesk', Keywords: 'KVM;mouse;keyboard;clipboard;screen;share;' } },
-        artifactName: 'TwinDesk-${version}-${arch}.${ext}',
+        maintainer: '0xCodez <0xCodez@users.noreply.github.com>',
+        desktop: { entry: { Name: 'DuoDesk', StartupWMClass: 'DuoDesk', Keywords: 'KVM;mouse;keyboard;clipboard;screen;share;' } },
+        artifactName: 'DuoDesk-${version}-${arch}.${ext}',
       },
       deb: {
-        // Electron's own needs plus what TwinDesk calls: openssl (host certificate), pactl (sound),
+        // Electron's own needs plus what DuoDesk calls: openssl (host certificate), pactl (sound),
         // dbus-monitor (notifications), pkexec (firewall / input access fixes), GIO (the helper's
         // Bluetooth through BlueZ). Bluetooth and the Wi-Fi it moves to (NetworkManager) are for
         // devices not on this network: recommended, not needed.

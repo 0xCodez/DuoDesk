@@ -8,14 +8,22 @@
 const os = require('os');
 const fs = require('fs');
 
+// DuoDesk's own repository and site. WEBSITE is the landing page; change it here when it moves.
+const REPO_URL = 'https://github.com/0xCodez/DuoDesk';
+const WEBSITE = 'https://duodesk-green.vercel.app';
+
 const LINKS = {
-  portfolio: 'https://inukaasith.vercel.app',
-  github: 'https://github.com/InukaAsith/TwinDesk',
-  releases: 'https://github.com/InukaAsith/TwinDesk/releases',
-  licence: 'https://github.com/InukaAsith/TwinDesk/blob/main/LICENSE',
+  author: 'https://github.com/0xCodez',
+  website: WEBSITE,
+  github: REPO_URL,
+  releases: REPO_URL + '/releases',
+  issues: REPO_URL + '/issues',
+  licence: REPO_URL + '/blob/main/LICENSE',
+  // GPL attribution: DuoDesk is based on TwinDesk by Inuka Asith.
+  upstream: 'https://github.com/InukaAsith/TwinDesk',
 };
 
-const NAME = { darwin: 'TwinDesk for macOS', win32: 'TwinDesk for Windows', linux: 'TwinDesk for Linux' };
+const NAME = { darwin: 'DuoDesk for macOS', win32: 'DuoDesk for Windows', linux: 'DuoDesk for Linux' };
 const THANKS = { darwin: 'DeskPad (virtual display header, MIT)' };
 const ARCH = { x64: '64-bit Intel/AMD (x64)', arm64: 'ARM 64-bit (arm64)', ia32: '32-bit (x86)' };
 
@@ -47,7 +55,7 @@ function aboutInfo(app) {
   const v = process.versions;
   return {
     app: {
-      name: NAME[process.platform] || 'TwinDesk',
+      name: NAME[process.platform] || 'DuoDesk',
       thanks: THANKS[process.platform] || '',
       version: app.getVersion(),
       electron: v.electron || '',
@@ -67,4 +75,4 @@ function aboutInfo(app) {
   };
 }
 
-module.exports = { aboutInfo, LINKS };
+module.exports = { aboutInfo, LINKS, WEBSITE, REPO_URL };

@@ -38,7 +38,7 @@
     <rect x="120" y="50" width="180" height="14" rx="6" fill="#2a2d34"/>
     <rect x="126" y="70" width="168" height="80" rx="3" fill="url(#screenB)"/>
     <rect x="126" y="142" width="168" height="8" fill="#000" opacity="0.4"/>
-    <text x="210" y="61" text-anchor="middle" font-size="9" fill="#cfd5df">PC — TwinDesk</text>
+    <text x="210" y="61" text-anchor="middle" font-size="9" fill="#cfd5df">PC — DuoDesk</text>
     <path d="M-30 210 H360 L340 226 H-10 Z" fill="#3a3e47"/>
     <text x="165" y="262" text-anchor="middle" font-size="18" font-weight="600" fill="#ffffff">Mac</text>
   </g>

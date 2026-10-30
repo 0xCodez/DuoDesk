@@ -1012,9 +1012,9 @@ function createMainWindow() {
     y: b.y,
     minWidth: 720,
     minHeight: 480,
-    title: 'TwinDesk',
+    title: 'DuoDesk',
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#2b2b2e' : '#e9e9ee',
+    backgroundColor: '#0a0a0c', // DuoDesk's Aurora look is dark only
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload-app.js'),
@@ -1070,7 +1070,7 @@ function createTray() {
     console.error('[tray]', e.message); // no tray on this desktop: start TwinDesk again to show the window
     return;
   }
-  tray.setToolTip('TwinDesk');
+  tray.setToolTip('DuoDesk');
   tray.on('click', showMain);
   updateTray(buildState());
 }
@@ -1080,7 +1080,7 @@ function createTray() {
 let trayKey = '';
 function updateTray(s) {
   if (!tray) return;
-  tray.setToolTip('TwinDesk: ' + statusLine(s));
+  tray.setToolTip('DuoDesk: ' + statusLine(s));
   const connected = s.link.state === 'connected';
   const name = connected && s.peer ? s.peer.name : '';
   const k = settings.kvm;
@@ -1130,7 +1130,7 @@ function updateTray(s) {
     } })),
     byAddress: () => goTab('connection'),
     lookAgain: () => discovery.probe(),
-    update: s.updates && s.updates.available ? { label: 'Download TwinDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
+    update: s.updates && s.updates.available ? { label: 'Download DuoDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
     open: showMain,
     log: () => require('../../shared/applog.js').open(),
     quit: () => app.quit(),

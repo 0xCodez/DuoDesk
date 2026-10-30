@@ -1,39 +1,46 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The building blocks of the app's window, drawn like TwinDesk on the Mac (mac/control.css):
-// the same colours in light and dark, a sidebar of coloured icon tiles in groups, cards of rows
-// (label and hint on the left, the control on the right), page headings with one main switch,
-// the direction cards ("Mac → Tablet") and the layout picker.
+// The building blocks of the app's window, in DuoDesk's Aurora look (concepts/2-aurora.html):
+// always dark, glass cards on near-black, Geist type, and the spectral gradient used sparingly
+// (switches that are on, primary buttons, the link line, a glow at the bottom edge). A sidebar of
+// icon tiles in groups, cards of rows (label and hint on the left, the control on the right), page
+// headings with one main switch, the direction cards ("Mac → Tablet") and the layout picker.
 package com.twindesk.android
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -45,53 +52,117 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// ---- colours (mac/control.css :root) ----
+// ---- colours (concepts/2-aurora.html :root) ----
+
+// The spectrum, one hue per kind of feature; grey for the app's own pages.
+object Hue {
+    val pink = Color(0xFFFF3D9A)
+    val violet = Color(0xFF8A5CFF)
+    val cyan = Color(0xFF2FD6FF)
+    val green = Color(0xFF3DFFA8)
+    val amber = Color(0xFFFFB340)
+    val grey = Color(0xFFB4B4BC)
+}
+
+// The spectral gradient (the mockup's --spec), left to right.
+val SpecBrush: Brush = Brush.horizontalGradient(0f to Hue.pink, .30f to Hue.violet, .55f to Hue.cyan, .75f to Hue.green, 1f to Hue.amber)
+
+val Geist: FontFamily = FontFamily(
+    Font(R.font.geist_light, FontWeight.Light), Font(R.font.geist_regular, FontWeight.Normal), Font(R.font.geist_medium, FontWeight.Medium),
+    Font(R.font.geist_semibold, FontWeight.SemiBold), Font(R.font.geist_bold, FontWeight.Bold),
+)
+val GeistMono: FontFamily = FontFamily(Font(R.font.geist_mono_regular, FontWeight.Normal))
 
 data class Palette(
     val accent: Color, val accentSoft: Color, val content: Color, val sidebar: Color, val card: Color, val line: Color,
     val text: Color, val muted: Color, val faint: Color, val good: Color, val warn: Color, val bad: Color, val trackOff: Color, val hover: Color,
+    // An opaque card (dialogs, the bottom bar: `card` is see-through glass) and the stronger hairline.
+    val surface: Color = Color(0xFF121215), val line2: Color = Color(0x1FFFFFFF),
 )
 
-private val Light = Palette(
-    accent = Color(0xFF0A84FF), accentSoft = Color(0x1F0A84FF), content = Color(0xFFF2F2F5), sidebar = Color(0xFFE8E8ED), card = Color.White,
-    line = Color(0x14000000), text = Color(0xFF1D1D1F), muted = Color(0xFF6E6E73), faint = Color(0xFFA1A1A6),
-    good = Color(0xFF30B94D), warn = Color(0xFFE8A10C), bad = Color(0xFFE5373A), trackOff = Color(0x1F000000), hover = Color(0x0D000000),
-)
-private val Dark = Palette(
-    accent = Color(0xFF0A84FF), accentSoft = Color(0x380A84FF), content = Color(0xFF1E1E1F), sidebar = Color(0xFF2B2B2D), card = Color(0xFF2A2A2C),
-    line = Color(0x12FFFFFF), text = Color(0xFFF5F5F7), muted = Color(0xFF98989D), faint = Color(0xFF6C6C70),
-    good = Color(0xFF32D74B), warn = Color(0xFFFFB340), bad = Color(0xFFFF453A), trackOff = Color(0x29FFFFFF), hover = Color(0x0FFFFFFF),
+private val Aurora = Palette(
+    accent = Color(0xFF8A5CFF), accentSoft = Color(0x298A5CFF), content = Color(0xFF040405), sidebar = Color(0xFF0A0A0C), card = Color(0x09FFFFFF),
+    line = Color(0x12FFFFFF), text = Color(0xFFF1F1F3), muted = Color(0xFF8C8C95), faint = Color(0xFF55555D),
+    good = Color(0xFF3DFFA8), warn = Color(0xFFFFB340), bad = Color(0xFFFF5C7A), trackOff = Color(0x1AFFFFFF), hover = Color(0x0FFFFFFF),
 )
 
-val LocalPalette = staticCompositionLocalOf { Light }
+val LocalPalette = staticCompositionLocalOf { Aurora }
 val pal: Palette @Composable get() = LocalPalette.current
 
+private val AuroraShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp), small = RoundedCornerShape(14.dp), medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(24.dp), extraLarge = RoundedCornerShape(28.dp),
+)
+
+private val AuroraType = Typography().let { t ->
+    Typography(
+        displayLarge = t.displayLarge.copy(fontFamily = Geist), displayMedium = t.displayMedium.copy(fontFamily = Geist), displaySmall = t.displaySmall.copy(fontFamily = Geist),
+        headlineLarge = t.headlineLarge.copy(fontFamily = Geist), headlineMedium = t.headlineMedium.copy(fontFamily = Geist), headlineSmall = t.headlineSmall.copy(fontFamily = Geist),
+        titleLarge = t.titleLarge.copy(fontFamily = Geist), titleMedium = t.titleMedium.copy(fontFamily = Geist), titleSmall = t.titleSmall.copy(fontFamily = Geist),
+        bodyLarge = t.bodyLarge.copy(fontFamily = Geist), bodyMedium = t.bodyMedium.copy(fontFamily = Geist), bodySmall = t.bodySmall.copy(fontFamily = Geist),
+        labelLarge = t.labelLarge.copy(fontFamily = Geist), labelMedium = t.labelMedium.copy(fontFamily = Geist), labelSmall = t.labelSmall.copy(fontFamily = Geist),
+    )
+}
+
+// Always dark, whatever the system says.
 @Composable
 fun Theme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val p = if (dark) Dark else Light
-    val scheme = (if (dark) darkColorScheme() else lightColorScheme()).copy(
-        primary = p.accent, onPrimary = Color.White, surface = p.content, background = p.content,
-        onSurface = p.text, onSurfaceVariant = p.muted, outline = p.faint, surfaceContainer = p.card,
-        primaryContainer = p.accentSoft, onPrimaryContainer = p.accent, secondaryContainer = p.accentSoft, onSecondaryContainer = p.accent,
+    val p = Aurora
+    val scheme = darkColorScheme(
+        primary = p.accent, onPrimary = Color.White, primaryContainer = p.accentSoft, onPrimaryContainer = p.text,
+        secondary = Hue.cyan, onSecondary = p.content, secondaryContainer = p.accentSoft, onSecondaryContainer = p.text,
+        tertiary = Hue.green, onTertiary = p.content, error = p.bad, onError = p.content,
+        background = p.content, onBackground = p.text, surface = p.content, onSurface = p.text,
+        surfaceVariant = p.surface, onSurfaceVariant = p.muted, outline = Color(0x29FFFFFF), outlineVariant = p.line,
+        inverseSurface = p.text, inverseOnSurface = p.content, inversePrimary = p.accent, scrim = Color.Black,
+        surfaceBright = Color(0xFF1A1A1E), surfaceDim = p.content, surfaceContainerLowest = p.content, surfaceContainerLow = p.sidebar,
+        surfaceContainer = p.surface, surfaceContainerHigh = p.surface, surfaceContainerHighest = Color(0xFF1A1A1E),
     )
-    CompositionLocalProvider(LocalPalette provides p) { MaterialTheme(colorScheme = scheme, content = content) }
+    CompositionLocalProvider(LocalPalette provides p) {
+        MaterialTheme(colorScheme = scheme, shapes = AuroraShapes, typography = AuroraType) {
+            CompositionLocalProvider(LocalContentColor provides p.text, content = content)
+        }
+    }
+}
+
+// The aurora at a surface's bottom edge: five soft spots of the spectrum, flattened to `height`.
+// Drawn behind the content, so put it after clip() and background(). Plain gradients, no blur
+// (RenderEffect needs Android 12).
+private val GlowSpots = listOf(.1f to Hue.pink, .3f to Hue.violet, .5f to Hue.cyan, .7f to Hue.green, .9f to Hue.amber)
+
+fun Modifier.auroraGlow(strength: Float = .35f, height: Dp = 70.dp): Modifier = drawBehind {
+    val r = size.width * .26f
+    val h = height.toPx()
+    if (r <= 0f || h <= 0f) return@drawBehind
+    for ((x, c) in GlowSpots) {
+        val o = Offset(size.width * x, size.height)
+        scale(1f, h / r, pivot = o) {
+            drawCircle(Brush.radialGradient(listOf(c.copy(alpha = strength), Color.Transparent), center = o, radius = r), radius = r, center = o)
+        }
+    }
 }
 
 // ---- icons: mac/control.js ICONS, the same 20×20 line drawings ----
@@ -126,33 +197,43 @@ object Ico {
     val folder = lineIcon("folder", "M2.5 5h5.5l1.5 2h8v9.5h-15z")
 }
 
-// A sidebar tile: the icon in white on its section's gradient (the Mac's `.tile`).
+// A sidebar tile: the icon in its section's hue (the last of `colors`) on glass, brighter when on.
 @Composable
-fun Tile(icon: ImageVector, colors: List<Color>, size: Int = 26) {
+fun Tile(icon: ImageVector, colors: List<Color>, size: Int = 26, on: Boolean = false) {
+    val s = RoundedCornerShape((size * 0.33f).dp)
     Box(
-        Modifier.size(size.dp).clip(RoundedCornerShape((size * 0.27f).dp)).background(Brush.verticalGradient(colors)),
+        Modifier.size(size.dp).clip(s).background(Color(if (on) 0x17FFFFFF else 0x0DFFFFFF)).border(1.dp, if (on) pal.line2 else pal.line, s),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size((size * 0.66f).dp)) }
+    ) { Icon(icon, null, tint = colors.lastOrNull() ?: pal.text, modifier = Modifier.size((size * 0.62f).dp)) }
 }
 
+// The mark: two screens on a dark tile with the aurora under them.
 @Composable
-fun Logo(size: Int) = Image(painterResource(R.drawable.twindesk_logo), "TwinDesk", Modifier.size(size.dp))
+fun Logo(size: Int) {
+    val s = RoundedCornerShape((size * 0.3f).dp)
+    Box(
+        Modifier.size(size.dp).clip(s).background(Color(0xFF111114)).auroraGlow(.55f, (size * 0.45f).dp).border(1.dp, pal.line2, s),
+        contentAlignment = Alignment.Center,
+    ) { Icon(painterResource(R.drawable.ic_stat), "DuoDesk", tint = pal.text, modifier = Modifier.size((size * 0.56f).dp)) }
+}
 
 @Composable
 fun Dot(color: Color, size: Int = 8) = Box(Modifier.size(size.dp).clip(CircleShape).background(color))
 
-// One sidebar entry (the Mac's `.nav-item`): tile, label, and a green dot when the feature is on.
+// One sidebar entry (the mockup's `.nv`): tile, label, and a green dot when the feature is on.
 @Composable
 fun NavItem(icon: ImageVector, colors: List<Color>, label: String, selected: Boolean, on: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+    val s = RoundedCornerShape(12.dp)
     Row(
-        Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(8.dp)).alpha(if (enabled) 1f else 0.4f)
-            .background(if (selected) pal.accent else Color.Transparent).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp),
+        Modifier.fillMaxWidth().height(40.dp).clip(s).alpha(if (enabled) 1f else 0.4f)
+            .background(if (selected) Color(0x0FFFFFFF) else Color.Transparent).border(1.dp, if (selected) pal.line else Color.Transparent, s)
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Tile(icon, colors)
-        Text(label, color = if (selected) Color.White else pal.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        Tile(icon, colors, on = selected)
+        Text(label, color = if (selected) pal.text else pal.muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 10.dp).weight(1f))
-        if (on) Dot(if (selected) Color.White else pal.good, 7)
+        if (on) Dot(pal.good, 7)
     }
 }
 
@@ -162,29 +243,41 @@ fun NavItem(icon: ImageVector, colors: List<Color>, label: String, selected: Boo
 fun PageHead(title: String, desc: String, master: Boolean? = null, onMaster: (Boolean) -> Unit = {}) {
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(bottom = 14.dp)) {
         Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = pal.text)
+            Text(title, fontSize = 28.sp, fontWeight = FontWeight.Light, letterSpacing = (-0.8).sp, color = pal.text)
             if (desc.isNotEmpty()) Text(desc, color = pal.muted, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
         }
         if (master != null) MacSwitch(master, onMaster)
     }
 }
 
+// A pill switch: the spectrum when on, a dim glass track when off.
 @Composable
-fun MacSwitch(on: Boolean, onChange: (Boolean) -> Unit, enabled: Boolean = true) = Switch(
-    checked = on, onCheckedChange = onChange, enabled = enabled,
-    colors = SwitchDefaults.colors(
-        checkedTrackColor = pal.accent, checkedThumbColor = Color.White, checkedBorderColor = Color.Transparent,
-        uncheckedTrackColor = pal.trackOff, uncheckedThumbColor = Color.White, uncheckedBorderColor = Color.Transparent,
-    ),
-)
+fun MacSwitch(on: Boolean, onChange: (Boolean) -> Unit, enabled: Boolean = true) {
+    val x by animateDpAsState(if (on) 20.dp else 2.dp, label = "thumb")
+    Box(
+        Modifier.minimumInteractiveComponentSize().alpha(if (enabled) 1f else 0.4f)
+            .toggleable(value = on, interactionSource = remember { MutableInteractionSource() }, indication = null, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(44.dp, 26.dp).clip(CircleShape).background(if (on) SpecBrush else SolidColor(pal.trackOff))
+                .border(1.dp, if (on) Color.Transparent else pal.line2, CircleShape),
+            contentAlignment = Alignment.CenterStart,
+        ) { Box(Modifier.offset(x = x).size(22.dp).clip(CircleShape).background(if (on) Color.White else Color(0xFFB4B4BC))) }
+    }
+}
 
-// A card with an optional title above it (the Mac's `.card-wrap`).
+// A card with an optional title above it (the mockup's `.dev`): glass, a hairline, and with
+// `glow` the aurora at its bottom edge.
+private val CardBrush = Brush.verticalGradient(listOf(Color(0x0BFFFFFF), Color(0x04FFFFFF)))
+
 @Composable
-fun MacCard(title: String = "", modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun MacCard(title: String = "", modifier: Modifier = Modifier, glow: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    val s = RoundedCornerShape(22.dp)
     Column(modifier.padding(bottom = 16.dp)) {
-        if (title.isNotEmpty()) Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = pal.text, modifier = Modifier.padding(start = 2.dp, bottom = 6.dp))
+        if (title.isNotEmpty()) Text(title, fontFamily = GeistMono, fontSize = 11.5.sp, letterSpacing = 0.5.sp, color = pal.muted, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(pal.card).border(BorderStroke(1.dp, pal.line), RoundedCornerShape(12.dp)),
+            Modifier.fillMaxWidth().clip(s).background(CardBrush).let { if (glow) it.auroraGlow() else it }.border(BorderStroke(1.dp, pal.line), s),
             content = content,
         )
     }
@@ -232,28 +325,53 @@ fun MacRow(label: String, hint: String = "", first: Boolean = false, onClick: ((
 fun SwitchRow(label: String, hint: String, on: Boolean, first: Boolean = false, enabled: Boolean = true, onChange: (Boolean) -> Unit) =
     MacRow(label, hint, first) { MacSwitch(on, onChange, enabled) }
 
-// A note in a tinted box (the Mac's `.note`): info, warn or bad.
+// A note in a tinted box: info, warn or bad.
 @Composable
 fun Note(text: String, kind: String = "info") {
     if (text.isEmpty()) return
-    val bg = when (kind) { "bad" -> pal.bad.copy(alpha = 0.12f); "warn" -> pal.warn.copy(alpha = 0.14f); else -> pal.accentSoft }
-    Text(text, color = pal.text, fontSize = 13.5.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).clip(RoundedCornerShape(10.dp)).background(bg).padding(12.dp))
+    val c = when (kind) { "bad" -> pal.bad; "warn" -> pal.warn; else -> pal.accent }
+    val bg = when (kind) { "bad" -> pal.bad.copy(alpha = 0.12f); "warn" -> pal.warn.copy(alpha = 0.12f); else -> pal.accentSoft }
+    val s = RoundedCornerShape(16.dp)
+    Text(text, color = pal.text, fontSize = 13.5.sp, modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).clip(s).background(bg)
+        .border(1.dp, c.copy(alpha = 0.25f), s).padding(horizontal = 14.dp, vertical = 12.dp))
 }
 
 @Composable
 fun Pill(text: String, kind: String = "") {
-    val c = when (kind) { "good" -> pal.good; "bad" -> pal.bad; "muted" -> pal.muted; else -> pal.accent }
-    Text(text, color = c, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(c.copy(alpha = 0.14f)).padding(horizontal = 9.dp, vertical = 2.dp))
+    val c = when (kind) { "good" -> pal.good; "bad" -> pal.bad; "warn" -> pal.warn; "muted" -> pal.muted; else -> pal.accent }
+    Text(text, color = c, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clip(CircleShape).background(c.copy(alpha = 0.14f)).padding(horizontal = 9.dp, vertical = 2.dp))
 }
 
-// A direction card's head: device glyph + name, an arrow line, the other device (the Mac's `.dir-head`).
+// The main action: dark text on the spectrum, a full pill.
+@Composable
+fun PrimaryButton(label: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    val ink = Color(0xFF040405)
+    Button(
+        onClick = onClick, enabled = enabled, shape = CircleShape,
+        modifier = modifier.heightIn(min = 48.dp).alpha(if (enabled) 1f else 0.4f).clip(CircleShape).background(SpecBrush),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = ink, disabledContainerColor = Color.Transparent, disabledContentColor = ink),
+    ) { Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+}
+
+// Everything else: a glass pill with a hairline; `color` tints the label (bad for hang up, say).
+@Composable
+fun SecondaryButton(label: String, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = Color.Unspecified, onClick: () -> Unit) {
+    val c = if (color == Color.Unspecified) pal.text else color
+    OutlinedButton(
+        onClick = onClick, modifier = modifier, enabled = enabled, shape = CircleShape,
+        border = BorderStroke(1.dp, if (color == Color.Unspecified) pal.line2 else c.copy(alpha = 0.35f)),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0x12FFFFFF), contentColor = c, disabledContainerColor = Color(0x08FFFFFF), disabledContentColor = pal.faint),
+    ) { Text(label, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+}
+
+// A direction card's head: device glyph + name, the spectral link line, the other device.
 @Composable
 fun DirHead(from: String, fromPhone: Boolean, to: String, toPhone: Boolean) {
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(if (fromPhone) Ico.phone else Ico.display, null, tint = pal.accent, modifier = Modifier.size(18.dp))
         Text(from, fontWeight = FontWeight.SemiBold, color = pal.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp).weight(1f, false))
-        Box(Modifier.weight(1f).padding(horizontal = 10.dp).height(2.dp).clip(RoundedCornerShape(1.dp)).background(Brush.horizontalGradient(listOf(pal.accent.copy(alpha = 0.3f), pal.accent))))
-        Text("›", color = pal.accent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
+        Box(Modifier.weight(1f).padding(horizontal = 10.dp).height(2.dp).clip(RoundedCornerShape(1.dp)).background(SpecBrush))
+        Text("›", color = pal.text, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
         Icon(if (toPhone) Ico.phone else Ico.display, null, tint = pal.muted, modifier = Modifier.size(18.dp))
         Text(to, fontWeight = FontWeight.SemiBold, color = pal.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp).weight(1f, false))
     }
@@ -277,9 +395,9 @@ fun LayoutPicker(me: String, other: String, side: String, onPick: (String) -> Un
     fun Slot(s: String, modifier: Modifier) {
         val on = side == s
         Box(
-            modifier.clip(RoundedCornerShape(8.dp))
+            modifier.clip(RoundedCornerShape(14.dp))
                 .background(if (on) pal.accentSoft else Color.Transparent)
-                .border(BorderStroke(if (on) 2.dp else 1.dp, if (on) pal.accent else pal.faint.copy(alpha = 0.6f)), RoundedCornerShape(8.dp))
+                .border(BorderStroke(if (on) 2.dp else 1.dp, if (on) pal.accent else pal.faint.copy(alpha = 0.6f)), RoundedCornerShape(14.dp))
                 .clickable { onPick(s) },
             contentAlignment = Alignment.Center,
         ) { if (on) Text(other, color = pal.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, textAlign = TextAlign.Center, modifier = Modifier.padding(4.dp)) }
@@ -289,9 +407,9 @@ fun LayoutPicker(me: String, other: String, side: String, onPick: (String) -> Un
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Slot("left", Modifier.width(90.dp).height(100.dp))
             Box(
-                Modifier.width(150.dp).height(100.dp).clip(RoundedCornerShape(8.dp)).background(pal.accent),
+                Modifier.width(150.dp).height(100.dp).clip(RoundedCornerShape(16.dp)).background(SpecBrush),
                 contentAlignment = Alignment.Center,
-            ) { Text(me, color = Color.White, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.padding(6.dp)) }
+            ) { Text(me, color = Color(0xFF040405), fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.padding(6.dp)) }
             Slot("right", Modifier.width(90.dp).height(100.dp))
         }
         Slot("bottom", Modifier.width(150.dp).height(44.dp))

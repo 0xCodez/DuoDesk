@@ -1,6 +1,6 @@
 #!/bin/sh
 # TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-# The certificate build-app.sh signs TwinDesk.app with. macOS keeps Screen Recording, Accessibility
+# The certificate build-app.sh signs DuoDesk.app with. macOS keeps Screen Recording, Accessibility
 # and Input Monitoring per app by its signature's designated requirement: ad-hoc, that is the
 # build's hash, so every update looked like a new app (the switches stayed on in System Settings
 # but did nothing). Signed with one certificate, it's "this bundle id, this certificate", the same

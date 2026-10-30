@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
@@ -94,6 +96,7 @@ private fun Viewer(core: Core, host: WebHost, close: () -> Unit) {
     LaunchedEffect(bar) { if (bar) { delay(4000); bar = false } }
     val s = core.screen
     val name = core.host?.name ?: "Mac"
+    val ink = Color(0xFFF1F1F3)
     // Opened because the computer started sharing: it closes when the computer stops.
     var seenOn by remember { mutableStateOf(false) }
     LaunchedEffect(s.sharing, v) {
@@ -110,28 +113,28 @@ private fun Viewer(core: Core, host: WebHost, close: () -> Unit) {
         )
         AnimatedVisibility(bar, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).padding(top = 28.dp)) {
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xE6202124)).padding(horizontal = 8.dp, vertical = 4.dp),
+                Modifier.clip(CircleShape).background(Color(0xE6121215)).border(1.dp, Color(0x1FFFFFFF), CircleShape).padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(name, color = Color.White, modifier = Modifier.padding(start = 8.dp))
+                Text(name, color = ink, modifier = Modifier.padding(start = 8.dp))
                 // Which way the picture comes: the USB cable, or Wi-Fi.
                 Text(
-                    if (core.link.wired) "USB" else "Wi-Fi", color = Color.White, fontSize = 11.sp,
+                    if (core.link.wired) "USB" else "Wi-Fi", color = ink, fontSize = 11.sp,
                     modifier = Modifier.padding(end = 4.dp).clip(RoundedCornerShape(6.dp))
-                        .background(if (core.link.wired) Color(0xFF30D158).copy(alpha = 0.35f) else Color(0x33FFFFFF)).padding(horizontal = 6.dp, vertical = 2.dp),
+                        .background(if (core.link.wired) Color(0xFF3DFFA8).copy(alpha = 0.25f) else Color(0x33FFFFFF)).padding(horizontal = 6.dp, vertical = 2.dp),
                 )
                 if (s.remote) {
                     for (mode in listOf("mirror", "extend")) {
                         val on = s.sharing && s.mode == mode
                         val label = if (mode == "mirror") "Mirror" else "Extend"
                         if (on) FilledTonalButton(onClick = { bar = true }) { Text(label) }
-                        else TextButton(onClick = { s.pick(mode); bar = true }) { Text(label, color = Color.White) }
+                        else TextButton(onClick = { s.pick(mode); bar = true }) { Text(label, color = ink) }
                     }
-                    if (s.sharing) TextButton(onClick = { s.control(share = false) }) { Text("Stop", color = Color.White) }
+                    if (s.sharing) TextButton(onClick = { s.control(share = false) }) { Text("Stop", color = ink) }
                 }
-                TextButton(onClick = { keyboard = !keyboard; s.keyboard(keyboard); bar = true }) { Text(if (keyboard) "Hide keyboard" else "Keyboard", color = Color.White) }
-                TextButton(onClick = { s.end(); close() }) { Text("Close", color = Color.White) }
+                TextButton(onClick = { keyboard = !keyboard; s.keyboard(keyboard); bar = true }) { Text(if (keyboard) "Hide keyboard" else "Keyboard", color = ink) }
+                TextButton(onClick = { s.end(); close() }) { Text("Close", color = ink) }
             }
         }
     }

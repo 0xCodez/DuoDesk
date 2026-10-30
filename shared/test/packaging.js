@@ -32,5 +32,33 @@ for (const f of ['windows/installer/build.js', 'linux/installer/build.js']) {
   assert.ok(!/copy\(path\.join\(ROOT, 'shared', '(?!protocol)[a-z-]+\.js'\)/.test(s), `${f} has no hand-kept list of shared files`);
 }
 assert.ok(/cp "\$ROOT"\/shared\/\*\.js/.test(read('mac/build-app.sh')), 'mac/build-app.sh copies every shared/*.js');
+assert.ok(/cp -r shared\/\*\.js shared\/\*\.css shared\/\*\.html/.test(read('flake.nix')), 'flake.nix copies every shared/*.js, *.css, *.html');
 
-console.log(`packaging: passed (${required.size} shared modules required, all staged)`);
+// 3. and every run-time subfolder of shared/ (the pages' fonts, the art kit and scenes, the per-page
+//    effects): the top-level filters skip folders, so each one is named. Only tests and the icon
+//    sources (the builds take the icons themselves) stay out.
+const NOT_SHIPPED = new Set(['test', 'icon']);
+const dirs = fs.readdirSync(path.join(ROOT, 'shared'), { withFileTypes: true })
+  .filter((d) => d.isDirectory() && !d.name.startsWith('.') && !NOT_SHIPPED.has(d.name)).map((d) => d.name);
+for (const d of ['fonts', 'art', 'pagefx']) assert.ok(dirs.includes(d), `shared/${d}/ exists`);
+for (const f of ['windows/installer/build.js', 'linux/installer/build.js']) {
+  const s = read(f);
+  const m = s.match(/const SHARED_DIRS = \[([^\]]*)\]/);
+  assert.ok(m, `${f} has SHARED_DIRS`);
+  const listed = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  for (const d of dirs) assert.ok(listed.includes(d), `${f} stages shared/${d}/`);
+  assert.ok(/for \(const dir of SHARED_DIRS\) copy\(path\.join\(ROOT, 'shared', dir\), path\.join\(STAGE, 'shared', dir\)/.test(s), `${f} copies SHARED_DIRS`);
+}
+{
+  const m = read('mac/build-app.sh').match(/for d in ([a-z0-9 -]+); do rsync -a [^\n]*"\$ROOT\/shared\/\$d" "\$STAGE\/shared\/"/);
+  assert.ok(m, 'mac/build-app.sh copies the shared/ subfolders');
+  for (const d of dirs) assert.ok(m[1].split(' ').includes(d), `mac/build-app.sh stages shared/${d}/`);
+}
+{
+  const m = read('flake.nix').match(/cp -r ((?:shared\/[a-z0-9-]+ ?)+) "\$share\/shared\/"/);
+  assert.ok(m, 'flake.nix copies the shared/ subfolders');
+  const listed = m[1].trim().split(/\s+/).map((x) => x.replace('shared/', ''));
+  for (const d of dirs) assert.ok(listed.includes(d), `flake.nix stages shared/${d}/`);
+}
+
+console.log(`packaging: passed (${required.size} shared modules required, all staged; shared/ folders staged: ${dirs.join(', ')})`);

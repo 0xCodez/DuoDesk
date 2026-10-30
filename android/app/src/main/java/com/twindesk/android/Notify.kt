@@ -43,10 +43,13 @@ object Notify {
 
     private fun nm(ctx: Context) = ctx.getSystemService(NotificationManager::class.java)
 
+    // Every notification in DuoDesk's violet (the small icon's tint and the action buttons).
+    private fun nb(ctx: Context, ch: String) = Notification.Builder(ctx, ch).setColor(0xFF8A5CFF.toInt())
+
     fun channels(ctx: Context) {
         val n = nm(ctx)
         n.createNotificationChannel(NotificationChannel(CH_LINK, "Connection", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Shown while TwinDesk is ready for your computer"
+            description = "Shown while DuoDesk is ready for your computer"
             setShowBadge(false)
         })
         n.createNotificationChannel(NotificationChannel(CH_INVITE, "Pairing requests", NotificationManager.IMPORTANCE_HIGH))
@@ -61,7 +64,7 @@ object Notify {
             description = "Your computer started sharing its screen with this phone"
         })
         n.createNotificationChannel(NotificationChannel(CH_UPDATES, "Updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "A new version of TwinDesk on GitHub"
+            description = "A new version of DuoDesk on GitHub"
         })
     }
 
@@ -83,7 +86,7 @@ object Notify {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         runCatching {
-            nm(ctx).notify(ID_SCREEN, Notification.Builder(ctx, CH_SCREEN)
+            nm(ctx).notify(ID_SCREEN, nb(ctx, CH_SCREEN)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("$name is sharing its screen")
                 .setContentText("Tap to see it here")
@@ -97,7 +100,7 @@ object Notify {
 
     fun link(ctx: Context, core: Core): Notification {
         val h = core.host
-        val b = Notification.Builder(ctx, CH_LINK)
+        val b = nb(ctx, CH_LINK)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentIntent(openApp(ctx))
             .setOngoing(true)
@@ -114,7 +117,7 @@ object Notify {
             else -> {
                 b.setContentTitle("Ready for your computer")
                 val near = core.hosts().firstOrNull { core.isNear(it.id) }
-                b.setContentText(if (near != null) "${near.name} is nearby" else "Open TwinDesk on your computer to connect")
+                b.setContentText(if (near != null) "${near.name} is nearby" else "Open DuoDesk on your computer to connect")
                 if (near != null) b.addAction(Notification.Action.Builder(null, "Connect to ${near.name}", action(ctx, ActionReceiver.CONNECT, 13, near.id)).build())
             }
         }
@@ -125,10 +128,10 @@ object Notify {
     fun invite(ctx: Context, name: String) {
         nm(ctx).notify(
             ID_INVITE,
-            Notification.Builder(ctx, CH_INVITE)
+            nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("$name wants to pair")
-                .setContentText("Open TwinDesk to compare the code")
+                .setContentText("Open DuoDesk to compare the code")
                 .setContentIntent(openApp(ctx))
                 .setAutoCancel(true)
                 .build(),
@@ -145,7 +148,7 @@ object Notify {
             else Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val open = PendingIntent.getActivity(ctx, 8, target, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         runCatching {
-            nm(ctx).notify(ID_HOTSPOT, Notification.Builder(ctx, CH_INVITE)
+            nm(ctx).notify(ID_HOTSPOT, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Switch on the hotspot for $name")
                 .setContentText("$name isn’t on this phone’s network. Tap to open the hotspot, then type its name and password on $name.")
@@ -165,7 +168,7 @@ object Notify {
         val open = PendingIntent.getActivity(ctx, 9, panel, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val text = "Files and screens with $name go over a direct Wi-Fi link. Tap to switch Wi-Fi on; it doesn’t need to join a network."
         runCatching {
-            nm(ctx).notify(ID_WIFI, Notification.Builder(ctx, CH_INVITE)
+            nm(ctx).notify(ID_WIFI, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Switch on Wi-Fi for $name")
                 .setContentText(text)
@@ -186,10 +189,10 @@ object Notify {
         val to = if (supported) Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS) else Intent(ctx, MainActivity::class.java)
         val open = PendingIntent.getActivity(ctx, 10, to.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val text = if (supported) "To use $name’s mouse and keyboard here without wireless debugging, switch on TwinDesk in Accessibility (Installed apps). Tap to open it."
-            else "This build of TwinDesk can’t take $name’s mouse and keyboard without wireless debugging. Set up wireless debugging, then $name installs TwinDesk with notifications, which can (its Phone page › Install)."
+        val text = if (supported) "To use $name’s mouse and keyboard here without wireless debugging, switch on DuoDesk in Accessibility (Installed apps). Tap to open it."
+            else "This build of DuoDesk can’t take $name’s mouse and keyboard without wireless debugging. Set up wireless debugging, then $name installs DuoDesk with notifications, which can (its Phone page › Install)."
         runCatching {
-            nm(ctx).notify(ID_INPUT, Notification.Builder(ctx, CH_INVITE)
+            nm(ctx).notify(ID_INPUT, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Let $name control this phone")
                 .setContentText(text)
@@ -206,9 +209,9 @@ object Notify {
     fun sound(ctx: Context, name: String) {
         val start = PendingIntent.getActivity(ctx, 12, Intent(ctx, SoundActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val text = "Without wireless debugging, TwinDesk captures it: Start, then Android asks once more. Apps that don’t allow it stay silent."
+        val text = "Without wireless debugging, DuoDesk captures it: Start, then Android asks once more. Apps that don’t allow it stay silent."
         runCatching {
-            nm(ctx).notify(ID_SOUND, Notification.Builder(ctx, CH_INVITE)
+            nm(ctx).notify(ID_SOUND, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Play this phone’s sound on $name")
                 .setContentText(text)
@@ -223,7 +226,7 @@ object Notify {
     fun cancelSound(ctx: Context) = runCatching { nm(ctx).cancel(ID_SOUND) }.let { }
 
     // While it plays there (SoundService's own notification): Stop ends it.
-    fun soundOn(ctx: Context, name: String): Notification = Notification.Builder(ctx, CH_LINK)
+    fun soundOn(ctx: Context, name: String): Notification = nb(ctx, CH_LINK)
         .setSmallIcon(R.drawable.ic_stat)
         .setContentTitle("This phone’s sound plays on $name")
         .setContentIntent(openApp(ctx))
@@ -241,7 +244,7 @@ object Notify {
             nm(ctx).createNotificationChannel(NotificationChannel(CH_ASK, "Requests from your computer", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Your computer asks for access it needs (Calls, Messages, Photos)"
             })
-            nm(ctx).notify(ID_HUB_ASK, Notification.Builder(ctx, CH_ASK)
+            nm(ctx).notify(ID_HUB_ASK, nb(ctx, CH_ASK)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Allow ${Hub.label(what)} for $name")
                 .setContentText(text)
@@ -262,9 +265,9 @@ object Notify {
         )
         nm(ctx).notify(
             ID_UPDATE,
-            Notification.Builder(ctx, CH_UPDATES)
+            nb(ctx, CH_UPDATES)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("TwinDesk $latest is available")
+                .setContentTitle("DuoDesk $latest is available")
                 .setContentText("You have $current. Tap to download the new version.")
                 .setContentIntent(open)
                 .setAutoCancel(true)
@@ -280,7 +283,7 @@ object Notify {
         )
         nm(ctx).notify(
             ID_ADB,
-            Notification.Builder(ctx, CH_INVITE)
+            nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Wireless debugging is off")
                 .setContentText("$computer needs it for this screen, its mouse and keyboard here, and sound. Tap, then turn on USB debugging and Wireless debugging (both).")
@@ -304,7 +307,7 @@ object Notify {
         )
         nm(ctx).notify(
             ID_PAIR,
-            Notification.Builder(ctx, CH_INVITE)
+            nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Type the pairing code here")
                 .setContentText("Settings shows a 6-digit code. Type it here to pair with $computer.")
@@ -316,7 +319,7 @@ object Notify {
     }
 
     fun pairResult(ctx: Context, title: String, text: String, again: Boolean, progress: Boolean = false) {
-        val b = Notification.Builder(ctx, CH_INVITE)
+        val b = nb(ctx, CH_INVITE)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle(title)
             .setContentText(text)
@@ -337,7 +340,7 @@ object Notify {
     // Files on their way (progress) and when they are here (open / show).
     // up: going to the computer (the upload arrow).
     fun files(ctx: Context, key: Int, title: String, text: String, progress: Int?, open: Intent?, up: Boolean = false) {
-        val b = Notification.Builder(ctx, CH_FILES)
+        val b = nb(ctx, CH_FILES)
             .setSmallIcon(if (up) (if (progress != null) android.R.drawable.stat_sys_upload else android.R.drawable.stat_sys_upload_done)
                 else if (progress != null) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_download_done)
             .setContentTitle(title)
@@ -356,7 +359,7 @@ object Notify {
     fun fclipOffer(ctx: Context, from: String, what: String, id: String) {
         nm(ctx).notify(
             ID_FCLIP,
-            Notification.Builder(ctx, CH_CLIP)
+            nb(ctx, CH_CLIP)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setContentTitle("Copied on $from")
                 .setContentText(what)
@@ -370,7 +373,7 @@ object Notify {
 
     // Files are on the clipboard: paste them anywhere, or share them.
     fun fclipReady(ctx: Context, title: String, text: String, share: Intent?) {
-        val b = Notification.Builder(ctx, CH_CLIP)
+        val b = nb(ctx, CH_CLIP)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle(title)
             .setContentText(text)
@@ -388,7 +391,7 @@ object Notify {
     fun fclipProgress(ctx: Context, title: String, progress: Int) {
         nm(ctx).notify(
             ID_FCLIP,
-            Notification.Builder(ctx, CH_CLIP)
+            nb(ctx, CH_CLIP)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
                 .setContentTitle(title)
                 .setOnlyAlertOnce(true)
@@ -404,7 +407,7 @@ object Notify {
     fun fromComputer(ctx: Context, key: String, app: String, title: String, body: String, computer: String, icon: android.graphics.Bitmap? = null) {
         nm(ctx).notify(
             ID_COMPUTER_BASE + (key.hashCode() and 0xffff),
-            Notification.Builder(ctx, CH_COMPUTER)
+            nb(ctx, CH_COMPUTER)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setLargeIcon(icon)
                 .setSubText("$app · $computer")
@@ -436,7 +439,7 @@ object Notify {
         val tap = PendingIntent.getActivity(ctx, ID_REZUME, Intent(ctx, RezumeActivity::class.java).putExtra("id", o.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val what = if (o.kind == "web") (Uri.parse(o.url).host ?: o.url) else o.name
-        n.notify(ID_REZUME, Notification.Builder(ctx, if (loud) CH_REZUME_SENT else CH_REZUME)
+        n.notify(ID_REZUME, nb(ctx, if (loud) CH_REZUME_SENT else CH_REZUME)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle("Continue from $computer")
             .setContentText(o.title + if (what != o.title) " · $what" else "")
@@ -454,7 +457,7 @@ object Notify {
     fun cancelRezume(ctx: Context) = runCatching { nm(ctx).cancel(ID_REZUME) }.let { }
 
     fun rezumeReady(ctx: Context, name: String, view: Intent) {
-        nm(ctx).notify(ID_REZUME_READY, Notification.Builder(ctx, CH_FILES)
+        nm(ctx).notify(ID_REZUME_READY, nb(ctx, CH_FILES)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(name)
             .setContentText("From your computer. Tap to open.")

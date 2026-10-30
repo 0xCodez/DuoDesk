@@ -30,3 +30,6 @@ mac/vendor/twindesk-android-full.apk
 .env
 result
 result-*
+# Vercel project link (website/)
+.vercel/
+.env*

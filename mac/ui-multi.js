@@ -26,7 +26,7 @@ UI.tab({
           'Computers and phones connected at the same time: one clipboard and one set of notifications for all, each screen edge leading to another device, a phone and a computer together',
           [turnOn]),
       ]),
-      UI.note('info', 'TwinDesk restarts when you turn it on or off.'),
+      UI.note('info', 'DuoDesk restarts when you turn it on or off.'),
       MeshIntro.art(),
     );
 

@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// twindesk-vcam.exe: the virtual camera's side in TwinDesk (windows/vcam.js).
+// twindesk-vcam.exe: the virtual camera's side in DuoDesk (windows/vcam.js).
 //   status          {"camera":true|false}: is "TwinDesk Camera" among this PC's cameras
 //   add             makes it (MFCreateVirtualCamera, for this user, kept until removed); needs
 //                   twindesk-vcam.dll registered first (elevated, scripts/vcam-install.ps1)

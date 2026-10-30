@@ -12,5 +12,5 @@ assert.strictEqual(g.repeat('out', 'app', 'TwinDesk', 'x'), false, 'incoming and
 assert.strictEqual(g.repeat('in', 'app', 'TwinDesk', 'other'), false, 'other text goes');
 t += 16000;
 assert.strictEqual(g.repeat('in', 'app', 'TwinDesk', 'x'), false, 'after the window it goes again');
-assert.ok(isOwn('org.macshare.windows') && isOwn('', 'TwinDesk') && !isOwn('com.whatsapp', 'WhatsApp'));
+assert.ok(isOwn('org.macshare.windows') && isOwn('', 'TwinDesk') && isOwn('', 'DuoDesk') && !isOwn('com.whatsapp', 'WhatsApp'));
 console.log('notif-guard: passed');

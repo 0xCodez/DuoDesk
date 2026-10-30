@@ -67,7 +67,7 @@ const driver = {
   always: true,
 
   async check() {
-    if (!fs.existsSync(WRITER)) return { supported: false, message: 'Not in this build of TwinDesk' };
+    if (!fs.existsSync(WRITER)) return { supported: false, message: 'Not in this build of DuoDesk' };
     return { supported: true, installed: !!device() };
   },
 

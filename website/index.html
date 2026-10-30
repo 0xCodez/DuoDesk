@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  DuoDesk website. Static: no build step, no external requests (fonts are self-hosted in fonts/).
+  Site URL: https://duodesk-green.vercel.app is used only by the canonical, og:url and og:image tags below;
+  change it in those three places when the site moves. Every download points at the latest GitHub release.
+-->
+<title>DuoDesk: one desk for all your devices</title>
+<meta name="description" content="All your computers and your phone, working as one desk. One mouse and keyboard, second screens, apps in windows, clipboard, files, calls, texts and cameras across Mac, Windows, Linux and Android. Free, open source, no account, no cloud.">
+<meta name="theme-color" content="#040405">
+<meta name="color-scheme" content="dark">
+<link rel="canonical" href="https://duodesk-green.vercel.app/">
+<link rel="icon" type="image/png" sizes="64x64" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="DuoDesk">
+<meta property="og:title" content="DuoDesk: all your computers and your phone, working as one desk">
+<meta property="og:description" content="One mouse and keyboard, second screens, apps, files, clipboard, calls and cameras across Mac, Windows, Linux and Android. Free and open source.">
+<meta property="og:url" content="https://duodesk-green.vercel.app/">
+<meta property="og:image" content="https://duodesk-green.vercel.app/img/icon.png">
+<meta name="twitter:card" content="summary">
+<link rel="preload" href="fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+<script src="app.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- the living sky: a low-resolution canvas scaled up, with a static gradient under it for no-JS / reduced motion -->
+<div class="sky" aria-hidden="true">
+  <div class="sky-base"></div>
+  <canvas id="sky"></canvas>
+  <div class="sky-vignette"></div>
+  <div class="sky-grain"></div>
+</div>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-scr" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+  <symbol id="i-cur" viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h4"/></symbol>
+  <symbol id="i-fold" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3z"/></symbol>
+  <symbol id="i-ph" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="3"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-lap" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v13M6 12l6 6 6-6M5 21h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-term" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></symbol>
+  <symbol id="i-win-app" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></symbol>
+  <symbol id="i-call" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/></symbol>
+  <symbol id="i-usb" viewBox="0 0 24 24"><path d="M12 3v15M12 3l-2 3h4zM12 13l-4-2V8M12 15l4-2v-2"/><circle cx="12" cy="19.5" r="1.8"/><rect x="7" y="6.5" width="2" height="2"/><circle cx="16" cy="10" r="1"/></symbol>
+  <symbol id="i-bt" viewBox="0 0 24 24"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></symbol>
+  <symbol id="i-direct" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M8.5 9a5 5 0 0 1 0 6M15.5 9a5 5 0 0 0 0 6M11 12h2"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5M12 14.5v2"/></symbol>
+  <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M3 3l18 18M8 7.6A6 6 0 0 1 17.7 11 4 4 0 0 1 20 18M16 19H7a4.5 4.5 0 0 1-1.6-8.7"/></symbol>
+  <symbol id="i-user-off" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 12.5-6.6M3 3l18 18"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8M6.4 6.6a8 8 0 1 0 11.2 0"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+  <symbol id="i-resume" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.3 5.7M4 18v-6h6"/><path d="M11 9l4 3-4 3z"/></symbol>
+  <symbol id="i-mesh" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M11 6.8L6 16.2M13 6.8l5 9.4M7 18h10"/></symbol>
+  <symbol id="i-gh" viewBox="0 0 24 24"><path class="fill" d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></symbol>
+  <symbol id="os-win" viewBox="0 0 24 24"><path class="fill" d="M3 5.3l7.4-1v7.2H3zM11.4 4.1L21 2.8v8.7h-9.6zM3 12.5h7.4v7.2L3 18.7zM11.4 12.5H21v8.7l-9.6-1.3z"/></symbol>
+  <symbol id="os-mac" viewBox="0 0 24 24"><path class="fill" d="M16.5 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.9-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.8zM14.2 5.8c.6-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.1 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></symbol>
+  <symbol id="os-linux" viewBox="0 0 24 24"><path d="M12 2.8c-2.2 0-3.4 1.8-3.4 4.2 0 1.4-.7 2.4-1.6 3.7C5.8 12.4 5 14.4 5 16.3c0 3 3 4.9 7 4.9s7-1.9 7-4.9c0-1.9-.8-3.9-2-5.6-.9-1.3-1.6-2.3-1.6-3.7 0-2.4-1.2-4.2-3.4-4.2z"/><path d="M9.3 14.5c0-2 1.2-3.6 2.7-3.6s2.7 1.6 2.7 3.6-1.2 4-2.7 4-2.7-2-2.7-4z"/><path class="fill" d="M10.6 7.2a.7.7 0 1 0 0 .1zM13.4 7.2a.7.7 0 1 0 0 .1zM10.8 8.9h2.4L12 10z"/></symbol>
+  <symbol id="os-android" viewBox="0 0 24 24"><path class="fill" d="M3.5 17.5a8.5 8.5 0 0 1 17 0z"/><path d="M7.4 11.3L5.6 8.2M16.6 11.3l1.8-3.1"/><circle class="hole" cx="8.6" cy="14.6" r="1"/><circle class="hole" cx="15.4" cy="14.6" r="1"/></symbol>
+</svg>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="DuoDesk, back to top">
+    <img src="img/icon.png" alt="" width="28" height="28">
+    <span>DuoDesk</span>
+  </a>
+  <nav class="nav-links" aria-label="Sections">
+    <a href="#features">Features</a>
+    <a href="#connections">Connections</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="nav-end">
+    <a class="nav-gh" href="https://github.com/0xCodez/DuoDesk" aria-label="DuoDesk source code on GitHub"><svg class="i"><use href="#i-gh"/></svg><span>Source</span></a>
+    <a class="btn btn-sm btn-light" href="#download">Download</a>
+  </div>
+</header>
+
+<main id="main">
+  <!-- ============ hero ============ -->
+  <section class="hero" id="top">
+    <a class="badge reveal" href="#rezume"><span class="badge-dot" aria-hidden="true"></span><span>New in 2.5: <b>ReZume</b><span class="badge-more">, pick up where you left off</span></span><svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    <h1 class="wordmark reveal">DuoDesk</h1>
+    <p class="tagline reveal">All your computers and your phone, working as <span class="spec">one&nbsp;desk</span>.</p>
+    <p class="lede reveal">Screens, apps, files, clipboard, cameras, calls, texts, notifications, mouse and keyboard, shared between Mac, Windows, Linux and Android. Free and open source. No account, no cloud.</p>
+    <div class="cta reveal">
+      <a class="btn btn-light btn-lg" id="dl-main" href="https://github.com/0xCodez/DuoDesk/releases/latest">
+        <svg class="i" id="dl-main-icon" aria-hidden="true"><use href="#i-down"/></svg>
+        <span id="dl-main-label">Download DuoDesk</span>
+      </a>
+      <a class="btn btn-glass btn-lg" href="#demo">Try it live<svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    </div>
+    <ul class="os-row reveal" aria-label="Downloads for every system">
+      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="win"><svg class="i" aria-hidden="true"><use href="#os-win"/></svg>Windows <small>.exe</small></a></li>
+      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="mac"><svg class="i" aria-hidden="true"><use href="#os-mac"/></svg>macOS <small>.dmg</small></a></li>
+      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="linux"><svg class="i" aria-hidden="true"><use href="#os-linux"/></svg>Linux <small>.AppImage · .deb</small></a></li>
+      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="android"><svg class="i" aria-hidden="true"><use href="#os-android"/></svg>Android <small>.apk</small></a></li>
+    </ul>
+  </section>
+
+  <!-- ============ live app preview ============ -->
+  <section class="demo" id="demo" aria-labelledby="demo-title">
+    <h2 class="sr-only" id="demo-title">Live preview of the app</h2>
+    <div class="stage reveal">
+      <div class="stage-glow" aria-hidden="true"></div>
+      <div class="win" id="win">
+        <div class="win-bar" aria-hidden="true"><i></i><i></i><i></i><span>DuoDesk</span></div>
+        <div class="win-body">
+          <aside class="side" aria-label="App sections (preview)">
+            <div class="side-brand"><span class="lg" aria-hidden="true"></span>DuoDesk</div>
+            <span class="nv on"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg>Home</span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-scr"/></svg>Screens<span class="b">2</span></span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-cur"/></svg>Mouse &amp; keyboard</span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-clip"/></svg>Clipboard<span class="b">14</span></span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-fold"/></svg>Files</span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-resume"/></svg>ReZume</span>
+            <span class="grp">PHONE</span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-ph"/></svg>Pixel 8</span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Notifications<span class="b">5</span></span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-cam"/></svg>Camera</span>
+            <span class="grp">MORE</span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-term"/></svg>Terminal</span>
+            <span class="nv"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>Settings</span>
+            <div class="me"><span class="av" aria-hidden="true"><span></span></span><div>Studio-Mac<small>this desk</small></div></div>
+          </aside>
+
+          <div class="app">
+            <div class="topbar">
+              <span class="t">Home</span><span class="sp"></span>
+              <span class="pill"><i aria-hidden="true"></i>Workstation · <b id="ms">12 ms</b></span>
+              <span class="pill pill-wide">Wi-Fi 5 GHz · encrypted</span>
+            </div>
+
+            <div class="hello">
+              <small id="greet">Good evening</small>
+              <p class="hello-h">What should your <span class="spec">desks</span> do?</p>
+            </div>
+
+            <div class="devs" id="devs">
+              <div class="dev live" data-dev="mac">
+                <div class="glow" aria-hidden="true"></div>
+                <div class="h"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-lap"/></svg></span><div><b>Studio-Mac</b><small>this desk · macOS</small></div><span class="st" aria-hidden="true"></span></div>
+                <div class="ms">2<small>screens</small></div>
+                <div class="feats">
+                  <button class="ft c1 on" data-f="screen" aria-pressed="true" aria-label="Screen"><svg class="i" aria-hidden="true"><use href="#i-scr"/></svg></button>
+                  <button class="ft c2 on" data-f="input" aria-pressed="true" aria-label="Mouse and keyboard"><svg class="i" aria-hidden="true"><use href="#i-cur"/></svg></button>
+                  <button class="ft c3 on" data-f="clip" aria-pressed="true" aria-label="Clipboard"><svg class="i" aria-hidden="true"><use href="#i-clip"/></svg></button>
+                  <button class="ft c4" data-f="files" aria-pressed="false" aria-label="Files"><svg class="i" aria-hidden="true"><use href="#i-fold"/></svg></button>
+                  <button class="ft c5" data-f="cam" aria-pressed="false" aria-label="Camera"><svg class="i" aria-hidden="true"><use href="#i-cam"/></svg></button>
+                </div>
+              </div>
+              <div class="dev live" data-dev="pc">
+                <div class="glow" aria-hidden="true"></div>
+                <div class="h"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-scr"/></svg></span><div><b>Workstation</b><small>Windows 11 · 192.168.1.24</small></div><span class="st" aria-hidden="true"></span></div>
+                <div class="ms"><span id="ms2">12</span><small>ms</small></div>
+                <div class="feats">
+                  <button class="ft c1" data-f="screen" aria-pressed="false" aria-label="Screen"><svg class="i" aria-hidden="true"><use href="#i-scr"/></svg></button>
+                  <button class="ft c2 on" data-f="input" aria-pressed="true" aria-label="Mouse and keyboard"><svg class="i" aria-hidden="true"><use href="#i-cur"/></svg></button>
+                  <button class="ft c3 on" data-f="clip" aria-pressed="true" aria-label="Clipboard"><svg class="i" aria-hidden="true"><use href="#i-clip"/></svg></button>
+                  <button class="ft c4" data-f="files" aria-pressed="false" aria-label="Files"><svg class="i" aria-hidden="true"><use href="#i-fold"/></svg></button>
+                  <button class="ft c5" data-f="cam" aria-pressed="false" aria-label="Camera"><svg class="i" aria-hidden="true"><use href="#i-cam"/></svg></button>
+                </div>
+              </div>
+              <div class="dev" data-dev="phone">
+                <div class="glow" aria-hidden="true"></div>
+                <div class="h"><span class="ic"><svg class="i" aria-hidden="true"><use href="#i-ph"/></svg></span><div><b>Pixel 8</b><small>Bluetooth · 4 m away</small></div><span class="st off" aria-hidden="true"></span></div>
+                <div class="ms">82<small>% battery</small></div>
+                <div class="feats">
+                  <button class="ft c1" data-f="screen" aria-pressed="false" aria-label="Mirror screen"><svg class="i" aria-hidden="true"><use href="#i-scr"/></svg></button>
+                  <button class="ft c2" data-f="bell" aria-pressed="false" aria-label="Notifications"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></button>
+                  <button class="ft c3" data-f="clip" aria-pressed="false" aria-label="Clipboard"><svg class="i" aria-hidden="true"><use href="#i-clip"/></svg></button>
+                  <button class="ft c4" data-f="files" aria-pressed="false" aria-label="Photos and files"><svg class="i" aria-hidden="true"><use href="#i-fold"/></svg></button>
+                  <button class="ft c5" data-f="cam" aria-pressed="false" aria-label="Use as webcam"><svg class="i" aria-hidden="true"><use href="#i-cam"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="sugs" id="sugs">
+              <button class="sug" type="button">Extend my screen to Workstation</button>
+              <button class="sug" type="button">Use Pixel 8 as a webcam</button>
+              <button class="sug" type="button">Send Keynote.pdf to Workstation</button>
+              <button class="sug" type="button">Mirror my phone</button>
+            </div>
+
+            <div class="dock">
+              <div class="halo" aria-hidden="true"></div>
+              <div class="cmd" id="cmd">
+                <div class="aur" aria-hidden="true"><i></i><i></i></div>
+                <div class="layer l-idle" id="l-idle">
+                  <label class="sr-only" for="inp">Ask DuoDesk to do something</label>
+                  <textarea id="inp" rows="1" placeholder="Ask DuoDesk anything…" maxlength="120"></textarea>
+                  <div class="row">
+                    <button class="cb" type="button" aria-label="Attach a file" tabindex="-1"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
+                    <span class="sp"></span>
+                    <span class="agent"><span>Agent (auto)</span><svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></span>
+                    <button class="cb" id="mic" type="button" aria-label="Speak a request"><svg class="i" aria-hidden="true"><use href="#i-mic"/></svg></button>
+                    <button class="cb send" id="send" type="button" aria-label="Send"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg></button>
+                  </div>
+                </div>
+                <div class="layer l-rec off" id="l-rec">
+                  <svg class="i rec-ic" aria-hidden="true"><use href="#i-mic"/></svg>
+                  <div class="bars" id="bars" aria-hidden="true"></div>
+                  <span class="tm" id="tm">00:00</span>
+                  <button class="stop" id="stop" type="button" aria-label="Stop listening"><span></span></button>
+                </div>
+                <div class="layer l-exp off" id="l-exp">
+                  <p class="tx" id="tx"></p>
+                  <div class="res" id="res" aria-live="polite"></div>
+                  <div class="row">
+                    <span class="agent"><span>Agent (auto)</span><svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></span>
+                    <span class="sp"></span>
+                    <button class="cb" id="mic2" type="button" aria-label="Speak again"><svg class="i" aria-hidden="true"><use href="#i-mic"/></svg></button>
+                    <button class="cb" id="close" type="button" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="demo-note reveal">This preview is live. Type a request, pick a suggestion or press the mic.</p>
+  </section>
+
+  <!-- ============ platforms ============ -->
+  <section class="platforms reveal" aria-label="Supported systems">
+    <div><svg class="i" aria-hidden="true"><use href="#os-mac"/></svg><b>macOS</b><small>13 Ventura+</small></div>
+    <div><svg class="i" aria-hidden="true"><use href="#os-win"/></svg><b>Windows</b><small>10 and 11</small></div>
+    <div><svg class="i" aria-hidden="true"><use href="#os-linux"/></svg><b>Linux</b><small>X11 · Wayland</small></div>
+    <div><svg class="i" aria-hidden="true"><use href="#os-android"/></svg><b>Android</b><small>10+, phones &amp; tablets</small></div>
+  </section>
+
+  <!-- ============ features ============ -->
+  <section class="section" id="features" aria-labelledby="features-title">
+    <header class="sec-head reveal">
+      <p class="eyebrow"><i aria-hidden="true"></i>Features</p>
+      <h2 id="features-title">Every device does its job.<br><span class="muted">Now they do it together.</span></h2>
+      <p class="sec-lede">Put a Mac and a Windows PC side by side and use them as one. Every feature starts off and isn't even loaded until you turn it on.</p>
+    </header>
+
+    <div class="bento">
+      <article class="card c-kvm span-4 reveal">
+        <div class="vis v-kvm" aria-hidden="true">
+          <div class="mon"><span class="mon-n">Studio-Mac</span><div class="mon-s"><i></i><i></i><i></i></div></div>
+          <div class="mon"><span class="mon-n">Workstation</span><div class="mon-s"><span class="typed">quarterly-report<b></b></span></div></div>
+          <svg class="cursor" viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></svg>
+        </div>
+        <div class="card-txt">
+          <h3><svg class="i" aria-hidden="true"><use href="#i-cur"/></svg>One mouse and keyboard</h3>
+          <p>Slide the cursor off the edge of one screen and onto the next computer. Keyboard, scrolling and shortcuts follow it, Mac to PC and back.</p>
+        </div>
+      </article>
+
+      <article class="card c-screen span-2 reveal">
+        <div class="vis v-screen" aria-hidden="true">
+          <div class="lap"><div class="wall"></div></div>
+          <div class="tab"><div class="wall"></div></div>
+        </div>
+        <div class="card-txt">
+          <h3><svg class="i" aria-hidden="true"><use href="#i-scr"/></svg>A second screen</h3>
+          <p>Turn an old laptop or an Android tablet into an extra display, or see another computer's screen in a window.</p>
+        </div>
+      </article>
+
+      <article class="card c-apps span-2 reveal">
+        <div class="vis v-apps" aria-hidden="true">
+          <div class="aw aw1"><span><i></i><i></i><i></i></span>Excel · Workstation</div>
+          <div class="aw aw2"><span><i></i><i></i><i></i></span>Photos · Pixel 8</div>
+          <div class="aw aw3"><span><i></i><i></i><i></i></span>Terminal · Studio-Mac</div>
+        </div>
+        <div class="card-txt">
+          <h3><svg class="i" aria-hidden="true"><use href="#i-win-app"/></svg>Apps in windows</h3>
+          <p>Open the other computer's apps, or your phone's, as ordinary windows on the desk you are sitting at.</p>
+        </div>
+      </article>
+
+      <article class="card c-clip span-4 reveal">
+        <div class="vis v-clip" aria-hidden="true">
+          <div class="node"><svg class="i"><use href="#i-scr"/></svg>Workstation</div>
+          <div class="track"><span class="chip"><svg class="i"><use href="#i-fold"/></svg>Keynote.pdf<span class="chip-size"> · 4.8 MB</span></span><span class="bar"></span></div>
+          <div class="node"><svg class="i"><use href="#i-lap"/></svg>Studio-Mac</div>
+          <p class="clip-line"><span>Copied on Workstation</span><svg class="i"><use href="#i-arrow"/></svg><span>Pasted on Studio-Mac</span><kbd>⌘V</kbd></p>
+        </div>
+        <div class="card-txt">
+          <h3><svg class="i" aria-hidden="true"><use href="#i-clip"/></svg>Clipboard and files</h3>
+          <p>Copy on one device, paste on another: text, images and files. Drop files across at full speed, or open a shared folder.</p>
+        </div>
+      </article>
+
+      <article class="card c-phone span-3 reveal">
+        <div class="vis v-phone" aria-hidden="true">
+          <div class="phone">
+            <div class="toast t1"><span class="ti c-pink"><svg class="i"><use href="#i-call"/></svg></span><div><b>Mom</b><small>Incoming call · answer on Mac</small></div></div>
+            <div class="toast t2"><span class="ti c-cyan"><svg class="i"><use href="#i-msg"/></svg></span><div><b>Alex</b><small>On my way, 5 min</small></div></div>
+            <div class="toast t3"><span class="ti c-amber"><svg class="i"><use href="#i-cam"/></svg></span><div><b>Camera</b><small>Pixel 8 is your webcam</small></div></div>
+          </div>
+        </div>
+        <div class="card-txt">
+          <h3><svg class="i" aria-hidden="true"><use href="#i-ph"/></svg>Your phone, on the computer</h3>
+          <p>Answer calls and texts, see notifications, browse photos, and use the phone's camera in any video call. Or use it as a remote and gamepad.</p>
+        </div>
+      </article>
+
+      <article class="card c-rezume span-3 reveal" id="rezume">
+        <div class="vis v-rezume" aria-hidden="true">
+          <div class="shelf">
+            <div class="rz rz1"><svg class="i"><use href="#i-fold"/></svg><div><b>Q3 plan.docx</b><small>Workstation · page 4</small></div></div>
+            <div class="rz rz2"><svg class="i"><use href="#i-win-app"/></svg><div><b>Flight check-in</b><small>Pixel 8 · Chrome tab</small></div></div>
+            <div class="rz rz3"><svg class="i"><use href="#i-resume"/></svg><div><b>Lo-fi beats</b><small>Studio-Mac · 1:42</small></div></div>
+          </div>
+          <span class="rz-btn">Continue here</span>
+        </div>
+        <div class="card-txt">
+          <h3><svg class="i" aria-hidden="true"><use href="#i-resume"/></svg>ReZume <span class="tag">New</span></h3>
+          <p>Hand off what you were doing between your computers and phone: the document, the tab, the song. Pick it up right where you left it.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ connections ============ -->
+  <section class="section" id="connections" aria-labelledby="conn-title">
+    <div class="conn">
+      <header class="sec-head left reveal">
+        <p class="eyebrow"><i aria-hidden="true"></i>Connections</p>
+        <h2 id="conn-title">Works anywhere.<br><span class="muted">Even with no network.</span></h2>
+        <p class="sec-lede">Same Wi-Fi, a USB cable, or no shared network at all: Bluetooth and a direct Wi-Fi link of their own. DuoDesk picks the best one, and moves you to a better one when it can.</p>
+        <p class="mesh-note"><svg class="i" aria-hidden="true"><use href="#i-mesh"/></svg><span><b>DuoDesk Mesh</b> connects every device at once, not just two.</span></p>
+      </header>
+
+      <div class="conn-panel reveal" id="conn">
+        <div class="link-vis" aria-hidden="true">
+          <div class="ln-node"><svg class="i"><use href="#i-lap"/></svg><span>Studio-Mac</span></div>
+          <svg class="ln-wire" viewBox="0 0 300 60" preserveAspectRatio="none">
+            <path class="ln-base" d="M0 30 C 80 -10, 220 70, 300 30"/>
+            <path class="ln-flow" d="M0 30 C 80 -10, 220 70, 300 30"/>
+          </svg>
+          <div class="ln-node"><svg class="i"><use href="#i-ph"/></svg><span>Pixel 8</span></div>
+          <p class="ln-stat"><span id="conn-name">Wi-Fi</span> · <b id="conn-ms">9 ms</b> · encrypted</p>
+        </div>
+        <div class="links" role="group" aria-label="Connection types">
+          <button type="button" class="lk on" data-k="wifi" data-ms="9 ms" aria-pressed="true"><span class="lk-ic"><svg class="i" aria-hidden="true"><use href="#i-wifi"/></svg></span><span class="lk-t"><b>Same Wi-Fi</b><small>Found on its own, nothing to set up</small></span><span class="lk-m">9 ms</span></button>
+          <button type="button" class="lk" data-k="usb" data-ms="3 ms" aria-pressed="false"><span class="lk-ic"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg></span><span class="lk-t"><b>USB cable</b><small>Lowest latency, charges as it goes</small></span><span class="lk-m">3 ms</span></button>
+          <button type="button" class="lk" data-k="bt" data-ms="38 ms" aria-pressed="false"><span class="lk-ic"><svg class="i" aria-hidden="true"><use href="#i-bt"/></svg></span><span class="lk-t"><b>Bluetooth</b><small>No network needed at all</small></span><span class="lk-m">38 ms</span></button>
+          <button type="button" class="lk" data-k="direct" data-ms="6 ms" aria-pressed="false"><span class="lk-ic"><svg class="i" aria-hidden="true"><use href="#i-direct"/></svg></span><span class="lk-t"><b>Wi-Fi Direct</b><small>A fast Wi-Fi link of their own, made on demand</small></span><span class="lk-m">6 ms</span></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ how ============ -->
+  <section class="section" id="how" aria-labelledby="how-title">
+    <header class="sec-head reveal">
+      <p class="eyebrow"><i aria-hidden="true"></i>Get started</p>
+      <h2 id="how-title">Two minutes to one desk.</h2>
+    </header>
+    <ol class="steps">
+      <li class="step reveal">
+        <span class="num">01</span>
+        <div class="step-vis sv-dl" aria-hidden="true"><span><svg class="i"><use href="#os-mac"/></svg></span><span><svg class="i"><use href="#os-win"/></svg></span><span><svg class="i"><use href="#os-linux"/></svg></span><span><svg class="i"><use href="#os-android"/></svg></span></div>
+        <h3>Install on both</h3>
+        <p>Download DuoDesk for each computer, and the app for your phone or tablet.</p>
+      </li>
+      <li class="step reveal">
+        <span class="num">02</span>
+        <div class="step-vis sv-code" aria-hidden="true"><b>482</b><b>913</b></div>
+        <h3>Pair once with a code</h3>
+        <p>The devices find each other. Confirm the same six digits on both, and you're paired for good.</p>
+      </li>
+      <li class="step reveal">
+        <span class="num">03</span>
+        <div class="step-vis sv-sw" aria-hidden="true"><span class="sw on"></span><span class="sw"></span><span class="sw on"></span></div>
+        <h3>Turn on what you want</h3>
+        <p>Flip on the features you need. Everything else stays off, and isn't even loaded.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ============ privacy ============ -->
+  <section class="section" id="privacy" aria-labelledby="privacy-title">
+    <div class="privacy reveal">
+      <div class="lock-orb" aria-hidden="true"><span class="ring"></span><span class="core"><svg class="i"><use href="#i-lock"/></svg></span></div>
+      <div class="privacy-txt">
+        <p class="eyebrow"><i aria-hidden="true"></i>Privacy</p>
+        <h2 id="privacy-title">Your desk stays yours.</h2>
+        <p class="sec-lede">Your devices talk only to each other. There is no server in the middle, nothing to sign up for and nothing that phones home.</p>
+        <ul class="pv-list">
+          <li><svg class="i" aria-hidden="true"><use href="#i-user-off"/></svg><div><b>No account</b><small>Pair with a code. That's it.</small></div></li>
+          <li><svg class="i" aria-hidden="true"><use href="#i-cloud-off"/></svg><div><b>No cloud</b><small>No relay, no telemetry.</small></div></li>
+          <li><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><div><b>Encrypted</b><small>Every link between devices.</small></div></li>
+          <li><svg class="i" aria-hidden="true"><use href="#i-code"/></svg><div><b>Open source</b><small>GPL-3.0, read every line.</small></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ download ============ -->
+  <section class="section" id="download" aria-labelledby="dl-title">
+    <header class="sec-head reveal">
+      <p class="eyebrow"><i aria-hidden="true"></i>Download</p>
+      <h2 id="dl-title">Free. For every desk you own.</h2>
+      <p class="sec-lede">Install it on every computer and phone you want on the desk. Updates arrive inside the app.</p>
+    </header>
+    <div class="dl-grid">
+      <article class="dl reveal" data-os="win">
+        <span class="you">Your system</span>
+        <svg class="i dl-os" aria-hidden="true"><use href="#os-win"/></svg>
+        <h3>Windows</h3>
+        <p>Windows 10 and 11 · x64 and ARM64</p>
+        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .exe</a>
+      </article>
+      <article class="dl reveal" data-os="mac">
+        <span class="you">Your system</span>
+        <svg class="i dl-os" aria-hidden="true"><use href="#os-mac"/></svg>
+        <h3>macOS</h3>
+        <p>macOS 13 Ventura or later · Apple silicon and Intel</p>
+        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .dmg</a>
+      </article>
+      <article class="dl reveal" data-os="linux">
+        <span class="you">Your system</span>
+        <svg class="i dl-os" aria-hidden="true"><use href="#os-linux"/></svg>
+        <h3>Linux</h3>
+        <p>X11 and Wayland · x86_64 · AppImage, .deb and Arch</p>
+        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .AppImage</a>
+      </article>
+      <article class="dl reveal" data-os="android">
+        <span class="you">Your system</span>
+        <svg class="i dl-os" aria-hidden="true"><use href="#os-android"/></svg>
+        <h3>Android</h3>
+        <p>Android 10 or later · phones and tablets</p>
+        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .apk</a>
+      </article>
+    </div>
+    <p class="dl-note reveal">The apps aren't code-signed yet, so macOS and Windows ask once before the first launch. <a href="#faq-signed">Here's how to allow them.</a> All files and checksums are on the <a href="https://github.com/0xCodez/DuoDesk/releases">releases page</a>.</p>
+  </section>
+
+  <!-- ============ faq ============ -->
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <header class="sec-head reveal">
+      <p class="eyebrow"><i aria-hidden="true"></i>FAQ</p>
+      <h2 id="faq-title">Questions, answered.</h2>
+    </header>
+    <div class="faq">
+      <details class="reveal">
+        <summary>Is DuoDesk really free?</summary>
+        <p>Yes. It's free and open source under the GPL-3.0 license, with no paid tier, no ads and no account. The full source is on <a href="https://github.com/0xCodez/DuoDesk">GitHub</a>.</p>
+      </details>
+      <details class="reveal">
+        <summary>Which devices can work together?</summary>
+        <p>Any combination: Mac with Windows, Mac with Mac, PC with PC, Linux with anything, and an Android phone or tablet with any computer. With DuoDesk Mesh, all of them at once.</p>
+      </details>
+      <details class="reveal">
+        <summary>Do my devices need to be on the same Wi-Fi?</summary>
+        <p>No. The same Wi-Fi is the easiest, but a USB cable works too, and with no shared network at all DuoDesk connects over Bluetooth or makes a direct Wi-Fi link between the devices.</p>
+      </details>
+      <details class="reveal">
+        <summary>Does anything go through the cloud?</summary>
+        <p>No. Devices talk only to each other over an encrypted link. There is no account, no relay server and no telemetry.</p>
+      </details>
+      <details class="reveal" id="faq-signed">
+        <summary>Why does my computer warn me before opening it?</summary>
+        <p>The apps aren't code-signed with a paid certificate yet, so the system asks once. On <b>macOS</b>, open it, click Done, then go to System Settings › Privacy &amp; Security and click Open Anyway. On <b>Windows</b>, click More info, then Run anyway. On <b>Android</b>, allow your browser or Files app to install unknown apps. Updates open normally afterwards.</p>
+      </details>
+      <details class="reveal">
+        <summary>How is DuoDesk related to TwinDesk?</summary>
+        <p>DuoDesk is a redesigned fork of <a href="https://github.com/InukaAsith/TwinDesk">TwinDesk</a> by Inuka Asith, released under the same GPL-3.0 license. It brings a new interface on top of the same open, local-only foundation.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ final call ============ -->
+  <section class="final reveal" aria-labelledby="final-title">
+    <img src="img/icon.png" alt="DuoDesk app icon" width="88" height="88">
+    <h2 id="final-title">Make every device <span class="spec">one&nbsp;desk</span>.</h2>
+    <div class="cta">
+      <a class="btn btn-light btn-lg" href="#download"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download DuoDesk</a>
+      <a class="btn btn-glass btn-lg" href="https://github.com/0xCodez/DuoDesk"><svg class="i" aria-hidden="true"><use href="#i-gh"/></svg>Star on GitHub</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-top">
+    <div class="foot-brand">
+      <a class="brand" href="#top"><img src="img/icon.png" alt="" width="28" height="28"><span>DuoDesk</span></a>
+      <p>All your computers and your phone, working as one desk.</p>
+    </div>
+    <nav class="foot-cols" aria-label="Footer">
+      <div>
+        <h3>Product</h3>
+        <a href="#features">Features</a>
+        <a href="#connections">Connections</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#download">Download</a>
+      </div>
+      <div>
+        <h3>Source</h3>
+        <a href="https://github.com/0xCodez/DuoDesk">GitHub repository</a>
+        <a href="https://github.com/0xCodez/DuoDesk/releases">Releases</a>
+        <a href="https://github.com/0xCodez/DuoDesk/issues">Report an issue</a>
+        <a href="https://github.com/0xCodez/DuoDesk/blob/main/LICENSE">License (GPL-3.0)</a>
+      </div>
+    </nav>
+  </div>
+  <div class="foot-bottom">
+    <p>Made by <a class="handle" href="https://github.com/0xCodez">0xCodez</a></p>
+    <p>Based on <a href="https://github.com/InukaAsith/TwinDesk">TwinDesk</a> by Inuka Asith — GPL-3.0</p>
+  </div>
+</footer>
+</body>
+</html>

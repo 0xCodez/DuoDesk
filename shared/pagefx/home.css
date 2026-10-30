@@ -1,0 +1,289 @@
+/* DuoDesk — PageFX, Home group styles (shared/pagefx/home.js). Based on TwinDesk — Copyright (C) 2026
+   inukaasith. GPL-3.0, see LICENSE.
+   Minimal: monochrome hairlines on the core glass strip, one light Geist figure per header, Geist Mono
+   captions at 40 % white, ONE accent (--pg-acc) per page on the one thing that moves or matters.
+   overview .pg-vitals · connection .pg-radar · multi .pg-constellation · general .pg-gauges · about .pg-orbits
+   Positions come from custom properties written through the CSSOM (CSP: no style attributes). Things are
+   placed with left/top/margins, never transform, so reduced motion (which clears transforms) keeps them. */
+
+/* ================================================================================================
+   Overview — round trip · heartbeat · battery · now
+   ================================================================================================ */
+.pg-vitals { --pg-hdr-h: 88px; gap: 22px; container-type: inline-size; }
+.pg-vitals .pg-col { gap: 6px; }
+.pg-v-rtt { flex: none; min-width: 104px; }
+.pg-v-rtt .pg-kick > span:last-child { color: var(--pg-w55); }
+.pg-vitals.no-rtt .pg-v-rtt .pg-fig { color: var(--pg-w25); }
+
+/* the heartbeat: a grey hairline, one accent pulse walks it, then rests */
+.pg-v-pulse { flex: 1 1 auto; min-width: 80px; height: 40px; align-self: center; }
+.pg-v-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.pg-v-svg path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.pg-v-base { stroke: var(--pg-w12); stroke-width: 1; }
+.pg-v-trace { stroke: var(--pg-acc); stroke-width: 1.5; stroke-dasharray: var(--pg-seg, 0.1) 2; stroke-dashoffset: var(--pg-seg, 0.1); opacity: 0;
+  animation: pg-v-beat var(--pg-beat, 5s) cubic-bezier(0.45, 0, 0.35, 1) 0.6s infinite; }
+@keyframes pg-v-beat {
+  0% { stroke-dashoffset: var(--pg-seg, 0.1); opacity: 0; }
+  6% { opacity: 0.9; }
+  58% { opacity: 0.9; }
+  66% { stroke-dashoffset: -1; opacity: 0; }
+  100% { stroke-dashoffset: -1; opacity: 0; }
+}
+.pg-vitals.no-rtt .pg-v-trace { animation: none; opacity: 0; }
+.pg-in .pg-v-base { stroke-dasharray: 1; animation: pg-draw 1s var(--pg-ease) 0.1s both; }
+
+.pg-v-small { font-size: 26px; }
+.pg-v-batt { flex: none; width: 92px; }
+.pg-v-batt .pg-meter { width: 100%; margin-top: 2px; }
+.pg-v-batt.charging .pg-meter > i { background: var(--pg-w70); }
+.pg-v-batt.low .pg-meter > i { background: var(--pg-bad); }
+
+.pg-v-now { flex: 0 1 230px; min-width: 120px; }
+.pg-v-now .pg-row { gap: 8px; min-width: 0; }
+.pg-v-nowt { font-size: 13.5px; font-weight: 400; color: var(--pg-w90); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pg-v-nowsub { font-size: 11px; color: var(--pg-w40); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-v-now .pg-eq { flex: none; height: 11px; }
+
+@container (max-width: 620px) { .pg-v-pulse { display: none; } }
+@container (max-width: 440px) { .pg-v-now, .pg-v-now + .pg-vr, .pg-vitals .pg-vr:last-of-type { display: none; } }
+
+/* inserts — the device picture: one low glow under it, breathing slowly with the battery */
+#page-overview .dv-hero > .pg-ov-halo { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: visible; }
+#page-overview .pg-ov-halo::before {
+  content: ""; position: absolute; width: 180px; height: 120px;
+  left: calc(var(--pg-hx, 82px) - 90px); top: calc(var(--pg-hy, 70px) - 50px); border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--pg-acc) 30%, transparent), transparent);
+  opacity: calc(0.12 + var(--pg-batt, 60) / 700);
+  animation: pg-ov-breathe 8s ease-in-out infinite;
+}
+@keyframes pg-ov-breathe { 0%, 100% { opacity: calc(0.1 + var(--pg-batt, 60) / 800); } 50% { opacity: calc(0.18 + var(--pg-batt, 60) / 600); } }
+/* ringing: two hairline rings leave the device, slowly; the device sways */
+#page-overview .pg-ov-halo > i {
+  position: absolute; width: 150px; height: 150px; left: calc(var(--pg-hx, 82px) - 75px); top: calc(var(--pg-hy, 70px) - 75px);
+  border-radius: 50%; box-shadow: inset 0 0 0 1px var(--pg-w40); opacity: 0; display: none;
+}
+#page-overview .dv-hero:has(.dv-actions .btn.danger) .pg-ov-halo > i { display: block; animation: pg-ov-ring 3s var(--pg-ease) infinite; }
+#page-overview .dv-hero:has(.dv-actions .btn.danger) .pg-ov-halo > i:nth-child(2) { animation-delay: 1.5s; }
+@keyframes pg-ov-ring { 0% { transform: scale(0.45); opacity: 0; } 15% { opacity: 0.8; } 100% { transform: scale(1.15); opacity: 0; } }
+#page-overview .dv-hero:has(.dv-actions .btn.danger) .device.big { animation: pg-ov-sway 3s ease-in-out infinite; }
+@keyframes pg-ov-sway { 0%, 60%, 100% { transform: rotate(0); } 8% { transform: rotate(-2deg); } 16% { transform: rotate(2deg); } 24% { transform: rotate(-1.2deg); } 32% { transform: rotate(0.6deg); } }
+/* charging: the battery fill breathes, nothing else */
+#page-overview .dv-batt.pg-charging .dv-batt-fill { animation: pg-ov-charge 3.2s ease-in-out infinite; }
+@keyframes pg-ov-charge { 50% { opacity: 0.55; } }
+/* a new notification: its row is acknowledged with a hairline */
+#page-overview .row.pg-new { animation: pg-flash 1.4s ease-out both; border-radius: 10px; }
+/* switch-in */
+.pg-in .dv-hero .device.big { animation: pg-ov-in 0.7s var(--pg-ease) both; }
+@keyframes pg-ov-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
+.pg-in .dv-actions > .btn { animation: pg-fade 0.5s var(--pg-ease) both; animation-delay: calc(200ms + var(--pg-bi, 0) * 40ms); }
+.pg-in .dv-qs > .dv-qs-tile { animation: pg-fade 0.5s var(--pg-ease) both; animation-delay: calc(220ms + var(--pg-qd, 0ms)); }
+
+/* ================================================================================================
+   Connection — this desk, then a sonar of what it can see
+   ================================================================================================ */
+.pg-radar { --pg-hdr-h: 140px; gap: 12px 24px; flex-wrap: wrap; align-items: stretch; padding-top: 18px; padding-bottom: 18px; }
+.pg-rd-info { flex: 0 1 auto; min-width: 200px; max-width: 340px; justify-content: center; gap: 5px; }
+.pg-rd-name { font-size: 26px; overflow: hidden; text-overflow: ellipsis; }
+.pg-rd-addr { font-size: 12px; color: var(--pg-w40); letter-spacing: 0.02em; }
+.pg-rd-status { margin-top: 6px; gap: 8px; }
+.pg-rd-code { margin-left: 4px; padding: 2px 8px; border-radius: 6px; font-size: 14px; letter-spacing: 0.14em; color: var(--pg-w90); box-shadow: inset 0 0 0 1px var(--pg-line); }
+.pg-rd-cap { font-size: 12px; color: var(--pg-w55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pg-rd-field { position: relative; flex: 999 1 360px; min-width: 0; overflow: hidden; min-height: 96px; }
+.pg-rd-plot { position: absolute; left: 50%; top: 50%; overflow: visible; }
+.pg-rd-grid { fill: none; stroke: var(--pg-w08); stroke-width: 1; }
+.pg-rd-grid[data-i="2"] { stroke: var(--pg-w05); }
+.pg-in .pg-rd-grid { stroke-dasharray: 1; animation: pg-draw 1.1s var(--pg-ease) both; animation-delay: calc(var(--i-d, 0) * 1ms + 120ms); }
+.pg-in .pg-rd-grid[data-i="1"] { animation-delay: 220ms; }
+.pg-in .pg-rd-grid[data-i="2"] { animation-delay: 320ms; }
+/* the one sonar ring: slow, white, a long rest between sweeps */
+.pg-rd-ring {
+  position: absolute; left: calc(50% - var(--pg-rw, 386px) / 2); top: calc(50% - var(--pg-rh, 66px) / 2); width: var(--pg-rw, 386px); height: var(--pg-rh, 66px); border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--pg-w25); opacity: 0; pointer-events: none;
+  animation: pg-rd-sonar 6s var(--pg-ease) infinite;
+}
+.pg-radar.linked .pg-rd-ring { animation-duration: 9s; }
+.pg-radar.blocked .pg-rd-ring { animation: none; opacity: 0; }
+@keyframes pg-rd-sonar { 0% { transform: scale(0.12); opacity: 0; } 8% { opacity: 0.9; } 55% { transform: scale(1); opacity: 0; } 100% { transform: scale(1); opacity: 0; } }
+/* this desk: a dot with a hairline ring */
+.pg-rd-me { position: absolute; left: calc(50% - 7px); top: calc(50% - 7px); width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--pg-w40); }
+.pg-rd-me::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--pg-w90); }
+.pg-radar.blocked .pg-rd-me::after { background: var(--pg-bad); }
+
+/* blips: a dot per device; the live one is the page's accent */
+.pg-rd-blips { position: absolute; inset: 0; }
+.pg-blip { position: absolute; left: calc(50% + var(--dx, 0px)); top: calc(50% + var(--dy, 0px)); width: 0; height: 0; }
+.pg-in .pg-blip { animation: pg-fade 0.6s var(--pg-ease) both; animation-delay: calc(380ms + var(--i, 0) * 70ms); }
+.pg-blip-dot { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: var(--pg-w55); transition: background-color 0.4s; }
+.pg-blip.known .pg-blip-dot { background: var(--pg-w90); }
+.pg-blip.known .pg-blip-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--pg-w18); }
+.pg-blip.live .pg-blip-dot { background: var(--pg-acc); }
+.pg-blip.invited .pg-blip-dot { background: var(--pg-acc); animation: pg-blink 2.4s ease-in-out infinite; }
+.pg-blip.pairing .pg-blip-dot { background: var(--pg-w90); }
+.pg-blip.failed .pg-blip-dot { background: var(--pg-bad); }
+.pg-blip-lbl { position: absolute; left: -70px; width: 140px; top: 6px; display: none; justify-content: center; white-space: nowrap;
+  font: 400 10.5px/14px var(--mono, monospace); color: var(--pg-w40); }
+.pg-blip.above .pg-blip-lbl { top: -20px; }
+.pg-blip.named .pg-blip-lbl { display: flex; }
+.pg-blip.live .pg-blip-name, .pg-blip.pairing .pg-blip-name, .pg-blip.invited .pg-blip-name { color: var(--pg-w70); }
+.pg-blip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pg-blip-tag { flex: none; margin-left: 6px; color: var(--pg-w40); }
+.pg-blip-tag:empty { display: none; }
+/* pairing: one tiny dot circles the target, slowly */
+.pg-blip-orbit { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; display: none; animation: pg-spin 3.2s linear infinite; }
+.pg-blip.pairing .pg-blip-orbit { display: block; }
+.pg-blip-orbit > i { position: absolute; left: 7.5px; top: -1.5px; width: 3px; height: 3px; border-radius: 50%; background: var(--pg-acc); }
+.pg-blip.failed .pg-blip-dot { animation: pg-blink 1.2s ease-in-out 3; }
+/* the live line, drawn on when it appears */
+.pg-rd-beam { stroke: var(--pg-acc); stroke-width: 1; opacity: 0.75; stroke-dasharray: 1; animation: pg-draw 0.9s var(--pg-ease) both; }
+
+/* inserts — found / paired rows, the address, the code hint */
+#page-connection .row.pg-invited { box-shadow: inset 2px 0 0 var(--pg-acc); }
+#page-connection .row.pg-waking { animation: pg-breathe 2.4s ease-in-out infinite; --pg-breathe-lo: 0.55; }
+#page-connection [data-pg="addr"] .value.addr { background: linear-gradient(var(--pg-line), var(--pg-line)) left bottom / 100% 1px no-repeat; padding-bottom: 2px; }
+.pg-in [data-pg="addr"] .value.addr { animation: pg-rd-type 0.9s var(--pg-ease) 0.3s both; }
+@keyframes pg-rd-type { from { background-size: 0% 1px; } to { background-size: 100% 1px; } }
+.pg-in #page-connection [data-pg="hero"] .hero-link, #page-connection.pg-in [data-pg="hero"] .hero-link { transform-origin: left; animation: pg-rd-link 0.8s var(--pg-ease) 0.2s both; }
+@keyframes pg-rd-link { from { transform: scaleX(0); } to { transform: none; } }
+
+@media (max-width: 860px) { .pg-rd-name { font-size: 22px; } }
+
+/* ================================================================================================
+   Multi-device — a constellation: dots on an ellipse, hairline links, one pulse walks them
+   ================================================================================================ */
+.pg-constellation { --pg-hdr-h: 140px; gap: 12px 24px; flex-wrap: wrap; align-items: stretch; padding-top: 18px; padding-bottom: 18px; }
+.pg-cs-info { flex: 0 1 330px; min-width: 220px; justify-content: center; gap: 6px; }
+.pg-cs-line { gap: 10px; align-items: baseline; }
+.pg-cs-line .pg-fig { font-size: 44px; font-weight: 200; }
+.pg-cs-cap { font-size: 13px; color: var(--pg-w55); white-space: nowrap; }
+.pg-cs-sub { font-size: 12px; line-height: 1.45; color: var(--pg-w40); }
+.pg-constellation.empty .pg-cs-line .pg-fig { color: var(--pg-w25); }
+
+.pg-cs-field { position: relative; flex: 999 1 360px; min-width: 0; min-height: 104px; }
+.pg-cs-plot { position: absolute; left: 50%; top: 50%; overflow: visible; }
+.pg-cs-link { stroke: var(--pg-w08); stroke-width: 1; transition: stroke 0.6s; }
+.pg-cs-link.live { stroke: var(--pg-w40); }
+.pg-cs-link.ring { stroke: var(--pg-w05); }
+.pg-in .pg-cs-link { stroke-dasharray: 1; animation: pg-draw 0.9s var(--pg-ease) both; animation-delay: calc(420ms + min(var(--i, 0), 10) * 50ms); }
+.pg-constellation.pg-restarting .pg-cs-link { stroke: var(--pg-w25); }
+/* the walking pulse: a short accent segment (moved by home.js), then a long rest */
+.pg-cs-pulse { stroke: var(--pg-acc); stroke-width: 1.5; stroke-linecap: round; opacity: 0; }
+
+.pg-cs-nodes { position: absolute; inset: 0; }
+.pg-cs-node { position: absolute; left: calc(50% + var(--x, 0px)); top: calc(50% + var(--y, 0px)); width: 0; height: 0; transition: left 0.8s var(--pg-ease), top 0.8s var(--pg-ease); }
+.pg-in .pg-cs-node { animation: pg-fade 0.6s var(--pg-ease) both; animation-delay: calc(150ms + var(--i, 0) * 70ms); }
+.pg-cs-dot { position: absolute; left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-radius: 50%; background: #121216; box-shadow: inset 0 0 0 1px var(--pg-w55); }
+.pg-cs-node.live .pg-cs-dot { background: var(--pg-w90); box-shadow: none; }
+.pg-cs-node.me .pg-cs-dot { left: -5px; top: -5px; width: 10px; height: 10px; background: var(--pg-w90); box-shadow: 0 0 0 4px rgba(10, 10, 12, 0.9), 0 0 0 5px var(--pg-w18); }
+.pg-cs-name { position: absolute; left: -70px; width: 140px; top: 9px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: 400 10.5px/14px var(--mono, monospace); color: var(--pg-w40); }
+.pg-cs-node.above .pg-cs-name { top: -23px; }
+.pg-cs-node.me .pg-cs-name { top: 12px; color: var(--pg-w55); }
+.pg-constellation.empty .pg-cs-node.me .pg-cs-dot { animation: pg-breathe 6s ease-in-out infinite; --pg-breathe-lo: 0.45; }
+.pg-constellation.pg-restarting .pg-cs-dot { animation: pg-blink 2s ease-in-out infinite; }
+
+
+/* ================================================================================================
+   General — a verdict, then status cells (real buttons: each takes you to its row)
+   ================================================================================================ */
+.pg-gauges { --pg-hdr-h: 84px; gap: 22px; flex-wrap: wrap; row-gap: 12px; }
+.pg-g-sum { flex: 1 1 180px; gap: 6px; }
+.pg-g-sumt { font-size: 28px; }
+.pg-g-sum[data-st="bad"] .pg-g-sumt { color: var(--pg-w90); }
+.pg-g-lamps { display: flex; flex-wrap: wrap; align-items: stretch; flex: 0 1 auto; margin-left: auto; }
+.pg-lamp {
+  all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  min-width: 96px; padding: 6px 14px; border-radius: 10px; position: relative;
+  transition: background-color 0.25s;
+}
+.pg-lamp + .pg-lamp::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px; background: var(--pg-w08); }
+.pg-lamp:hover { background: var(--pg-w05); }
+.pg-lamp:focus-visible { box-shadow: inset 0 0 0 1px var(--pg-w40); }
+.pg-lamp:disabled { cursor: default; }
+.pg-lamp:disabled:hover { background: transparent; }
+.pg-g-lbl { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--pg-w70); white-space: nowrap; }
+.pg-g-val { padding-left: 13px; font-size: 11px; color: var(--pg-w40); white-space: nowrap; }
+.pg-lamp[data-st="bad"] .pg-g-val { color: var(--pg-bad); }
+.pg-lamp[data-st="off"] .pg-g-lbl { color: var(--pg-w55); }
+
+/* inserts — section numerals (CSS only), the Overview map */
+#page-general .page-body { counter-reset: pg-sec; }
+#page-general .page-body > .card-wrap { counter-increment: pg-sec; }
+#page-general .page-body > .card-wrap > .card-title > span:first-child::before {
+  content: counter(pg-sec, decimal-leading-zero); margin-right: 12px; font-family: var(--mono, monospace); color: var(--pg-w25); letter-spacing: 0.04em;
+}
+.pg-ovmap { display: flex; align-items: center; gap: 16px; margin: 0 0 10px; padding: 10px 14px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--pg-w05); }
+.pg-ovmap-frame {
+  flex: none; display: grid; gap: 3px; width: 104px; height: 80px; padding: 5px; box-sizing: border-box; border-radius: 7px;
+  box-shadow: inset 0 0 0 1px var(--pg-w12);
+  grid-template-columns: 1fr 1fr; grid-template-rows: 1.6fr 0.8fr 0.8fr 1fr 1fr 1fr;
+  grid-template-areas: "hero hero" "media media" "qs qs" "notifs clipboard" "notifs apps" "notifs files";
+}
+.pg-ovmap-frame > i { border-radius: 2px; box-shadow: inset 0 0 0 1px var(--pg-w08); transition: background-color 0.4s, box-shadow 0.4s; }
+.pg-ovmap-frame > i[data-k="hero"] { grid-area: hero; }
+.pg-ovmap-frame > i[data-k="media"] { grid-area: media; }
+.pg-ovmap-frame > i[data-k="qs"] { grid-area: qs; }
+.pg-ovmap-frame > i[data-k="notifs"] { grid-area: notifs; }
+.pg-ovmap-frame > i[data-k="apps"] { grid-area: apps; }
+.pg-ovmap-frame > i[data-k="clipboard"] { grid-area: clipboard; }
+.pg-ovmap-frame > i[data-k="files"] { grid-area: files; }
+.pg-ovmap-frame > i.on { background: var(--pg-w08); box-shadow: inset 0 0 0 1px var(--pg-w25); }
+.pg-ovmap-frame > i[data-k="hero"].on { background: var(--pg-w12); }
+.pg-ovmap-frame > i.pg-ov-flip { animation: pg-fade 0.6s var(--pg-ease) both; }
+.pg-ovmap-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pg-ovmap-n { font-size: 12px; color: var(--pg-w70); }
+.pg-ovmap-sub { font-size: 12px; color: var(--pg-w40); }
+
+/* ================================================================================================
+   About — hairline orbits around the icon, one dot per platform
+   ================================================================================================ */
+#page-about .about-hero > .pg-orbits { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.pg-ab-stage { position: absolute; width: 640px; height: 260px; left: calc(50% - 320px); top: calc(var(--pg-icy, 74px) - 130px); }
+.pg-ab-orbits { position: absolute; inset: 0; overflow: visible; }
+.pg-ab-orbit { fill: none; stroke: var(--pg-w08); stroke-width: 1; }
+.pg-ab-orbit[data-i="2"] { stroke: var(--pg-w05); }
+.pg-in .pg-ab-orbit { stroke-dasharray: 1; animation: pg-draw 1.4s var(--pg-ease) both; }
+.pg-in .pg-ab-orbit[data-i="1"] { animation-delay: 120ms; }
+.pg-in .pg-ab-orbit[data-i="2"] { animation-delay: 240ms; }
+.pg-orbits.error .pg-ab-orbits, .pg-orbits.error .pg-sat { opacity: 0.35; }
+/* checking: a short accent arc walks the outer orbit */
+.pg-ab-scan { fill: none; stroke: var(--pg-acc); stroke-width: 1.25; stroke-linecap: round; stroke-dasharray: 0.08 0.92; opacity: 0; }
+.pg-orbits.checking .pg-ab-scan { opacity: 0.85; animation: pg-ab-scan 3.6s linear infinite; }
+@keyframes pg-ab-scan { to { stroke-dashoffset: -1; } }
+/* platforms: tiny dots travelling their orbit, very slowly; this machine's in the accent */
+.pg-sat { position: absolute; left: 0; top: 0; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--pg-w40);
+  offset-rotate: 0deg; offset-distance: var(--d0, 0%); animation: pg-ab-orbit var(--t, 90s) linear infinite; }
+.pg-sat.me { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; background: var(--pg-acc); box-shadow: 0 0 10px var(--pg-glow); }
+@keyframes pg-ab-orbit { from { offset-distance: var(--d0, 0%); } to { offset-distance: calc(var(--d0, 0%) + 100%); } }
+.pg-in .pg-sat { opacity: 0; animation: pg-ab-orbit var(--t, 90s) linear infinite, pg-fade 0.8s var(--pg-ease) forwards; animation-delay: 0s, calc(500ms + var(--i, 0) * 90ms); }
+/* the update line under the version: arch · state, the accent dot only when a version is waiting */
+.pg-verchip { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 11px; color: var(--pg-w40); letter-spacing: 0.02em; }
+.pg-verchip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pg-w25); display: none; }
+.pg-verchip[data-st] .pg-verchip-dot { display: block; }
+.pg-verchip[data-st="on"] { color: var(--pg-w70); }
+.pg-verchip[data-st="on"] .pg-verchip-dot { background: var(--pg-acc); }
+.pg-verchip[data-st="busy"] .pg-verchip-dot { background: var(--pg-w55); animation: pg-blink 2s ease-in-out infinite; }
+.pg-in .pg-verchip { animation: pg-ab-reveal 0.8s var(--pg-ease) 0.35s both; }
+@keyframes pg-ab-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* the icon settles in */
+.pg-in .about-hero .about-icon { animation: pg-ab-icon 0.8s var(--pg-ease) both; }
+@keyframes pg-ab-icon { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+/* processor cores: a quiet grid of dots that light in a wave on entry */
+.pg-cores { display: inline-grid; grid-auto-flow: column; grid-template-rows: repeat(2, 3px); gap: 3px; margin-left: 10px; vertical-align: middle; }
+.pg-cores > i { width: 3px; height: 3px; border-radius: 50%; background: var(--pg-w25); }
+.pg-in .pg-cores > i { animation: pg-ab-core 1.2s ease-out both; animation-delay: calc(400ms + var(--i, 0) * 25ms); }
+@keyframes pg-ab-core { 0% { background: var(--pg-w08); } 40% { background: var(--pg-w70); } 100% { background: var(--pg-w25); } }
+
+/* ================================================================================================
+   Reduced motion: every motif becomes one still frame
+   ================================================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .pg-v-trace { animation: none !important; opacity: 0.8; stroke-dasharray: var(--pg-bl, 0.2) 2; stroke-dashoffset: calc(-1 * var(--pg-b0, 0.4)); }
+  .pg-vitals.no-rtt .pg-v-trace { opacity: 0; }
+  .pg-rd-ring, .pg-blip-orbit, .pg-cs-pulse { display: none; }
+  .pg-sat { animation: none !important; }
+  #page-overview .dv-hero:has(.dv-actions .btn.danger) .pg-ov-halo > i { animation: none !important; opacity: 0.5; transform: none; }
+  #page-overview .dv-hero .device.big, #page-connection [data-pg="hero"] .hero-link { animation: none !important; }
+  .pg-ovmap-frame > i, .pg-cs-node { transition: none; }
+}
+html.au-paused :is(.pg-ov-halo, .pg-ov-halo *, .pg-ov-halo::before, .pg-sat, .pg-cores > i, .pg-verchip *) { animation-play-state: paused !important; }

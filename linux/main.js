@@ -453,7 +453,7 @@ function startPhone(server, pairing) {
   loadBtAudio();
   // Remote off: its page hears so; on, PhoneRemote answers instead.
   pl.on(`t:${P.T.REMOTE_HELLO}`, () => !phoneRemote && pl.current && pl.current.os === P.OS.ANDROID
-    && pl.sendToClient({ t: P.T.REMOTE_STATE, allowed: false, off: true, why: 'Remote is off on this computer: turn it on in TwinDesk’s Remote page there' }));
+    && pl.sendToClient({ t: P.T.REMOTE_STATE, allowed: false, off: true, why: 'Remote is off on this computer: turn it on in DuoDesk’s Remote page there' }));
   loadRemote();
   phoneViews.on('change', pushState);
   viaWifi(phoneViews, 'openScreen', 'phone');
@@ -1189,9 +1189,9 @@ function createMainWindow(tab) {
     y: b.y,
     minWidth: 720,
     minHeight: 480,
-    title: 'TwinDesk',
+    title: 'DuoDesk',
     icon: path.join(__dirname, 'assets', 'icon.png'),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#2b2b2e' : '#e9e9ee',
+    backgroundColor: '#0a0a0c', // DuoDesk's Aurora look is dark only
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload-app.js'),
@@ -1252,7 +1252,7 @@ function createTray() {
     console.error('[tray]', e.message); // no tray on this desktop: start TwinDesk again to show the window
     return;
   }
-  tray.setToolTip('TwinDesk');
+  tray.setToolTip('DuoDesk');
   tray.on('click', showMain);
   updateTray(buildState());
 }
@@ -1262,7 +1262,7 @@ function createTray() {
 let trayKey = '';
 function updateTray(s) {
   if (!tray) return;
-  tray.setToolTip('TwinDesk: ' + statusLine(s));
+  tray.setToolTip('DuoDesk: ' + statusLine(s));
   const connected = s.link.state === 'connected';
   const name = connected && s.peer ? s.peer.name : '';
   const k = settings.kvm;
@@ -1314,7 +1314,7 @@ function updateTray(s) {
     lookAgain: () => discovery.probe(),
     again: again ? { label: (s.link.busy ? 'Take Over ' : 'Connect to ') + host, click: () => link.connect(true) } : null,
     disconnect: connected ? { label: 'Disconnect ' + name, click: () => link.disconnect() } : null,
-    update: s.updates && s.updates.available ? { label: 'Download TwinDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
+    update: s.updates && s.updates.available ? { label: 'Download DuoDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
     rezume: rezumeItems(),
     open: showMain,
     log: () => require('../shared/applog.js').open(),

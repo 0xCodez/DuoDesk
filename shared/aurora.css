@@ -1,0 +1,507 @@
+/* DuoDesk — Aurora theme. Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE. */
+/* The main window of the three desktop apps (windows/app.html, linux/app.html, mac/control.html and
+   their mesh/ variants), restyled as "Aurora": always dark, glass surfaces on a near-black window, one
+   spectral gradient used sparingly (glows at the bottom edge of key surfaces, the brand mark, focus,
+   switches that are on, progress). Loaded with a <link> AFTER every other stylesheet of the page, so a
+   rule here with the same specificity as the one it replaces wins; only colour, radius, border, shadow,
+   background and font change: sizes and positions stay as the app's own CSS sets them.
+   No external URLs (CSP default-src 'self'): the fonts are the local files in shared/fonts/. */
+
+/* ---------- fonts (Geist, Geist Mono: variable weight 100-900, SIL OFL, see fonts/OFL.txt) ---------- */
+/* url()s are relative to this file (shared/aurora.css), so they work from every page, mesh/ ones included. */
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/geist-latin-wght-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/geist-latin-ext-wght-normal.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/geist-cyrillic-wght-normal.woff2) format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/geist-mono-latin-wght-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/geist-mono-latin-ext-wght-normal.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Geist Mono"; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/geist-mono-cyrillic-wght-normal.woff2) format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+/* ---------- tokens ---------- */
+/* The app's own names (--accent, --card, --text …) get Aurora values, the same whatever the OS theme:
+   the block is repeated inside both prefers-color-scheme queries so it wins over the light :root and
+   the dark @media :root of the app's stylesheets alike. --au-* are this theme's own. */
+:root {
+  --au-bg: #040405; --au-win: #0a0a0c; --au-raised: #121215; --au-pop: #18181c;
+  --au-glass: rgba(255, 255, 255, 0.035); --au-glass-2: rgba(255, 255, 255, 0.06); --au-glass-3: rgba(255, 255, 255, 0.1);
+  --au-line: rgba(255, 255, 255, 0.07); --au-line-2: rgba(255, 255, 255, 0.12);
+  --au-text: #f1f1f3; --au-muted: #8c8c95; --au-dim: #55555d;
+  --au-violet: #8a5cff; --au-violet-text: #a98bff; --au-pink: #ff3d9a; --au-cyan: #2fd6ff; --au-mint: #3dffa8; --au-amber: #ffb340; --au-red: #ff5c7a;
+  --spec: linear-gradient(90deg, #ff3d9a, #8a5cff 30%, #2fd6ff 55%, #3dffa8 75%, #ffb340);
+  --au-ring: 0 0 0 2px rgba(169, 139, 255, 0.9), 0 0 16px rgba(138, 92, 255, 0.45);
+  --ui: "Geist", system-ui, "Segoe UI", -apple-system, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  --ease: cubic-bezier(0.2, 0.9, 0.1, 1);
+}
+/* --faint is still text in places (inactive section states, placeholders): #7f7f88 keeps it at
+   about 5:1 on the window and 4.6:1 on a card (WCAG AA). --sep and --hover are read by
+   mac/control-pages.css (.app-filter) and shared/phonehub.css (.np) with no value of their own here. */
+:root,
+:root:not(.au-never) {
+  --accent: #a98bff; --accent-soft: rgba(138, 92, 255, 0.18);
+  --content: #0a0a0c; --card: #141417; --line: rgba(255, 255, 255, 0.07); --row-line: rgba(255, 255, 255, 0.06);
+  --text: #f1f1f3; --muted: #8c8c95; --faint: #7f7f88;
+  --good: #3dffa8; --warn: #ffb340; --bad: #ff5c7a; --idle: #55555d;
+  --control: rgba(255, 255, 255, 0.06); --control-line: rgba(255, 255, 255, 0.12); --track-off: rgba(255, 255, 255, 0.1);
+  --nav-hover: rgba(255, 255, 255, 0.045); --shadow: none; --sidebar: #0a0a0c;
+  --sep: rgba(255, 255, 255, 0.12); --hover: rgba(255, 255, 255, 0.06);
+  color-scheme: dark; accent-color: #8a5cff;
+}
+@media (prefers-color-scheme: light) {
+  :root:not(.au-never) {
+    --accent: #a98bff; --accent-soft: rgba(138, 92, 255, 0.18);
+    --content: #0a0a0c; --card: #141417; --line: rgba(255, 255, 255, 0.07); --row-line: rgba(255, 255, 255, 0.06);
+    --text: #f1f1f3; --muted: #8c8c95; --faint: #7f7f88;
+    --good: #3dffa8; --warn: #ffb340; --bad: #ff5c7a; --idle: #55555d;
+    --control: rgba(255, 255, 255, 0.06); --control-line: rgba(255, 255, 255, 0.12); --track-off: rgba(255, 255, 255, 0.1);
+    --nav-hover: rgba(255, 255, 255, 0.045); --shadow: none; --sidebar: #0a0a0c;
+    --sep: rgba(255, 255, 255, 0.12); --hover: rgba(255, 255, 255, 0.06);
+    color-scheme: dark;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.au-never) {
+    --accent: #a98bff; --accent-soft: rgba(138, 92, 255, 0.18);
+    --content: #0a0a0c; --card: #141417; --line: rgba(255, 255, 255, 0.07); --row-line: rgba(255, 255, 255, 0.06);
+    --text: #f1f1f3; --muted: #8c8c95; --faint: #7f7f88;
+    --good: #3dffa8; --warn: #ffb340; --bad: #ff5c7a; --idle: #55555d;
+    --control: rgba(255, 255, 255, 0.06); --control-line: rgba(255, 255, 255, 0.12); --track-off: rgba(255, 255, 255, 0.1);
+    --nav-hover: rgba(255, 255, 255, 0.045); --shadow: none; --sidebar: #0a0a0c;
+    --sep: rgba(255, 255, 255, 0.12); --hover: rgba(255, 255, 255, 0.06);
+    color-scheme: dark;
+  }
+}
+
+/* ---------- window ---------- */
+/* No background on html: the body's then paints the canvas, so body::before (z-index -1) sits above it
+   and below everything else, with no stacking context added to the sidebar or the content. */
+body {
+  background: var(--au-win); color: var(--text);
+  font-family: var(--ui); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+button, input, select, textarea { font-family: inherit; }
+/* Ambient light at the bottom of the window: the spectrum, very soft, fixed behind everything.
+   Radial gradients (no blur filter), so scrolling never repaints it. */
+body::before {
+  content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38% 70% at 22% 118%, rgba(255, 61, 154, 0.13), transparent 70%),
+    radial-gradient(34% 75% at 42% 120%, rgba(138, 92, 255, 0.16), transparent 70%),
+    radial-gradient(34% 70% at 62% 120%, rgba(47, 214, 255, 0.12), transparent 70%),
+    radial-gradient(30% 65% at 80% 118%, rgba(61, 255, 168, 0.09), transparent 70%),
+    radial-gradient(26% 60% at 96% 116%, rgba(255, 179, 64, 0.08), transparent 70%);
+}
+::selection { background: rgba(138, 92, 255, 0.42); color: #fff; }
+a { color: var(--au-violet-text); text-decoration-color: rgba(169, 139, 255, 0.4); text-underline-offset: 2px; }
+a:hover { text-decoration-color: currentColor; }
+a:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--au-ring); }
+
+/* Scrollbars: shared/ui-device.css (on every page in scope) already draws a slim rounded
+   ::-webkit-scrollbar; only its grey thumb turns into a faint white one here. No scrollbar-color on
+   #content/#sidebar: in Chromium that would switch those two back to native scrollbars. The mesh
+   pages' #side-scroll uses scrollbar-color itself (hidden until hover): only its colour changes. */
+::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.14); }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.26); }
+#side-scroll:hover { scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+
+/* ---------- sidebar ---------- */
+#sidebar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0) 40%), transparent;
+  border-right: 1px solid var(--au-line);
+}
+/* The app icon gets the spectrum as a soft light below it (drop-shadows: no extra element). */
+.app-mark {
+  filter: drop-shadow(-7px 9px 12px rgba(255, 61, 154, 0.28)) drop-shadow(0 10px 14px rgba(138, 92, 255, 0.32))
+    drop-shadow(7px 9px 12px rgba(47, 214, 255, 0.26));
+}
+.app-name { font-weight: 600; font-size: 17px; letter-spacing: -0.35px; color: var(--au-text); }
+.peer { color: var(--au-muted); }
+/* MESH beta, on the app's name in the mesh/ pages */
+.app-name .mesh-pill {
+  color: #0a0a0c; background: var(--spec); font-weight: 650; letter-spacing: 0.04em;
+  box-shadow: 0 4px 14px -4px rgba(138, 92, 255, 0.6);
+}
+.app-name .mesh-pill span { opacity: 0.75; }
+
+/* Status dots: lit, with a little glow of their own colour. */
+.dot { background: var(--au-dim); }
+.dot.good { background: var(--good); box-shadow: 0 0 8px rgba(61, 255, 168, 0.7); }
+.dot.warn { background: var(--warn); box-shadow: 0 0 8px rgba(255, 179, 64, 0.6); }
+.dot.bad { background: var(--bad); box-shadow: 0 0 8px rgba(255, 92, 122, 0.6); }
+@keyframes breathe { 0%, 100% { box-shadow: 0 0 6px rgba(61, 255, 168, 0.65), 0 0 0 0 rgba(61, 255, 168, 0.4); } 50% { box-shadow: 0 0 10px rgba(61, 255, 168, 0.8), 0 0 0 3px rgba(61, 255, 168, 0); } }
+
+/* Devices above the sections (#phones): glass tiles; the open one is lit from below. */
+.phone-tile {
+  position: relative; isolation: isolate; overflow: hidden;
+  border-radius: 14px; background: var(--au-glass); box-shadow: inset 0 0 0 1px var(--au-line); color: var(--au-text);
+  transition: background-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.phone-tile:hover { background: var(--au-glass-2); }
+.phone-tile:focus-visible { box-shadow: inset 0 0 0 1px var(--au-line), var(--au-ring); }
+.phone-tile.active { background: rgba(255, 255, 255, 0.07); color: var(--au-text); box-shadow: inset 0 0 0 1px var(--au-line-2); }
+.phone-tile.active:focus-visible { box-shadow: inset 0 0 0 1px var(--au-line-2), var(--au-ring); }
+.phone-tile::before {
+  content: ""; position: absolute; left: 12%; right: 12%; bottom: -16px; height: 22px; z-index: -1; pointer-events: none;
+  background: var(--spec); filter: blur(12px); opacity: 0; transition: opacity 0.5s var(--ease);
+}
+.phone-tile.active::before { opacity: 0.55; }
+.phone-tile.selected:not(.active) { box-shadow: inset 0 0 0 1px rgba(169, 139, 255, 0.55); }
+.phone-tile[aria-disabled="true"]:hover { background: var(--au-glass); }
+.phone-wall {
+  border-radius: 7px; background: linear-gradient(160deg, #34343b, #17171b) center / cover;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.phone-wall.computer-wall { background: none; box-shadow: none; }
+.phone-name { font-weight: 500; letter-spacing: -0.1px; }
+.phone-sub, .phone-tile.active .phone-sub { color: var(--au-muted); }
+.phone-tile.active .os-ico { border-color: var(--au-text); }
+.phone-tile.active .os-ico.mac::after, .phone-tile.active .os-ico.phone::after { background: var(--au-text); }
+.phone-tile.active .os-ico.pc::after { border-bottom-color: var(--au-text); }
+.tile-x { background: rgba(255, 255, 255, 0.1); color: var(--au-text); }
+.tile-x:hover { background: var(--bad); color: #0a0a0c; }
+.tile-x:focus-visible { outline: none; box-shadow: var(--au-ring); }
+
+/* Sections (#nav): muted labels, a glass pill for the open one with a thread of spectrum below. */
+#nav li.sep { background: var(--au-line); }
+.nav-item {
+  position: relative; isolation: isolate;
+  border-radius: 10px; color: var(--au-muted);
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.nav-item:hover { background: var(--au-glass); color: var(--au-text); }
+.nav-item:focus-visible { box-shadow: var(--au-ring); }
+.nav-item.active { background: rgba(255, 255, 255, 0.06); color: var(--au-text); box-shadow: inset 0 0 0 1px var(--au-line); }
+.nav-item.active:focus-visible { box-shadow: inset 0 0 0 1px var(--au-line), var(--au-ring); }
+.nav-item::before {
+  content: ""; position: absolute; left: 14px; right: 14px; bottom: -3px; height: 6px; z-index: -1; pointer-events: none;
+  background: var(--spec); filter: blur(6px); opacity: 0; transition: opacity 0.4s var(--ease);
+}
+.nav-item::after {
+  content: ""; position: absolute; left: 18px; right: 18px; bottom: 0; height: 1px; pointer-events: none;
+  background: var(--spec); opacity: 0; transition: opacity 0.4s var(--ease);
+}
+.nav-item.active::before { opacity: 0.45; }
+.nav-item.active::after { opacity: 0.8; }
+/* The section's icon tile keeps its colour (set inline by app.js), dimmed under dark glass at rest,
+   clearer on hover, and on the open section at full colour with a halo of that same colour
+   (::before inherits the inline background and blurs it). */
+.tile { position: relative; isolation: isolate; border-radius: 7px; box-shadow: none; }
+.tile::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none;
+  background: rgba(10, 10, 12, 0.52);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition: background-color 0.25s var(--ease);
+}
+.tile::before {
+  content: ""; position: absolute; inset: 3px; border-radius: inherit; z-index: -2; pointer-events: none;
+  background: inherit; filter: blur(7px); opacity: 0; transition: opacity 0.35s var(--ease);
+}
+.tile svg { stroke: rgba(255, 255, 255, 0.92); }
+.nav-item:hover .tile::after { background: rgba(10, 10, 12, 0.3); }
+.nav-item.active .tile::after { background: rgba(10, 10, 12, 0.06); }
+.nav-item.active .tile::before { opacity: 0.75; }
+.nav-item .state, .nav-item.active .state { color: var(--faint); font-family: var(--mono); font-size: 10.5px; }
+.nav-item.active .state { color: var(--au-muted); }
+.nav-item .state.on::before, .nav-item.active .state.on::before { background: var(--good); box-shadow: 0 0 6px rgba(61, 255, 168, 0.75); }
+.nav-item .state.warn::before { background: var(--warn); box-shadow: 0 0 6px rgba(255, 179, 64, 0.6); }
+/* The lit dot sat flush against the mono "On": a little air (inline, so nothing else moves). */
+.nav-item .state.on::before, .nav-item .state.warn::before { margin-right: 5px; vertical-align: 1px; }
+
+/* ---------- content ---------- */
+#content { background: transparent; }
+.page-head h1 { font-weight: 500; font-size: 23px; letter-spacing: -0.6px; color: var(--au-text); }
+.page-head p { color: var(--au-muted); }
+
+/* Pills */
+.pill {
+  background: rgba(138, 92, 255, 0.14); color: #c4b1ff; box-shadow: inset 0 0 0 1px rgba(169, 139, 255, 0.24);
+  font-weight: 500; letter-spacing: 0.01em;
+}
+.pill.good { background: rgba(61, 255, 168, 0.1); color: var(--good); box-shadow: inset 0 0 0 1px rgba(61, 255, 168, 0.22); }
+.pill.warn { background: rgba(255, 179, 64, 0.1); color: var(--warn); box-shadow: inset 0 0 0 1px rgba(255, 179, 64, 0.24); }
+.pill.bad { background: rgba(255, 92, 122, 0.12); color: #ff8aa0; box-shadow: inset 0 0 0 1px rgba(255, 92, 122, 0.26); }
+.pill.muted { background: var(--au-glass-2); color: var(--au-muted); box-shadow: inset 0 0 0 1px var(--au-line); }
+.pill.beta { background: var(--spec); color: #0a0a0c; font-weight: 600; box-shadow: 0 4px 14px -4px rgba(138, 92, 255, 0.6); }
+.dev-tag { font-family: var(--mono); font-weight: 400; }
+
+/* Cards: glass, big radius, hairline; titles above them in small mono like the mockup's groups. */
+.card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+  border-color: var(--au-line); border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 24px 50px -30px rgba(0, 0, 0, 0.9);
+}
+.card-title {
+  font: 500 11px/1.4 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--au-muted);
+  margin: 0 8px 8px;
+}
+.card-title .actions { font: 400 12px/1.4 var(--ui); letter-spacing: 0; text-transform: none; }
+.row { padding-left: 18px; padding-right: 18px; }
+.row + .row::before { left: 18px; background: var(--row-line); }
+.row .label { color: var(--au-text); }
+.row .hint { color: var(--au-muted); }
+.row .value { color: var(--au-muted); font-family: var(--mono); font-size: 12px; }
+.row .value.addr { color: var(--au-text); }
+.row.clickable:hover { background: var(--au-glass); }
+.chev { color: var(--faint); }
+.row.clickable:hover .chev { color: var(--au-text); }
+.hint.bad, .row .hint.bad { color: #ff8aa0; }
+.code-hint { color: var(--au-text); font-family: var(--mono); }
+.mono { font-family: var(--mono); }
+
+/* The overview's hero card: the key surface, lit from below. Same specificity as shared/aurora-pages.css
+   (.hero / .hero::after, linked after this file), so that file's dim-until-linked glow wins when present. */
+.hero { position: relative; isolation: isolate; }
+.hero::after {
+  content: ""; position: absolute; left: 10%; right: 10%; bottom: -60px; height: 80px; z-index: -1; pointer-events: none;
+  background: var(--spec); filter: blur(34px); opacity: 0.3;
+}
+.hero-link.up { background: var(--spec); box-shadow: 0 0 10px rgba(138, 92, 255, 0.45); }
+
+/* Notes */
+.note { border-radius: 14px; background: var(--au-glass); box-shadow: inset 0 0 0 1px var(--au-line); color: var(--au-text); }
+.note.info { background: rgba(138, 92, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(169, 139, 255, 0.22); }
+.note.warn { background: rgba(255, 179, 64, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 179, 64, 0.24); }
+.note.bad { background: rgba(255, 92, 122, 0.09); box-shadow: inset 0 0 0 1px rgba(255, 92, 122, 0.26); }
+.note.good { background: rgba(61, 255, 168, 0.07); box-shadow: inset 0 0 0 1px rgba(61, 255, 168, 0.2); }
+
+/* ---------- controls ---------- */
+/* Focus: one violet ring with a soft glow, for everything that takes the keyboard. */
+.switch:focus-visible, .btn:focus-visible, select:focus-visible, .seg button:focus-visible,
+.slider input:focus-visible, .app-tile:focus-visible, .lay-tile:focus-visible, .lay-place:focus-visible { outline: none; box-shadow: var(--au-ring); }
+
+/* Switch: a dark track; on, the spectrum with its own glow. */
+.switch {
+  background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: background-color 0.25s var(--ease), box-shadow 0.3s var(--ease), filter 0.2s;
+}
+.switch::after { background: #f1f1f3; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.switch:checked {
+  background: var(--spec); background-size: 140% 100%; background-position: 20% 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 0 14px -3px rgba(138, 92, 255, 0.75), 0 0 10px -4px rgba(47, 214, 255, 0.6);
+}
+.switch:checked::after { background: #fff; }
+.switch:hover:not(:disabled) { filter: brightness(1.12); }
+.switch:disabled { opacity: 0.4; }
+.switch:checked:focus-visible { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), var(--au-ring); }
+.no-peer .page:not(.free) .switch:checked, .no-peer .page.free .dir-card .switch:checked { background: rgba(255, 255, 255, 0.22); box-shadow: none; }
+
+/* Buttons: glass pills; primary is the bright one, lit underneath by the spectrum. */
+.btn {
+  border-radius: 99px; padding-left: 14px; padding-right: 14px;
+  border-color: rgba(255, 255, 255, 0.1); background: var(--au-glass-2); color: var(--au-text); box-shadow: none;
+  font-weight: 500; transition: transform 0.15s var(--ease), background-color 0.2s var(--ease), box-shadow 0.25s var(--ease), filter 0.15s;
+}
+.btn:hover:not(:disabled) { background: var(--au-glass-3); }
+.btn:active { filter: none; }
+.btn.primary {
+  background: #f1f1f3; border-color: #f1f1f3; color: #0a0a0c;
+  box-shadow: -8px 8px 18px -9px rgba(255, 61, 154, 0.7), 0 9px 18px -9px rgba(138, 92, 255, 0.8), 8px 8px 18px -9px rgba(47, 214, 255, 0.7);
+}
+.btn.primary:hover:not(:disabled) { background: #fff; }
+.btn.primary:focus-visible { box-shadow: var(--au-ring); }
+.btn.danger { color: #ff8aa0; }
+.btn.danger:hover:not(:disabled) { background: rgba(255, 92, 122, 0.14); border-color: rgba(255, 92, 122, 0.3); }
+.btn.small { padding-left: 10px; padding-right: 10px; }
+/* Small primary buttons are everywhere in the rows: a tighter, quieter glow so the spectrum stays rare. */
+.btn.small.primary { box-shadow: 0 6px 14px -8px rgba(138, 92, 255, 0.75); }
+.btn.small.primary:focus-visible { box-shadow: var(--au-ring); }
+.btn:disabled { opacity: 0.4; box-shadow: none; }
+.btn.keyrec { font-family: var(--mono); font-size: 11.5px; }
+.btn.keyrec.on { border-color: rgba(169, 139, 255, 0.7); color: var(--au-violet-text); box-shadow: 0 0 14px -4px rgba(138, 92, 255, 0.7); }
+.feature-art .btn { padding-left: 22px; padding-right: 22px; }
+
+/* Select and text fields */
+select {
+  border-radius: 12px; border-color: rgba(255, 255, 255, 0.1); background-color: var(--au-glass-2); color: var(--au-text); box-shadow: none;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+select:hover:not(:disabled) { background-color: var(--au-glass-3); }
+select:disabled { opacity: 0.45; }
+option, optgroup { background: var(--au-pop); color: var(--au-text); }
+input[type="text"], input[type="search"], input[type="password"], input[type="tel"], input[type="number"], textarea {
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.045); color: var(--au-text); box-shadow: none;
+  transition: border-color 0.2s, box-shadow 0.25s var(--ease), background-color 0.2s;
+}
+input[type="text"]:hover, input[type="search"]:hover, input[type="password"]:hover, input[type="tel"]:hover, input[type="number"]:hover, textarea:hover { border-color: rgba(255, 255, 255, 0.16); }
+input[type="text"]:focus, input[type="search"]:focus, input[type="password"]:focus, input[type="tel"]:focus, input[type="number"]:focus, textarea:focus,
+input[type="text"]:focus-visible, input[type="search"]:focus-visible {
+  outline: none; border-color: rgba(169, 139, 255, 0.8); background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 3px rgba(138, 92, 255, 0.2), 0 0 18px -6px rgba(138, 92, 255, 0.6);
+}
+/* Password/tel/number/search fields have no padding of their own on some pages (the Mac's, and the
+   Windows hotspot password): without it the text touches the round ends. :where() keeps this at zero
+   specificity, so any page or class that sets its own padding (.hub-input, .app-filter …) still wins. */
+:where(input[type="search"], input[type="password"], input[type="tel"], input[type="number"], textarea) { padding: 4px 10px; }
+input::placeholder, textarea::placeholder { color: var(--faint); }
+input[type="search"]::-webkit-search-cancel-button { filter: invert(1) opacity(0.6); }
+input:disabled, textarea:disabled { opacity: 0.45; }
+
+/* Segmented control: a glass capsule, the chosen part a lighter pill. */
+.seg { border-radius: 99px; padding: 3px; background: var(--au-glass); box-shadow: inset 0 0 0 1px var(--au-line); }
+.seg button { border-radius: 99px; color: var(--au-muted); transition: background-color 0.25s var(--ease), color 0.2s, box-shadow 0.25s var(--ease); }
+.seg button:hover:not(.on):not(:disabled) { color: var(--au-text); background: var(--au-glass); }
+.seg button.on { background: rgba(255, 255, 255, 0.11); color: var(--au-text); box-shadow: inset 0 0 0 1px var(--au-line-2), 0 4px 12px -6px rgba(138, 92, 255, 0.6); }
+.seg button:disabled { opacity: 0.4; }
+
+/* Slider: a thin spectrum track (dimmed), a bright knob with a glow. */
+.slider input[type="range"] { -webkit-appearance: none; appearance: none; height: 20px; background: transparent; border-radius: 99px; margin: 0; }
+.slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 99px;
+  background: linear-gradient(rgba(10, 10, 12, 0.5), rgba(10, 10, 12, 0.5)), var(--spec);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%;
+  background: #f1f1f3; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.5), 0 0 12px rgba(138, 92, 255, 0.55);
+  transition: transform 0.2s var(--ease);
+}
+.slider input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.1); }
+.slider input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.18); }
+.slider input[type="range"]:disabled { opacity: 0.4; }
+.slider output { color: var(--au-muted); font-family: var(--mono); font-size: 12px; }
+
+/* Keys */
+kbd, kbd.key {
+  font: 500 11.5px/1.4 var(--mono); color: var(--au-text); padding: 1px 7px;
+  border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.12); border-bottom-width: 2px; background: var(--au-glass-2);
+}
+
+/* Progress */
+.bar { background: rgba(255, 255, 255, 0.08); border-radius: 99px; }
+.bar > span { background: var(--spec); border-radius: inherit; box-shadow: 0 0 10px rgba(138, 92, 255, 0.5); }
+
+/* A row's own progress: a two-colour arc. */
+.spin { border-color: rgba(255, 255, 255, 0.12); border-top-color: var(--au-violet-text); border-right-color: var(--au-cyan); }
+
+/* OS glyphs keep their shapes; the one that is "here" is violet. */
+.route .node.here .os-ico, .route .node.here .os-ico::after { border-color: var(--au-violet-text); }
+.route .node.here .os-ico.mac::after { background: var(--au-violet-text); }
+
+/* ---------- banner (pairing, hotspot) and popups ---------- */
+.banner {
+  isolation: isolate; overflow: hidden;
+  background: var(--au-raised); border: 1px solid var(--au-line-2); border-radius: 20px;
+  box-shadow: 0 30px 60px -24px #000, inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.banner::before {
+  content: ""; position: absolute; left: 8%; right: 8%; bottom: -46px; height: 60px; z-index: -1; pointer-events: none;
+  background: var(--spec); filter: blur(28px); opacity: 0.4;
+}
+.banner.failed { border-color: rgba(255, 92, 122, 0.45); }
+.banner.failed::before { opacity: 0.12; }
+.banner-text strong { font-weight: 600; }
+.banner .hint, .code-label { color: var(--au-muted); }
+.code-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+/* The pairing code: big mono digits in the spectrum. */
+.code {
+  font-family: var(--mono); font-weight: 500; letter-spacing: 3px;
+  background: var(--spec); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* The popup over the window (shared/pairpop.js, shared/mesh-intro.js) */
+.pair-pop {
+  isolation: isolate; overflow: hidden;
+  background: var(--au-raised); border: 1px solid var(--au-line-2); border-radius: 24px; color: var(--au-text);
+  box-shadow: 0 0 0 100vmax rgba(2, 2, 3, 0.62), 0 40px 90px -20px #000, inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.pair-pop::before {
+  content: ""; position: absolute; left: 10%; right: 10%; bottom: -60px; height: 80px; z-index: -1; pointer-events: none;
+  background: var(--spec); filter: blur(34px); opacity: 0.42;
+}
+.pair-pop strong { font-weight: 600; letter-spacing: -0.2px; }
+.pair-pop .hint, .pair-pop p { color: var(--au-muted); }
+.mesh-pop { border-color: rgba(169, 139, 255, 0.4); }
+
+/* ---------- direction cards (.dir-pair on Windows/Linux, .pair on the Mac) ---------- */
+.dir-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+  border-color: var(--au-line); border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 24px 50px -30px rgba(0, 0, 0, 0.9);
+}
+.dir-head { border-bottom-color: var(--row-line); padding-left: 18px; padding-right: 18px; }
+.route .node { color: var(--au-text); font-weight: 500; }
+.route .node.here .nm { color: var(--au-violet-text); }
+/* The arrow between the two devices: a thread of spectrum, grey while that direction is off. */
+.route .flow { background: linear-gradient(90deg, transparent, #8a5cff 30%, #2fd6ff); box-shadow: 0 0 6px rgba(47, 214, 255, 0.35); }
+.route .flow::after { border-top-color: #2fd6ff; border-right-color: #2fd6ff; }
+.dir-card.off .route .flow, .dir-card.soon-card .route .flow { background: linear-gradient(90deg, transparent, var(--au-dim) 30%, var(--au-muted)); box-shadow: none; }
+.dir-card.off .route .flow::after, .dir-card.soon-card .route .flow::after { border-top-color: var(--au-muted); border-right-color: var(--au-muted); }
+.dir-role { color: var(--au-muted); font-family: var(--mono); font-size: 10.5px; }
+.soon-card .dir-role { color: var(--au-violet-text); }
+
+/* ---------- Cursor layout grid of the mesh/ pages ---------- */
+.lay-tile { border-color: var(--au-line); border-radius: 16px; background: var(--au-glass); color: var(--au-text); transition: background-color 0.2s, border-color 0.2s, box-shadow 0.25s var(--ease); }
+.lay-tile:hover { background: var(--au-glass-2); }
+.lay-tile.here { border-color: rgba(169, 139, 255, 0.6); background: rgba(138, 92, 255, 0.12); box-shadow: 0 10px 26px -14px rgba(138, 92, 255, 0.8); }
+.lay-tile.blocked { border-color: rgba(255, 92, 122, 0.5); background: rgba(255, 92, 122, 0.08); }
+.lay-tile.picked { box-shadow: 0 0 0 2px var(--au-violet-text), 0 0 18px -4px rgba(138, 92, 255, 0.7); }
+.lay-state { color: var(--au-muted); font-family: var(--mono); }
+.lay-place { border-color: var(--au-line-2); border-radius: 16px; transition: border-color 0.2s, background-color 0.2s; }
+.lay-place:hover:not(:disabled), .lay-place.target { border-color: rgba(169, 139, 255, 0.7); background: rgba(138, 92, 255, 0.07); }
+
+/* ---------- a feature's introduction (shared/feature-art.js) ---------- */
+/* --fa1 / --fa2 stay the section's own two colours; the card is glass tinted by them, lit from below. */
+.feature-art { --fa-dev: color-mix(in srgb, var(--au-text) 70%, var(--au-win)); --fa-scr: color-mix(in srgb, var(--fa1) 26%, #141417); }
+.feature-art .fa-hero {
+  position: relative; isolation: isolate; overflow: hidden;
+  border-radius: 24px; border-color: var(--au-line);
+  background: linear-gradient(165deg, color-mix(in srgb, var(--fa1) 14%, transparent), rgba(255, 255, 255, 0.025) 62%, rgba(255, 255, 255, 0.015));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 40px 80px -40px #000;
+}
+.feature-art .fa-hero::before {
+  content: ""; position: absolute; left: 10%; right: 10%; bottom: -70px; height: 90px; z-index: -1; pointer-events: none;
+  background: var(--spec); filter: blur(36px); opacity: 0.38;
+}
+.feature-art h2 { font-weight: 400; font-size: 24px; letter-spacing: -0.7px; color: var(--au-text); }
+.feature-art p { color: var(--au-muted); }
+.feature-art .fa-paper { fill: #141417; }
+.feature-art .fa-type, .feature-art .fa-mono { font-family: var(--mono); }
+.feature-art .fa-pill { font-family: var(--ui); }
+.feature-art .fa-termwin { stroke: rgba(255, 255, 255, 0.14); }
+.feature-art .fa-termbar { fill: #1c1c21; }
+.feature-art .fa-termdot { fill: #55555d; }
+.feature-art .fa-mono { fill: #f1f1f3; }
+.feature-art .fa-mono.dim { fill: #8c8c95; }
+.feature-art .fa-termcur { fill: #3dffa8; }
+
+/* ---------- Multi-device off: the picture of a mesh (shared/mesh-intro.js) ---------- */
+.mesh-art { color: var(--au-muted); }
+.mesh-art .mi-link { stroke: #8a5cff; opacity: 0.45; }
+.mesh-art .mi-body { fill: #141417; stroke: #a98bff; }
+.mesh-art .mi-screen { fill: rgba(138, 92, 255, 0.2); }
+.mesh-art .mi-dot { fill: #2fd6ff; filter: drop-shadow(0 0 4px rgba(47, 214, 255, 0.8)); }
+
+/* ---------- motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .phone-tile, .phone-tile::before, .nav-item, .nav-item::before, .nav-item::after, .tile::before, .tile::after,
+  .switch, .btn, .seg button, select, input, textarea, .lay-tile, .lay-place,
+  .slider input[type="range"]::-webkit-slider-thumb { transition: none !important; }
+  .slider input[type="range"]:hover::-webkit-slider-thumb, .slider input[type="range"]:active::-webkit-slider-thumb { transform: none; }
+}

@@ -99,7 +99,7 @@ UI.tab({
       ejectBtn.hidden = !p.mounted;
       phoneRow.setHint(p.message || (p.busy === 'mounting' ? 'Opening…' : p.busy === 'wifi' ? 'Connecting with Wi-Fi Direct…'
         : p.wifi ? `“${p.name}”: Open connects with Wi-Fi Direct and shows it in ${fm}`
-        : !p.offered ? `None shared: on ${ph}, TwinDesk › File access › Share a folder`
+        : !p.offered ? `None shared: on ${ph}, DuoDesk › File access › Share a folder`
           : p.mounted ? `“${p.name}”, in ${fm}${fm === 'Finder' ? ' under Locations' : ''}` : `“${p.name}”: Open shows it in ${fm}`));
       phoneRow.hint.classList.toggle('bad', !!p.message);
       const m = sh.mine;

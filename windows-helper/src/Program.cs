@@ -14,8 +14,8 @@ using System.Threading;
 using System.Windows.Forms;
 
 // The name Windows shows for this process: Location's prompt and its list of apps, Task Manager.
-[assembly: AssemblyTitle("TwinDesk")]
-[assembly: AssemblyProduct("TwinDesk")]
+[assembly: AssemblyTitle("DuoDesk")]
+[assembly: AssemblyProduct("DuoDesk")]
 
 namespace MacShare
 {

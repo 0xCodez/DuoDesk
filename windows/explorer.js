@@ -43,7 +43,7 @@ class Explorer {
     const icon = `"${esc(exe)},0"`;
     const key = (root, ...sub) => '[' + ['HKEY_CURRENT_USER', 'Software', 'Classes', root, 'shell', 'TwinDesk', ...sub].join('\\') + ']';
     const menu = (root, items) => [
-      key(root), '"MUIVerb"="TwinDesk"', `"Icon"=${icon}`, '"SubCommands"=""', '',
+      key(root), '"MUIVerb"="DuoDesk"', `"Icon"=${icon}`, '"SubCommands"=""', '',
       ...items.flatMap(([id, label, args, ico]) => [
         key(root, 'shell', id), `"MUIVerb"="${label}"`, `"Icon"="${esc(ico)}"`, '',
         key(root, 'shell', id, 'command'), `@=${cmd(args)}`, '',

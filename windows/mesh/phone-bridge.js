@@ -476,7 +476,7 @@ class PhoneBridge extends EventEmitter {
     const apk = fullApk();
     const c = this.server.current;
     if (!this.serial || !isPhone(c)) return this._install('failed', 'Set up wireless debugging first.');
-    if (!apk) return this._install('failed', 'This build of TwinDesk doesn’t carry the Android app.');
+    if (!apk) return this._install('failed', 'This build of DuoDesk doesn’t carry the Android app.');
     const id = c.deviceId;
     const serial = this.serial;
     this._install('installing', `Installing on ${c.name}…`);
@@ -582,7 +582,7 @@ class PhoneBridge extends EventEmitter {
       setImmediate(() => this.server.inject({ t: T.KVM_REFUSE, route: m.route, why: P.REFUSE.NOT_ALLOWED }));
       if (d && (this.viaPhone || (this.state !== 'ready' && this.inputMode !== 'adb'))) { // no wireless debugging (Bluetooth), or chosen: the phone does it itself, once allowed
         this.server.sendToClient({ t: T.PHONE_INPUT_ASK });
-        this.emit('popup', 'home', 'On the phone, allow TwinDesk to control it (the notification there)');
+        this.emit('popup', 'home', 'On the phone, allow DuoDesk to control it (the notification there)');
       } else {
         this.emit('popup', 'home', this.state === 'ready' ? 'The phone isn’t ready yet' : 'Set up wireless debugging on the Phone page first');
       }

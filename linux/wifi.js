@@ -119,7 +119,7 @@ class Wifi {
   }
 
   // Bluetooth LE links we open: 5 s of silence before they drop, not the kernel's 420 ms (a phone or
-  // a Mac busy with Wi-Fi for half a second lost TwinDesk's link). Again after an adapter reset puts
+  // a Mac busy with Wi-Fi for half a second lost DuoDesk's link). Again after an adapter reset puts
   // the default back: main.js calls this now and then. Only with the tool already set up: no prompt.
   async bleTimeout() {
     if (!this.current) return;

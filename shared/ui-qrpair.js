@@ -13,12 +13,12 @@ UI.qrPairCard = () => {
   let url = '';
   let until = 0;
   const showBtn = UI.button('Show QR Code', () => { open = !open; refresh(); }, 'small');
-  const row = UI.row('Pair a phone with a QR code', 'Scan it with the phone’s camera, or with Scan QR code in TwinDesk on the phone', [showBtn]);
+  const row = UI.row('Pair a phone with a QR code', 'Scan it with the phone’s camera, or with Scan QR code in DuoDesk on the phone', [showBtn]);
   const img = el('div', { class: 'qr-img', attrs: { role: 'img', 'aria-label': 'Pairing QR code' } });
   const note = el('div', { class: 'hint' });
   const box = el('div', { class: 'qr-box' }, [img, el('div', { class: 'qr-text' }, [
     el('strong', { text: 'Scan with your phone' }),
-    el('ol', {}, ['Open the camera, or TwinDesk › Scan QR code.', 'Point it at this code and open the link.', 'Click Allow here when it asks.'].map((t) => el('li', { text: t }))),
+    el('ol', {}, ['Open the camera, or DuoDesk › Scan QR code.', 'Point it at this code and open the link.', 'Click Allow here when it asks.'].map((t) => el('li', { text: t }))),
     note,
   ])]);
   box.hidden = true;

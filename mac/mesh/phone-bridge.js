@@ -2,7 +2,7 @@
 // Everything the Mac does to the phone through wireless debugging (adb.js + scrcpy.js), while a
 // phone is the peer:
 //   setup   find the phone's adb (mDNS), pair once with the code from Developer options, connect,
-//           then grant the TwinDesk app what it can't ask for itself (switching wireless debugging
+//           then grant the DuoDesk app what it can't ask for itself (switching wireless debugging
 //           on by itself next time, notification access, the pointer overlay, background running).
 //   control one control-only scrcpy session: the Mac's mouse and keyboard across the screen edge
 //           (Kvm drives the phone through us: kvm.take → we answer kvm.accept, inject the input at
@@ -29,10 +29,10 @@ const POLL_MS = 3000;
 // adb's older TCP mode: unlike wireless debugging it doesn't need a Wi-Fi network (Android switches
 // wireless debugging off on a Wi-Fi Direct link), and stays on until the phone restarts.
 const TCPIP_PORT = 5555;
-// macOS's Local Network privacy: adb (started by TwinDesk) may not open connections on the LAN.
+// macOS's Local Network privacy: adb (started by DuoDesk) may not open connections on the LAN.
 // The phone answers ping, but every connect and pairing attempt fails with EHOSTUNREACH.
 const NO_ROUTE = /no route to host/i;
-const LAN_BLOCKED = 'macOS is blocking TwinDesk from the local network: System Settings › Privacy & Security › Local Network › TwinDesk on, then Try Again.';
+const LAN_BLOCKED = 'macOS is blocking DuoDesk from the local network: System Settings › Privacy & Security › Local Network › DuoDesk on, then Try Again.';
 const INPUT_BLOCKED = 'Xiaomi blocks touch and keys: on the phone, Developer options › USB debugging (Security settings)';
 const BUTTON = { 0: 1, 1: 2, 2: 4, 3: 8, 4: 16 }; // our button numbers -> MotionEvent.BUTTON_*
 const isPhone = (ctx) => !!ctx && ctx.os === P.OS.ANDROID;
@@ -45,7 +45,7 @@ function readJson(file, fallback) {
   }
 }
 
-// TwinDesk for Android with notification access (the "full" build). People download the standard
+// DuoDesk for Android with notification access (the "full" build). People download the standard
 // build (Play Protect blocks downloaded apps that read notifications); this one we install over it
 // through wireless debugging, which Play Protect doesn't check. In the app: vendor/ (build-app.sh
 // copies it there); from a checkout: the Android build's dist/.
@@ -327,7 +327,7 @@ class PhoneBridge extends EventEmitter {
     const justPaired = Date.now() - (this.pairedAt || 0) < 60000;
     this.pairing = justPaired ? null : services.find((s) => s.type === 'pairing' && s.address === address) || null;
     this.misses++;
-    // Paired before (this phone reached us since TwinDesk started): keep looking, with the code
+    // Paired before (this phone reached us since DuoDesk started): keep looking, with the code
     // field there in case its pairing really was removed.
     if (unpaired) this._known(false);
     const known = !unpaired && this.known.has(this.server.current.deviceId);
@@ -463,7 +463,7 @@ class PhoneBridge extends EventEmitter {
     this._set('ready');
   }
 
-  // The phone copied something (scrcpy sees it even with TwinDesk in the background): it goes
+  // The phone copied something (scrcpy sees it even with DuoDesk in the background): it goes
   // through the Mac's clipboard rules as if the app had sent it.
   _phoneCopied(text) {
     if (!text || typeof text !== 'string') return;
@@ -472,13 +472,13 @@ class PhoneBridge extends EventEmitter {
     this.server.inject({ t: T.CLIP, text });
   }
 
-  // Install the full build over the phone's TwinDesk: settings and pairing stay (same app, same
+  // Install the full build over the phone's DuoDesk: settings and pairing stay (same app, same
   // signature). The app restarts, so we grant notification access, open it and invite it back.
   async installFull() {
     const apk = fullApk();
     const c = this.server.current;
     if (!this.serial || !isPhone(c)) return this._install('failed', 'Set up wireless debugging first.');
-    if (!apk) return this._install('failed', 'This build of TwinDesk doesn’t carry the Android app.');
+    if (!apk) return this._install('failed', 'This build of DuoDesk doesn’t carry the Android app.');
     const id = c.deviceId;
     const serial = this.serial;
     this._install('installing', `Installing on ${c.name}…`);
@@ -587,7 +587,7 @@ class PhoneBridge extends EventEmitter {
       setImmediate(() => this._toKvm({ t: T.KVM_REFUSE, route: m.route, why: P.REFUSE.NOT_ALLOWED }));
       if (d && (this.viaPhone || (this.state !== 'ready' && this.inputMode !== 'adb'))) { // no wireless debugging (Bluetooth), or chosen: the phone does it itself, once allowed
         this.server.sendToClient({ t: T.PHONE_INPUT_ASK });
-        this.emit('popup', 'home', 'On the phone, allow TwinDesk to control it (the notification there)');
+        this.emit('popup', 'home', 'On the phone, allow DuoDesk to control it (the notification there)');
       } else {
         this.emit('popup', 'home', this.state === 'ready' ? 'The phone isn’t ready yet' : 'Set up wireless debugging on the Phone page first');
       }

@@ -121,14 +121,14 @@
     const icon = document.createElement('div');
     icon.className = 'updater-icon';
     icon.setAttribute('role', 'img');
-    icon.setAttribute('aria-label', 'TwinDesk icon');
+    icon.setAttribute('aria-label', 'DuoDesk icon');
 
     const titleBox = document.createElement('div');
     titleBox.className = 'updater-title-box';
 
     const title = document.createElement('h2');
     title.className = 'updater-title';
-    title.textContent = 'A new version of TwinDesk is available!';
+    title.textContent = 'A new version of DuoDesk is available!';
 
     const subtitle = document.createElement('p');
     subtitle.className = 'updater-subtitle';
@@ -215,7 +215,7 @@
     };
     linkBtn.onclick = () => {
       const u = lastUpdates;
-      const url = (u && u.releaseUrl) || 'https://github.com/InukaAsith/TwinDesk/releases';
+      const url = (u && u.releaseUrl) || 'https://github.com/0xCodez/DuoDesk/releases';
       if (window.macshare && window.macshare.openLink) {
         window.macshare.openLink('releases');
       } else {
@@ -335,8 +335,8 @@
     const latest = u.latest ? `v${u.latest}` : 'New Version';
     const current = u.current ? `v${u.current}` : '';
 
-    title.textContent = `TwinDesk ${u.latest || ''} is available`;
-    subtitle.textContent = `A new version of TwinDesk is ready to download and install${current ? ` (you have ${current})` : ''}.`;
+    title.textContent = `DuoDesk ${u.latest || ''} is available`;
+    subtitle.textContent = `A new version of DuoDesk is ready to download and install${current ? ` (you have ${current})` : ''}.`;
 
     pillNew.textContent = latest;
     pillCur.textContent = current ? `Current: ${current}` : '';
@@ -380,7 +380,7 @@
       const showBanner = u.available && !u.skipped && bannerDismissedFor !== u.latest;
       banner.hidden = !showBanner;
       if (showBanner) {
-        banner._refs.lead.textContent = `TwinDesk ${u.latest} is available.`;
+        banner._refs.lead.textContent = `DuoDesk ${u.latest} is available.`;
         banner._refs.sub.textContent = u.current ? `(current: v${u.current})` : '';
         banner._refs.getBtn.textContent = u.download ? 'Download' : 'Update';
       }

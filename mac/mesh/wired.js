@@ -204,7 +204,7 @@ class Wired extends EventEmitter {
   async _invite(serial) {
     const has = await this.adb.shell(serial, `pm path ${APP_ID}`, { timeout: 5000 });
     if (!/package:/.test(has.out)) {
-      console.log(`[wired] ${serial}: TwinDesk is not installed on it (pm path said: ${(has.out || has.err || 'nothing').trim().slice(0, 120)}): nothing to connect`);
+      console.log(`[wired] ${serial}: DuoDesk is not installed on it (pm path said: ${(has.out || has.err || 'nothing').trim().slice(0, 120)}): nothing to connect`);
       return;
     }
     await this._tcpip(serial);

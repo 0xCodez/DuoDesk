@@ -161,7 +161,7 @@
       themKey.textContent = data.them;
       hint.textContent = data.theirs.length
         ? `Drag ${data.them} to where it is on your desk. The pointer crosses only where the screens touch (highlighted).`
-        : `Drag ${data.them} to the side it is on. Its screens show here once it’s connected (with an up-to-date TwinDesk).`;
+        : `Drag ${data.them} to the side it is on. Its screens show here once it’s connected (with an up-to-date DuoDesk).`;
       box.setAttribute('aria-label', `${data.them} is ${{ left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[side]} ${data.me}`);
       identify.hidden = !data.mine.length;
       if (!drag) render(side, data.along);

@@ -7,7 +7,7 @@
 // The window's controls sit in the title bar (the default), a side panel or a bar under the picture
 // (settings.phone.controls), and the window is sized for the picture plus those bars.
 // A phone app's windows have a taskbar identity of their own (its icon, Pin to taskbar starts it),
-// and pin() puts it in Start › TwinDesk Apps: both start "TwinDesk.exe --phone-app=<package>".
+// and pin() puts it in Start › TwinDesk Apps: both start "DuoDesk.exe --phone-app=<package>".
 //
 // Events: 'change' — the window list changed; 'focus' — a phone window got or lost focus.
 'use strict';
@@ -191,7 +191,7 @@ class PhoneViews extends EventEmitter {
   }
 
   cameraState() {
-    if (!this.cameraOn) return { on: false, facing: null, error: 'Camera is off on this computer: turn it on in TwinDesk’s Camera tab there', virtual: false };
+    if (!this.cameraOn) return { on: false, facing: null, error: 'Camera is off on this computer: turn it on in DuoDesk’s Camera tab there', virtual: false };
     const v = [...this.views.values()].find((x) => x.kind === 'camera' && !x.ending);
     return { on: !!v, facing: v ? v.facing : null, error: v ? v.error || '' : '', virtual: !!(this.vcam && this.vcam.ready) };
   }
@@ -271,7 +271,7 @@ class PhoneViews extends EventEmitter {
     const id = nextId++;
     const win = new BrowserWindow({
       width, height, minWidth: 220, minHeight: 300, title, show: false,
-      titleBarStyle: 'hidden', titleBarOverlay: { color: '#1c1c1e', symbolColor: '#f5f5f7', height: 32 }, backgroundColor: '#000000',
+      titleBarStyle: 'hidden', titleBarOverlay: { color: '#101013', symbolColor: '#f1f1f3', height: 32 }, backgroundColor: '#000000',
       icon: path.join(__dirname, 'assets', 'icon.png'), autoHideMenuBar: true,
       // autoplayPolicy: the phone's sound plays without a click (its sound window is hidden, so a
       // click never comes: without this its AudioContext stays suspended and silent).
@@ -661,7 +661,7 @@ class PhoneViews extends EventEmitter {
     return 'org.macshare.phoneapp.' + crypto.createHash('sha1').update(pkg).digest('hex').slice(0, 10);
   }
 
-  // How this copy of TwinDesk opens one phone app: "TwinDesk.exe --phone-app=<package>".
+  // How this copy of DuoDesk opens one phone app: "DuoDesk.exe --phone-app=<package>".
   static relaunch(pkg) {
     const args = (app.isPackaged ? [] : [app.getAppPath()]).concat('--phone-app=' + pkg);
     return { target: process.execPath, args: args.map((x) => (/\s/.test(x) ? '"' + x + '"' : x)).join(' ') };
@@ -710,7 +710,7 @@ class PhoneViews extends EventEmitter {
     try {
       fs.mkdirSync(dir, { recursive: true });
       const ok = shell.writeShortcutLink(file, fs.existsSync(file) ? 'replace' : 'create', {
-        target: r.target, args: r.args, description: a.name + ' on ' + ((this.server.current && this.server.current.name) || 'the phone') + ' (TwinDesk)',
+        target: r.target, args: r.args, description: a.name + ' on ' + ((this.server.current && this.server.current.name) || 'the phone') + ' (DuoDesk)',
         appUserModelId: PhoneViews.aumid(pkg), ...(ico ? { icon: ico, iconIndex: 0 } : {}),
       });
       if (!ok) throw new Error('Windows refused the shortcut');

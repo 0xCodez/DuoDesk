@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // The virtual camera on the Mac (shared/vcam.js's driver): "TwinDesk Camera", a Camera Extension
-// (mac-helper/Sources/twindesk-camera) inside TwinDesk.app/Contents/Library/SystemExtensions.
+// (mac-helper/Sources/twindesk-camera) inside DuoDesk.app/Contents/Library/SystemExtensions.
 // Installing it is twindesk-vcam activate (Contents/MacOS: the extension must be in its main
 // bundle), and the first time macOS asks the person to allow it in System Settings; twindesk-vcam
 // feed then writes the frames into the camera. macOS loads a camera extension only from an app in
@@ -69,9 +69,9 @@ const driver = {
       };
     }
     if (!fs.existsSync(TOOL) || !fs.existsSync(EXTENSION)) {
-      return { supported: false, message: 'Not in this build: macOS takes camera extensions only from TwinDesk signed by its developer (a release build). Choose OBS Virtual Camera instead' };
+      return { supported: false, message: 'Not in this build: macOS takes camera extensions only from DuoDesk signed by its developer (a release build). Choose OBS Virtual Camera instead' };
     }
-    if (!/^\/Applications\//.test(CONTENTS)) return { supported: false, message: 'Move TwinDesk to the Applications folder first: macOS installs camera extensions only from there' };
+    if (!/^\/Applications\//.test(CONTENTS)) return { supported: false, message: 'Move DuoDesk to the Applications folder first: macOS installs camera extensions only from there' };
     const st = await tool('status');
     return { supported: true, installed: st.camera === true };
   },

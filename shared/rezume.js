@@ -234,7 +234,7 @@ class ReZume extends EventEmitter {
       } catch (_) { /* through the session below */ }
     }
     if (!pp || !pp.on || !(a.kind === 'web' ? pp.web : pp.docs)) {
-      this.message = !pp ? '{name} has no ReZume yet: update TwinDesk there' : 'ReZume is off on {name}';
+      this.message = !pp ? '{name} has no ReZume yet: update DuoDesk there' : 'ReZume is off on {name}';
       this.emit('change');
       return false;
     }

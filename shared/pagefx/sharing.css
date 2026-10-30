@@ -1,0 +1,313 @@
+/* DuoDesk — PageFX: the Sharing group (sharing.js). Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+   Clipboard, Notifications, File Sharing, Phone Files, Mount. Minimal: monochrome hairlines on the core glass
+   strip, Geist 300 figures, Geist Mono captions at 40 % white, and the page accent (--pg-acc) on ONE thing:
+     clipboard: the item dot · notifications: the bell's dot · files: the file in flight (its fill and token)
+     pfiles: the storage level line · mount: the drive LED.
+   Everything is scoped to .pg-hdr.shr-* or #page-<id>. Data positions use left / translate / SVG attributes
+   (the reduced-motion rule clears transforms in .pg-hdr); transforms only animate. Loads after core.css. */
+
+/* ---------- shared bits of these strips ---------- */
+.pg-hdr.shr { --pg-hdr-h: 0px; padding: 18px 22px; gap: 24px; container-type: inline-size; }
+.shr [hidden] { display: none !important; }
+.shr .shr-text { display: flex; flex-direction: column; gap: 7px; min-width: 0; flex: 1 1 auto; }
+.shr .shr-cap { font: 400 11px/1.35 var(--mono, ui-monospace, monospace); letter-spacing: 0.01em; color: var(--pg-w40);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.shr .shr-capline { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.shr .shr-tags { display: flex; align-items: center; gap: 6px; flex: none; min-width: 0; }
+.shr .shr-tag {
+  display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--pg-w08); white-space: nowrap;
+  font: 500 9.5px/1 var(--mono, ui-monospace, monospace); letter-spacing: 0.07em; text-transform: uppercase; color: var(--pg-w55);
+}
+.shr .shr-tag .pg-ico { font-size: 11px; stroke-width: 1.4; }
+.shr .shr-tag.warn { color: var(--pg-warn); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pg-warn) 22%, transparent); }
+.shr .shr-lamp { width: 4px; height: 4px; border-radius: 50%; background: var(--pg-w18); flex: none; }
+.shr .shr-tag.on .shr-lamp { background: var(--pg-w70); }
+.shr .shr-n { font-variant-numeric: tabular-nums; }
+@keyframes shr-up { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes shr-from-l { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@keyframes shr-from-r { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes shr-grow { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: none; } }
+@keyframes shr-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ======================================================================
+   Clipboard — the latest item is the figure; two rails, one dot
+   ====================================================================== */
+.shr-clip { gap: 32px; }
+.shr-clip .shr-clip-fig {
+  all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%;
+  font: 300 26px/1.2 var(--ui, system-ui, sans-serif); letter-spacing: -0.025em; color: var(--pg-w90);
+  border-radius: 8px; cursor: pointer; transition: color 0.25s;
+}
+.shr-clip .shr-clip-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shr-clip .shr-clip-fig:disabled { cursor: default; }
+.shr-clip .shr-clip-fig:not(:disabled):hover { color: #fff; }
+.shr-clip .shr-clip-fig:focus-visible { outline: 1px solid var(--pg-line); outline-offset: 4px; }
+.shr-clip.empty .shr-clip-fig { color: var(--pg-w40); }
+@container (max-width: 560px) { .shr-clip .shr-clip-fig { font-size: 21px; } }
+.shr-clip .shr-clip-thumb { width: 30px; height: 30px; flex: none; border-radius: 6px; object-fit: cover; box-shadow: 0 0 0 1px var(--pg-w12); }
+.shr-clip.copied .shr-clip-cap { color: var(--pg-acc); }
+
+.shr-clip .shr-motif { position: relative; flex: none; width: clamp(140px, 34cqi, 240px); }
+.shr-clip .shr-clip-art { position: relative; }
+.shr-clip-svg { display: block; width: 100%; height: auto; aspect-ratio: 240 / 52; overflow: visible; }
+.shr-clip .shr-rail { fill: none; stroke: var(--pg-w12); stroke-width: 1; stroke-dasharray: 1.2 2.4; }
+.shr-clip .shr-rail.on { stroke: var(--pg-w25); stroke-dasharray: none; }
+.shr-clip .shr-rail.broken { stroke: var(--pg-w18); stroke-dasharray: 42 16 42; }
+.shr-clip .shr-sweep { fill: none; stroke: var(--pg-w70); stroke-width: 1; stroke-linecap: round; stroke-dasharray: 7 200; stroke-dashoffset: 7; opacity: 0; }
+.shr-clip .shr-sweep.on { animation: shr-sweep 9s var(--pg-ease) infinite; }
+.shr-clip .shr-sweep.out.on { animation-delay: 4.5s; }
+@keyframes shr-sweep { 0% { stroke-dashoffset: 7; opacity: 0; } 5% { opacity: 0.8; } 34% { stroke-dashoffset: -100; opacity: 0.8; } 38%, 100% { stroke-dashoffset: -100; opacity: 0; } }
+.shr-clip .shr-end { fill: #121215; stroke: var(--pg-w40); stroke-width: 1; }
+.shr-clip.no-peer .shr-end.peer { stroke: var(--pg-w18); stroke-dasharray: 1.5 1.5; }
+.shr-clip .shr-clip-dot circle { fill: var(--pg-acc); }
+.shr-clip .shr-clip-dot.parked circle { fill: var(--pg-w40); }
+.shr-clip .shr-clip-dot.shr-fly { transition: translate 1s cubic-bezier(0.65, 0, 0.35, 1); }
+.shr-clip .shr-motif-names { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; font: 400 10.5px/1.2 var(--mono, ui-monospace, monospace); color: var(--pg-w40); }
+.shr-clip .shr-motif-names > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shr-clip .shr-motif-l { flex: 0 1 auto; max-width: 49%; }
+.shr-clip .shr-motif-r { flex: 0 1 auto; max-width: 49%; margin-left: auto; text-align: right; }
+.shr-clip.no-peer .shr-motif-l { color: var(--pg-w25); }
+.shr-clip .shr-clip-off { position: absolute; left: 50%; top: 69.2%; translate: -50% -50%; font: 500 9px/12px var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-warn); }
+.shr-clip .shr-clip-off:empty { display: none; }
+/* switch-in: the text rises, the rails open from the middle, the dot settles */
+.pg-in .shr-clip > .shr-text { animation: shr-up 0.6s var(--pg-ease) 0.08s both; }
+.pg-in .shr-clip .shr-rail { transform-box: fill-box; transform-origin: center; animation: shr-grow 0.9s var(--pg-ease) 0.12s both; }
+.pg-in .shr-clip .shr-rail.out { animation-delay: 0.22s; }
+.pg-in .shr-clip .shr-end, .pg-in .shr-clip .shr-motif-names { animation: shr-fade 0.6s ease 0.35s both; }
+.pg-in .shr-clip .shr-clip-dot { animation: shr-fade 0.5s ease 0.6s both; }
+
+/* the page: monochrome direction marks, a calm entry for the newest slip */
+#page-clipboard .history .hist-dir.in, #page-clipboard .history .hist-dir.out { background: transparent; box-shadow: inset 0 0 0 1px var(--pg-w12); }
+#page-clipboard .history .hist-dir svg { stroke: var(--pg-w70); }
+#page-clipboard .history .hist-dir.in svg { stroke: var(--pg-acc); }
+#page-clipboard .history > .hist-item.pg-new { animation: shr-up 0.6s var(--pg-ease) both; }
+
+/* ======================================================================
+   Notifications — bell + two counters; the last three as hairline slips
+   ====================================================================== */
+.shr-notif { gap: 22px; }
+.shr-notif .shr-bell-wrap { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 13px; box-shadow: inset 0 0 0 1px var(--pg-w08); align-self: flex-start; }
+.shr-notif .shr-bell { width: 26px; height: 26px; overflow: visible; fill: none; stroke: var(--pg-w70); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; transform-box: view-box; transform-origin: 50% 12%; transition: stroke 0.4s; }
+.shr-notif .shr-bell-slash { opacity: 0; transition: opacity 0.4s; }
+.shr-notif .shr-bell-dot { fill: var(--pg-acc); stroke: #141417; stroke-width: 2; opacity: 0; transition: opacity 0.4s; }
+.shr-notif.recv .shr-bell-dot { opacity: 1; }
+.shr-notif.no-peer .shr-bell { stroke: var(--pg-w25); }
+.shr-notif.no-peer .shr-bell-slash { opacity: 1; }
+.shr-notif .shr-swing .shr-bell, .pg-in .shr-notif .shr-bell { animation: shr-swing 1s var(--pg-ease) both; }
+.pg-in .shr-notif .shr-bell { animation-delay: 0.2s; }
+@keyframes shr-swing { 0% { transform: rotate(0); } 22% { transform: rotate(-11deg); } 48% { transform: rotate(7deg); } 72% { transform: rotate(-3deg); } 100% { transform: rotate(0); } }
+.shr-notif .shr-counts { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.shr-notif .shr-counts > .pg-vr { align-self: stretch; height: auto; }
+.shr-notif .shr-count { display: flex; align-items: baseline; gap: 8px; transition: opacity 0.3s; }
+.shr-notif .shr-count.dim { opacity: 0.4; }
+.shr-notif .shr-toasts { flex: 0 1 300px; min-width: 200px; display: flex; flex-direction: column; gap: 5px; }
+.shr-notif .shr-toast {
+  display: flex; align-items: center; gap: 9px; height: 26px; padding: 0 10px 0 5px; border-radius: 8px; min-width: 0;
+  box-shadow: inset 0 0 0 1px var(--pg-w08); font-size: 12px; color: var(--pg-w55);
+}
+.shr-notif .shr-toast:nth-child(1) { color: var(--pg-w90); box-shadow: inset 0 0 0 1px var(--pg-w12); }
+.shr-notif .shr-toast:nth-child(2) { opacity: 0.65; }
+.shr-notif .shr-toast:nth-child(3) { opacity: 0.38; }
+.shr-notif .shr-toast-av { width: 16px; height: 16px; flex: none; border-radius: 4px; object-fit: cover; filter: grayscale(1) contrast(1.05); opacity: 0.85; }
+.shr-notif .shr-toast-av.letter { display: grid; place-items: center; box-shadow: inset 0 0 0 1px var(--pg-w18); font: 600 9px/1 var(--ui, system-ui, sans-serif); color: var(--pg-w70); filter: none; opacity: 1; }
+.shr-notif .shr-toast-text { flex: 1 1 auto; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.shr-notif .shr-toast-text b { font-weight: 500; }
+.shr-notif .shr-toast-when { flex: none; font: 400 10px var(--mono, ui-monospace, monospace); color: var(--pg-w40); }
+.shr-notif .shr-toast.empty { height: 40px; justify-content: center; padding: 0 12px; box-shadow: none; outline: 1px dashed var(--pg-w12); outline-offset: -1px; color: var(--pg-w40); font-size: 11.5px; opacity: 1; }
+.shr-notif.no-peer .shr-toasts { opacity: 0.4; }
+@container (max-width: 660px) { .shr-notif .shr-toasts { display: none; } }
+/* switch-in: the slips come in from the right, one after another; a new one does it alone */
+.pg-in .shr-notif > .shr-text { animation: shr-up 0.6s var(--pg-ease) 0.08s both; }
+.pg-in .shr-notif .shr-toast { animation: shr-from-r 0.6s var(--pg-ease) both; animation-delay: calc(0.18s + var(--i, 0) * 90ms); }
+.shr-notif .shr-toast.shr-new { animation: shr-from-r 0.7s var(--pg-ease) both; }
+
+/* the page: letter marks for rows without an icon, muted apps step back, a new row eases in */
+#page-notifications .pg-notif-feed .row > .text[data-initial] { position: relative; padding-left: 30px; }
+#page-notifications .pg-notif-feed .row > .text[data-initial]::before {
+  content: attr(data-initial); position: absolute; left: 0; top: 50%; translate: 0 -50%; width: 20px; height: 20px; border-radius: 5px;
+  display: grid; place-items: center; box-shadow: inset 0 0 0 1px var(--pg-w18); pointer-events: none;
+  font: 600 10px/1 var(--ui, system-ui, sans-serif); color: var(--pg-w70);
+}
+#page-notifications .pg-notif-feed .row.pg-new { animation: shr-up 0.6s var(--pg-ease) both; }
+#page-notifications .pg-notif-apps .row:has(.switch input:not(:checked)) > .text,
+#page-notifications .pg-notif-apps .row:has(> .controls > input[type="checkbox"]:not(:checked)) > .text { opacity: 0.45; transition: opacity 0.3s; }
+
+/* ======================================================================
+   File Sharing — a status line over one long track; the file rides it
+   ====================================================================== */
+.shr-files { flex-direction: column; align-items: stretch; gap: 14px; }
+.shr-files .shr-files-top { display: flex; align-items: flex-end; gap: 16px; min-width: 0; }
+.shr-files .shr-text { gap: 6px; }
+.shr-files .shr-status { font: 300 24px/1.2 var(--ui, system-ui, sans-serif); letter-spacing: -0.02em; color: var(--pg-w90); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shr-files.no-peer .shr-status { color: var(--pg-w55); }
+.shr-files .shr-files-fig { flex: none; }
+.shr-files .shr-track { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.shr-files .shr-tend { display: flex; align-items: center; gap: 9px; flex: 0 1 auto; min-width: 0; max-width: 26%; }
+.shr-files .shr-tend.me { flex-direction: row-reverse; text-align: right; }
+.shr-files .shr-end-ico { display: grid; flex: none; font-size: 16px; color: var(--pg-w55); }
+.shr-files.no-peer .shr-tend.peer .shr-end-ico { color: var(--pg-w25); }
+.shr-files .shr-tend-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.shr-files .shr-end-nm { font-size: 12px; color: var(--pg-w70); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shr-files .shr-end-lamp { display: flex; align-items: center; gap: 5px; font: 400 10px/1 var(--mono, ui-monospace, monospace); color: var(--pg-w40); white-space: nowrap; }
+.shr-files .shr-tend.me .shr-end-lamp { flex-direction: row-reverse; }
+.shr-files .shr-end-lamp > i { width: 4px; height: 4px; border-radius: 50%; flex: none; background: var(--pg-w18); }
+.shr-files .shr-end-lamp.on > i { background: var(--pg-w70); }
+.shr-files .shr-line { --x: 1; --at: calc(11px + var(--x) * (100% - 22px)); position: relative; flex: 1 1 auto; min-width: 120px; height: 30px; }
+.shr-files .shr-line > i { position: absolute; top: 50%; height: 1px; pointer-events: none; }
+.shr-files .shr-line-base { left: 0; right: 0; background: var(--pg-w18); transform-origin: right; }
+.shr-files.no-peer .shr-line-base { background: repeating-linear-gradient(90deg, var(--pg-w18) 0 3px, transparent 3px 7px); }
+.shr-files.idle-dirs .shr-line-base { background: var(--pg-w08); }
+.shr-files .shr-line-fill { left: var(--at); right: 11px; background: var(--pg-acc); opacity: 0; transition: left 0.7s var(--pg-ease), opacity 0.4s; }
+.shr-files[data-st="out"] .shr-line-fill { opacity: 0.85; }
+.shr-files .shr-line-run { left: 0; width: 24%; background: linear-gradient(90deg, transparent, var(--pg-acc), transparent); opacity: 0; }
+.shr-files[data-st="in"] .shr-line-run { opacity: 0.9; animation: shr-run 5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@keyframes shr-run { from { transform: translateX(-100%); } to { transform: translateX(420%); } }
+.shr-files .shr-line-edge { left: 50%; top: 2px !important; height: 26px !important; width: 0; border-left: 1px dashed var(--pg-w25); opacity: 0; transition: opacity 0.3s; }
+.shr-files[data-st="drag"] .shr-line-edge { opacity: 1; }
+.shr-files .shr-tok {
+  position: absolute; top: 50%; left: var(--at); translate: -50% -50%; width: 24px; height: 28px; border-radius: 5px; box-sizing: border-box;
+  display: grid; place-items: center; background: #131316; box-shadow: inset 0 0 0 1px var(--pg-w40);
+  transition: left 0.7s var(--pg-ease), box-shadow 0.4s;
+}
+.shr-files .shr-tok-ext { font: 500 6.5px/1 var(--mono, ui-monospace, monospace); letter-spacing: 0.02em; color: var(--pg-w70); }
+.shr-files .shr-tok-mark { position: absolute; top: -9px; right: -10px; font: 500 10px/1 var(--mono, ui-monospace, monospace); color: var(--pg-w70); }
+.shr-files .shr-tok[data-ok="0"] .shr-tok-mark { color: var(--pg-bad); }
+.shr-files[data-st="out"] .shr-tok, .shr-files[data-st="drag"] .shr-tok { box-shadow: inset 0 0 0 1px var(--pg-acc); }
+.shr-files[data-st="out"] .shr-tok-ext, .shr-files[data-st="drag"] .shr-tok-ext { color: var(--pg-acc); }
+.shr-files .shr-tok.shr-dock { animation: shr-fade 0.8s ease both; }
+.shr-files .shr-queue { position: absolute; top: 50%; left: calc(var(--at) + 18px); translate: 0 -50%; display: flex; align-items: center; gap: 3px; transition: left 0.7s var(--pg-ease); }
+.shr-files .shr-queue { padding: 0 4px; background: #121215; overflow: hidden; max-width: max(0px, calc(100% - var(--at) - 18px)); } /* never runs into the end */
+.shr-files .shr-queue > i { width: 6px; height: 6px; border-radius: 1.5px; box-shadow: inset 0 0 0 1px var(--pg-w25); }
+.shr-files .shr-queue > span { margin-left: 3px; font: 400 9.5px/1 var(--mono, ui-monospace, monospace); color: var(--pg-w40); }
+/* switch-in: the ends come in from their sides, the track draws from this computer toward the other */
+.pg-in .shr-files .shr-files-top { animation: shr-up 0.6s var(--pg-ease) 0.06s both; }
+.pg-in .shr-files .shr-tend.peer { animation: shr-from-l 0.6s var(--pg-ease) 0.15s both; }
+.pg-in .shr-files .shr-tend.me { animation: shr-from-r 0.6s var(--pg-ease) 0.15s both; }
+.pg-in .shr-files .shr-line-base { animation: shr-grow 1s var(--pg-ease) 0.2s both; }
+.pg-in .shr-files .shr-tok, .pg-in .shr-files .shr-queue { animation: shr-fade 0.5s ease 0.75s both; }
+.pg-in .shr-files > .shr-capline { animation: shr-fade 0.6s ease 0.3s both; }
+
+/* the page: a quiet drop zone that answers a drag with the accent, a hairline send bar, keycaps */
+#page-files .dropzone { border-style: dashed; border-color: var(--pg-w12); background: transparent; transition: border-color 0.3s, background-color 0.3s; }
+#page-files .dropzone:hover:not(.off) { border-color: var(--pg-w25); }
+#page-files .dropzone.over { border-style: solid; border-color: var(--pg-line); background: var(--pg-soft); box-shadow: none; }
+#page-files .row .bar { height: 2px; background: var(--pg-w08); }
+#page-files .row .bar > span { background: var(--pg-acc); box-shadow: none; transition: width 0.5s var(--pg-ease); }
+#page-files .btn.keyrec { font-family: var(--mono, ui-monospace, monospace); letter-spacing: 0.02em; }
+#page-files .btn.keyrec.on { border-color: var(--pg-line); color: var(--pg-w90); background: transparent; box-shadow: none; }
+#page-files .pg-files-log .row.pg-live > .text .label { color: var(--pg-acc); transition: color 0.4s; }
+
+/* ======================================================================
+   Phone Files — a phone outline whose level line is the storage
+   ====================================================================== */
+.shr-pfiles { gap: 26px; }
+.shr-pfiles .shr-pf-phone-wrap { position: relative; flex: none; width: 48px; height: 84px; }
+.shr-pfiles .shr-pf-phone { display: block; width: 48px; height: 84px; overflow: visible; }
+.shr-pfiles .shr-pf-body { fill: rgba(255, 255, 255, 0.02); stroke: var(--pg-w40); stroke-width: 1; }
+.shr-pfiles .shr-pf-screen { fill: none; stroke: var(--pg-w08); stroke-width: 1; }
+.shr-pfiles .shr-pf-fill { fill: rgba(255, 255, 255, 0.055); }
+.shr-pfiles .shr-pf-lvl { stroke: var(--pg-acc); stroke-width: 1.25; stroke-linecap: round; transition: opacity 0.4s; }
+.shr-pfiles .shr-pf-cam { fill: var(--pg-w25); }
+.shr-pfiles:not([data-state="ok"]) .shr-pf-lvl { opacity: 0; }
+.shr-pfiles.loading .shr-pf-lvl { opacity: 1; stroke: var(--pg-w40); animation: pg-blink 2.4s ease-in-out infinite; }
+.shr-pfiles[data-state="off"] .shr-pf-body, .shr-pfiles[data-state="ble"] .shr-pf-body { stroke: var(--pg-w25); stroke-dasharray: 0.012 0.012; } /* pathLength 1 */
+.shr-pfiles .shr-pf-glyph { position: absolute; left: 50%; top: 50%; translate: -50% -50%; display: none; font-size: 15px; color: var(--pg-w40); }
+.shr-pfiles:is([data-state="ble"], [data-state="error"]) .shr-pf-glyph { display: grid; }
+.shr-pfiles[data-state="error"] .shr-pf-glyph { color: var(--pg-warn); }
+.shr-pfiles .pg-fig { display: flex; align-items: baseline; }
+.shr-pfiles:not([data-state="ok"]) .pg-fig { font-size: 26px; color: var(--pg-w55); }
+.shr-pfiles .shr-side { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; flex: none; }
+@container (max-width: 760px) { .shr-pfiles .shr-side .shr-tags { display: none; } }
+@container (max-width: 560px) { .shr-pfiles .shr-side { display: none; } }
+.shr-pfiles .shr-stats { display: flex; gap: 20px; }
+.shr-pfiles .shr-stat { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.shr-pfiles .shr-stat b { font: 300 20px/1 var(--ui, system-ui, sans-serif); letter-spacing: -0.02em; color: var(--pg-w90); font-variant-numeric: tabular-nums; }
+.shr-pfiles .shr-stat span { font: 500 9.5px/1 var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-w40); }
+.shr-pfiles .shr-pf-chosen { color: var(--pg-w90); box-shadow: inset 0 0 0 1px var(--pg-w25); }
+/* switch-in: the outline draws, the level rises (sharing.js), the numbers follow */
+.pg-in .shr-pfiles .shr-pf-body { animation-duration: 1.1s; }
+.pg-in .shr-pfiles > .shr-text { animation: shr-up 0.6s var(--pg-ease) 0.12s both; }
+.pg-in .shr-pfiles > .shr-side { animation: shr-fade 0.7s ease 0.3s both; }
+
+/* the page: extension marks on file rows, a hairline for chosen ones, a calm drop target */
+#page-pfiles .hub-fs-row .text > .label[data-ext]::after {
+  content: attr(data-ext); display: inline-block; margin-left: 8px; padding: 2px 5px; border-radius: 4px; vertical-align: 1px;
+  box-shadow: inset 0 0 0 1px var(--pg-w12); font: 500 9px/1 var(--mono, ui-monospace, monospace); letter-spacing: 0.06em; color: var(--pg-w40);
+}
+#page-pfiles .hub-fs-row.chosen { background: rgba(255, 255, 255, 0.035); box-shadow: inset 2px 0 0 var(--pg-acc); }
+#page-pfiles .hub-fs-ico.dir { stroke: var(--pg-w70); fill: rgba(255, 255, 255, 0.04); }
+#page-pfiles .hub-crumb { color: var(--pg-w55); }
+#page-pfiles .hub-crumb:disabled { color: var(--pg-w90); }
+#page-pfiles .hub-fs-sel { background: rgba(255, 255, 255, 0.03); box-shadow: inset 0 0 0 1px var(--pg-w12); }
+#page-pfiles .hub-fs-check { accent-color: var(--pg-acc); }
+#page-pfiles .hub-fs > .card-wrap, #page-pfiles .hub-fs .card { position: relative; }
+#page-pfiles .hub-fs.over .card { border-color: var(--pg-line); box-shadow: 0 0 0 1px var(--pg-line); }
+#page-pfiles .hub-fs.over .card[data-target]::after {
+  content: "Drop into " attr(data-target); position: absolute; left: 50%; bottom: 14px; translate: -50% 0; pointer-events: none; z-index: 2;
+  padding: 6px 12px; border-radius: 999px; background: #141417; box-shadow: inset 0 0 0 1px var(--pg-line);
+  font: 500 11px/1 var(--mono, ui-monospace, monospace); color: var(--pg-w90); white-space: nowrap;
+}
+#page-pfiles .hub-fs-list.pg-cascade-r > :nth-child(-n + 12) { animation: shr-from-r 0.45s var(--pg-ease) both; animation-delay: calc(var(--ri, 0) * 28ms); }
+#page-pfiles .hub-fs-list.pg-cascade-l > :nth-child(-n + 12) { animation: shr-from-l 0.45s var(--pg-ease) both; animation-delay: calc(var(--ri, 0) * 28ms); }
+
+/* ======================================================================
+   Mount — phone ─ connector ─ bay; the letter is the figure, the LED the accent
+   ====================================================================== */
+.shr-mount { flex-direction: column; align-items: stretch; gap: 14px; }
+.shr-mount .shr-mt-stage { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.shr-mount .shr-mt-phone { display: flex; align-items: center; gap: 12px; flex: 0 1 auto; min-width: 0; max-width: 32%; }
+.shr-mount .shr-mt-handset { flex: none; width: 30px; height: 52px; overflow: visible; fill: rgba(255, 255, 255, 0.02); stroke: var(--pg-w40); stroke-width: 1; }
+.shr-mount .shr-mt-hs-cam { fill: var(--pg-w25); stroke: none; }
+.shr-mount .shr-mt-hs-home { stroke: var(--pg-w25); stroke-linecap: round; }
+.shr-mount .shr-mt-ptext { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.shr-mount .shr-mt-pname { font-size: 13px; color: var(--pg-w90); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shr-mount .shr-mt-batt { font: 400 10.5px/1 var(--mono, ui-monospace, monospace); color: var(--pg-w40); }
+.shr-mount .shr-mt-conn { position: relative; flex: 1 1 auto; min-width: 80px; height: 28px; }
+.shr-mount .shr-mt-line { position: absolute; left: 0; right: 9px; top: 50%; height: 1px; background: var(--pg-w25); transform-origin: left; }
+.shr-mount[data-via="none"] .shr-mt-line { background: repeating-linear-gradient(90deg, var(--pg-w18) 0 3px, transparent 3px 7px); }
+.shr-mount[data-via="wifi"] .shr-mt-line { background: repeating-linear-gradient(90deg, var(--pg-w25) 0 1px, transparent 1px 5px); }
+.shr-mount[data-state="adb"] .shr-mt-line { -webkit-mask: linear-gradient(90deg, #000 38%, transparent 38% 62%, #000 62%); mask: linear-gradient(90deg, #000 38%, transparent 38% 62%, #000 62%); }
+.shr-mount .shr-mt-plug { position: absolute; right: 0; top: 50%; translate: 0 -50%; width: 9px; height: 6px; border-radius: 1.5px; box-shadow: inset 0 0 0 1px var(--pg-w40); opacity: 0; }
+.shr-mount[data-via="usb"] .shr-mt-plug { opacity: 1; }
+.shr-mount .shr-mt-wifi { position: absolute; left: 50%; top: -8px; translate: -50% 0; width: 18px; height: 12px; fill: none; stroke: var(--pg-w40); stroke-width: 1.3; stroke-linecap: round; opacity: 0; }
+.shr-mount[data-via="wifi"] .shr-mt-wifi { opacity: 1; }
+.shr-mount .shr-mt-adb { position: absolute; left: 50%; top: 50%; translate: -50% -50%; font: 500 9.5px/1 var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; color: var(--pg-warn); opacity: 0; }
+.shr-mount[data-state="adb"] .shr-mt-adb { opacity: 1; }
+/* the run spans the cable; its dot is ::before, so a transform of 100 % carries it end to end (transform only) */
+.shr-mount .shr-mt-run { position: absolute; top: 50%; left: 0; right: 14px; height: 4px; margin-top: -2px; opacity: 0; }
+.shr-mount .shr-mt-run::before { content: ""; position: absolute; left: 0; top: 0; width: 4px; height: 4px; border-radius: 50%; background: var(--pg-w70); }
+.shr-mount[data-state="mounted"] .shr-mt-run { animation: shr-mt-run 6.5s var(--pg-ease) infinite; }
+.shr-mount:is([data-state="mounting"], [data-state="unmounting"]) .shr-mt-run { animation: shr-mt-run 4s ease-in-out infinite; }
+.shr-mount[data-state="unmounting"] .shr-mt-run { animation-direction: reverse; }
+@keyframes shr-mt-run { 0% { transform: translateX(0); opacity: 0; } 6% { opacity: 0.9; } 40% { transform: translateX(100%); opacity: 0.9; } 46%, 100% { transform: translateX(100%); opacity: 0; } }
+.shr-mount .shr-mt-bay { display: flex; flex-direction: column; align-items: center; gap: 7px; flex: none; }
+.shr-mount .shr-mt-slot { position: relative; width: 116px; height: 58px; border-radius: 11px; display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.02); box-shadow: inset 0 0 0 1px var(--pg-w18); transition: box-shadow 0.5s; }
+.shr-mount[data-state="mounted"] .shr-mt-slot { box-shadow: inset 0 0 0 1px var(--pg-w40); }
+.shr-mount .shr-mt-letter { font: 200 30px/1 var(--ui, system-ui, sans-serif); letter-spacing: -0.03em; color: var(--pg-w25); transition: color 0.5s; }
+.shr-mount[data-state="mounted"] .shr-mt-letter { color: var(--pg-w90); }
+.shr-mount .shr-mt-letter.long { max-width: 100px; font-size: 14px; font-weight: 400; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shr-mount .shr-mt-led { position: absolute; right: 10px; bottom: 10px; width: 5px; height: 5px; border-radius: 50%; background: var(--pg-w12); transition: background-color 0.4s; }
+.shr-mount[data-state="mounted"] .shr-mt-led { background: var(--pg-acc); } /* steady: the dot on the cable is the one gesture */
+.shr-mount:is([data-state="mounting"], [data-state="unmounting"]) .shr-mt-led { background: var(--pg-acc); animation: pg-blink 2.4s ease-in-out infinite; }
+.shr-mount[data-state="error"] .shr-mt-led { background: var(--pg-bad); }
+.shr-mount .shr-mt-baylbl { font: 500 9.5px/1 var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pg-w40); }
+.shr-mount .shr-lockin .shr-mt-slot, .shr-mount .shr-mt-bay.shr-lockin .shr-mt-slot { animation: shr-lock 0.9s var(--pg-ease) both; }
+@keyframes shr-lock { 0% { transform: scale(1.035); box-shadow: inset 0 0 0 1px var(--pg-line); } 100% { transform: scale(1); } }
+.shr-mount .shr-specs { display: flex; gap: 18px; flex: none; margin-left: auto; }
+.shr-mount .shr-spec { display: flex; align-items: baseline; gap: 6px; font: 400 10.5px/1 var(--mono, ui-monospace, monospace); color: var(--pg-w40); }
+.shr-mount .shr-spec > span { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+.shr-mount .shr-spec > b { font-weight: 500; color: var(--pg-w70); }
+.shr-mount[data-state="error"] .shr-cap { color: var(--pg-warn); }
+/* switch-in: phone from the left, bay from the right, then the connector draws between them */
+.pg-in .shr-mount .shr-mt-phone { animation: shr-from-l 0.65s var(--pg-ease) 0.05s both; }
+.pg-in .shr-mount .shr-mt-bay { animation: shr-from-r 0.65s var(--pg-ease) 0.05s both; }
+.pg-in .shr-mount .shr-mt-line { animation: shr-grow 0.8s var(--pg-ease) 0.3s both; }
+.pg-in .shr-mount > .shr-capline { animation: shr-fade 0.6s ease 0.35s both; }
+
+/* ---------- reduced motion: what lives outside .pg-hdr ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #page-clipboard .history > .hist-item.pg-new, #page-notifications .pg-notif-feed .row.pg-new,
+  #page-pfiles .hub-fs-list > * { animation: none !important; }
+}

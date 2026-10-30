@@ -37,7 +37,7 @@ class FsBrowse(private val core: Core) {
     fun list(m: JSONObject): JSONObject {
         val path = m.str("path", 1000)
         val out = msg(Proto.T.FS_LIST, "path" to path)
-        if (!allowed()) return out.put("error", "All files access is off for TwinDesk on this phone")
+        if (!allowed()) return out.put("error", "All files access is off for DuoDesk on this phone")
         val dir = at(path)
         if (dir == null || !dir.isDirectory) return out.put("error", "That folder isn’t there any more").put("items", JSONArray())
         val hidden = m.optBoolean("hidden")
@@ -59,7 +59,7 @@ class FsBrowse(private val core: Core) {
         val done = { ok: Boolean, error: String, folder: String ->
             msg(Proto.T.FS_DONE, "ref" to m.str("ref", 60), "ok" to ok, "error" to error.ifEmpty { null }, "path" to folder)
         }
-        if (!allowed()) return done(false, "All files access is off for TwinDesk on this phone", path)
+        if (!allowed()) return done(false, "All files access is off for DuoDesk on this phone", path)
         val f = at(path) ?: return done(false, "Not on this phone’s storage", path)
         val name = cleanName(m.str("name", 300))
         return when (a) {

@@ -56,10 +56,10 @@
     $('name').textContent = game && opts.bt ? `Bluetooth gamepad · ${opts.btName || 'connected'}`
       : `${game ? (real ? 'Gamepad (real)' : 'Gamepad') : 'Touchpad'} · ${opts.name}`;
     const note = game && opts.bt ? ''
-      : !opts.connected ? `Not connected to ${opts.name}. Connect from TwinDesk’s Overview.`
+      : !opts.connected ? `Not connected to ${opts.name}. Connect from DuoDesk’s Overview.`
       : allowed === false && off ? `Remote is off on ${opts.name}.`
-      : allowed === false ? (why || `${opts.name} doesn’t take input from ${opts.me}. On ${opts.name}, turn on Remote in TwinDesk.`)
-        : allowed === null && (opts.os === 'mac' || opts.os === 'linux') ? `${opts.name} doesn’t answer the remote: update TwinDesk there.`
+      : allowed === false ? (why || `${opts.name} doesn’t take input from ${opts.me}. On ${opts.name}, turn on Remote in DuoDesk.`)
+        : allowed === null && (opts.os === 'mac' || opts.os === 'linux') ? `${opts.name} doesn’t answer the remote: update DuoDesk there.`
           : '';
     $('note-text').textContent = note;
     $('note').hidden = !note;

@@ -1,7 +1,9 @@
 Third-party notices
 ===================
 
-TwinDesk is licensed under the GNU General Public License v3.0 (see LICENSE).
+DuoDesk (https://github.com/0xCodez/DuoDesk), Copyright (C) 2026 0xCodez, is a fork of TwinDesk
+(https://github.com/InukaAsith/TwinDesk), Copyright (C) 2026 inukaasith (Inuka Asith). Both are
+licensed under the GNU General Public License v3.0 (see LICENSE).
 It includes or adapts the following works.
 
 
@@ -79,6 +81,15 @@ License: Apache-2.0 (see licenses/Apache-2.0.txt) — Copyright (C) The Android 
 adb.exe, AdbWinApi.dll and AdbWinUsbApi.dll are downloaded from Google when the Windows installer
 is built (windows/scripts/fetch-adb.js) and included in it, for wireless debugging with the phone;
 adb for Linux likewise when the Linux packages are built (linux/scripts/fetch-adb.js).
+
+
+Geist and Geist Mono (fonts)
+----------------------------
+Source:  https://github.com/vercel/geist-font
+License: SIL Open Font License 1.1 — Copyright 2024 The Geist Project Authors
+         (see shared/fonts/OFL.txt and android/app/src/main/assets/OFL-Geist.txt)
+Used in: shared/fonts/*.woff2, android/app/src/main/assets/web/fonts/*.woff2 and
+         android/app/src/main/res/font/geist_*.ttf (unmodified), the apps' interface type.
 
 
 Downloaded at run time (not included in this repository)
