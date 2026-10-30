@@ -10,7 +10,7 @@ const fs = require('fs');
 
 // DuoDesk's own repository and site. WEBSITE is the landing page; change it here when it moves.
 const REPO_URL = 'https://github.com/0xCodez/DuoDesk';
-const WEBSITE = 'https://duodesk-green.vercel.app';
+const WEBSITE = 'https://getduodesk.vercel.app';
 
 const LINKS = {
   author: 'https://github.com/0xCodez',

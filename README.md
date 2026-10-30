@@ -2,7 +2,7 @@
   <img src=".github/assets/icon.png" width="112" alt="DuoDesk icon">
 </p>
 
-<h1 align="center"><a href="https://duodesk-green.vercel.app">DuoDesk</a></h1>
+<h1 align="center"><a href="https://getduodesk.vercel.app">DuoDesk</a></h1>
 
 <p align="center">
   <b>All your computers and your phone, working as one desk.</b><br>
@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="#download"><b>⬇️ Download 2.5 beta</b></a> ·
-  <a href="https://duodesk-green.vercel.app"><b>Website</b></a> ·
+  <a href="https://getduodesk.vercel.app"><b>Website</b></a> ·
   <a href="https://github.com/0xCodez/DuoDesk"><b>Source</b></a> ·
   <a href="#-new-in-23"><b>What's new</b></a> ·
   <a href="#-get-started"><b>Get started</b></a> ·
@@ -817,7 +817,7 @@ And thanks to everyone who reports problems and shares ideas in the [issues](htt
 
 ## Credits
 
-DuoDesk is made by [0xCodez](https://github.com/0xCodez) ([source](https://github.com/0xCodez/DuoDesk), [website](https://duodesk-green.vercel.app)).
+DuoDesk is made by [0xCodez](https://github.com/0xCodez) ([source](https://github.com/0xCodez/DuoDesk), [website](https://getduodesk.vercel.app)).
 It is a fork of [TwinDesk](https://github.com/InukaAsith/TwinDesk) by [Inuka Asith](https://github.com/InukaAsith),
 released under the GNU GPL v3.0; DuoDesk keeps that licence and every original copyright notice.
 

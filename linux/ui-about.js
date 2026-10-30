@@ -60,7 +60,7 @@ UI.tab({
       ], { cls: 'keep-on' }),
       UI.card('Made by', [
         UI.row('0xCodez', 'github.com/0xCodez', [link('Profile', 'author')]),
-        UI.row('Website', 'duodesk-green.vercel.app', [link('Open', 'website')]),
+        UI.row('Website', 'getduodesk.vercel.app', [link('Open', 'website')]),
         UI.row('Source code', 'github.com/0xCodez/DuoDesk', [link('GitHub', 'github')]),
         UI.row('All releases', 'Downloads for macOS, Windows, Linux and Android', [link('Releases', 'releases')]),
         UI.row('Report a problem', 'Open an issue on GitHub', [link('Issues', 'issues')]),

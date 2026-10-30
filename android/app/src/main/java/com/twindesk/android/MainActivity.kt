@@ -1580,7 +1580,7 @@ private fun AboutPage(core: Core, v: Int) {
     }
     MacCard("Made by") {
         MacRow("0xCodez", "github.com/0xCodez", first = true) { Secondary("Profile") { open("https://github.com/0xCodez") } }
-        MacRow("Website", "duodesk-green.vercel.app") { Secondary("Open") { open("https://duodesk-green.vercel.app") } }
+        MacRow("Website", "getduodesk.vercel.app") { Secondary("Open") { open("https://getduodesk.vercel.app") } }
         MacRow("Source code", "github.com/0xCodez/DuoDesk") { Secondary("GitHub") { open("https://github.com/0xCodez/DuoDesk") } }
         MacRow("Releases", "New versions for every platform") { Secondary("Open") { open(Updates.RELEASES) } }
         MacRow("Report a problem", "Open an issue on GitHub") { Secondary("Issues") { open("https://github.com/0xCodez/DuoDesk/issues") } }

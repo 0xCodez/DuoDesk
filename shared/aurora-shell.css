@@ -133,22 +133,22 @@ html.au-mac .au-scroll { -webkit-app-region: no-drag; }
 .au-col:hover::-webkit-scrollbar-thumb, #content:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
 .au-col::-webkit-scrollbar-thumb:hover, #content::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 
-/* Brand row: the concept's mark (a dark glass square, a spectrum rising from its bottom) and the name. */
+/* Brand row: the DuoDesk icon (shared/art/duodesk-mark-*.png, shipped with every app) and the name. */
 .identity { align-items: center; gap: 11px; padding: 2px 8px 14px; }
 .app-mark {
-  position: relative; overflow: hidden; isolation: isolate;
-  width: 28px; height: 28px; border-radius: 9px; flex: none;
-  background: linear-gradient(180deg, #19191d, #0e0e11); filter: none;
-  box-shadow: inset 0 0 0 1px var(--au-line-2), 0 6px 18px -8px rgba(138, 92, 255, 0.8);
+  position: relative; isolation: isolate;
+  width: 30px; height: 30px; border-radius: 8px; flex: none;
+  background: image-set(url("art/duodesk-mark-32.png") 1x, url("art/duodesk-mark-64.png") 2x, url("art/duodesk-mark-128.png") 4x) center / contain no-repeat;
+  filter: none; box-shadow: 0 6px 16px -8px rgba(138, 92, 255, 0.55);
 }
 .app-mark::before { content: none; display: none; }
-/* The glow: blurred once (a still filter), only its position sways (transform). */
+/* A soft spectral light under the icon: blurred once (a still filter), only its position sways (transform). */
 .app-mark::after {
-  content: ""; position: absolute; left: -24px; width: 76px; bottom: -12px; height: 22px; z-index: -1;
-  background: linear-gradient(90deg, #ff3d9a, #8a5cff, #2fd6ff, #3dffa8, #ffb340, #ff3d9a, #8a5cff); filter: blur(6px);
+  content: ""; position: absolute; left: 3px; right: 3px; bottom: -6px; height: 10px; z-index: -1; border-radius: 50%;
+  background: linear-gradient(90deg, #ff3d9a, #8a5cff, #2fd6ff, #3dffa8, #ffb340); filter: blur(7px); opacity: 0.45;
   animation: au-mark 7s ease-in-out infinite alternate; will-change: transform;
 }
-@keyframes au-mark { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
+@keyframes au-mark { from { transform: translateX(-4px); } to { transform: translateX(4px); } }
 .who { gap: 0; }
 .app-name { font-size: 15.5px; font-weight: 600; letter-spacing: -0.25px; line-height: 1.2; }
 /* The link status moves to the top bar; the shell still writes it here (kept, out of sight). */
