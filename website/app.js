@@ -196,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const os = detectOS();
   if (os) {
     $('#dl-main-label').textContent = OS[os].label;
+    $('#dl-main').setAttribute('href', '/api/download?os=' + os); // straight to the file for this system
     $('#dl-main-icon use').setAttribute('href', OS[os].icon);
     $$(`[data-os="${os}"]`).forEach((el) => el.classList.add('mine'));
   }
