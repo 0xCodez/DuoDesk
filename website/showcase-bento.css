@@ -1,0 +1,112 @@
+/* DuoDesk website: the features bento (partials/bento.html), six living vignettes drawn as hairline SVG.
+   Minimal Aurora: monochrome glass devices on near-black, ONE accent per card (--sx) on the thing that moves.
+   Everything here is scoped to .sx (the features section) and loads after styles.css. */
+
+.sx-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+
+.sx-card { --sx: #8a5cff; }
+.sx-violet { --sx: #8a5cff; } .sx-cyan { --sx: #2fd6ff; } .sx-mint { --sx: #3dffa8; }
+.sx-pink { --sx: #ff3d9a; } .sx-amber { --sx: #ffb340; } .sx-spec { --sx: #e9e6ff; }
+
+/* ---------- the card: dark glass, a key edge on top, a hairline lit by the pointer in the card's accent ---------- */
+.sx .sx-card {
+  border-radius: 28px;
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(255,255,255,.045), transparent 60%),
+    linear-gradient(180deg, rgba(17,17,21,.88), rgba(7,7,9,.92));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.065), inset 0 1px 0 rgba(255,255,255,.07), 0 40px 80px -40px rgba(0,0,0,.9);
+  transition: box-shadow .5s var(--ease), transform .6s var(--ease);
+}
+.sx .sx-card::before {
+  background: radial-gradient(280px circle at var(--mx, 50%) var(--my, -20%), color-mix(in srgb, var(--sx) 75%, transparent), color-mix(in srgb, var(--sx) 12%, transparent) 45%, transparent 72%);
+  animation: none; opacity: 0; transition: opacity .6s var(--ease);
+}
+.sx .sx-card::after {
+  background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 0%), rgba(255,255,255,.045), transparent 62%);
+  transition: opacity .6s var(--ease);
+}
+.sx .sx-card:hover::before { opacity: .75; }
+.sx .sx-card:hover::after { opacity: 1; }
+.sx .sx-card h3 svg { transition: color .5s var(--ease); }
+.sx .sx-card:hover h3 svg { color: var(--sx); }
+
+/* ---------- the picture ---------- */
+.sx-vis { position: relative; height: 330px; }
+.sx-stage { position: absolute; inset: 0; padding: 30px 18px 4px; }
+.sx-tilt { width: 100%; height: 100%; transform: perspective(1200px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); will-change: transform; }
+.sx-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.sx-svg * { vector-effect: non-scaling-stroke; }
+.sx-svg .sx-prog, .sx-svg .sx-beam, .sx-svg .sx-tick { vector-effect: none; stroke-width: 1.3; }
+.sx-svg .sx-tick { stroke-width: 1.1; }
+.sx-svg text { user-select: none; }
+.sx-m { font-family: var(--mono); }
+.sx-t { font-family: var(--ui); }
+.sx-thin { font-weight: 250; letter-spacing: -.02em; }
+.sx-acc-fill { fill: var(--sx); }
+.sx-acc-stroke { stroke: var(--sx); }
+.sx-nohit, .sx-refl { pointer-events: none; }
+.sx-lbl { fill: #fff; fill-opacity: .3; letter-spacing: .16em; transition: fill-opacity .6s var(--ease); }
+.sx-lbl.on { fill-opacity: .82; }
+.sx-ldot { transition: transform .7s var(--ease); }
+
+/* power on: the stage wakes when it scrolls in, like a feature switched on in the app */
+.sx-ready .sx-stage { opacity: .38; filter: saturate(0); transition: opacity 1.4s var(--ease), filter 1.4s var(--ease); }
+.sx-ready .sx-card.sx-live .sx-stage { opacity: 1; filter: none; }
+.sx-ready .sx-card.sx-off .sx-stage { opacity: .32; filter: saturate(0); }
+
+/* the switch, top right: on = the card's accent */
+.sx-sw { position: absolute; z-index: 4; top: 18px; right: 18px; width: 30px; height: 18px; padding: 0; border: 0; border-radius: 99px; cursor: pointer;
+  background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); transition: background .5s var(--ease), box-shadow .5s var(--ease); opacity: 0; }
+.sx-sw i { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: #d9d9de; box-shadow: 0 1px 3px rgba(0,0,0,.5); transition: transform .5s var(--ease), background .5s; }
+.sx-ready .sx-sw { opacity: 1; }
+.sx-card.sx-live:not(.sx-off) .sx-sw { background: color-mix(in srgb, var(--sx) 52%, #0a0a0c); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sx) 55%, transparent), 0 0 18px -6px color-mix(in srgb, var(--sx) 55%, transparent); }
+.sx-spec.sx-live:not(.sx-off) .sx-sw { background: linear-gradient(90deg, rgba(255,61,154,.5), rgba(138,92,255,.55) 45%, rgba(47,214,255,.5)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 0 18px -6px rgba(138,92,255,.6); }
+.sx-card.sx-live:not(.sx-off) .sx-sw i { transform: translateX(12px); background: #fff; }
+.sx-sw:focus-visible { outline: 2px solid var(--sx); outline-offset: 3px; }
+
+/* ---------- per-scene details ---------- */
+.sx-caret { animation: sx-blink 1.05s steps(1) infinite; }
+@keyframes sx-blink { 50% { opacity: 0; } }
+@media (hover: hover) and (pointer: fine) {
+  .sx-ready [data-sx="kvm"] { cursor: none; }
+  .sx-ready [data-sx="screen"] .sx-grab { cursor: grab; }
+  .sx-ready [data-sx="screen"].sx-drag, .sx-ready [data-sx="screen"].sx-drag .sx-grab { cursor: grabbing; }
+  .sx-ready [data-sx="clip"], .sx-ready [data-sx="phone"], .sx-ready [data-sx="rezume"], .sx-ready [data-sx="apps"] { cursor: pointer; }
+}
+.sx-grab { touch-action: none; }
+.sx-cur { pointer-events: none; }
+.sx-ptr { filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.55)); }
+
+.sx-wave { transform-box: fill-box; transform-origin: center; opacity: 0; }
+.sx-ringing .sx-wave { animation: sx-wave 2.2s cubic-bezier(.2,.7,.3,1) infinite; }
+.sx-ringing .sx-wave2 { animation-delay: 1.1s; }
+@keyframes sx-wave { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(1.9); opacity: 0; } }
+
+.sx-eq { transform-box: fill-box; transform-origin: center; transform: scaleY(.3); }
+.sx-oncall .sx-eq { animation: sx-eq 1.3s ease-in-out infinite; }
+.sx-oncall .sx-eq:nth-child(2n) { animation-duration: 1.7s; animation-delay: -.4s; }
+.sx-oncall .sx-eq:nth-child(3n) { animation-duration: 1.1s; animation-delay: -.8s; }
+@keyframes sx-eq { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+
+.sx-answer, .sx-open { transform-box: fill-box; transform-origin: center; transition: transform .18s var(--ease); }
+.sx-press { transform: scale(.88); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 980px) {
+  .sx-vis { height: 300px; }
+}
+@media (max-width: 720px) {
+  .sx-vis { height: auto; }
+  .sx-stage { position: relative; inset: auto; padding: 46px 10px 4px; }
+  .sx-tilt { height: auto; transform: none; }
+  .sx-svg { height: auto; }
+  .sx-lbl, .sx-ldot { display: none; }
+  .sx-sw { top: 16px; right: 16px; }
+}
+
+/* ---------- reduced motion: each picture is its still frame, the switches are not needed ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .sx-sw { display: none; }
+  .sx-ready .sx-stage, .sx-ready .sx-card.sx-off .sx-stage { opacity: 1; filter: none; }
+  .sx-tilt { transform: none; }
+}
