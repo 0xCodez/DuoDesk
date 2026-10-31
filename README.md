@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="#download"><b>⬇️ Download 2.5 beta</b></a> ·
+  <a href="#download"><b>⬇️ Download 2.5</b></a> ·
   <a href="https://getduodesk.vercel.app"><b>Website</b></a> ·
   <a href="https://github.com/0xCodez/DuoDesk"><b>Source</b></a> ·
   <a href="#-new-in-23"><b>What's new</b></a> ·
@@ -30,7 +30,7 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/hero.jpg" alt="One Mac's extended screen in a window on another Mac, the Mac's desktop extended onto a tablet, and DuoDesk on a phone" width="100%">
+  <img src=".github/assets/hero.jpg" alt="The DuoDesk Overview window, 'What should your desks do?', with cards for Workstation, Studio-Mac and Pixel 8, between a Windows PC on the left and a MacBook and a phone on the right, on one glowing desk line" width="100%">
 </p>
 
 Your devices are good at their own jobs and bad at working together. DuoDesk fixes that.
@@ -97,8 +97,7 @@ X11 and Wayland · shared folders through Samba · the phone app page by page ·
 
 **🍎 macOS**<br><sub>13 Ventura or later</sub>
 
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0-arm64.dmg"><img src="https://img.shields.io/badge/Apple_Silicon-.dmg-000000?style=for-the-badge" alt="macOS, Apple Silicon"></a><br>
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0-x64.dmg"><img src="https://img.shields.io/badge/Intel-.dmg-555555?style=for-the-badge" alt="macOS, Intel"></a>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0-arm64.dmg"><img src="https://img.shields.io/badge/Apple_Silicon-.dmg-000000?style=for-the-badge" alt="macOS, Apple Silicon"></a>
 
 </td>
 <td width="25%" align="center" valign="top">
@@ -185,7 +184,7 @@ DuoDesk**, tap **⋮ › Allow restricted settings**, then turn them on.
 # ✨ New in 2.3
 
 <p align="center">
-  <img src=".github/assets/v23-whats-new.jpg" alt="DuoDesk 2.3: your phone is now a camera, a remote and a gamepad" width="100%">
+  <img src=".github/assets/v23-whats-new.jpg" alt="DuoDesk 2.3: your phone is now a camera, a remote and a gamepad. The Camera page, with one phone showing the Remote touchpad and keys and another turned sideways showing the gamepad" width="100%">
 </p>
 
 Your phone is now **a camera, a remote and a gamepad**. Use its camera in any video call, drive your
@@ -227,7 +226,7 @@ Every release's notes are on the [releases page](https://github.com/0xCodez/DuoD
 # 💻 Computer to computer
 
 <p align="center">
-  <img src=".github/assets/mac-windows.jpg" alt="A Mac connected to a Windows PC, and the PC's apps listed on the Mac" width="100%">
+  <img src=".github/assets/mac-windows.jpg" alt="DuoDesk on a Mac (Studio-Mac) connected to a Windows PC (Workstation): the Mac's Apps page lists the PC's apps, and behind it the PC's Overview shows Studio-Mac connected at 9 ms" width="100%">
 </p>
 
 The same app on every platform, so a Mac and a PC pair just like two Macs.
@@ -249,7 +248,7 @@ the other computer's screen into a window and control it from there. Low-latency
 *Fastest* and *Smooth* playback, and optional frame generation.
 
 <p align="center">
-  <img src=".github/assets/mac-screen-window.jpg" alt="The MacBook Pro's extended screen in a window on the Studio Mac, with the Receive screen settings" width="100%">
+  <img src=".github/assets/mac-screen-window.jpg" alt="Workstation's screen in a window on the Mac, with its toolbar (Extend, Mirror, Frame generation, Full screen, Stop), and the Receive screen page in front: live at 60 fps, 1920 × 1080, H.264" width="100%">
 </p>
 
 ## 🪟 The other computer's apps, in windows of their own
@@ -259,7 +258,7 @@ with its own Dock icon or Start-menu pin. No full remote desktop, just the app y
 your own.
 
 <p align="center">
-  <img src=".github/assets/mac-apps.jpg" alt="Chess, Clock and Calculator from one Mac running in their own windows on the other Mac" width="100%">
+  <img src=".github/assets/mac-apps.jpg" alt="The Mac's Apps page with Paint, Notepad and Terminal from Workstation open in their own windows, and behind it the PC's Apps page with 3 windows on Studio-Mac" width="100%">
 </p>
 
 ## 📷 Camera sharing
@@ -279,10 +278,10 @@ Camera** (or DuoDesk's own camera extension, in builds signed for it).
 paste with <kbd>⌃⌥V</kbd> (<kbd>Ctrl+Alt+C/V</kbd> on Windows and Linux), into a folder or straight
 into the app in front. Send from the macOS Share menu or Explorer's *Send to*, or **share a folder**
 that shows up as a network drive on the other side. Files on their way show **live progress**.
-Need a shell? `ssh twindesk` opens one on the other computer, no passwords needed.
+Need a shell? `ssh duodesk` opens one on the other computer, no passwords needed.
 
 <p align="center">
-  <img src=".github/assets/computers-files.jpg" alt="The Files page and the Terminal page" width="100%">
+  <img src=".github/assets/computers-files.jpg" alt="The File Sharing page on the Mac sending Brand assets.zip to Workstation, and the Terminal page on the PC with the shell on Studio-Mac ready (ssh duodesk)" width="100%">
 </p>
 
 ## 📋 Shared clipboard
@@ -293,7 +292,7 @@ the Mac. Entries from password managers are skipped, and a Recent list keeps the
 you copied, pictures with a preview.
 
 <p align="center">
-  <img src=".github/assets/computers-clipboard.jpg" alt="The same copied text in the clipboard history on both Macs" width="100%">
+  <img src=".github/assets/computers-clipboard.jpg" alt="The same three copied texts in the clipboard history on the Mac and on the Windows PC, marked To Workstation on one and From Studio-Mac on the other" width="100%">
 </p>
 
 ## 🔔 Notifications, sound and Wake-on-LAN
@@ -311,7 +310,7 @@ All from the Overview, the menu bar or the tray.
 ## 🕸 DuoDesk Mesh: every device at once
 
 <p align="center">
-  <img src=".github/assets/v22-mesh-desk.jpg" alt="The pointer travelling from a Windows PC across a MacBook and a Linux laptop onto a phone, with the desk map below" width="100%">
+  <img src=".github/assets/v22-mesh-desk.jpg" alt="One mouse, every screen: the pointer's path across a Windows PC, a MacBook, a Linux laptop and a phone, with the Multi-device layout map of Workstation, Studio-Mac, ThinkPad and Pixel 8 below" width="100%">
 </p>
 
 Your laptop, your desktop, the Linux box in the corner and your phone, **all connected at once**,
@@ -322,9 +321,9 @@ each talking straight to the others with no hub in between.
 - **One notification pool.** Your phone buzzes, and every computer shows it.
 - **Pair once, join all.** A new device paired with one computer meets the rest by itself.
 
-Mesh is in **beta** on Windows, Mac and Linux: turn it on in the **Multi-device** tab, and off again
+Mesh works on Windows, Mac and Linux: turn it on in the **Multi-device** tab, and off again
 any time with everything as you left it. Connecting just two devices? You won't need it. Still
-coming to Mesh: the Camera, pictures on the clipboard, and files dragged to more than one device at a
+coming to Mesh: pictures on the clipboard, and files dragged to more than one device at a
 time; the phone connects to one computer at a time, and Linux joins over the same Wi-Fi only.
 
 ---
@@ -346,7 +345,7 @@ Read and reply to your texts on **Messages**: every conversation, pictures inclu
 the sidebar.
 
 <p align="center">
-  <img src=".github/assets/v21-calls-messages.jpg" alt="The Calls page with an incoming call and the call history, and the Messages page with a conversation" width="100%">
+  <img src=".github/assets/v21-calls-messages.jpg" alt="DuoDesk with Pixel 8 connected: the Calls page with an incoming call from Alex and the recent calls, and the Messages page with a conversation" width="100%">
 </p>
 
 ## 🖼 Photos and phone files
@@ -358,7 +357,7 @@ Finder, Explorer or the Linux file manager, and one the computer shares shows up
 Files app.
 
 <p align="center">
-  <img src=".github/assets/v21-photos-files.jpg" alt="The Photos page with the phone's gallery, and Phone Files with shared folders and the phone's storage" width="100%">
+  <img src=".github/assets/v21-photos-files.jpg" alt="The Photos page with the phone's gallery, and the Phone Files page with the phone's free space, folders shared both ways and its storage" width="100%">
 </p>
 
 ## 📷 Phone camera
@@ -370,7 +369,7 @@ from the phone's own Camera page.
 ## 🎮 Remote and gamepad
 
 <p align="center">
-  <img src=".github/assets/v23-remote.jpg" alt="The phone's Remote: a touchpad with a row of keys, and the gamepad laid out like an Xbox controller" width="100%">
+  <img src=".github/assets/v23-remote.jpg" alt="The phone's Remote: the touchpad with a row of keys and left and right click, and the gamepad held sideways, laid out like an Xbox controller" width="100%">
 </p>
 
 The phone's **Remote** page turns it into the computer's remote, for the couch or a presentation:
@@ -399,7 +398,7 @@ Pin them to the Dock or the Start menu and use them like any other app. In Whats
 Telegram, Enter sends.
 
 <p align="center">
-  <img src=".github/assets/phone-on-mac.jpg" alt="The tablet's home screen in a Mac window, and Calculator, Calendar and Clock open as separate Mac windows" width="100%">
+  <img src=".github/assets/phone-on-mac.jpg" alt="The Phone apps page listing the phone's apps, and the Mirroring page with the phone screen, Calculator, Calendar and Clock open as their own windows on the computer" width="100%">
 </p>
 
 ## 🖥 Tablet as a second screen
@@ -408,7 +407,7 @@ Turn a tablet or phone into an **extra monitor**. **Extend** for more desktop sp
 to show what's on your screen. Use touch as the mouse, or switch on touchpad mode.
 
 <p align="center">
-  <img src=".github/assets/second-screen.jpg" alt="Share screen settings on the Mac, and the tablet showing the extended Mac desktop" width="100%">
+  <img src=".github/assets/second-screen.jpg" alt="The Share screen page sharing Workstation to Galaxy Tab in Extend mode at 2560 × 1600 and 60 fps, and the tablet showing the extended screen" width="100%">
 </p>
 
 ## 📤 Files, clipboard, notifications, mouse and keyboard
@@ -421,7 +420,7 @@ to show what's on your screen. Use touch as the mouse, or switch on touchpad mod
   type with your real keyboard in any Android app.
 
 <p align="center">
-  <img src=".github/assets/share-files.jpg" alt="The Mac's Files page, the Android share menu with Send to computer and Copy to computer, and a received-file notification on the tablet" width="100%">
+  <img src=".github/assets/share-files.jpg" alt="The File Sharing page sending Trip photos.zip to Pixel 8, next to the Clipboard page with the latest copy from Pixel 8 and the Notifications page with Pixel 8's notifications" width="100%">
 </p>
 
 ## 📱 The Android app
@@ -430,7 +429,7 @@ The Android app adapts to the device: tabs at the bottom on a phone, a full side
 Every page names the computer you're connected to and shows what's shared in each direction.
 
 <p align="center">
-  <img src=".github/assets/android-phone.jpg" alt="The Android app on a phone: Overview, Screen, Files, Clipboard and More" width="100%">
+  <img src=".github/assets/android-phone.jpg" alt="DuoDesk on the computer with Pixel 8 connected (its battery and what it shares), and the Android app's Remote page on the phone" width="100%">
 </p>
 
 ---
@@ -438,7 +437,7 @@ Every page names the computer you're connected to and shows what's shared in eac
 # 📡 Connections
 
 <p align="center">
-  <img src=".github/assets/v21-connections.jpg" alt="Same Wi-Fi, Bluetooth LE, Wi-Fi Direct, phone hotspot and USB cable" width="100%">
+  <img src=".github/assets/v21-connections.jpg" alt="Five ways to link: same Wi-Fi, Bluetooth LE, Wi-Fi Direct, phone hotspot and USB cable, next to the Connection page with a Bluetooth link at 38 ms" width="100%">
 </p>
 
 You never have to choose. DuoDesk uses the same network when there is one, moves a phone onto
@@ -457,7 +456,7 @@ phone's **hotspot**.
 | Mouse and keyboard, remote | ✅ | ✅ | ✅ | ✅ |
 | Calls and texts | ✅ | ✅ | ✅ | ✅ |
 | Screens, apps, cameras, files, photos, clipboard pictures | ✅ | ✅ | moves to Wi-Fi Direct | ✅ |
-| Terminal between computers (`ssh twindesk`) | ✅ | — | on Wi-Fi Direct | ✅ |
+| Terminal between computers (`ssh duodesk`) | ✅ | — | on Wi-Fi Direct | ✅ |
 
 Who can turn up over Bluetooth is up to you: **Bluetooth with phones** (on) and **Bluetooth with
 computers** (off until you want it), on the Overview and in General.
@@ -467,7 +466,7 @@ computers** (off until you want it), on the Overview and in General.
 # 🚀 Get started
 
 <p align="center">
-  <img src=".github/assets/tour.gif" alt="A tour of the DuoDesk window" width="820">
+  <img src=".github/assets/tour.gif" alt="A tour of the DuoDesk window: Overview, Mouse, Clipboard, Share screen, Camera and File Sharing" width="820">
 </p>
 
 1. **Download** DuoDesk for each computer and your phone ([above](#download), or from the [releases](https://github.com/0xCodez/DuoDesk/releases)).
@@ -485,7 +484,7 @@ Accessibility come with the full app, which the computer installs once over wire
 | Mac ↔ Windows PC, Mac ↔ Mac, PC ↔ PC | Every computer feature |
 | Linux ↔ Mac, PC or Linux | Every computer feature ([a few differences](#linux)) |
 | Android ↔ Mac, Windows or Linux | Every phone and tablet feature (Real gamepad on Windows and Linux) |
-| All of them at once | [DuoDesk Mesh](#-duodesk-mesh-every-device-at-once) (beta) |
+| All of them at once | [DuoDesk Mesh](#-duodesk-mesh-every-device-at-once) |
 
 ## Privacy
 
@@ -585,10 +584,10 @@ touch, your mouse and keyboard on the phone and its sound go through **wireless 
 DuoDesk pairs with once:
 
 <p align="center">
-  <img src=".github/assets/ui-phone-pair.jpg" alt="Overview: the wireless debugging card under the connected computers, with the pairing code" width="820">
+  <img src=".github/assets/ui-phone-pair.jpg" alt="Connection page: the wireless debugging card under the connected computers, with the 6-digit pairing code" width="820">
 </p>
 
-- Until it's paired, a card under the connected computers on Overview (on the computer and on the
+- Until it's paired, a card under the connected computers on Connection (on the computer and on the
   phone) walks you through it. Open *Developer options › Wireless debugging › Pair device with
   pairing code* on the phone and type the 6-digit code on the computer, or on the phone in
   DuoDesk's notification (Settings' dialog stays open). The phone sends the code to whichever
