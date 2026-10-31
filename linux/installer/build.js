@@ -102,6 +102,7 @@ async function main() {
   await builder.build({
     targets: builder.Platform.LINUX.createTarget(['AppImage', 'deb'], builder.Arch.x64),
     projectDir: LIN,
+    publish: 'never', // the workflow uploads to the release itself; on a tag push electron-builder would otherwise try to publish and need GH_TOKEN
     config: {
       appId: 'org.macshare.linux',
       productName: 'DuoDesk',
