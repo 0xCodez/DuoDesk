@@ -109,10 +109,10 @@
       <a class="btn btn-glass btn-lg" href="#demo">Try it live<svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
     </div>
     <ul class="os-row reveal" aria-label="Downloads for every system">
-      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="win"><svg class="i" aria-hidden="true"><use href="#os-win"/></svg>Windows <small>.exe</small></a></li>
-      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="mac"><svg class="i" aria-hidden="true"><use href="#os-mac"/></svg>macOS <small>.dmg</small></a></li>
-      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="linux"><svg class="i" aria-hidden="true"><use href="#os-linux"/></svg>Linux <small>.AppImage · .deb</small></a></li>
-      <li><a href="https://github.com/0xCodez/DuoDesk/releases/latest" data-os="android"><svg class="i" aria-hidden="true"><use href="#os-android"/></svg>Android <small>.apk</small></a></li>
+      <li><a href="/api/download?os=win" data-os="win"><svg class="i" aria-hidden="true"><use href="#os-win"/></svg>Windows <small>.exe</small></a></li>
+      <li><a href="/api/download?os=mac" data-os="mac"><svg class="i" aria-hidden="true"><use href="#os-mac"/></svg>macOS <small>.dmg</small></a></li>
+      <li><a href="/api/download?os=linux" data-os="linux"><svg class="i" aria-hidden="true"><use href="#os-linux"/></svg>Linux <small>.AppImage · .deb</small></a></li>
+      <li><a href="/api/download?os=android" data-os="android"><svg class="i" aria-hidden="true"><use href="#os-android"/></svg>Android <small>.apk</small></a></li>
     </ul>
   </section>
 
@@ -425,28 +425,28 @@
         <svg class="i dl-os" aria-hidden="true"><use href="#os-win"/></svg>
         <h3>Windows</h3>
         <p>Windows 10 and 11 · x64 and ARM64</p>
-        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .exe</a>
+        <a class="btn btn-glass" href="/api/download?os=win"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .exe</a>
       </article>
       <article class="dl reveal" data-os="mac">
         <span class="you">Your system</span>
         <svg class="i dl-os" aria-hidden="true"><use href="#os-mac"/></svg>
         <h3>macOS</h3>
-        <p>macOS 13 Ventura or later · Apple silicon and Intel</p>
-        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .dmg</a>
+        <p>macOS 13 Ventura or later · Apple silicon</p>
+        <a class="btn btn-glass" href="/api/download?os=mac"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .dmg</a>
       </article>
       <article class="dl reveal" data-os="linux">
         <span class="you">Your system</span>
         <svg class="i dl-os" aria-hidden="true"><use href="#os-linux"/></svg>
         <h3>Linux</h3>
         <p>X11 and Wayland · x86_64 · AppImage, .deb and Arch</p>
-        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .AppImage</a>
+        <a class="btn btn-glass" href="/api/download?os=linux"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .AppImage</a>
       </article>
       <article class="dl reveal" data-os="android">
         <span class="you">Your system</span>
         <svg class="i dl-os" aria-hidden="true"><use href="#os-android"/></svg>
         <h3>Android</h3>
         <p>Android 10 or later · phones and tablets</p>
-        <a class="btn btn-glass" href="https://github.com/0xCodez/DuoDesk/releases/latest"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .apk</a>
+        <a class="btn btn-glass" href="/api/download?os=android"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg>Download .apk</a>
       </article>
     </div>
     <p class="dl-note reveal">The apps aren't code-signed yet, so macOS and Windows ask once before the first launch. <a href="#faq-signed">Here's how to allow them.</a> All files and checksums are on the <a href="https://github.com/0xCodez/DuoDesk/releases">releases page</a>.</p>
