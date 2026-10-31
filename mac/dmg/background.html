@@ -1,62 +1,78 @@
 <!doctype html>
 <!-- TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-     The DMG window background, drawn like the website: a squared notebook page with a red margin,
-     the DuoDesk name in Caveat and a pencil arrow from the app to Applications.
-     Rendered to background.tiff (1x and 2x) by make-background.sh. It is 660 x 440 points, a little
-     taller than the window in settings.py, so a taller title bar never shows an edge. -->
+     DuoDesk's DMG window background, in the app's Aurora look: dark glass, the DuoDesk icon and name,
+     a hairline arrow from the app to Applications, and a soft spectral light at the bottom.
+     Finder draws the icons' names itself, black in light mode and white in dark mode, so each name sits
+     on a mid-grey plate that both colours read on. Icons are at (165, 224) and (495, 224), 112 points
+     (dmg/settings.py). Rendered to background.tiff (1x and 2x) by make-background.sh. It is
+     660 x 440 points, a little taller than the window, so a taller title bar never shows an edge. -->
 <html>
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Shantell+Sans:wght@400;500&display=block">
 <style>
-  :root {
-    --paper: #fcfaf5; --ink: #2a2620; --pencil: #77705f; --red: #d9472f;
-    --grid: rgba(110, 160, 210, 0.13); --margin: rgba(220, 90, 80, 0.30); --tape: rgba(255, 228, 130, 0.62);
-    --hand: "Caveat", cursive; --text: "Shantell Sans", system-ui, sans-serif;
-  }
+  @font-face { font-family: Geist; font-weight: 100 900; src: url("../../shared/fonts/geist-latin-wght-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Geist Mono"; font-weight: 100 900; src: url("../../shared/fonts/geist-mono-latin-wght-normal.woff2") format("woff2"); }
+  :root { --bg: #0a0a0c; --text: #f1f1f3; --muted: #8c8c95; --line: rgba(255, 255, 255, 0.22); }
   html, body { margin: 0; width: 660px; height: 440px; overflow: hidden; }
   body {
-    position: relative; color: var(--ink); font-family: var(--text);
-    background-color: var(--paper);
-    background-image:
-      linear-gradient(90deg, transparent 47px, var(--margin) 47px 49px, transparent 49px),
-      linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-    background-size: 100% 100%, 28px 28px, 28px 28px;
-    background-position: 0 0, -1px 13px, 13px -1px;
-    -webkit-font-smoothing: antialiased;
+    position: relative; background: var(--bg); color: var(--text);
+    font-family: Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
   }
-  .tape { position: absolute; width: 96px; height: 26px; background: var(--tape); top: -9px; box-shadow: 0 1px 2px rgba(0,0,0,.07); }
-  .tape.tl { left: 70px; transform: rotate(-6deg); }
-  .tape.tr { right: 28px; transform: rotate(5deg); }
+  /* faint dot texture, as in the app */
+  body::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.3px); background-size: 18px 18px;
+  }
+  /* the spectral light rising from the bottom edge */
+  .aur { position: absolute; left: -10%; right: -10%; bottom: -150px; height: 230px; filter: blur(46px); opacity: 0.5; }
+  .aur i { position: absolute; top: 0; width: 34%; height: 100%; border-radius: 50%; }
+  .aur i:nth-child(1) { left: 2%; background: #ff3d9a; }
+  .aur i:nth-child(2) { left: 20%; background: #8a5cff; }
+  .aur i:nth-child(3) { left: 40%; background: #2fd6ff; }
+  .aur i:nth-child(4) { left: 58%; background: #3dffa8; opacity: 0.8; }
+  .aur i:nth-child(5) { left: 74%; background: #ffb340; opacity: 0.8; }
 
-  header { position: absolute; left: 0; right: 0; top: 20px; display: flex; flex-direction: column; align-items: center; }
-  .brand { display: flex; align-items: center; gap: 4px; }
-  .brand img { width: 60px; height: 60px; margin: -4px 0; }
-  .brand h1 { position: relative; margin: 0; font: 700 58px/0.9 var(--hand); letter-spacing: 0.5px; }
-  .brand h1 svg { position: absolute; left: -4%; width: 108%; bottom: -12px; height: 16px; }
-  .tag { margin: 14px 0 0; font-size: 14px; color: var(--pencil); }
-  mark { background: linear-gradient(104deg, transparent 2%, rgba(255, 222, 89, .75) 4%, rgba(255, 222, 89, .75) 96%, transparent 98%); color: inherit; padding: 0 4px; border-radius: 4px; }
+  header { position: absolute; left: 0; right: 0; top: 34px; display: flex; flex-direction: column; align-items: center; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 44px; height: 44px; filter: drop-shadow(0 8px 18px rgba(138, 92, 255, 0.35)); }
+  .brand h1 { margin: 0; font-weight: 600; font-size: 34px; letter-spacing: -1px; }
+  .tag { margin: 10px 0 0; font-size: 14px; font-weight: 300; color: var(--muted); letter-spacing: -0.1px; }
+  .tag span { background: linear-gradient(90deg, #ff3d9a, #8a5cff 35%, #2fd6ff 65%, #3dffa8); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 400; }
 
-  .note { position: absolute; left: 0; right: 0; top: 140px; text-align: center; font: 700 30px/1 var(--hand); color: var(--red); transform: rotate(-2.5deg); }
-  svg.arrow { position: absolute; left: 0; top: 0; width: 660px; height: 440px; overflow: visible; }
-  svg.arrow path { fill: none; stroke: var(--red); stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; }
+  /* hairline arrow between the two icons (centres at x 165 and 495, y 224) */
+  svg.arrow { position: absolute; left: 0; top: 0; width: 660px; height: 440px; }
+  .hint {
+    position: absolute; left: 0; right: 0; top: 168px; text-align: center;
+    font: 500 10px "Geist Mono", ui-monospace, monospace; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+  }
+  /* soft glass wells behind the icons, and mid-grey plates behind Finder's names */
+  .well { position: absolute; width: 136px; height: 136px; border-radius: 30px; top: 156px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+  .well.app { left: 97px; } .well.apps { left: 427px; }
+  .plate { position: absolute; top: 288px; height: 20px; border-radius: 10px; background: #8e8e93; opacity: 0.78; }
+  .plate.app { left: 117px; width: 96px; } .plate.apps { left: 439px; width: 112px; }
+  .foot { position: absolute; left: 0; right: 0; bottom: 30px; text-align: center; font-size: 11px; color: rgba(241, 241, 243, 0.42); }
 </style>
 </head>
 <body>
-  <div class="tape tl"></div><div class="tape tr"></div>
-
+  <div class="aur"><i></i><i></i><i></i><i></i><i></i></div>
   <header>
-    <div class="brand">
-      <img src="../../shared/icon/teindesk-dark-mac.png" alt="">
-      <h1>DuoDesk<svg viewBox="0 0 300 20" preserveAspectRatio="none"><path d="M3 12 C 60 4, 120 16, 180 9 S 270 6, 297 11" fill="none" stroke="#d9472f" stroke-width="5" stroke-linecap="round"/></svg></h1>
-    </div>
-    <p class="tag">Use two computers as <mark>one desk</mark></p>
+    <div class="brand"><img src="../../shared/icon/teindesk-dark-256.png" alt=""><h1>DuoDesk</h1></div>
+    <p class="tag">All your computers and your phone, working as <span>one desk</span></p>
   </header>
-
-  <div class="note">drag to Applications</div>
-  <svg class="arrow" viewBox="0 0 660 440">
-    <path d="M236 234 C 280 194, 368 190, 418 222"/>
-    <path d="M396 221 L 419 223 L 408 202"/>
+  <div class="well app"></div><div class="well apps"></div>
+  <div class="plate app"></div><div class="plate apps"></div>
+  <div class="hint">Drag to Applications</div>
+  <svg class="arrow" viewBox="0 0 660 440" aria-hidden="true">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.08"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#2fd6ff" stop-opacity="0.9"/>
+      </linearGradient>
+    </defs>
+    <path d="M250 224 C 300 198, 360 198, 408 222" fill="none" stroke="url(#g)" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M398 213 L 409 223 L 395 228" fill="none" stroke="#2fd6ff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
+  <div class="foot">Made by 0xCodez · Based on TwinDesk</div>
 </body>
 </html>

@@ -93,6 +93,13 @@ jobs:
         working-directory: mac
         run: npm install
 
+      # The disk image's window background is drawn from dmg/background.html (headless Chrome at 1x
+      # and 2x, packed by tiffutil). Rebuilt here so it always matches the HTML; the committed
+      # background.tiff stays as the fallback if Chrome isn't on the runner.
+      - name: Render the disk image background
+        working-directory: mac
+        run: sh dmg/make-background.sh || echo "::warning::Could not render dmg/background.tiff; using the committed one"
+
       - name: Build macOS app and disk image
         working-directory: mac
         # Camera › Virtual camera's extension (build-app.sh) only with the two provisioning profiles
