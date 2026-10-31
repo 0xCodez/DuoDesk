@@ -14,7 +14,7 @@ const PICK = {
   deb: (n) => /^DuoDesk-.*\.deb$/.test(n),
   android: (n) => /^DuoDesk-.*\.apk$/.test(n) && !/-full\.apk$/.test(n),
   'android-full': (n) => /^DuoDesk-.*-full\.apk$/.test(n),
-};
+}
 
 let cache = { at: 0, assets: null };
 async function assets() {
@@ -33,7 +33,7 @@ async function assets() {
   return cache.assets;
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   const os = new URL(req.url, 'http://x').searchParams.get('os') || '';
   const pick = PICK[os];
   const list = pick ? await assets() : null;
@@ -42,4 +42,4 @@ module.exports = async (req, res) => {
   res.setHeader('location', hit ? hit.url : PAGE);
   res.setHeader('cache-control', 'no-store');
   res.end();
-};
+}

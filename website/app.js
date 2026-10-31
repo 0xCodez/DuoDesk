@@ -451,9 +451,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const link = e.target.closest && e.target.closest('a[href]');
     if (!link) return;
     const href = link.href;
-    if (isRelease(href)) {
+    const viaApi = /\/api\/download\?os=([a-z-]+)/.exec(href); // our redirect to the latest release file
+    if (viaApi || isRelease(href)) {
       const holder = link.closest('[data-os]');
-      const asset = link.dataset.dl || fromFile(href) || fromOS(holder ? holder.dataset.os : link.id === 'dl-main' ? os : null, link);
+      const API = { 'win-arm64': 'windows-arm64', deb: 'linux-deb', 'android-full': 'android-full' };
+      const asset = link.dataset.dl || (viaApi && (API[viaApi[1]] || fromOS(viaApi[1], link))) || fromFile(href) || fromOS(holder ? holder.dataset.os : link.id === 'dl-main' ? os : null, link);
       const place = link.closest('#top') ? 'hero' : link.closest('#download') ? 'download' : link.closest('.final, .foot') ? 'footer' : 'other';
       if (asset) track({ t: 'dl', k: asset, w: place });
       else track({ t: 'click', k: 'releases-latest' });
