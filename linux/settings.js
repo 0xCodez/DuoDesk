@@ -5,7 +5,7 @@ const P = require('../shared/protocol.js');
 const CL = require('../shared/cursorlock.js');
 const { normalizeFolder } = require('../shared/received.js');
 
-const TABS = ['phone', 'overview', 'connection', 'mirror', 'papps', 'calls', 'messages', 'media', 'pfiles', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'rezume', 'multi', 'general', 'about'];
+const TABS = ['phone', 'overview', 'connection', 'mirror', 'papps', 'calls', 'messages', 'media', 'pfiles', 'mac-pc', 'pc-mac', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'rezume', 'multi', 'general', 'about', 'feedback', 'tip'];
 
 const OLD_TABS = { display: 'mac-pc', receive: 'mac-pc', share: 'pc-mac' }; // older names
 

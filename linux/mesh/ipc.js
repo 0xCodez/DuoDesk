@@ -22,6 +22,7 @@ function setupIpc(ctx) {
   };
 
   handle('getState', () => ctx.buildState());
+  require('../../shared/support.js').ipc(ipcMain); // Tip and Feedback pages: support:info / profile / tip / feedback / preview
   // Calls, Messages and Photos (shared/phonehub.js, loaded the first time it's used).
   handle('hub', (r) => ctx.phoneHub().act(r));
 

@@ -27,5 +27,7 @@ const api = {
   pathsOf: (files) => [...files].map((f) => webUtils.getPathForFile(f)).filter(Boolean), // dropped files -> paths
 };
 for (const name of ACTIONS) api[name] = (arg) => ipcRenderer.send(name, arg);
+// Tip and Feedback (shared/support.js): these answer, so they are invokes (like qrPair), not sends
+for (const [name, ch] of [['supportInfo', 'support:info'], ['supportProfile', 'support:profile'], ['supportTip', 'support:tip'], ['supportFeedback', 'support:feedback'], ['supportPreview', 'support:preview']]) api[name] = (arg) => ipcRenderer.invoke(ch, arg);
 
 contextBridge.exposeInMainWorld('macshare', api);

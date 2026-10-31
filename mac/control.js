@@ -36,6 +36,8 @@ const ICONS = {
   globe: 'M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15z M2.5 10h15 M10 2.5c-2.2 2.3-2.2 12.7 0 15 M10 2.5c2.2 2.3 2.2 12.7 0 15', // Sharing
   link: 'M8.5 11.5a3.2 3.2 0 0 0 4.5 0l2.5-2.5a3.2 3.2 0 0 0-4.5-4.5l-.8.8 M11.5 8.5a3.2 3.2 0 0 0-4.5 0L4.5 11a3.2 3.2 0 0 0 4.5 4.5l.8-.8', // two chain links: Connection
   multi: 'M2 5h9v6.5H2z M5 14h3 M6.5 11.5V14 M13 4h5v12h-5z M15 13.5h1', // a computer and a phone: Multi-device
+  tip: 'M10 16.2C6.2 13.8 3.5 11.2 3.5 8.3a3.1 3.1 0 0 1 6.5-1.9 3.1 3.1 0 0 1 6.5 1.9c0 2.9-2.7 5.5-6.5 7.9z', // a heart: Tip (shared/ui-support.js)
+  feedback: 'M3.5 4.5h13v9h-7l-3.5 3v-3H3.5z M7 8h6 M7 10.5h3.5', // a speech bubble with two lines: Feedback
 };
 
 const UI = {

@@ -6,6 +6,8 @@ document.documentElement.classList.add('js');
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const skyBoost = { v: 0, target: 0 }; // the live demo brightens the sky while it works
+// Stripe sends tippers back with ?tip=success, which the tips embed strips from the address, so read it now.
+const tipStatus = new URLSearchParams(location.search).get('tip');
 
 document.addEventListener('DOMContentLoaded', () => {
   const $ = (s, r = document) => r.querySelector(s);
@@ -398,5 +400,75 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!reduceMotion.matches) timer = setInterval(cycle, 2800);
     if ('IntersectionObserver' in window) new IntersectionObserver((es) => { seen = es[0].isIntersecting; }).observe(panel);
     else seen = true;
+  }
+
+  /* ================= analytics for the private /dashboard =================
+     Cookieless, no third party: one small POST to this site's /api/track per page view and per
+     download click. The server keeps only daily counts (a visitor is a salted hash of IP + browser +
+     day, never stored as is). Only the deploy and the local dev server have the API, so a page opened
+     from a file sends nothing. */
+  const tracking = location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const track = (event) => {
+    if (!tracking) return;
+    const body = JSON.stringify(event);
+    try { if (navigator.sendBeacon && navigator.sendBeacon('/api/track', body)) return; } catch { /* fall back to fetch */ }
+    fetch('/api/track', { method: 'POST', body, keepalive: true }).catch(() => {});
+  };
+  const params = new URLSearchParams(location.search);
+  track({ t: 'pv', p: location.pathname, r: document.referrer, u: params.get('utm_source') || params.get('ref') || undefined });
+  if (tipStatus === 'success') track({ t: 'click', k: 'tips-paid' });
+
+  // Which installer a click means. The links open the latest release page, so the asset is the one that
+  // fits the visitor's system: CPU from Client Hints where the browser gives it (Chromium), otherwise the
+  // common case (x64 Windows, Apple silicon Mac). A direct file link (…/download/DuoDesk-…) names it exactly.
+  let arch = '';
+  try {
+    navigator.userAgentData?.getHighEntropyValues?.(['architecture'])
+      .then((v) => { arch = String(v.architecture || ''); }, () => {});
+  } catch { /* no client hints */ }
+  const fromFile = (href) => {
+    const m = href.match(/\/releases\/(?:latest\/)?download\/(?:[^/]+\/)?(DuoDesk[^/?#]*)$/i);
+    if (!m || /mesh/i.test(m[1])) return null;
+    const f = m[1];
+    if (/\.exe$/i.test(f)) return /arm64|aarch64/i.test(f) ? 'windows-arm64' : 'windows-x64';
+    if (/\.dmg$/i.test(f)) return /x64|intel/i.test(f) && !/arm64|universal/i.test(f) ? 'mac-x64' : 'mac-arm64';
+    if (/\.AppImage$/i.test(f)) return 'linux-appimage';
+    if (/\.deb$/i.test(f)) return 'linux-deb';
+    if (/\.apk$/i.test(f)) return /-full\.apk$/i.test(f) ? 'android-full' : 'android';
+    return null;
+  };
+  const fromOS = (o, link) => {
+    const cpu = o === os ? arch : ''; // the CPU only says something about the visitor's own system
+    if (o === 'win') return cpu === 'arm' ? 'windows-arm64' : 'windows-x64';
+    if (o === 'mac') return cpu === 'x86' ? 'mac-x64' : 'mac-arm64';
+    if (o === 'linux') return /\.deb\b/i.test(link.textContent) && !/AppImage/i.test(link.textContent) ? 'linux-deb' : 'linux-appimage';
+    if (o === 'android') return 'android';
+    return null;
+  };
+  const isRelease = (href) => /github\.com\/0xCodez\/DuoDesk\/releases\/(latest|download|tag)\b/i.test(href);
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest && e.target.closest('a[href]');
+    if (!link) return;
+    const href = link.href;
+    if (isRelease(href)) {
+      const holder = link.closest('[data-os]');
+      const asset = link.dataset.dl || fromFile(href) || fromOS(holder ? holder.dataset.os : link.id === 'dl-main' ? os : null, link);
+      const place = link.closest('#top') ? 'hero' : link.closest('#download') ? 'download' : link.closest('.final, .foot') ? 'footer' : 'other';
+      if (asset) track({ t: 'dl', k: asset, w: place });
+      else track({ t: 'click', k: 'releases-latest' });
+    } else if (/github\.com\/0xCodez\/DuoDesk\/releases\/?$/i.test(href)) track({ t: 'click', k: 'all-releases' });
+    else if (/github\.com\/0xCodez\/DuoDesk\/?$/i.test(href)) track({ t: 'click', k: 'github' });
+    else if (/beyond-media\.ai\/tips/.test(href)) track({ t: 'click', k: 'tips-page' });
+    else if (link.getAttribute('href') === '#support') track({ t: 'click', k: 'support-link' });
+  });
+  // Which questions people open hints at what the page doesn't answer.
+  $$('.faq details').forEach((d, i) => d.addEventListener('toggle', () => { if (d.open) track({ t: 'click', k: `faq-${i + 1}` }); }));
+  // Whether people reach the tip card at all (counted once per page view).
+  const tipsBox = $('#tips');
+  if (tipsBox && 'IntersectionObserver' in window) {
+    const seen = new IntersectionObserver((es) => {
+      if (es.some((x) => x.isIntersecting)) { seen.disconnect(); track({ t: 'click', k: 'tips-seen' }); }
+    }, { threshold: .4 });
+    seen.observe(tipsBox);
   }
 });

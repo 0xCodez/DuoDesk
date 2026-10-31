@@ -811,6 +811,8 @@
     apps: ['apps', 'applications', 'programs', 'app windows'],
     general: ['general', 'settings', 'preferences', 'startup', 'options', 'firewall'],
     about: ['about', 'version', 'updates', 'update', 'licence', 'license'],
+    tip: ['tip', 'tips', 'donate', 'donation', 'support duodesk', 'sponsor'],
+    feedback: ['feedback', 'report a bug', 'bug report', 'contact', 'suggestion'],
     multi: ['multi device', 'multidevice', 'mesh', 'multiple devices'],
     messages: ['messages', 'sms', 'texts', 'chats'],
     calls: ['calls', 'call', 'dial', 'phone call'],

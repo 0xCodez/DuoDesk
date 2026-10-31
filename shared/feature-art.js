@@ -16,7 +16,7 @@
 //   FeatureArt.create(id, { color, keep, onDismiss }) -> { el, set(show) }; color: the tab's (a CSS gradient),
 //     keep: Dismiss is remembered
 (function () {
-  const FREE = ['overview', 'multi', 'general', 'about', 'phone', 'calls', 'messages', 'media', 'pfiles'];
+  const FREE = ['overview', 'multi', 'general', 'about', 'feedback', 'tip', 'phone', 'calls', 'messages', 'media', 'pfiles'];
 
   // Nothing connected: a switch of a feature can't be turned on or off (it shows dimmed, styled from
   // .no-peer). Held here, before the page's own handler, so each page keeps setting its switches as it does.

@@ -49,6 +49,12 @@ contextBridge.exposeInMainWorld('macshare', {
   checkUpdates: call('checkUpdates'),
   openUpdate: call('openUpdate'),
   openLink: call('openLink'),
+  // Tip and Feedback (shared/support.js): the page asks, the main process fetches and opens the links
+  supportInfo: call('support:info'),
+  supportProfile: call('support:profile'),
+  supportTip: call('support:tip'),
+  supportFeedback: call('support:feedback'),
+  supportPreview: call('support:preview'),
   setMonitor: call('setMonitor'),
   setClipboard: call('setClipboard'),
   copyHistory: call('copyHistory'),

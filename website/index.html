@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--
-  DuoDesk website. Static: no build step, no external requests (fonts are self-hosted in fonts/).
+  DuoDesk website. Static: no build step, fonts are self-hosted in fonts/. The only outside request is the
+  tip card in #support (beyond-media.ai). app.js sends cookieless page and download counts to /api/track
+  for the private /dashboard (api/ holds the two Vercel functions).
   Site URL: https://getduodesk.vercel.app is used only by the canonical, og:url and og:image tags below;
   change it in those three places when the site moves. Every download points at the latest GitHub release.
 -->
@@ -495,6 +497,21 @@
       <a class="btn btn-glass btn-lg" href="https://github.com/0xCodez/DuoDesk"><svg class="i" aria-hidden="true"><use href="#i-gh"/></svg>Star on GitHub</a>
     </div>
   </section>
+
+  <!-- ============ support: tips run on the shared Beyond Apps tip jar (Stripe Checkout on beyond-media.ai);
+       the card is an iframe from there, so this site holds no payment code and no keys ============ -->
+  <section class="section support" id="support" aria-labelledby="support-title">
+    <div class="support-wrap">
+      <div class="support-txt reveal">
+        <p class="eyebrow"><i aria-hidden="true"></i>Support</p>
+        <h2 id="support-title">Free, and staying free.</h2>
+        <p class="sec-lede">DuoDesk has no ads, no paid tier and no account. If it saves you time every day, a tip helps keep it that way.</p>
+        <p class="support-note">Payments are handled by Stripe on beyond-media.ai, so nothing is charged on this site. <a href="https://beyond-media.ai/tips?creator=beyond-apps">Open the tip page</a> if the card doesn't load.</p>
+      </div>
+      <div class="tips reveal" id="tips"></div>
+    </div>
+    <script src="https://beyond-media.ai/tips/embed.js" data-creator="beyond-apps" data-target="#tips" data-theme="dark" async></script>
+  </section>
 </main>
 
 <footer class="foot">
@@ -510,6 +527,7 @@
         <a href="#connections">Connections</a>
         <a href="#privacy">Privacy</a>
         <a href="#download">Download</a>
+        <a href="#support">Support DuoDesk</a>
       </div>
       <div>
         <h3>Source</h3>

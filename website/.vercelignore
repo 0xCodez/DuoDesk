@@ -1,2 +1,4 @@
 .env*
 .vercel
+dev-server.js
+partials

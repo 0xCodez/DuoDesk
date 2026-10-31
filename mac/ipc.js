@@ -18,7 +18,7 @@ const SETTINGS_URLS = {
   location: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
-const TABS = ['phone', 'overview', 'connection', 'mirror', 'papps', 'calls', 'messages', 'media', 'pfiles', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'rezume', 'multi', 'general', 'about'];
+const TABS = ['phone', 'overview', 'connection', 'mirror', 'papps', 'calls', 'messages', 'media', 'pfiles', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'remote', 'apps', 'rezume', 'multi', 'general', 'about', 'feedback', 'tip'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -619,6 +619,7 @@ function setupIpc(ctx) {
   };
 
   ipcMain.handle('getState', () => ctx.state);
+  require('../shared/support.js').ipc(ipcMain); // Tip and Feedback pages: support:info / profile / tip / feedback / preview
   ipcMain.handle('phoneAssets', () => ctx.phone.assetsView());
   ipcMain.handle('qrPair', () => (ctx.qrPair ? ctx.qrPair() : { url: '' })); // Connection: the phone pairing QR code's link
   for (const [name, fn] of Object.entries(actions)) ipcMain.on(name, (_e, arg) => fn(arg));

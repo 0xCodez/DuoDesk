@@ -1,0 +1,141 @@
+/* DuoDesk — Tip and Feedback pages (shared/ui-support.js) and their headers (shared/pagefx/support.js).
+   Based on TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
+   Minimal Aurora: glass cards, hairlines, Geist; white for what you act on, the page accent (--pg-acc) on one
+   thing only (the coin, the caret). Loads after the other pagefx files. */
+
+/* ================================================================================================
+   Page bodies
+   ================================================================================================ */
+.sp-page { --sp-line: rgba(255, 255, 255, 0.08); --sp-line-2: rgba(255, 255, 255, 0.14); }
+.sp-page [hidden] { display: none !important; }
+.sp-page .card.sp-form, .sp-page .card.sp-send, .sp-page .card.sp-sup { padding: 18px 20px; }
+.sp-page .card.sp-form, .sp-page .card.sp-send { display: flex; flex-direction: column; gap: 16px; }
+
+/* who it's for */
+.sp-profile { display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px; }
+.sp-avatar { flex: none; width: 52px; height: 52px; border-radius: 14px; overflow: hidden; display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--sp-line); font: 300 22px/1 var(--ui, system-ui); color: rgba(255, 255, 255, 0.7); }
+.sp-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sp-who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sp-who-name { font-size: 15px; font-weight: 500; color: var(--au-text, #f1f1f3); letter-spacing: -0.01em; }
+.sp-who-tag { font: 500 10.5px/1.4 var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.4); }
+.sp-who-bio { margin: 6px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--au-muted, #8c8c95); max-width: 60ch; }
+
+/* amounts: hairline pills, the chosen one white */
+.sp-amount-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sp-amounts { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-amt { min-width: 64px; height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--sp-line-2); color: rgba(255, 255, 255, 0.75); font: 400 14px/1 var(--ui, system-ui); font-variant-numeric: tabular-nums;
+  transition: background-color 0.25s, color 0.2s, box-shadow 0.25s; -webkit-app-region: no-drag; }
+.sp-amt:hover:not(.on) { background: rgba(255, 255, 255, 0.05); color: var(--au-text, #f1f1f3); }
+.sp-amt.on { background: rgba(255, 255, 255, 0.92); color: #0a0a0c; box-shadow: none; font-weight: 500; }
+.sp-amt:focus-visible { outline: none; box-shadow: var(--au-ring, 0 0 0 2px rgba(169, 139, 255, 0.9)); }
+.sp-page input.sp-custom { width: 104px; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.sp-page input.sp-custom.on { border-color: rgba(255, 255, 255, 0.5); }
+.sp-custom::-webkit-inner-spin-button, .sp-custom::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.sp-freq-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.sp-freq-hint { font-size: 11.5px; color: rgba(255, 255, 255, 0.4); }
+
+/* fields */
+.sp-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px 14px; }
+@media (max-width: 760px) { .sp-fields { grid-template-columns: minmax(0, 1fr); } }
+.sp-field { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sp-field-label { font: 500 10.5px/1.3 var(--mono, ui-monospace, monospace); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.4); }
+.sp-field-hint { font-size: 11.5px; color: rgba(255, 255, 255, 0.35); }
+.sp-page .sp-input { width: 100%; min-width: 0; box-sizing: border-box; padding: 9px 12px; font-size: 13px; line-height: 1.5; user-select: text; }
+.sp-page textarea.sp-input { resize: vertical; min-height: 44px; font-family: inherit; }
+.sp-page textarea.sp-msg { min-height: 140px; }
+.sp-count { position: absolute; right: 2px; top: 0; font: 400 10.5px/1.3 var(--mono, ui-monospace, monospace); color: rgba(255, 255, 255, 0.3); font-variant-numeric: tabular-nums; }
+/* the e-mail field: aurora.css styles text inputs, not type=email */
+.sp-page input[type="email"] {
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.045); color: var(--au-text, #f1f1f3);
+  transition: border-color 0.2s, box-shadow 0.25s, background-color 0.2s; max-width: 360px;
+}
+.sp-page input[type="email"]:hover { border-color: rgba(255, 255, 255, 0.16); }
+.sp-page input[type="email"]:focus { outline: none; border-color: rgba(169, 139, 255, 0.8); background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 3px rgba(138, 92, 255, 0.2); }
+.sp-page input[type="email"]::placeholder { color: var(--faint, rgba(255, 255, 255, 0.3)); }
+.sp-page .sp-input:invalid:not(:placeholder-shown):not(:focus) { border-color: rgba(255, 92, 122, 0.55); }
+
+/* actions + status */
+.sp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.sp-cta { min-height: 38px; padding: 0 22px; font-variant-numeric: tabular-nums; }
+.sp-status { font-size: 12.5px; color: var(--au-muted, #8c8c95); }
+.sp-status.good { color: color-mix(in oklab, #3dffa8 45%, #d6d6dc); }
+.sp-status.bad { color: color-mix(in oklab, #ff5c7a 70%, #d6d6dc); }
+.sp-status.busy { color: rgba(255, 255, 255, 0.55); animation: pg-blink 2.4s ease-in-out infinite; }
+.sp-fine { font-size: 11.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.35); }
+
+/* error / loading */
+.sp-err { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sp-skeleton { display: flex; flex-direction: column; gap: 10px; padding: 20px; }
+.sp-skeleton i { display: block; height: 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); animation: pg-blink 2.4s ease-in-out infinite; }
+.sp-skeleton i:nth-child(1) { width: 34%; height: 14px; }
+.sp-skeleton i:nth-child(2) { width: 62%; animation-delay: -0.6s; }
+.sp-skeleton i:nth-child(3) { width: 48%; animation-delay: -1.2s; }
+
+/* supporters */
+.sp-sup-count { font: 500 10.5px/1.3 var(--mono, ui-monospace, monospace); letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.4); text-transform: none; }
+.sp-sup-empty { font-size: 12.5px; color: rgba(255, 255, 255, 0.4); }
+.sp-sup-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sp-sup-item { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+.sp-sup-item:first-child { border-top: 0; padding-top: 0; }
+.sp-sup-av { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 1px var(--sp-line-2);
+  font-size: 12px; color: rgba(255, 255, 255, 0.7); }
+.sp-sup-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sp-sup-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 13px; }
+.sp-sup-line b { font-weight: 500; color: var(--au-text, #f1f1f3); }
+.sp-sup-amt { font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.6); }
+.sp-sup-when { font-size: 11.5px; color: rgba(255, 255, 255, 0.3); }
+.sp-sup-msg { font-size: 12.5px; line-height: 1.5; color: var(--au-muted, #8c8c95); overflow-wrap: anywhere; }
+
+/* feedback */
+.sp-kind-row { display: flex; }
+.sp-send > .row { padding-left: 0; padding-right: 0; }
+.sp-preview-wrap { border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); background: rgba(0, 0, 0, 0.18); }
+.sp-preview { margin: 0; padding: 12px 14px; font: 400 11.5px/1.65 var(--mono, ui-monospace, monospace); color: rgba(255, 255, 255, 0.55);
+  white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.65em; }
+.sp-send:has(.switch:not(:checked)) .sp-preview { color: rgba(255, 255, 255, 0.35); }
+
+/* the Mac: the cards are no drag region, but be explicit for the new controls */
+.sp-page input, .sp-page textarea, .sp-page button, .sp-page label { -webkit-app-region: no-drag; }
+
+/* ================================================================================================
+   Headers (.pg-hdr.spx)
+   ================================================================================================ */
+.spx { gap: 18px; }
+.spx .spx-art { flex: none; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--pg-w08); }
+.spx svg { width: 36px; height: 36px; overflow: visible; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.spx .spx-text { gap: 4px; }
+.spx .spx-figline { display: flex; align-items: baseline; gap: 2px; }
+.spx .spx-fig { font-size: 30px; }
+.spx .spx-per { font-size: 13px; color: var(--pg-w40); margin-left: 4px; }
+.spx .spx-side { align-items: flex-end; text-align: right; }
+.spx .spx-n { font-size: 22px; color: var(--pg-w70); }
+
+/* tip: heart + coin */
+.spx-tip .spx-heart-line { stroke: var(--pg-w55); stroke-width: 1.2; }
+.spx-tip .spx-heart-fill { fill: var(--pg-w05); stroke: none; opacity: 0; transition: opacity 0.6s; }
+.spx-tip .spx-coin { fill: none; stroke: var(--pg-acc); stroke-width: 1.2; opacity: 0.85; transform-box: fill-box; transform-origin: center;
+  animation: spx-coin 7s ease-in-out infinite; }
+.spx-tip .spx-coin-mark { stroke: var(--pg-acc); stroke-width: 1; opacity: 0.7; }
+.spx-tip.monthly .spx-coin { animation-duration: 5s; }
+.spx-tip.off .spx-heart-line { stroke: var(--pg-w25); }
+.spx-tip.off .spx-coin, .spx-tip.off .spx-coin-mark { stroke: var(--pg-w25); animation: none; }
+.spx-tip.spx-thanks .spx-heart-fill { opacity: 1; fill: color-mix(in srgb, var(--pg-acc) 16%, transparent); }
+.spx-tip.spx-thanks .spx-heart-line { stroke: var(--pg-w90); transition: stroke 0.4s; }
+@keyframes spx-coin { 0%, 100% { opacity: 0.55; transform: translateY(0); } 50% { opacity: 0.95; transform: translateY(-1px); } }
+
+/* feedback: bubble + growing lines + caret */
+.spx-fb .spx-bubble-line { stroke: var(--pg-w55); stroke-width: 1.2; }
+.spx-fb .spx-ln { stroke: var(--pg-w25); stroke-width: 1.2; }
+.spx-fb .spx-caret { stroke: var(--pg-acc); stroke-width: 1.4; animation: pg-breathe 2.8s ease-in-out infinite; --pg-breathe-lo: 0.25; }
+.spx-fb .spx-tick { stroke: var(--pg-acc); stroke-width: 1.5; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; transition: stroke-dashoffset 0.7s var(--pg-ease), opacity 0.3s; }
+.spx-fb.sent .spx-ln, .spx-fb.sent .spx-caret { opacity: 0; animation: none; transition: opacity 0.3s; }
+.spx-fb.sent .spx-tick { opacity: 1; stroke-dashoffset: 0; }
+.spx-fb.spx-thanks .spx-bubble-line { stroke: var(--pg-w90); transition: stroke 0.4s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spx-tip .spx-coin, .spx-fb .spx-caret, .sp-status.busy, .sp-skeleton i { animation: none !important; }
+  .spx-fb .spx-tick { transition: none !important; }
+}
