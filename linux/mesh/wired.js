@@ -27,7 +27,7 @@ const usbadb = require('../../shared/usbadb.js');
 const APP_ID = 'com.twindesk.android';
 const TURN_PORT = 47802;
 const POLL_MS = 2000;
-const RETRY_MS = 15000; // a phone without TwinDesk (or not answering yet) is looked at again after this
+const RETRY_MS = 15000; // a phone without DuoDesk (or not answering yet) is looked at again after this
 const TCPIP_PORT = 5555; // adb's TCP mode, where phone-bridge.js reaches the phone on a direct Wi-Fi link
 
 const isUsb = (serial) => !/[:]/.test(serial) && !serial.startsWith('emulator-') && !serial.includes('._adb-tls');

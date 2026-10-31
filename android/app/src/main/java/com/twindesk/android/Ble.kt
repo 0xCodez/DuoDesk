@@ -79,7 +79,7 @@ class Ble(
     private val scanCb = object : ScanCallback() {
         override fun onScanResult(type: Int, r: ScanResult) = seen(r.device)
         override fun onBatchScanResults(results: MutableList<ScanResult>) { for (r in results) seen(r.device) }
-        override fun onScanFailed(code: Int) { Log.w("TwinDesk", "ble: scan failed $code"); scanning = false }
+        override fun onScanFailed(code: Int) { Log.w("DuoDesk", "ble: scan failed $code"); scanning = false }
     }
 
     fun scan(on: Boolean) {
@@ -89,7 +89,7 @@ class Ble(
             if (!allowed() || !radioOn || sc == null) return
             val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(SERVICE)).build()
             val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_POWER).build()
-            runCatching { sc.startScan(listOf(filter), settings, scanCb); scanning = true }.onFailure { Log.w("TwinDesk", "ble: scan: ${it.message}") }
+            runCatching { sc.startScan(listOf(filter), settings, scanCb); scanning = true }.onFailure { Log.w("DuoDesk", "ble: scan: ${it.message}") }
         } else {
             scanning = false
             runCatching { sc?.stopScan(scanCb) }
@@ -191,7 +191,7 @@ class Ble(
                 opKind = kind
                 opLatch = latch
                 val started = runCatching { op() }.getOrDefault(false)
-                if (started && !latch.await(5, TimeUnit.SECONDS)) Log.w("TwinDesk", "ble: GATT $kind timed out")
+                if (started && !latch.await(5, TimeUnit.SECONDS)) Log.w("DuoDesk", "ble: GATT $kind timed out")
             }
         }
 
@@ -322,14 +322,14 @@ class Ble(
                     val len = minOf(max, n - i)
                     val chunk = buf.copyOfRange(i, i + len)
                     i += len
-                    if (!upSlots.tryAcquire(10, TimeUnit.SECONDS)) { Log.w("TwinDesk", "ble: UP stalled"); closePipe(true); return }
+                    if (!upSlots.tryAcquire(10, TimeUnit.SECONDS)) { Log.w("DuoDesk", "ble: UP stalled"); closePipe(true); return }
                     op("write") {
                         if (pipeGen != gen || sock !== s) { upSlots.release(); return@op false } // that pipe is over
                         // Acknowledged writes: a write without response may be dropped (macOS does under
                         // load), and one lost byte breaks the session's TLS.
                         val ok = writeRetry(up, chunk, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
                         if (!ok) { // a lost chunk breaks the TLS stream: end this pipe (nothing after it goes)
-                            Log.w("TwinDesk", "ble: UP write failed, closing the pipe")
+                            Log.w("DuoDesk", "ble: UP write failed, closing the pipe")
                             upSlots.release()
                             if (sock === s) closePipe(true)
                         }
@@ -359,7 +359,7 @@ class Ble(
 
         private fun closePipe(tell: Boolean) {
             val s = sock ?: return
-            Log.i("TwinDesk", "ble: pipe closed${if (tell) "" else " by the computer"}")
+            Log.i("DuoDesk", "ble: pipe closed${if (tell) "" else " by the computer"}")
             sock = null
             pipeGen++
             runCatching { s.close() }
@@ -381,7 +381,7 @@ class Ble(
 
         // BluetoothGatt.refresh(): hidden, but there since 4.3 and allowed to apps (greylist).
         private fun refresh(g: BluetoothGatt) {
-            runCatching { g.javaClass.getMethod("refresh").invoke(g) }.onFailure { Log.w("TwinDesk", "ble: refresh: ${it.message}") }
+            runCatching { g.javaClass.getMethod("refresh").invoke(g) }.onFailure { Log.w("DuoDesk", "ble: refresh: ${it.message}") }
         }
 
         @Suppress("DEPRECATION")

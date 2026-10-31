@@ -53,7 +53,7 @@ class Smb {
     if (this.cfg.shareOn && c) this.link.send({ t: T.SMB_OFFER, share: SHARE, user: c.user, password: c.password, port: 445 });
   }
 
-  // One switch: on → share the folder (default %USERPROFILE%\TwinDesk); the admin
+  // One switch: on → share the folder (default %USERPROFILE%\MacShare); the admin
   // prompt only comes the first time or after the folder changed. Off → the Mac unmounts; the share
   // and account stay, so switching on again needs no prompt.
   async setShareOn(on) {

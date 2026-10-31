@@ -52,6 +52,35 @@ namespace MacShare
             return false;
         }
 
+        // On the `side` edge of the monitor under the point (within 1 px, as OnOuterEdge), whether or
+        // not another monitor continues beyond it.
+        public static bool OnMonitorEdge(int x, int y, string side)
+        {
+            Rectangle m;
+            if (!MonitorAt(x, y, out m)) return false;
+            switch (side)
+            {
+                case "left": return x <= m.Left + 1;
+                case "right": return x >= m.Right - 2;
+                case "top": return y <= m.Top + 1;
+                case "bottom": return y >= m.Bottom - 2;
+            }
+            return false;
+        }
+
+        // The monitors for a log line: "x,y WxH" each, the primary one marked with *.
+        public static string Describe()
+        {
+            Screen[] s = Screen.AllScreens;
+            string[] parts = new string[s.Length];
+            for (int i = 0; i < s.Length; i++)
+            {
+                Rectangle r = s[i].Bounds;
+                parts[i] = r.Left + "," + r.Top + " " + r.Width + "x" + r.Height + (s[i].Primary ? "*" : "");
+            }
+            return "[" + string.Join(" | ", parts) + "]";
+        }
+
         // Outward component of a motion for `side` (positive = pushing through it).
         public static double Outward(string side, double dx, double dy)
         {

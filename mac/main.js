@@ -679,8 +679,10 @@ app.whenReady().then(() => {
   svc.setCamera = (on) => {
     settings.camera.on = !!on;
     store.saveSettings(settings);
-    if (on) svc.loadCamera();
-    else {
+    if (on) {
+      if (svc.camShare) svc.camShare.sendPolicy(); // loaded before and turned off: the other side heard "not shared"
+      svc.loadCamera();
+    } else {
       if (svc.camShare) {
         svc.camShare.closeView();
         svc.camShare.stopSending();

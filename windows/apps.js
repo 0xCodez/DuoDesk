@@ -3,7 +3,7 @@
 // for the Apps tab, and the per-app windows. Those windows are opened by the Monitor 2 renderer
 // (window.open, so they can show the same video stream, cropped); here they get the app's title,
 // icon and their own AppUserModelID, so each Mac app has its own taskbar button.
-// Each Mac app gets a Start menu shortcut (folder "TwinDesk Apps") that starts
+// Each Mac app gets a Start menu shortcut (folder "DuoDesk Apps") that starts
 // `DuoDesk.exe --mac-app=<id>`, and its windows carry the same AppUserModelID and relaunch
 // command, so Pin to Start / Pin to taskbar work. Its windows never go full screen or past 1:1.
 const { app, BrowserWindow, nativeImage, shell, screen: displays } = require('electron');
@@ -100,14 +100,38 @@ class Apps {
     return 'org.macshare.macapp.' + crypto.createHash('sha1').update(id).digest('hex').slice(0, 10);
   }
 
-  // How this copy of TwinDesk opens one Mac app: "DuoDesk.exe --mac-app=<id>".
+  // How this copy of DuoDesk opens one Mac app: "DuoDesk.exe --mac-app=<id>".
   static relaunch(id) {
     const args = (app.isPackaged ? [] : [app.getAppPath()]).concat('--mac-app=' + id);
     return { target: process.execPath, args: args.map((x) => (/\s/.test(x) ? '"' + x + '"' : x)).join(' ') };
   }
 
   get startDir() {
-    return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'TwinDesk Apps');
+    return Apps.startMenuDir();
+  }
+
+  // Start › DuoDesk Apps, for the Mac's apps and the phone's (phoneview.js). Older versions made
+  // "TwinDesk Apps": the first time, its shortcuts move here and the old folder goes.
+  static startMenuDir() {
+    const programs = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+    const dir = path.join(programs, 'DuoDesk Apps');
+    if (Apps.movedOld) return dir;
+    Apps.movedOld = true;
+    const old = path.join(programs, 'TwinDesk Apps');
+    try {
+      if (fs.existsSync(old)) {
+        fs.mkdirSync(dir, { recursive: true });
+        for (const f of fs.readdirSync(old)) {
+          const to = path.join(dir, f);
+          if (fs.existsSync(to)) fs.rmSync(path.join(old, f), { force: true });
+          else fs.renameSync(path.join(old, f), to);
+        }
+        fs.rmdirSync(old);
+      }
+    } catch (e) {
+      console.log('[apps] Start › TwinDesk Apps not moved: ' + e.message);
+    }
+    return dir;
   }
 
   _lnk(name) {
@@ -147,7 +171,7 @@ class Apps {
       return false;
     }
     if (tell) {
-      this.message = a.name + ' is in Start › TwinDesk Apps. Right-click it there to pin it to Start or the taskbar.';
+      this.message = a.name + ' is in Start › DuoDesk Apps. Right-click it there to pin it to Start or the taskbar.';
       this.onChange();
     }
     return true;

@@ -181,7 +181,7 @@ class FileClip {
       front = (await this.helper.request('frontFolder')) || {};
     } catch (_) { /* Desktop */ }
     let dir = front.path || '';
-    // An app in front (not File Explorer, the desktop or TwinDesk itself): the files go into it.
+    // An app in front (not File Explorer, the desktop or DuoDesk itself): the files go into it.
     const into = !dir && front.app && front.pid !== process.pid ? { hwnd: front.hwnd, title: String(front.title || '') } : null;
     if (into) dir = this._pasteDir();
     if (!dir || !fs.existsSync(dir)) dir = app.getPath('desktop');
@@ -194,15 +194,19 @@ class FileClip {
     this.onChange();
   }
 
-  // A new folder for files pasted into an app; the ones from earlier pastes go after a day.
+  // A new folder for files pasted into an app; the ones from earlier pastes go after a day (also
+  // those in "TwinDesk Paste", older versions' folder, and that folder once it's empty).
   _pasteDir() {
-    const root = path.join(app.getPath('temp'), 'TwinDesk Paste');
-    try {
-      for (const d of fs.readdirSync(root)) {
-        const p = path.join(root, d);
-        if (Date.now() - fs.statSync(p).mtimeMs > PASTE_KEEP_MS) fs.rmSync(p, { recursive: true, force: true });
-      }
-    } catch (_) { /* none yet */ }
+    const root = path.join(app.getPath('temp'), 'DuoDesk Paste');
+    for (const r of [root, path.join(app.getPath('temp'), 'TwinDesk Paste')]) {
+      try {
+        for (const d of fs.readdirSync(r)) {
+          const p = path.join(r, d);
+          if (Date.now() - fs.statSync(p).mtimeMs > PASTE_KEEP_MS) fs.rmSync(p, { recursive: true, force: true });
+        }
+        if (r !== root && !fs.readdirSync(r).length) fs.rmdirSync(r);
+      } catch (_) { /* none yet */ }
+    }
     const dir = path.join(root, String(Date.now()));
     try {
       fs.mkdirSync(dir, { recursive: true });

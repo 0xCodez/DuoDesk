@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Terminal, this Mac -> the other computer (a PC, a Mac or Linux): send this Mac's key with
-// `ssh.key`; when the other side answers `ssh.info {enabled}`, write a pinned `Host twindesk`
-// entry into ~/.ssh/config so `ssh twindesk` works with no password and no "trust this host?"
+// `ssh.key`; when the other side answers `ssh.info {enabled}`, write a pinned `Host duodesk`
+// entry into ~/.ssh/config so `ssh duodesk` works with no password and no "trust this host?"
 // question.
 //
 // Events: 'change' — this.view changed.

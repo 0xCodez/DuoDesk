@@ -90,8 +90,8 @@ class BleServe(
     // ---- advertising ----
 
     private val advCb = object : AdvertiseCallback() {
-        override fun onStartSuccess(s: AdvertiseSettings) { Log.i("TwinDesk", "blp: advertising") }
-        override fun onStartFailure(code: Int) { Log.w("TwinDesk", "blp: advertising failed $code"); advertising = false }
+        override fun onStartSuccess(s: AdvertiseSettings) { Log.i("DuoDesk", "blp: advertising") }
+        override fun onStartFailure(code: Int) { Log.w("DuoDesk", "blp: advertising failed $code"); advertising = false }
     }
 
     // On while a PC may want us (not connected); the server stays up for the PCs already linked.
@@ -107,7 +107,7 @@ class BleServe(
                 .setTimeout(0)
                 .build()
             val data = AdvertiseData.Builder().addServiceUuid(ParcelUuid(PHONE_SERVICE)).setIncludeDeviceName(false).build()
-            runCatching { adv.startAdvertising(settings, data, advCb); advertising = true }.onFailure { Log.w("TwinDesk", "blp: advertise: ${it.message}") }
+            runCatching { adv.startAdvertising(settings, data, advCb); advertising = true }.onFailure { Log.w("DuoDesk", "blp: advertise: ${it.message}") }
         } else {
             advertising = false
             runCatching { adv?.stopAdvertising(advCb) }
@@ -228,7 +228,7 @@ class BleServe(
                 ok = runCatching { s.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value) }.getOrDefault(false)
                 if (!ok) Thread.sleep(5)
             }
-            if (!ok) Log.w("TwinDesk", "blp: a write's response didn't go out")
+            if (!ok) Log.w("DuoDesk", "blp: a write's response didn't go out")
             responding.decrementAndGet()
         }
     }
@@ -365,7 +365,7 @@ class BleServe(
                 gen++
                 runCatching { s?.close() }
             }
-            Log.i("TwinDesk", "blp: pipe closed${if (tell) "" else " by the PC"}")
+            Log.i("DuoDesk", "blp: pipe closed${if (tell) "" else " by the PC"}")
             if (tell) ctrlNote(JSONObject().put("op", "closed"))
         }
     }

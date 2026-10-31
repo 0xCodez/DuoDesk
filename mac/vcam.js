@@ -1,5 +1,5 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The virtual camera on the Mac (shared/vcam.js's driver): "TwinDesk Camera", a Camera Extension
+// The virtual camera on the Mac (shared/vcam.js's driver): "DuoDesk Camera", a Camera Extension
 // (mac-helper/Sources/twindesk-camera) inside DuoDesk.app/Contents/Library/SystemExtensions.
 // Installing it is twindesk-vcam activate (Contents/MacOS: the extension must be in its main
 // bundle), and the first time macOS asks the person to allow it in System Settings; twindesk-vcam
@@ -11,6 +11,9 @@
 // twindesk-vcam feed --name writes into the way OBS does (any build: it's OBS's to install). OBS
 // installs it with Start Virtual Camera, and it's a camera here while it's on in System Settings ›
 // General › Login Items & Extensions › Camera Extensions.
+// Before 2.5 our camera was "TwinDesk Camera" (the same extension, org.macshare.mac.camera): status
+// says legacy while that one still runs, and the next start activates this build's, which replaces it
+// (no new approval). Until then, or if that fails, feed writes into the old one.
 const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +24,9 @@ const TOOL = path.join(CONTENTS, 'MacOS', 'twindesk-vcam');
 const EXTENSION = path.join(CONTENTS, 'Library', 'SystemExtensions', 'org.macshare.mac.camera.systemextension');
 
 const OBS = 'OBS Virtual Camera';
-const TARGETS = [{ value: 'obs', label: OBS }, { value: 'twindesk', label: 'TwinDesk Camera' }]; // OBS's first: the default
+const NAME = 'DuoDesk Camera';
+const TARGETS = [{ value: 'obs', label: OBS }, { value: 'twindesk', label: NAME }]; // OBS's first: the default ('twindesk': the stored value, kept)
+let migrating = false; // this start activated ours over the old "TwinDesk Camera"
 
 function tool(cmd, onLine, timeout = 20000, args = []) {
   return new Promise((resolve) => {
@@ -51,9 +56,9 @@ function tool(cmd, onLine, timeout = 20000, args = []) {
 const obsInstalled = () => ['/Applications/OBS.app', path.join(require('os').homedir(), 'Applications', 'OBS.app')].some((p) => fs.existsSync(p));
 
 const driver = {
-  name: 'TwinDesk Camera',
+  name: NAME,
   targets: TARGETS,
-  nameOf: (target) => (target === 'obs' ? OBS : 'TwinDesk Camera'),
+  nameOf: (target) => (target === 'obs' ? OBS : NAME),
   removable: (target) => target !== 'obs',
 
   async check(target) {
@@ -73,15 +78,19 @@ const driver = {
     }
     if (!/^\/Applications\//.test(CONTENTS)) return { supported: false, message: 'Move DuoDesk to the Applications folder first: macOS installs camera extensions only from there' };
     const st = await tool('status');
+    if (st.camera !== true && st.legacy === true) return { supported: true, installed: migrating }; // renamed once per start
     return { supported: true, installed: st.camera === true };
   },
 
   async install(say, target) {
     // OBS installs its own: check() said how.
     if (target === 'obs') throw new Error((await driver.check('obs')).message || 'OBS Virtual Camera isn’t here');
+    const legacy = (await tool('status')).legacy === true;
+    if (legacy) migrating = true;
     const r = await tool('activate', (m) => {
       if (m.approval) say('Allow it in System Settings › General › Login Items & Extensions › Camera Extensions (macOS asks once)');
     }, 310000);
+    if (!r.ok && legacy) return console.log('[vcam] renaming the camera:', r.error); // the old one still works
     if (!r.ok) throw new Error('macOS didn’t install the camera: ' + (r.error || 'unknown'));
     if (r.reboot) throw new Error('It’s installed after the Mac restarts');
     // The new camera shows up in a moment.

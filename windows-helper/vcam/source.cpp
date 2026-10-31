@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // twindesk-vcam.dll: the virtual camera's media source. Windows' Frame Server makes it through
 // its COM class (CLSID_TwinDeskVcam, an IMFActivate) and hands its pictures to every app that
-// picks "TwinDesk Camera": one stream, NV12 1280×720 at 30 fps, made from the newest frame
+// picks "DuoDesk Camera": one stream, NV12 1280×720 at 30 fps, made from the newest frame
 // DuoDesk put in shared memory (vcam.h), black while there's none.
 // Registered once, elevated (regsvr32, windows/scripts/vcam-install.ps1): HKLM, because Frame
 // Server runs as Local Service and doesn't see the user's own classes.

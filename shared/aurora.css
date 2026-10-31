@@ -144,12 +144,11 @@ a:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--au-ring);
 }
 .app-name { font-weight: 600; font-size: 17px; letter-spacing: -0.35px; color: var(--au-text); }
 .peer { color: var(--au-muted); }
-/* MESH beta, on the app's name in the mesh/ pages */
+/* MESH, on the app's name in the mesh/ pages */
 .app-name .mesh-pill {
   color: #0a0a0c; background: var(--spec); font-weight: 650; letter-spacing: 0.04em;
   box-shadow: 0 4px 14px -4px rgba(138, 92, 255, 0.6);
 }
-.app-name .mesh-pill span { opacity: 0.75; }
 
 /* Status dots: lit, with a little glow of their own colour. */
 .dot { background: var(--au-dim); }

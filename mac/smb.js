@@ -182,7 +182,7 @@ class Smb extends EventEmitter {
     if (this.cfg.sharing && pw) this.server.sendToClient({ t: P.T.SMB_OFFER, share: 'MacShare', user: 'macshare', password: pw, port: 445 });
   }
 
-  // One switch: share the chosen folder, or ~/TwinDesk (created if missing).
+  // One switch: share the chosen folder, or ~/MacShare (created if missing).
   async startSharing(folder) {
     folder = folder || this.cfg.folder || DEFAULT_FOLDER;
     if (this.share.busy) return;

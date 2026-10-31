@@ -74,14 +74,14 @@ class Discovery(
         val since = w.busySince
         if (since != 0L && System.currentTimeMillis() - since > STUCK_MS) {
             val where = w.thread?.stackTrace?.joinToString("\n  at ") ?: "?"
-            Log.w("TwinDesk", "discovery: a packet's handling is stuck (${System.currentTimeMillis() - since} ms), going on without it:\n  at $where")
+            Log.w("DuoDesk", "discovery: a packet's handling is stuck (${System.currentTimeMillis() - since} ms), going on without it:\n  at $where")
             w.exec.shutdownNow()
             worker = Worker()
         }
         val now = worker
         now.exec.execute {
             now.busySince = System.currentTimeMillis()
-            try { block() } catch (e: Exception) { Log.w("TwinDesk", "discovery: ${e.message}") } finally { now.busySince = 0L }
+            try { block() } catch (e: Exception) { Log.w("DuoDesk", "discovery: ${e.message}") } finally { now.busySince = 0L }
         }
     }
 
@@ -191,7 +191,7 @@ class Discovery(
             } catch (e: Exception) {
                 if (!running) return
                 error = "Can’t listen (${e.message})"
-                Log.w("TwinDesk", "discovery: ${e.message}")
+                Log.w("DuoDesk", "discovery: ${e.message}")
                 runCatching { sock?.close() } // its port is free for the next one
                 onChange()
                 Thread.sleep(5000)

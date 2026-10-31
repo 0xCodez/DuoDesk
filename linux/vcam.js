@@ -1,15 +1,21 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The virtual camera on Linux (shared/vcam.js's driver): "TwinDesk Camera", a v4l2loopback device
+// The virtual camera on Linux (shared/vcam.js's driver): "DuoDesk Camera", a v4l2loopback device
 // every app can pick. Installed once (one password prompt, pkexec): the v4l2loopback module from
 // the distribution's packages when it isn't there (DKMS: it needs the kernel's headers, and with
 // Secure Boot the module has to be signed), loaded with our device now and at every start
 // (modules-load.d, modprobe.d). linux-helper/bin/twindesk-vcam writes the frames to it (YUYV),
 // all the while the switch is on: with exclusive_caps, apps list it only while something writes.
+// Before 2.5 the device was "TwinDesk Camera" (the same module and files): with Virtual camera on,
+// the next start finds only that one (legacy), installs again (one password prompt), and the old
+// device goes before the new one is added. Declined or failed, the old one is fed as it was until
+// the next start tries again.
 const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const NAME = 'TwinDesk Camera';
+const NAME = 'DuoDesk Camera';
+const LEGACY = 'TwinDesk Camera'; // its name before 2.5
+let migrating = false; // this start tried to rename it (LEGACY → NAME)
 const WRITER = path.join(__dirname, '..', 'linux-helper', 'bin', 'twindesk-vcam');
 const SYS = '/sys/class/video4linux';
 
@@ -21,22 +27,29 @@ function run(cmd, args, timeout = 600000) {
   });
 }
 
-// /dev/videoN of our device, or ''.
-function device() {
+// /dev/videoN of our device (named, NAME by default), or ''.
+function device(named = NAME) {
   try {
     for (const d of fs.readdirSync(SYS)) {
       let name = '';
       try { name = fs.readFileSync(path.join(SYS, d, 'name'), 'utf8').trim(); } catch {}
-      if (name === NAME) return '/dev/' + d;
+      if (name === named) return '/dev/' + d;
     }
   } catch {}
   return '';
 }
 
+// The one to feed: ours, else the old one while it isn't renamed yet.
+const current = () => device() || (migrating ? device(LEGACY) : '');
+
 // Root, through pkexec. Its own options only when nothing else (OBS) has set v4l2loopback's: then
 // a device of ours is added beside the others (v4l2loopback-ctl), for this start of the computer.
+// $1: the old device (LEGACY), to take away first.
 const INSTALL = `
 set -e
+if [ -n "$1" ]; then
+  command -v v4l2loopback-ctl >/dev/null 2>&1 && v4l2loopback-ctl delete "$1" >/dev/null 2>&1 || modprobe -r v4l2loopback 2>/dev/null || true
+fi
 if ! modinfo v4l2loopback >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then DEBIAN_FRONTEND=noninteractive apt-get install -y -q v4l2loopback-dkms >/dev/null
   elif command -v dnf >/dev/null 2>&1; then dnf install -y -q v4l2loopback >/dev/null
@@ -68,19 +81,33 @@ const driver = {
 
   async check() {
     if (!fs.existsSync(WRITER)) return { supported: false, message: 'Not in this build of DuoDesk' };
-    return { supported: true, installed: !!device() };
+    if (device()) return { supported: true, installed: true };
+    // Only the old "TwinDesk Camera": installed again (renamed) once per start; until then it works as it is.
+    if (device(LEGACY)) return migrating ? { supported: true, installed: true, message: `Still named “${LEGACY}” here: it’s renamed at the next start` } : { supported: true, installed: false };
+    return { supported: true, installed: false };
   },
 
   async install() {
-    const r = await run('pkexec', ['sh', '-c', INSTALL]);
+    const legacy = device() ? '' : device(LEGACY);
+    if (!legacy) return driver._install('');
+    migrating = true;
+    try {
+      await driver._install(legacy);
+    } catch (e) {
+      console.log('[vcam] renaming the camera:', e.message); // the old one is still there and works
+    }
+  },
+
+  async _install(legacy) {
+    const r = await run('pkexec', ['sh', '-c', INSTALL, 'sh', legacy]);
     if (!r.ok) throw new Error(r.code === 126 ? 'The password prompt was closed' : (r.err.split('\n').pop() || 'pkexec failed'));
     for (let i = 0; i < 30 && !device(); i++) await new Promise((res) => setTimeout(res, 100));
     if (!device()) throw new Error('v4l2loopback is loaded but has no “' + NAME + '” device');
   },
 
-  // Our device goes; the module only when it's ours alone.
+  // Our device goes (under either name); the module only when it's ours alone.
   async remove() {
-    const dev = device();
+    const dev = device() || device(LEGACY);
     const r = await run('pkexec', ['sh', '-c', `
 rm -f /etc/modules-load.d/twindesk-vcam.conf /etc/modprobe.d/twindesk-vcam.conf
 if [ -n "${dev}" ] && command -v v4l2loopback-ctl >/dev/null 2>&1 && v4l2loopback-ctl delete ${dev} >/dev/null 2>&1; then :
@@ -90,7 +117,7 @@ else modprobe -r v4l2loopback; fi
   },
 
   feed(onExit) {
-    const p = spawn(WRITER, [device()], { stdio: ['pipe', 'ignore', 'pipe'] });
+    const p = spawn(WRITER, [current()], { stdio: ['pipe', 'ignore', 'pipe'] });
     p.stderr.on('data', (d) => console.log('[vcam] ' + String(d).trim()));
     p.on('exit', onExit);
     p.on('error', onExit);

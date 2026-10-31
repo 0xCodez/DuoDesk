@@ -92,7 +92,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
         Notify.channels(ctx)
         updates.start()
         if (store.flag("remote.btpad", false)) btPad.start()
-        bg.scheduleWithFixedDelay({ runCatching { bleTick() }.onFailure { Log.e("TwinDesk", "ble", it) } }, 2, 2, TimeUnit.SECONDS)
+        bg.scheduleWithFixedDelay({ runCatching { bleTick() }.onFailure { Log.e("DuoDesk", "ble", it) } }, 2, 2, TimeUnit.SECONDS)
     }
 
     // Every 2 s: Bluetooth scans while it may be needed (not connected, or connected through it),
@@ -121,7 +121,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
         val now = System.currentTimeMillis()
         if (now - (resumeTried[f.address] ?: 0) < 8000) return
         resumeTried[f.address] = now
-        Log.i("TwinDesk", "${h.name} is on the network at ${f.address}: moving the session there")
+        Log.i("DuoDesk", "${h.name} is on the network at ${f.address}: moving the session there")
         link.resume(f.address, f.port)
     }
 
@@ -186,7 +186,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
             if (h == null) onInvite(f.copy(invited = true))
             return false
         }
-        Log.i("TwinDesk", "${f.name} opened a Bluetooth pipe: connecting")
+        Log.i("DuoDesk", "${f.name} opened a Bluetooth pipe: connecting")
         resumeUntil = 0
         link.connect(h, blePort = port)
         return true
@@ -198,8 +198,8 @@ class Core private constructor(val ctx: Context) : Link.Events {
     fun connectWired(id: String, port: Int, nonce: String, name: String) {
         val h = store.hosts().find { it.id == id }
         if (h == null) {
-            if (link.pair != null && link.pair?.phase != "failed") { Log.i("TwinDesk", "USB: already pairing"); return }
-            Log.i("TwinDesk", "USB: pairing with ${name.ifEmpty { id }} through the cable")
+            if (link.pair != null && link.pair?.phase != "failed") { Log.i("DuoDesk", "USB: already pairing"); return }
+            Log.i("DuoDesk", "USB: pairing with ${name.ifEmpty { id }} through the cable")
             resumeUntil = 0
             wiredNonce = nonce
             invite?.let { discovery.clearInvite(it.id) }
@@ -207,7 +207,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
             link.startPairing("127.0.0.1", port, name.ifEmpty { "Computer" }, nonce)
             return
         }
-        Log.i("TwinDesk", "USB: connecting to ${h.name} through the cable")
+        Log.i("DuoDesk", "USB: connecting to ${h.name} through the cable")
         resumeUntil = 0
         wiredNonce = nonce
         link.connect(h, port)
@@ -224,14 +224,14 @@ class Core private constructor(val ctx: Context) : Link.Events {
         val h = store.hosts().find { it.id == id }
         resumeUntil = 0
         if (h != null) {
-            Log.i("TwinDesk", "QR: connecting to ${h.name} at $address")
+            Log.i("DuoDesk", "QR: connecting to ${h.name} at $address")
             h.address = address
             h.port = port
             store.putHost(h)
             connect(h)
             return true
         }
-        Log.i("TwinDesk", "QR: pairing with ${name.ifEmpty { id }} at $address")
+        Log.i("DuoDesk", "QR: pairing with ${name.ifEmpty { id }} at $address")
         invite?.let { discovery.clearInvite(it.id) }
         invite = null
         link.startPairing(address, port, name.ifEmpty { "Computer" }, nonce)
@@ -290,7 +290,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     private fun onInvite(f: Found) {
         val h = store.hosts().find { it.id == f.id }
         if (h != null) {
-            Log.i("TwinDesk", "invite from ${f.name}: connecting")
+            Log.i("DuoDesk", "invite from ${f.name}: connecting")
             if (link.host?.id == h.id && (link.state == "connected" || link.state == "connecting")) return
             if (!f.address.startsWith("ble:") && !f.address.startsWith("blp:")) {
                 h.address = f.address
@@ -314,7 +314,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     }
 
     override fun onWelcome(host: Host) {
-        Log.i("TwinDesk", "session with ${host.name}")
+        Log.i("DuoDesk", "session with ${host.name}")
         resumeUntil = 0
         Notify.cancelInvite(ctx)
         // Tells the computer which of its USB devices this is (its screen and input use that one).
@@ -326,7 +326,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
             host.port = seen.port
             store.putHost(host)
         }
-        for (f in features) runCatching { f.onWelcome(host) }.onFailure { Log.e("TwinDesk", "welcome", it) }
+        for (f in features) runCatching { f.onWelcome(host) }.onFailure { Log.e("DuoDesk", "welcome", it) }
         changed()
     }
 
@@ -334,7 +334,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
         val t = m.optString("t")
         main.post {
             for (f in features) {
-                val mine = try { f.onMessage(t, m) } catch (e: Exception) { Log.e("TwinDesk", "message $t", e); true }
+                val mine = try { f.onMessage(t, m) } catch (e: Exception) { Log.e("DuoDesk", "message $t", e); true }
                 if (mine) return@post
             }
         }
@@ -358,7 +358,7 @@ class Core private constructor(val ctx: Context) : Link.Events {
     private fun resume() {
         val h = resumeHost ?: return
         if (System.currentTimeMillis() > resumeUntil || link.connected || link.state == "connecting" || link.pair != null) return
-        Log.i("TwinDesk", "resuming the session with ${h.name}")
+        Log.i("DuoDesk", "resuming the session with ${h.name}")
         val until = resumeUntil
         connect(store.hosts().find { it.id == h.id } ?: return, triedNet)
         resumeUntil = until // connect() clears it; keep the window open for the next drop

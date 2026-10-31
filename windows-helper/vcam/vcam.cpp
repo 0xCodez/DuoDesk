@@ -1,9 +1,11 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // twindesk-vcam.exe: the virtual camera's side in DuoDesk (windows/vcam.js).
-//   status          {"camera":true|false}: is "TwinDesk Camera" among this PC's cameras
+//   status          {"camera":true|false, "legacy":true|false}: is "DuoDesk Camera" among this PC's
+//                   cameras (legacy: the same camera under its old name, "TwinDesk Camera")
 //   add             makes it (MFCreateVirtualCamera, for this user, kept until removed); needs
-//                   twindesk-vcam.dll registered first (elevated, scripts/vcam-install.ps1)
-//   remove          takes it away again
+//                   twindesk-vcam.dll registered first (elevated, scripts/vcam-install.ps1). A camera
+//                   under the old name goes first
+//   remove          takes it away again (under either name)
 //   feed            frames on stdin, each VCAM_FRAME bytes of NV12, into the camera's shared memory
 //   selftest <dll> [n]  loads the source from that file ("camera": the installed camera, through
 //                   Frame Server) and reads n frames (15) from it
@@ -26,8 +28,8 @@ static int Fail(const char* what, HRESULT hr) {
   return 1;
 }
 
-// "TwinDesk Camera" among this PC's cameras (Windows may add " (Windows Virtual Camera)").
-static bool FindCamera(ComPtr<IMFActivate>* out = nullptr) {
+// A camera of that name among this PC's cameras (Windows may add " (Windows Virtual Camera)").
+static bool FindCamera(ComPtr<IMFActivate>* out = nullptr, const wchar_t* camName = VCAM_NAME) {
   ComPtr<IMFAttributes> a;
   if (FAILED(MFCreateAttributes(&a, 1))) return false;
   a->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
@@ -39,7 +41,7 @@ static bool FindCamera(ComPtr<IMFActivate>* out = nullptr) {
     wchar_t* name = nullptr;
     UINT32 len = 0;
     if (!found && SUCCEEDED(list[i]->GetAllocatedString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME, &name, &len))) {
-      if (!wcsncmp(name, VCAM_NAME, wcslen(VCAM_NAME))) {
+      if (!wcsncmp(name, camName, wcslen(camName))) {
         found = true;
         if (out) *out = list[i];
       }
@@ -51,14 +53,24 @@ static bool FindCamera(ComPtr<IMFActivate>* out = nullptr) {
   return found;
 }
 
-static HRESULT Camera(ComPtr<IMFVirtualCamera>& vc) {
+static HRESULT Camera(ComPtr<IMFVirtualCamera>& vc, const wchar_t* camName = VCAM_NAME) {
   wchar_t clsid[64];
   StringFromGUID2(CLSID_TwinDeskVcam, clsid, 64);
   return MFCreateVirtualCamera(MFVirtualCameraType_SoftwareCameraSource, MFVirtualCameraLifetime_System,
-    MFVirtualCameraAccess_CurrentUser, VCAM_NAME, clsid, nullptr, 0, &vc);
+    MFVirtualCameraAccess_CurrentUser, camName, clsid, nullptr, 0, &vc);
+}
+
+// The camera under its old name ("TwinDesk Camera"), if this PC has it: removed.
+static void RemoveLegacy() {
+  if (!FindCamera(nullptr, VCAM_LEGACY_NAME)) return;
+  ComPtr<IMFVirtualCamera> vc;
+  if (FAILED(Camera(vc, VCAM_LEGACY_NAME))) return;
+  vc->Remove();
+  vc->Shutdown();
 }
 
 static int Add() {
+  RemoveLegacy();
   ComPtr<IMFVirtualCamera> vc;
   HRESULT hr = Camera(vc);
   if (FAILED(hr)) return Fail("MFCreateVirtualCamera", hr);
@@ -70,6 +82,7 @@ static int Add() {
 }
 
 static int Remove() {
+  RemoveLegacy();
   ComPtr<IMFVirtualCamera> vc;
   HRESULT hr = Camera(vc);
   if (FAILED(hr)) return Fail("MFCreateVirtualCamera", hr);
@@ -130,7 +143,7 @@ static int SelfTest(const wchar_t* dll, int count) {
   ComPtr<IMFActivate> act;
   HRESULT hr;
   if (!wcscmp(dll, L"camera")) {
-    if (!FindCamera(&act)) return Fail("no TwinDesk Camera", E_FAIL);
+    if (!FindCamera(&act)) return Fail("no DuoDesk Camera", E_FAIL);
   } else {
     HMODULE m = LoadLibraryW(dll);
     if (!m) return Fail("LoadLibrary", HRESULT_FROM_WIN32(GetLastError()));
@@ -190,7 +203,7 @@ int wmain(int argc, wchar_t** argv) {
   MFStartup(MF_VERSION, MFSTARTUP_FULL);
   const wchar_t* cmd = argv[1];
   int r = 2;
-  if (!wcscmp(cmd, L"status")) { printf("{\"ok\":true,\"camera\":%s}\n", FindCamera() ? "true" : "false"); r = 0; }
+  if (!wcscmp(cmd, L"status")) { printf("{\"ok\":true,\"camera\":%s,\"legacy\":%s}\n", FindCamera() ? "true" : "false", FindCamera(nullptr, VCAM_LEGACY_NAME) ? "true" : "false"); r = 0; }
   else if (!wcscmp(cmd, L"add")) r = Add();
   else if (!wcscmp(cmd, L"remove")) r = Remove();
   else if (!wcscmp(cmd, L"feed")) r = Feed();

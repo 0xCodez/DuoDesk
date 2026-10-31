@@ -115,7 +115,7 @@ class Rezume(core: Core) : Feature(core) {
     private fun timers() {
         val p = peer
         val want = on && opt("send") && core.link.connected && p != null && p.optBoolean("on")
-        if (want && poll == null) poll = core.bg.scheduleWithFixedDelay({ runCatching { tick() }.onFailure { Log.e("TwinDesk", "rezume", it) } }, 1500, 1500, TimeUnit.MILLISECONDS)
+        if (want && poll == null) poll = core.bg.scheduleWithFixedDelay({ runCatching { tick() }.onFailure { Log.e("DuoDesk", "rezume", it) } }, 1500, 1500, TimeUnit.MILLISECONDS)
         else if (!want) {
             poll?.cancel(false)
             poll = null
@@ -177,7 +177,7 @@ class Rezume(core: Core) : Feature(core) {
     private fun say(why: String) {
         if (why == said) return
         said = why
-        if (why.isNotEmpty()) Log.i("TwinDesk", "rezume: $why")
+        if (why.isNotEmpty()) Log.i("DuoDesk", "rezume: $why")
     }
 
     private fun label(pkg: String): String = runCatching {
@@ -209,7 +209,7 @@ class Rezume(core: Core) : Feature(core) {
         outAt = System.currentTimeMillis()
         offered = o.optString("title")
         core.send(o)
-        Log.i("TwinDesk", "rezume: offered ${o.optString("kind")} ${o.optString("app")}${if (push) " (sent)" else ""}")
+        Log.i("DuoDesk", "rezume: offered ${o.optString("kind")} ${o.optString("app")}${if (push) " (sent)" else ""}")
         core.changed()
     }
 
@@ -236,7 +236,7 @@ class Rezume(core: Core) : Feature(core) {
         when (t) {
             Proto.T.RZ_POLICY -> {
                 val was = peer?.optBoolean("on") == true
-                if (peer?.optBoolean("on") != m.optBoolean("on")) Log.i("TwinDesk", "rezume: ${if (m.optBoolean("on")) "on" else "off"} on the computer")
+                if (peer?.optBoolean("on") != m.optBoolean("on")) Log.i("DuoDesk", "rezume: ${if (m.optBoolean("on")) "on" else "off"} on the computer")
                 peer = m
                 if (!m.optBoolean("on")) clearOut()
                 else if (!was) again(m)
@@ -275,7 +275,7 @@ class Rezume(core: Core) : Feature(core) {
             else -> return
         }
         val push = m.optBoolean("push") && opt("push")
-        Log.i("TwinDesk", "rezume: ${o.kind} from the computer${if (m.optBoolean("push")) " (sent)" else ""}")
+        Log.i("DuoDesk", "rezume: ${o.kind} from the computer${if (m.optBoolean("push")) " (sent)" else ""}")
         if (push && Settings.canDrawOverlays(core.ctx)) return take(o) // Android lets an app with the overlay open things
         incoming = o
         if (opt("notify") || push) Notify.rezume(core.ctx, core.host?.name ?: "your computer", o, loud = push)

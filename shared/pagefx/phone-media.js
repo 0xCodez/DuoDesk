@@ -632,7 +632,11 @@
     const BLADES = 6;
 
     const phoneCam = (s) => (safe(() => s.phone.bridge.windows, []) || []).find((w) => w && w.kind === 'camera') || null;
-    const running = (s) => (G.isPhone(s) ? !!phoneCam(s) : !!(s && s.camera && s.camera.viewing));
+    // Multi-device (state.camera.mesh): a computer's camera running here while another device is
+    // selected is the page's (shared/ui-camera.js).
+    const other = (s) => { const c = (s && s.camera) || {}; const sel = s && (s.peerSession || s.client || s.session); return !!(c.mesh && c.viewing && c.peerId && !(sel && sel.id === c.peerId)); }; // the selected device (Linux: peerSession, the Mac: client)
+    const isPhone = (s) => G.isPhone(s) && !other(s);
+    const running = (s) => (isPhone(s) ? !!phoneCam(s) : !!(s && s.camera && s.camera.viewing));
 
     // An aperture: six blades tiling the ring between a hexagonal hole (radius by k) and the rim.
     function bladeD(k, i) {
@@ -730,10 +734,11 @@
       update(s, page, ctx) {
         const c = (s && s.camera) || {};
         const v = (s && s.vcam) || {};
-        const phone = G.isPhone(s);
+        const phone = isPhone(s);
         const w = phone ? phoneCam(s) : null;
         const on = running(s);
         const n = names(s);
+        const who = other(s) ? c.peerName : n.name; // whose camera the page is about
         const err = on && ((phone && w && w.error) || (!phone && ['failed', 'refused'].includes(c.viewStatus)));
         let st = !c.on ? 'off' : !G.linked(s) ? 'nopeer' : err ? 'err' : on && !v.picture ? 'starting' : on ? 'live' : 'idle';
         if (on && !phone && c.viewStatus === 'ended') st = 'idle';
@@ -743,7 +748,7 @@
         // the page's own words about the picture (its overlay), else ours
         const overlay = H.said && !H.said.hidden ? (H.said.textContent || '').trim() : '';
         ctx.text(H.big, { off: 'Off', nopeer: 'No device', idle: overlay ? 'Waiting' : 'Ready', starting: 'Starting', live: 'Live', err: 'Stopped' }[st]);
-        ctx.text(H.cap, st === 'nopeer' ? 'Connect a device to use its camera' : n.name + '’s camera');
+        ctx.text(H.cap, st === 'nopeer' ? 'Connect a device to use its camera' : who + '’s camera');
         const isLive = on && !!v.picture && st === 'live';
         ctx.cls(H.live, 'on', isLive);
         if (isLive && ctx.changed('livefps', fps == null)) ctx.text(H.live.lastElementChild, fps ? 'Live · ' + fps + ' fps' : 'Live');
@@ -757,7 +762,7 @@
         const sending = !!c.sending;
         ctx.cls(H.rec, 'on', sending);
         ctx.cls(H.hdr, 'pg-rec-on', sending);
-        if (sending) ctx.text(H.rec.lastElementChild, n.name + ' is viewing ' + n.me + '’s camera');
+        if (sending) ctx.text(H.rec.lastElementChild, (c.mesh && c.sendingTo ? c.sendingTo + (c.sendingTo.includes(',') ? ' are' : ' is') : n.name + ' is') + ' viewing ' + n.me + '’s camera');
         // the page's cards
         if (H.box) {
           ctx.cls(H.box, 'pg-live', isLive);

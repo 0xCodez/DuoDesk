@@ -21,6 +21,7 @@ class MeshHelper extends Helper {
       this.emit('exit', -1);
       return;
     }
+    console.log('[helper] starting ' + path.basename(EXE) + (EXE === MULTI ? ' (Multi-device, several sides)' : ' (Multi-device, but the multi helper is not built: one-to-one helper, first side only)') + ' from ' + path.dirname(EXE));
     const proc = spawn(EXE, [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     this.proc = proc;
     this.buf = '';

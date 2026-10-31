@@ -42,7 +42,7 @@ function setupIpc(ctx) {
     link.startPairing({ address: m[1], port, macName: m[1] });
   });
   // Connect by address: ask who is there (unicast probe works where broadcast is blocked); no
-  // answer in PROBE_REPLY_MS → try WSS on that address directly ("No TwinDesk at …" if nothing).
+  // answer in PROBE_REPLY_MS → try WSS on that address directly ("No DuoDesk at …" if nothing).
   handle('connectAddress', async (text) => {
     const m = typeof text === 'string' && /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(text);
     if (!m) return;
@@ -130,7 +130,7 @@ function setupIpc(ctx) {
   handle('setTab', (tab) => change('ui', { tab }));
   handle('setChats', (on) => { change('ui', { chats: on === true }); if (ctx.chats && ctx.chats()) ctx.chats().sync(); }); // Messages: WhatsApp, Telegram and Instagram there too
   handle('setOverview', (o) => o && typeof o === 'object' && change('ui', { overview: { ...settings.ui.overview, ...o } })); // General › Overview // invalid names fall back in normalize()
-  handle('setMulti', (on) => require('../multi').set(on === true)); // Multi-device off: TwinDesk restarts one to one
+  handle('setMulti', (on) => require('../multi').set(on === true)); // Multi-device off: DuoDesk restarts one to one
   handle('setAudio', (partial) => change('audio', partial, () => sound.apply()));
   handle('setTerminal', (partial) => {
     const p = partial && typeof partial === 'object' ? { enabled: partial.enabled, allowMac: partial.allowMac } : {};
@@ -215,6 +215,32 @@ function setupIpc(ctx) {
   phone('phoneCloseView', (id) => ctx.phoneViews.close(Number(id)));
   phone('phoneRetry', (id) => { const u = typeof id === 'string' && id ? ctx.phone.unit(id.slice(0, 64)) : null; (u || ctx.phone).bridge._kick(); });
   phone('phoneInstallFull', () => ctx.phone.bridge.installFull());
+  // Camera: the selected phone's camera here, back or front (phoneview.js openCamera; a computer's
+  // camera running here stops: one at a time). Off: every phone's camera here stops.
+  phone('phoneCamera', (open, opts) => {
+    if (open === false) return ctx.closePhoneCameras();
+    if (!ctx.phoneViews) return;
+    ctx.phoneViews.openCamera(opts && typeof opts === 'object' ? { facing: opts.facing, show: opts.show === true, size: opts.size } : undefined);
+  });
+  phone('phoneListCameras', () => (ctx.phone.bridge ? ctx.phone.bridge.listCameras() : []));
+  // Camera tab (shared/camshare-mesh.js): the selected computer's camera here, this one's there.
+  handle('camera', (m) => {
+    if (m && m.do === 'on') return ctx.setCamera(m.on === true); // Camera's switch: loads it, or stops it
+    const c = ctx.camShare;
+    if (!c || !m || typeof m !== 'object') return;
+    if (m.do === 'view') { // one camera at a time: a phone's running here stops
+      ctx.closePhoneCameras();
+      c.view(m.show === true); // show: its window too
+    } else if (m.do === 'close') c.closeView();
+    else if (m.do === 'share') c.setShare(m.on === true);
+    else if (m.do === 'device') c.setDevice(m.id);
+    else if (m.do === 'stop') c.stopSending();
+    else if (m.do === 'devices') c.listDevices();
+    // Camera › Virtual camera (shared/vcam.js, ../vcam.js: v4l2loopback).
+    else if (m.do === 'virtual' && ctx.vcam) ctx.vcam.setOn(m.on === true);
+    else if (m.do === 'vcamRemove' && ctx.vcam) ctx.vcam.remove();
+    else if (m.do === 'rotate' && ctx.vcam) ctx.vcam.turn();
+  });
   handle('phoneAssets', () => (ctx.phone ? ctx.phone.assetsView() : { wallpaper: '', apps: [] }));
   handle('skipSetup', () => change('setup', { skipped: ctx.buildState().setup.missing, done: true }));
   handle('checkFirewall', () => ctx.checkFirewall());

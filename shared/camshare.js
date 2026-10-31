@@ -35,6 +35,7 @@ class CamShare {
     link.on(T.CAM_POLICY, (m) => {
       this.peerShares = !!m && m.share === true;
       if (!this.peerShares && this.viewer) this._viewStatus('refused');
+      if (m && m.ask === true) this.sendPolicy(); // it was loaded after the welcome: ours again for it
       this.onChange();
     });
     link.on(T.CAM_OPEN, () => this._open());
@@ -73,8 +74,10 @@ class CamShare {
     return this.cfg().share === true && this.cfg().on !== false; // Camera's switch off: nothing shared
   }
 
-  sendPolicy() {
-    if (this.link.connected()) this.link.send({ t: T.CAM_POLICY, share: this.share });
+  // ask: this side was loaded (Camera turned on) after the welcome, when the other's policy came and
+  // nobody heard it: the other answers with its own (older apps ignore ask, as before).
+  sendPolicy(ask = false) {
+    if (this.link.connected()) this.link.send(ask ? { t: T.CAM_POLICY, share: this.share, ask: true } : { t: T.CAM_POLICY, share: this.share });
   }
 
   // The tab's switch. On the Mac, macOS asks for the camera the first time (askFirst → allowed).

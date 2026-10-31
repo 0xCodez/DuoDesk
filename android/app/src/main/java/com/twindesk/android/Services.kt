@@ -25,7 +25,7 @@ class TwinService : Service() {
         try {
             startForeground(Notify.ID_LINK, Notify.link(this, core), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         } catch (e: Exception) {
-            Log.w("TwinDesk", "foreground service: ${e.message}")
+            Log.w("DuoDesk", "foreground service: ${e.message}")
         }
     }
 
@@ -42,7 +42,7 @@ class TwinService : Service() {
         fun start(ctx: Context) {
             Core.wake(ctx)
             runCatching { ctx.startForegroundService(Intent(ctx, TwinService::class.java)) }
-                .onFailure { Log.w("TwinDesk", "start service: ${it.message}") }
+                .onFailure { Log.w("DuoDesk", "start service: ${it.message}") }
         }
 
         // The ongoing notification follows the link.

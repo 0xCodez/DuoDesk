@@ -11,7 +11,10 @@
 #define VCAM_H 720
 #define VCAM_FPS 30
 #define VCAM_FRAME (VCAM_W * VCAM_H * 3 / 2) // NV12
-#define VCAM_NAME L"TwinDesk Camera"
+#define VCAM_NAME L"DuoDesk Camera"
+// Its name before 2.5 (the same CLSID): `add` takes a camera of that name away first, so an
+// existing install shows the new name after the next start (windows/vcam.js migrates).
+#define VCAM_LEGACY_NAME L"TwinDesk Camera"
 #define VCAM_MAP L"TwinDeskVirtualCamera" // under Global\ (Frame Server) or Local\ (the self test)
 #define VCAM_MAGIC 0x43564454 // 'TDVC'
 #define VCAM_STALE_MS 1500 // no new frame for this long: black

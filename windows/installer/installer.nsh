@@ -39,16 +39,20 @@
   ; Renamed from MacShare: its rules (and its Program Files folder's exe) go.
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare (TCP 47800)"'
-  ; Renamed from TwinDesk.exe to DuoDesk.exe: the rules keep their names (firewall-fix.ps1 looks for them).
+  ; Renamed from TwinDesk (TwinDesk.exe) to DuoDesk: the TwinDesk-named rules go and DuoDesk's are
+  ; added (firewall-fix.ps1 removes both names before adding its own).
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk" program="$INSTDIR\TwinDesk.exe"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk" program="$INSTDIR\DuoDesk.exe"'
-  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk" dir=in action=allow program="$INSTDIR\DuoDesk.exe" profile=any enable=yes'
-  ; This PC also listens (PC ↔ PC host), so the port gets its own rule.
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (TCP 47800)"'
-  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk (TCP 47800)" dir=in action=allow protocol=TCP localport=47800 program="$INSTDIR\DuoDesk.exe" profile=any enable=yes'
-  ; A phone: adb finds its wireless debugging over mDNS (phone-bridge.js).
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (adb)"'
-  nsExec::Exec 'netsh advfirewall firewall add rule name="TwinDesk (adb)" dir=in action=allow program="$INSTDIR\resources\app\windows\vendor\adb\adb.exe" profile=any enable=yes'
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="DuoDesk" program="$INSTDIR\DuoDesk.exe"'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="DuoDesk" dir=in action=allow program="$INSTDIR\DuoDesk.exe" profile=any enable=yes'
+  ; This PC also listens (PC ↔ PC host), so the port gets its own rule.
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="DuoDesk (TCP 47800)"'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="DuoDesk (TCP 47800)" dir=in action=allow protocol=TCP localport=47800 program="$INSTDIR\DuoDesk.exe" profile=any enable=yes'
+  ; A phone: adb finds its wireless debugging over mDNS (phone-bridge.js).
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="DuoDesk (adb)"'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="DuoDesk (adb)" dir=in action=allow program="$INSTDIR\resources\app\windows\vendor\adb\adb.exe" profile=any enable=yes'
   ; The phone as a drive goes through Windows' WebDAV client (phonedrive.js), which refuses files
   ; over 50 MB unless this says otherwise: 4 GB, its maximum (read when WebClient next starts).
   nsExec::Exec 'reg add HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters /v FileSizeLimitInBytes /t REG_DWORD /d 4294967295 /f'
@@ -72,12 +76,17 @@
   ; Calls on this PC: its package (this user's) and its certificate.
   nsExec::Exec 'powershell -NoProfile -NonInteractive -Command "Get-AppxPackage -Name TwinDesk.Calls | Remove-AppxPackage"'
   nsExec::Exec 'certutil -delstore TrustedPeople TwinDesk'
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="DuoDesk" program="$INSTDIR\DuoDesk.exe"'
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="DuoDesk (TCP 47800)"'
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="DuoDesk (adb)"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk" program="$INSTDIR\DuoDesk.exe"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk" program="$INSTDIR\TwinDesk.exe"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (TCP 47800)"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="TwinDesk (adb)"'
-  ; The pinned Mac apps' Start menu folder is per user (the app makes it in Roaming).
+  ; The pinned Mac and phone apps' Start menu folder is per user (the app makes it in Roaming), and
+  ; the TwinDesk Apps of older versions.
   SetShellVarContext current
+  RMDir /r "$APPDATA\Microsoft\Windows\Start Menu\Programs\DuoDesk Apps"
   RMDir /r "$APPDATA\Microsoft\Windows\Start Menu\Programs\TwinDesk Apps"
   RMDir /r "$APPDATA\Microsoft\Windows\Start Menu\Programs\MacShare Apps"
   ; Explorer › Send to › "<peer> (DuoDesk)" (sendto.js), and the TwinDesk-named ones of earlier versions.

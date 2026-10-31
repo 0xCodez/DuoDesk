@@ -55,7 +55,7 @@ class Hub(core: Core) : Feature(core) {
                 Thread({ Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "td-hub").apply { isDaemon = true }
             }.also { io = it }
         }
-        runCatching { e.execute { runCatching(block).onFailure { Log.e("TwinDesk", "hub", it) } } }
+        runCatching { e.execute { runCatching(block).onFailure { Log.e("DuoDesk", "hub", it) } } }
     }
 
     // A new session, or none: all off until the computer says (hub.policy).
@@ -288,7 +288,7 @@ class Hub(core: Core) : Feature(core) {
         val d = runCatching { a.getRemoteDevice(btAddress) }.getOrNull() ?: return true
         forget = false
         if (d.bondState != BluetoothDevice.BOND_NONE && !unbond(d)) {
-            Log.i("TwinDesk", "bt: can't forget $btAddress here")
+            Log.i("DuoDesk", "bt: can't forget $btAddress here")
             btSettings()
             forget = true
             sendState()

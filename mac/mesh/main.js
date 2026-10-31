@@ -244,6 +244,9 @@ function publishState() {
       state.papps = { ...settings.papps, ...svc.pcApps.view };
     }
     if (svc) state.wake = svc.wake.view;
+    // Camera (shared/camshare-mesh.js): on is the switch (turned off, it stays loaded but stopped).
+    state.camera = svc && svc.camShare ? { ...svc.camShare.state, on: !!settings.camera.on } : svc ? { on: false } : null;
+    state.vcam = svc && svc.vcam ? svc.vcam.view() : svc ? { checked: true, supported: true, on: false } : null;
     const ctlView = devctl ? devctl.view : null;
     const onPhone = !!(state.client && state.client.os === 'android');
     if (svc && svc.phone) state.phone = { ...svc.phone.view, settings: settings.phone, ctl: onPhone ? ctlView : null, qs: onPhone && ctlView ? ctlView.qs || null : null, top: onPhone && ctlView ? ctlView.top || [] : [] };
@@ -593,6 +596,16 @@ app.whenReady().then(() => {
       ph.wired = svc.wired;
       bridge.wired = svc.wired;
       const views = new PhoneViews({ bridge, phone: ph, getSettings: () => settings, server: scoped, fileSend: svc.fileSend });
+      // Its camera here (the Camera tab, or the phone's own Camera page): the picture goes to the
+      // virtual camera, so a computer's or another phone's camera running here stops (one at a time).
+      views.vcam = svc.vcam || null;
+      const openCamera = views.openCamera.bind(views);
+      views.openCamera = (opts) => {
+        if (!views.cameraOn) return openCamera(opts); // it says Camera is off
+        if (svc.camShare && svc.camShare.viewing) svc.camShare.closeView();
+        if (svc.closePhoneCameras) svc.closePhoneCameras(views);
+        return openCamera(opts);
+      };
       return { phone: ph, bridge, views };
     },
     onUnit: (u) => {
@@ -616,6 +629,7 @@ app.whenReady().then(() => {
   svc.phoneDrive = new PhoneDrive({ adb, bridge: svc.phone.bridgeProxy, phone: svc.phone });
   svc.phoneDrive.on('change', pushState);
   svc.kvm.attachLocal(svc.phone);
+  setupCamera();
   setupNet();
   setupHub();
   const blockEdge = svc.kvm.blockEdge;
@@ -696,6 +710,66 @@ app.whenReady().then(() => {
     if (missing && win && !win.isDestroyed() && win.isVisible()) refreshPermissions();
   }, 3000);
 });
+
+// Camera tab (as ../main.js; docs: specs/mesh-camera.md): the connected computers' cameras here and
+// this Mac's there (shared/camshare-mesh.js: camshare.js per computer, the one-to-one protocol), a
+// phone's through its stack (phoneview.js openCamera), and the running one's picture to the tab and
+// the virtual camera (shared/vcam.js, ../vcam.js). Loaded only while Camera's switch is on. ipc
+// reaches them through svc.cam() (its ctx is a copy of svc).
+function setupCamera() {
+  const tellPhones = () => { for (const u of svc.phone.all) if (u.bridge) u.bridge._tellPhone(); }; // their Camera pages say so
+  svc.loadCamera = () => {
+    if (svc.camShare || !settings.camera.on) return svc.camShare || null;
+    const { MeshCamShare } = require('../../shared/camshare-mesh.js');
+    const { VirtualCam } = require('../../shared/vcam.js');
+    svc.vcam = new VirtualCam({
+      driver: require('../vcam'),
+      cfg: () => settings.camera,
+      save: () => store.saveSettings(settings),
+      onChange: pushState,
+      onReady: tellPhones,
+      ui: () => win,
+    });
+    for (const u of svc.phone.all) if (u.views) u.views.vcam = svc.vcam; // the phones' stacks came first
+    svc.camShare = new MeshCamShare({
+      bus: hub.bus,
+      peer: (pid) => {
+        const s = hub.sessions.get(pid);
+        return s && s.connected ? { name: s.displayName(), os: s.peerOs, ble: s.transport === 'ble' } : null;
+      },
+      cfg: () => settings.camera,
+      save: () => store.saveSettings(settings),
+      popup: (kind, text) => hud && hud.show(kind, text),
+      onChange: pushState,
+    });
+    svc.vcam.check();
+    return svc.camShare;
+  };
+  svc.cam = () => ({ camShare: svc.camShare || null, vcam: svc.vcam || null });
+  // Every phone's camera running here (a computer's starts: one at a time); but: that phone's stays.
+  svc.closePhoneCameras = (but = null) => {
+    for (const u of svc.phone.all) if (u.views && u.views !== but) for (const v of u.views.list()) if (v.kind === 'camera') u.views.close(v.id);
+  };
+  // Camera's switch: on loads it; off, whatever runs stops (the phones' cameras too) and nothing is shared.
+  svc.setCamera = (on) => {
+    settings.camera.on = !!on;
+    store.saveSettings(settings);
+    if (on) {
+      if (svc.camShare) svc.camShare.sendPolicy(); // loaded before and turned off: the other side heard "not shared"
+      svc.loadCamera();
+    } else {
+      if (svc.camShare) {
+        svc.camShare.closeView();
+        svc.camShare.stopSending();
+        svc.camShare.sendPolicy();
+      }
+      svc.closePhoneCameras();
+    }
+    tellPhones();
+    pushState();
+  };
+  svc.loadCamera();
+}
 
 // Not on one network: the session through Bluetooth (this Mac advertises; phones and PCs connect),
 // and Wi-Fi for files and screens (netlink.js): this Mac joins the other side's Wi-Fi Direct group or
@@ -873,6 +947,7 @@ app.on('before-quit', () => {
   if (svc && svc.phone) svc.phone.shutdown();
   if (svc && svc.phoneDrive) svc.phoneDrive.shutdown();
   if (svc && svc.wired) svc.wired.stop();
+  if (svc && svc.vcam) svc.vcam.stop(); // the virtual camera's feed
   if (svc) svc.shutdown(); // KVM home first, so the helper releases input
   if (discovery) discovery.stop();
   if (links) links.close();

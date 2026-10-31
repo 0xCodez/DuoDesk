@@ -5,8 +5,12 @@
 // the phone's own Camera page starts it too); the other computer's, which it shares only with
 // "Let … see this camera" on there (camshare.js). Its picture shows on the page (turned with
 // Rotate), in a window with Window (or a click on the picture), and with Virtual camera on, in a
-// camera every app here can pick ("TwinDesk Camera", shared/vcam.js), installed the first time
+// camera every app here can pick ("DuoDesk Camera", shared/vcam.js), installed the first time
 // it's turned on. This computer's own camera goes to the other one the same way.
+// With Multi-device on (state.camera.mesh, shared/camshare-mesh.js): Start runs the selected
+// device's camera; one runs at a time, and while it runs the tab is about that device
+// (state.camera.peerName) whichever is selected. "Let your other devices see this camera" is one
+// switch for all of them.
 'use strict';
 
 (() => {
@@ -14,12 +18,24 @@
   let facing = 'back'; // a phone's camera to start with
 
   const phoneCam = (s) => ((s.phone && s.phone.bridge && s.phone.bridge.windows) || []).find((w) => w.kind === 'camera') || null;
-  const running = (s) => (UI.isPhone(s) ? !!phoneCam(s) : !!(s.camera && s.camera.viewing));
+  // Multi-device: a computer's camera running here while another device is selected is the tab's.
+  // The selected device: s.session (Windows), s.peerSession (Linux: its s.session is the desktop's),
+  // s.client (the Mac).
+  const selected = (s) => s.peerSession || s.client || s.session || null;
+  const other = (s) => {
+    const c = s.camera || {};
+    const sel = selected(s);
+    return !!(c.mesh && c.viewing && c.peerId && !(sel && sel.id === c.peerId));
+  };
+  const isPhone = (s) => UI.isPhone(s) && !other(s);
+  const running = (s) => (isPhone(s) ? !!phoneCam(s) : !!(s.camera && s.camera.viewing));
+  // {name}: the device the tab is about (Multi-device: the one whose camera runs here).
+  const fill = (s, t) => UI.fill(other(s) ? String(t).replace(/\{name\}/g, s.camera.peerName) : t);
 
   // Why it can't start now ('' when it can).
   function blocked(s) {
     const c = s.camera || {};
-    if (UI.isPhone(s)) {
+    if (isPhone(s)) {
       const ph = s.phone || {};
       if (!ph.connected) return 'Not connected';
       if (!ph.bridge || ph.bridge.state !== 'ready') return 'Needs wireless debugging: set it up on the Phone page';
@@ -27,14 +43,14 @@
     }
     if (!c.connected) return 'Not connected';
     if (c.ble) return 'Through Bluetooth a camera can’t go across: connect over Wi-Fi or a cable';
-    if (!c.peerShares && !c.viewing) return 'Turn on “Let {me} see this camera” on {name} first';
+    if (!c.peerShares && !c.viewing) return c.mesh ? 'Turn on sharing in {name}’s Camera tab first' : 'Turn on “Let {me} see this camera” on {name} first'; // Multi-device: either app may be there
     return '';
   }
 
   function start(on, show = false) {
     const s = cur;
     if (!s) return;
-    if (UI.isPhone(s)) UI.api.phoneCamera(on, on ? { facing, show } : undefined);
+    if (isPhone(s)) UI.api.phoneCamera(on, on ? { facing, show } : undefined);
     else UI.api.camera({ do: on ? 'view' : 'close', show });
   }
 
@@ -47,6 +63,7 @@
     color: 'linear-gradient(#bf5af2, #8944ab)',
     desc: 'The other device’s camera here, and as a camera other apps can pick.',
     badge: (s) => (s.camera && s.camera.sending ? 'warn' : running(s) ? 'on' : ''),
+    devName: (s) => (other(s) ? s.camera.peerName : ''), // Multi-device: the page's device tag
     master: {
       get: (s) => !!(s.camera && s.camera.on),
       set: (v) => UI.api.camera({ do: 'on', on: v }),
@@ -91,7 +108,7 @@
       const virtual = UI.switch((v) => cam({ do: 'virtual', on: v }), { label: 'Virtual camera' });
       const vRemove = UI.button('Remove', () => cam({ do: 'vcamRemove' }));
       const vRow = UI.row('Virtual camera', '', [vRemove, virtual]);
-      // Which camera it feeds, where there's a choice (the Mac: TwinDesk Camera or OBS Virtual Camera).
+      // Which camera it feeds, where there's a choice (the Mac: DuoDesk Camera or OBS Virtual Camera).
       const vTarget = UI.select([], (t) => cam({ do: 'vcamTarget', target: t }));
       const vTargetRow = UI.row('Send to', 'The camera other apps pick', [vTarget]);
       const vCard = UI.card('Virtual camera', [vTargetRow, vRow]);
@@ -113,9 +130,10 @@
         cur = s;
         const c = s.camera || {};
         const v = s.vcam || {};
-        const phone = UI.isPhone(s);
+        const phone = isPhone(s);
+        const mesh = !!c.mesh;
         const on = running(s);
-        const vName = `“${v.name || 'TwinDesk Camera'}”`;
+        const vName = `“${v.name || 'DuoDesk Camera'}”`;
         const w = phone ? phoneCam(s) : null;
         if (w && w.facing && w.facing !== facing) {
           facing = w.facing; // started or switched elsewhere (the phone's Camera page)
@@ -126,12 +144,12 @@
         const why = blocked(s);
         let text = '';
         if (!c.on) text = 'Off: turn on Camera at the top';
-        else if (!on) text = UI.fill(why || 'Press Start to run {name}’s camera here');
+        else if (!on) text = fill(s, why || 'Press Start to run {name}’s camera here');
         else if (phone && w && w.error) text = `It stopped: ${w.error}`;
-        else if (!phone && c.viewStatus === 'refused') text = UI.fill('Turn on “Let {me} see this camera” on {name}');
+        else if (!phone && c.viewStatus === 'refused') text = fill(s, mesh ? 'Turn on sharing in {name}’s Camera tab' : 'Turn on “Let {me} see this camera” on {name}');
         else if (!phone && c.viewStatus === 'failed') text = `It didn’t start: ${c.viewError || 'unknown'}`;
-        else if (!phone && c.viewStatus === 'ended') text = UI.fill('{name} stopped its camera');
-        else if (!v.picture) text = phone ? 'Starting the phone’s camera…' : UI.fill('Asking {name} for its camera…');
+        else if (!phone && c.viewStatus === 'ended') text = fill(s, '{name} stopped its camera');
+        else if (!v.picture) text = phone ? 'Starting the phone’s camera…' : fill(s, 'Asking {name} for its camera…');
         said.textContent = text;
         said.hidden = !text;
         img.hidden = !on || !!text;
@@ -142,7 +160,8 @@
         }
         startBtn.textContent = on ? 'Stop' : 'Start';
         startBtn.disabled = !c.on || (!on && !!why);
-        startBtn.title = !on && why ? UI.fill(why) : '';
+        startBtn.title = !on && why ? fill(s, why) : '';
+        controls.label.textContent = fill(s, '{name}’s camera'); // Multi-device: whose runs here
         facingSeg.el.hidden = !phone;
         rotate.disabled = !on;
         windowBtn.disabled = !on;
@@ -172,11 +191,13 @@
         ourCard.hidden = phone;
         if (!phone) {
           share.set(!!c.share);
-          shareRow.setHint(c.shareError || (c.share ? '{name} can run it there. A popup says so here when it does' : 'Off: nobody sees it'));
+          shareRow.label.textContent = mesh ? 'Let your other devices see this camera' : UI.fill('Let {name} see this camera');
+          shareRow.setHint(c.shareError || (c.share ? (mesh ? 'Your other computers can run it there. A popup says so here when one does' : '{name} can run it there. A popup says so here when it does') : 'Off: nobody sees it'));
           device.options([{ value: '', label: 'The default camera' }, ...(c.devices || []).map((d) => ({ value: d.id, label: d.label }))]);
           device.set(c.device || '');
           deviceRow.hidden = !c.share;
           liveRow.hidden = !c.sending;
+          liveRow.label.textContent = mesh && c.sendingTo ? `${c.sendingTo} ${c.sendingTo.includes(',') ? 'are' : 'is'} viewing it now` : UI.fill('{name} is viewing it now');
           if (c.share && !listed) {
             listed = true;
             cam({ do: 'devices' });

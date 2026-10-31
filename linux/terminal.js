@@ -2,7 +2,7 @@
 // Terminal, this computer → the other one (Linux version of windows/terminal.js): an ed25519 key
 // made once, handed over the paired link (ssh.key); the other computer's host keys come back
 // (ssh.info) and are pinned in our own known_hosts, so ssh never asks for a password or "trust this
-// host?". A `Host twindesk` entry in ~/.ssh/config makes `ssh twindesk` work in any terminal; Open
+// host?". A `Host duodesk` entry in ~/.ssh/config makes `ssh duodesk` work in any terminal; Open
 // Terminal starts the desktop's terminal emulator with it.
 const { app } = require('electron');
 const { execFile, spawn } = require('child_process');
@@ -37,7 +37,7 @@ class Terminal {
     this.info = null; // last ssh.info
     this.status = 'off';
     this.message = '';
-    // Older versions wrote a `macshare` command; `ssh twindesk` replaces it.
+    // Older versions wrote a `macshare` command; `ssh duodesk` replaces it.
     try {
       const old = path.join(os.homedir(), '.local', 'bin', 'macshare');
       if (fs.existsSync(old) && fs.readFileSync(old, 'utf8').includes('written by the TwinDesk app')) fs.rmSync(old);
@@ -98,18 +98,18 @@ class Terminal {
     try {
       this._writeHost();
     } catch (e) {
-      return this._set('error', 'Couldn’t write the twindesk entry in ~/.ssh/config: ' + e.message);
+      return this._set('error', 'Couldn’t write the duodesk entry in ~/.ssh/config: ' + e.message);
     }
     this._set('ready', '');
   }
 
-  // `Host twindesk` for the paired computer (its address can change; rewritten on every open).
+  // `Host duodesk` for the paired computer (its address can change; rewritten on every open).
   _writeHost() {
     SshConfig.setHost({ address: this.link.snapshot().link.address, port: this.info.port, user: this.info.user,
       identityFile: this.key, knownHostsFile: this.knownHosts });
   }
 
-  // Opens the desktop's terminal with `ssh twindesk`.
+  // Opens the desktop's terminal with `ssh duodesk`.
   // Through Bluetooth there's no address ssh can reach (the session runs through a local pipe).
   get onBle() {
     const c = this.link.current;
@@ -120,7 +120,7 @@ class Terminal {
     if (this.status !== 'ready' || this.onBle) return;
     try { this._writeHost(); } catch (e) { return this._set('error', e.message); }
     const t = TERMINALS.find(([cmd]) => which(cmd));
-    if (!t) { this.message = 'No terminal app found. Run ssh twindesk in any terminal.'; return this.onChange(); }
+    if (!t) { this.message = 'No terminal app found. Run ssh duodesk in any terminal.'; return this.onChange(); }
     const p = spawn(t[0], [...t[1], 'ssh', SshConfig.ALIAS], { detached: true, stdio: 'ignore' });
     p.on('error', (e) => { this.message = 'Couldn’t open ' + t[0] + ': ' + e.message; this.onChange(); });
     p.unref();

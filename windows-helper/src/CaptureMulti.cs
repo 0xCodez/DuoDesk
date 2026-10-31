@@ -116,12 +116,19 @@ namespace MacShare
             Native.POINT p;
             Native.GetCursorPos(out p);
             if (retArmed) { FeedReturn(p.x, p.y, dx, dy); return; }
-            if (!DriveOther || Sides.Count == 0 || AnyButtonDown()) { pushes.Clear(); return; } // Rule 6: no crossing mid-drag
+            if (!DriveOther || Sides.Count == 0) { pushes.Clear(); return; }
+            if (AnyButtonDown()) // Rule 6: no crossing mid-drag
+            {
+                pushes.Clear();
+                foreach (string side in Sides) EdgeNote(p.x, p.y, side, Screens.Outward(side, dx, dy), "button", true);
+                return;
+            }
+            bool cooling = (DateTime.UtcNow - lastCross).TotalMilliseconds < CooldownMs; // read before MayCross
             foreach (string side in Sides)
             {
                 double outward = Screens.Outward(side, dx, dy);
-                if (!MayCross(side, outward)) { pushes.Remove(side); continue; }
-                if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, side) || !InZone(EdgeZones, p.x, p.y, side)) { pushes.Remove(side); continue; }
+                if (!MayCross(side, outward)) { pushes.Remove(side); EdgeNote(p.x, p.y, side, outward, cooling ? "cooldown" : "arrivalGuard", false); continue; }
+                if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, side) || !InZone(EdgeZones, p.x, p.y, side)) { pushes.Remove(side); EdgeNote(p.x, p.y, side, outward, null, false); continue; }
                 DateTime now = DateTime.UtcNow;
                 EdgePush e;
                 if (!pushes.TryGetValue(side, out e)) { e = new EdgePush(); pushes[side] = e; }

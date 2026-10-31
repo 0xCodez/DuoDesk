@@ -5,7 +5,8 @@
 //               the person to allow it in System Settings: {"approval":true} is printed meanwhile,
 //               and it waits (up to 5 minutes) for the answer
 //   deactivate  removes it
-//   status      {"camera":true|false}: is "TwinDesk Camera" among this Mac's cameras
+//   status      {"camera":true|false, "legacy":true|false}: is "DuoDesk Camera" among this Mac's cameras
+//               (legacy: the extension from before 2.5 still runs, its camera "TwinDesk Camera")
 //   feed        frames on stdin, each 1280×720 NV12 (shared/vcam-feed.js), into the camera's sink stream
 // status and feed take --name <camera>: another camera with a sink stream, "OBS Virtual Camera"
 // (OBS Studio's Camera Extension, written into the way OBS does), in the format its sink takes.
@@ -18,10 +19,13 @@ import VideoToolbox
 
 let extensionID = "org.macshare.mac.camera"
 let args = Array(CommandLine.arguments.dropFirst())
-let cameraName: String = {
+let named: String? = {
   if let i = args.firstIndex(of: "--name"), i + 1 < args.count { return args[i + 1] }
-  return "TwinDesk Camera"
+  return nil
 }()
+let cameraName = named ?? "DuoDesk Camera"
+// Our camera's name before 2.5 (the same extension id): feed writes into it until activate replaced it.
+let legacyName: String? = named == nil ? "TwinDesk Camera" : nil
 let width = 1280, height = 720
 let frameBytes = width * height * 3 / 2
 
@@ -85,8 +89,13 @@ func name(_ object: CMIOObjectID) -> String {
   return v.takeRetainedValue() as String
 }
 
-func findCamera() -> CMIOObjectID? {
-  property(CMIOObjectID(kCMIOObjectSystemObject), kCMIOHardwarePropertyDevices, CMIOObjectID(0)).first { name($0) == cameraName }
+func findCamera(_ wanted: String = cameraName) -> CMIOObjectID? {
+  property(CMIOObjectID(kCMIOObjectSystemObject), kCMIOHardwarePropertyDevices, CMIOObjectID(0)).first { name($0) == wanted }
+}
+
+func findLegacy() -> CMIOObjectID? {
+  guard let n = legacyName else { return nil }
+  return findCamera(n)
 }
 
 // The device's stream DuoDesk writes into: the one going into it (direction 0), else the last.
@@ -118,7 +127,7 @@ func feed() -> Never {
   // Wait for the camera (just installed: it shows up in a moment).
   var device: CMIOObjectID?
   for _ in 0..<50 {
-    device = findCamera()
+    device = findCamera() ?? findLegacy()
     if device != nil { break }
     usleep(100_000)
   }
@@ -198,7 +207,7 @@ func feed() -> Never {
 switch args.first ?? "" {
 case "activate": install(true)
 case "deactivate": install(false)
-case "status": say(["ok": true, "camera": findCamera() != nil])
+case "status": say(["ok": true, "camera": findCamera() != nil, "legacy": findLegacy() != nil])
 case "feed": feed()
 default:
   FileHandle.standardError.write("usage: twindesk-vcam activate|deactivate|status|feed [--name <camera>]\n".data(using: .utf8)!)

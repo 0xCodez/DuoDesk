@@ -2,7 +2,7 @@
 // Terminal, this PC → the other computer (a Mac, another PC or Linux): an ed25519 key made once,
 // handed over the paired link (ssh.key); the other side's host keys come back (ssh.info) and are
 // pinned in our own known_hosts, so ssh never asks for a password or "trust this host?". A
-// `Host twindesk` entry in %USERPROFILE%\.ssh\config makes `ssh twindesk` work in any terminal;
+// `Host duodesk` entry in %USERPROFILE%\.ssh\config makes `ssh duodesk` work in any terminal;
 // Open Terminal starts Windows Terminal with it.
 const { app } = require('electron');
 const { execFile, spawn } = require('child_process');
@@ -32,7 +32,7 @@ class Terminal {
     this.info = null; // last ssh.info
     this.status = 'off';
     this.message = '';
-    // Older versions wrote a `macshare` command; `ssh twindesk` replaces it.
+    // Older versions wrote a `macshare` command; `ssh duodesk` replaces it.
     try { fs.rmSync(path.join(app.getPath('userData'), 'bin', 'macshare.cmd'), { force: true }); } catch (_) { /* gone */ }
 
     this.link.on('welcome', () => this.apply());
@@ -91,18 +91,18 @@ class Terminal {
     try {
       this._writeHost();
     } catch (e) {
-      return this._set('error', 'Couldn’t write the twindesk entry in .ssh\\config: ' + e.message);
+      return this._set('error', 'Couldn’t write the duodesk entry in .ssh\\config: ' + e.message);
     }
     this._set('ready', '');
   }
 
-  // `Host twindesk` for the paired computer (its address can change; rewritten on every open).
+  // `Host duodesk` for the paired computer (its address can change; rewritten on every open).
   _writeHost() {
     SshConfig.setHost({ address: this.link.snapshot().link.address, port: this.info.port, user: this.info.user,
       identityFile: this.key, knownHostsFile: this.knownHosts });
   }
 
-  // Opens Windows Terminal (or a console) with `ssh twindesk`.
+  // Opens Windows Terminal (or a console) with `ssh duodesk`.
   // Through Bluetooth there's no address ssh can reach (the session runs through a local pipe).
   get onBle() {
     const c = this.link.current;

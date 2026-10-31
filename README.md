@@ -265,7 +265,7 @@ your own.
 ## 📷 Camera sharing
 
 Show the other computer's camera in a window, or send it to **a webcam every app can pick**:
-**TwinDesk Camera** in Zoom, Teams, Meet or the browser. A computer shares its camera only when you
+**DuoDesk Camera** in Zoom, Teams, Meet or the browser. A computer shares its camera only when you
 turn on *Let … see this camera* on it, and a popup there says who is watching. The same works with
 a [phone's camera](#-phone-camera).
 
@@ -363,7 +363,7 @@ Files app.
 
 ## 📷 Phone camera
 
-The phone's **back or front camera**, in a window on the computer or as the **TwinDesk Camera**
+The phone's **back or front camera**, in a window on the computer or as the **DuoDesk Camera**
 webcam in any video call. Switch cameras and rotate the picture from the Camera tab, or start it
 from the phone's own Camera page.
 
@@ -525,7 +525,7 @@ desktop portal. A few things work a little differently:
   .deb installs; with the AppImage, Share screen › *TwinDesk virtual display* › Install puts it in
   once, with your password.
 - **Apps.** Opening this computer's apps on the other side needs an Xorg session.
-- **Virtual camera and gamepad.** TwinDesk Camera is a v4l2loopback device, and Real gamepad a
+- **Virtual camera and gamepad.** DuoDesk Camera is a v4l2loopback device, and Real gamepad a
   uinput controller ("TwinDesk Gamepad"); each asks for your password once, the first time it's
   turned on.
 - **Bluetooth and Wi-Fi Direct.** Bluetooth LE goes through BlueZ, and direct Wi-Fi links through

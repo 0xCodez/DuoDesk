@@ -27,8 +27,10 @@ const path = require('path');
 
 const P = require('../shared/protocol.js');
 
-const HOST = 'TwinDesk host';
-const JOIN = 'TwinDesk link';
+const HOST = 'DuoDesk host';
+const JOIN = 'DuoDesk link';
+const OLD_NAMES = ['TwinDesk host', 'TwinDesk link']; // older versions' connections: deleted at start like leftovers
+const OURS = new Set([HOST, JOIN, ...OLD_NAMES]);
 const JOIN_MS = 45000;
 const TOOL = process.env.TWINDESK_WIFIAP
   || (fs.existsSync('/run/wrappers/bin/twindesk-wifiap') ? '/run/wrappers/bin/twindesk-wifiap' : '/usr/local/libexec/twindesk-wifiap');
@@ -91,7 +93,7 @@ class Wifi {
     this.wasOff = false; // … and it was off before
     this.radioQueue = Promise.resolve();
     // Left over from a run that didn't end well: nobody needs them.
-    for (const name of [HOST, JOIN]) nmcli(['connection', 'delete', 'id', name], 8000).catch(() => {});
+    for (const name of OURS) nmcli(['connection', 'delete', 'id', name], 8000).catch(() => {});
     this.refresh().catch(() => {});
   }
 
@@ -186,7 +188,7 @@ class Wifi {
         if (type !== 'wifi' || state === 'unavailable' || state === 'unmanaged') continue;
         if (!dev || d === this.dev) {
           dev = d;
-          busy = /^connect/.test(state) && conn !== HOST && conn !== JOIN; // on its own network (or getting there)
+          busy = /^connect/.test(state) && !OURS.has(conn); // on its own network (or getting there)
         }
       }
     } catch (_) {
@@ -255,7 +257,7 @@ class Wifi {
     try {
       for (const line of (await nmcli(['-t', '-f', 'NAME,TYPE,DEVICE', 'connection', 'show', '--active'], 8000)).split('\n')) {
         const [name, type, d] = fields(line);
-        if (type === '802-11-wireless' && (!this.dev || d === this.dev) && name !== JOIN && name !== HOST) return name;
+        if (type === '802-11-wireless' && (!this.dev || d === this.dev) && !OURS.has(name)) return name;
       }
     } catch (_) { /* none */ }
     return '';

@@ -1,19 +1,22 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The `Host twindesk` entry in ~/.ssh/config, so `ssh twindesk` opens a shell on the paired
+// The `Host duodesk` entry in ~/.ssh/config, so `ssh duodesk` opens a shell on the paired
 // computer on every OS. Only our marked block is touched; the rest of the file stays byte for byte,
-// and a one-time backup is kept. Blocks written by older versions (`macshare-pc`) are removed too.
+// and a one-time backup is kept. Blocks written by older versions (`macshare-pc`, `twindesk`) are
+// removed too; `ssh twindesk`, their name for it, still works (a second name on the same Host).
 'use strict';
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const ALIAS = 'twindesk';
+const ALIAS = 'duodesk';
+const OLD_ALIASES = ['twindesk']; // older versions' name for it: still answers
+const KEY_ALIAS = 'twindesk'; // the name in known_hosts (HostKeyAlias): kept, so keys pinned before stay valid
 const SSH_DIR = path.join(os.homedir(), '.ssh');
 const CONFIG = path.join(SSH_DIR, 'config');
-const BEGIN = '# >>> twindesk (managed by TwinDesk, do not edit)';
-const END = '# <<< twindesk';
-const OLD = [['# >>> macshare', '# <<< macshare']];
+const BEGIN = '# >>> duodesk (managed by DuoDesk, do not edit)';
+const END = '# <<< duodesk';
+const OLD = [['# >>> macshare', '# <<< macshare'], ['# >>> twindesk', '# <<< twindesk']];
 
 // A value for the config file, quoted when it has spaces (Windows paths often do).
 const quote = (v) => (/[\s"]/.test(v) ? `"${String(v).replace(/"/g, '')}"` : String(v));
@@ -40,13 +43,13 @@ function setHost(host) {
   for (const [b, e] of [[BEGIN, END], ...OLD]) text = strip(text, b, e);
   if (host) {
     const lines = [
-      `Host ${ALIAS}`,
+      `Host ${[ALIAS, ...OLD_ALIASES].join(' ')}`,
       `  HostName ${host.address}`,
       `  Port ${Number(host.port) || 22}`,
       `  User ${quote(host.user)}`,
       `  IdentityFile ${quote(host.identityFile)}`,
       '  IdentitiesOnly yes',
-      `  HostKeyAlias ${ALIAS}`,
+      `  HostKeyAlias ${KEY_ALIAS}`,
       `  UserKnownHostsFile ${quote(host.knownHostsFile)}`,
       '  StrictHostKeyChecking yes',
     ];
@@ -54,15 +57,16 @@ function setHost(host) {
   }
   if (text === before) return;
   fs.mkdirSync(SSH_DIR, { recursive: true, mode: 0o700 });
-  const backup = `${CONFIG}.before-twindesk`;
-  if (fs.existsSync(CONFIG) && !fs.existsSync(backup) && !fs.existsSync(`${CONFIG}.before-macshare`)) fs.copyFileSync(CONFIG, backup);
+  const backup = `${CONFIG}.before-duodesk`;
+  const made = [backup, `${CONFIG}.before-twindesk`, `${CONFIG}.before-macshare`].some((f) => fs.existsSync(f)); // one backup, ever
+  if (fs.existsSync(CONFIG) && !made) fs.copyFileSync(CONFIG, backup);
   const mode = fs.existsSync(CONFIG) ? fs.statSync(CONFIG).mode & 0o777 : 0o600;
   fs.writeFileSync(CONFIG, text, { mode });
 }
 
-// Pinned host keys for the alias, one per line.
+// Pinned host keys for the alias (under HostKeyAlias), one per line.
 function knownHosts(keys) {
-  return keys.map((k) => `${ALIAS} ${k}`).join('\n') + '\n';
+  return keys.map((k) => `${KEY_ALIAS} ${k}`).join('\n') + '\n';
 }
 
 module.exports = { ALIAS, setHost, knownHosts };

@@ -530,8 +530,10 @@ function loadCamera() {
 function setCamera(on) {
   settings.camera.on = !!on;
   saveSettings();
-  if (on) loadCamera();
-  else {
+  if (on) {
+    if (camShare) camShare.sendPolicy(); // loaded before and turned off: the other side heard "not shared"
+    loadCamera();
+  } else {
     if (camShare) {
       camShare.closeView();
       camShare.stopSending();
@@ -1051,7 +1053,7 @@ function buildState() {
     audio: { ...settings.audio, ...sound.view() },
     pcScreen: pcScreen.view(),
     files: { ...settings.files, ...fileDrop.view(), received: receivedDir(settings, app.getPath('downloads')), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags, clip: fileClip.view(), session: session.type },
-    terminal: { ...settings.terminal, ...(terminal ? terminal.view() : { status: 'off', message: '', command: 'ssh twindesk' }), installedKey: undefined, server: sshd.view() },
+    terminal: { ...settings.terminal, ...(terminal ? terminal.view() : { status: 'off', message: '', command: 'ssh duodesk' }), installedKey: undefined, server: sshd.view() },
     apps: link.peerOs === P.OS.MAC ? apps.view() : peerApps.view(), // a PC's or Linux computer's apps come through peerapps.js
     pcApps: pcApps.view(),
     macApps: settings.macApps,

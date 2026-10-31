@@ -41,7 +41,7 @@ function setupIpc(ctx) {
     link.startPairing({ address: m[1], port, macName: m[1] });
   });
   // Connect by address: ask who is there (unicast probe works where broadcast is blocked); no
-  // answer in PROBE_REPLY_MS → try WSS on that address directly ("No TwinDesk at …" if nothing).
+  // answer in PROBE_REPLY_MS → try WSS on that address directly ("No DuoDesk at …" if nothing).
   handle('connectAddress', async (text) => {
     const m = typeof text === 'string' && /^\s*([^\s:]+)(?::(\d{1,5}))?\s*$/.exec(text);
     if (!m) return;

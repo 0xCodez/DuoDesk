@@ -46,9 +46,19 @@ class FolderShare(core: Core) : Feature(core) {
     private var lastLink = ""
 
     val on get() = core.store.flag("shareOn", false)
-    val folder: File get() = core.store.prefsString("shareFolder", "").let { if (it.isEmpty()) File(Environment.getExternalStorageDirectory(), "TwinDesk") else File(it) }
+    val folder: File get() = core.store.prefsString("shareFolder", "").let { if (it.isEmpty()) defaultFolder() else File(it) }
     val serving get() = dav != null
     val allowed get() = FsBrowse.allowed()
+
+    // None chosen: Phone storage/DuoDesk. Older versions used Phone storage/TwinDesk: it's renamed
+    // to DuoDesk once (All files access allows it), and stays in use as it is where it can't be.
+    private fun defaultFolder(): File {
+        val root = Environment.getExternalStorageDirectory()
+        val now = File(root, "DuoDesk")
+        val old = File(root, "TwinDesk")
+        if (!now.exists() && old.isDirectory && !runCatching { old.renameTo(now) }.getOrDefault(false)) return old
+        return now
+    }
 
     // ~ for the phone's storage, in what's shown.
     fun shown(f: File = folder) = f.path.replace(Environment.getExternalStorageDirectory().path, "Phone storage")
@@ -116,7 +126,7 @@ class FolderShare(core: Core) : Feature(core) {
                 val d = dav ?: Dav(f, secret, volumeName(f), ShareKey.ssl(), ::fromComputer).also { it.start(); dav = it }
                 core.send(msg(Proto.T.SHARE_OFFER, "on" to true, "port" to d.port, "secret" to secret, "name" to volumeName(f), "cert" to ShareKey.cert()))
             }.onFailure {
-                Log.w("TwinDesk", "share: $it")
+                Log.w("DuoDesk", "share: $it")
                 error = it.message ?: "didn’t start"
                 stopDav()
                 core.send(msg(Proto.T.SHARE_OFFER, "on" to false))
@@ -192,7 +202,7 @@ object ShareKey {
                     KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN)
                         .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
                         .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA384, KeyProperties.DIGEST_SHA512)
-                        .setCertificateSubject(X500Principal("CN=TwinDesk phone"))
+                        .setCertificateSubject(X500Principal("CN=DuoDesk phone"))
                         .setCertificateNotBefore(Date(System.currentTimeMillis() - 86_400_000L))
                         .setCertificateNotAfter(Date(4_102_444_800_000L)) // 2100
                         .build(),

@@ -32,6 +32,7 @@ class Helper extends EventEmitter {
       this.emit('exit', -1);
       return;
     }
+    console.log('[helper] starting ' + path.basename(EXE) + ' (one-to-one, single side) from ' + path.dirname(EXE));
     const proc = spawn(EXE, [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     this.proc = proc;
     this.buf = '';

@@ -82,7 +82,7 @@ class Dav(private val root: File, private val secret: String, private val volume
             try {
                 handle(parts[0].uppercase(), parts[1], headers, body, out)
             } catch (e: Exception) {
-                Log.w("TwinDesk", "dav ${parts[0]} ${parts[1]}: $e")
+                Log.w("DuoDesk", "dav ${parts[0]} ${parts[1]}: $e")
                 return
             }
             body.drain()

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('macshare', {
   onState: (fn) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onShowUpdate: (fn) => ipcRenderer.on('show-update', () => fn()),
   onGo: (fn) => ipcRenderer.on('go', (_e, tab) => fn(tab)),
+  onCamPreview: (fn) => ipcRenderer.on('vcam:preview', (_e, buf) => fn(buf)), // Camera › the picture (a JPEG)
   hub: call('hub'), // Calls, Messages and Photos (shared/phonehub.js)
   onHub: (fn) => ipcRenderer.on('hub', (_e, m) => fn(m)), // the phone's answers for them
   pair: call('pair'),
@@ -93,6 +94,9 @@ contextBridge.exposeInMainWorld('macshare', {
   phoneAppMenu: call('phoneAppMenu'),
   phoneInstallFull: call('phoneInstallFull'),
   phoneAssets: call('phoneAssets'),
+  camera: call('camera'), // Camera tab (shared/camshare-mesh.js, shared/vcam.js)
+  phoneCamera: call('phoneCamera'),
+  phoneListCameras: call('phoneListCameras'),
   setPcApps: call('setPcApps'),
   setMacApps: call('setMacApps'),
   installVdd: call('installVdd'),

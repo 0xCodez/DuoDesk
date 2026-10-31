@@ -871,7 +871,7 @@ fun openPcShare(ctx: android.content.Context) {
 
 // This device's camera on the computer (its Camera tab: phoneview.js openCamera, over wireless
 // debugging): its picture in TwinDesk there, and with Virtual camera on there, a camera every app
-// there can pick ("TwinDesk Camera").
+// there can pick ("DuoDesk Camera").
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CameraPage(core: Core, v: Int) {
@@ -912,14 +912,14 @@ private fun CameraPage(core: Core, v: Int) {
             when {
                 !canShow -> "Needs wireless debugging: set it up from Overview"
                 cam.error.isNotEmpty() -> "It stopped: ${cam.error}"
-                cam.on && cam.virtual -> "Running as “TwinDesk Camera”: in Zoom, Teams or the browser there, choose only that one"
+                cam.on && cam.virtual -> "Running as “DuoDesk Camera”: in Zoom, Teams or the browser there, choose only that one"
                 cam.on -> "In DuoDesk’s Camera page there. Its Virtual camera makes it a camera other apps can pick"
                 else -> "Off"
             },
         )
     }
     Note(
-        if (cam.virtual) "$name’s Virtual camera is on: apps there see this camera as “TwinDesk Camera”."
+        if (cam.virtual) "$name’s Virtual camera is on: apps there see this camera as “DuoDesk Camera”."
         else "Turn on Virtual camera in DuoDesk’s Camera page on $name to use this camera as a real camera in its apps (Zoom, Teams, the browser…).",
     )
 }
@@ -1268,7 +1268,7 @@ private fun ClipboardPage(core: Core, v: Int) {
     }
     MacCard("Pictures") {
         SwitchRow("Pictures", "Pictures and screenshots up to 10 MB, both ways, with Clipboard › Pictures on on $name too. Not over Bluetooth", clip.picturesOn, first = true) { clip.setPictures(it); shots.watch() }
-        if (clip.picturesOn && core.host != null && !clip.peerImages) MacRow("Off on $name", "Turn on Clipboard › Pictures there (DuoDesk 2.3 or later)")
+        if (clip.picturesOn && core.host != null && !clip.peerImages) MacRow("Off on $name", "Turn on Clipboard › Pictures there (an older version can’t: update DuoDesk)")
         if (clip.picturesOn) {
             SwitchRow("Screenshots go to $name", "Each one taken here lands on $name’s clipboard: paste it there", shots.on) { shots.setOn(it) }
             if (shots.on && !shots.canRead) MacRow("Allow photo access", "DuoDesk looks only for new screenshots") { Primary("Allow") { askPhotos.launch(shots.permission) } }
@@ -1367,7 +1367,7 @@ private fun FilesPage(core: Core, v: Int) {
         ) { Text(if (over) "Drop to send to $name" else "Drag files here to send them to $name", color = pal.muted) }
     }
     MacCard("From $name") {
-        MacRow("Drag across the edge", "Files dragged onto this device land in Downloads › TwinDesk", first = true)
+        MacRow("Drag across the edge", "Files dragged onto this device land in Downloads › DuoDesk", first = true)
         MacRow("⌃⌥C on $name", "This device offers to copy them to its clipboard or save them")
         MacRow("Drop on the phone window", "Files dropped on this device’s window on $name come here")
     }
@@ -1586,10 +1586,10 @@ private fun AboutPage(core: Core, v: Int) {
         MacRow("Report a problem", "Open an issue on GitHub") { Secondary("Issues") { open("https://github.com/0xCodez/DuoDesk/issues") } }
     }
     MacCard("License") {
-        MacRow("GNU General Public License v3", "Free and open source. Copyright © 2026 0xCodez; based on TwinDesk, Copyright © 2026 inukaasith", first = true) {
+        MacRow("GNU General Public License v3", "Free and open source. © 2026 0xCodez. Includes code © 2026 Inuka Asith.", first = true) {
             Secondary("Read") { open("https://github.com/0xCodez/DuoDesk/blob/main/LICENSE") }
         }
-        MacRow("Based on TwinDesk by Inuka Asith", "github.com/InukaAsith/TwinDesk") { Secondary("TwinDesk") { open("https://github.com/InukaAsith/TwinDesk") } }
+        MacRow("Original source", "The GPL-3.0 code DuoDesk is built on, by Inuka Asith") { Secondary("Open") { open("https://github.com/InukaAsith/TwinDesk") } }
         MacRow("Screen, input and sound over wireless debugging", "scrcpy-server (Apache-2.0)")
         MacRow("Network", "OkHttp (Apache-2.0)")
         MacRow("Fonts", "Geist and Geist Mono (SIL OFL 1.1)")

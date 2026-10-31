@@ -530,6 +530,58 @@ namespace MacShare
             return (Native.GetAsyncKeyState(0x01) & 0x8000) != 0 || (Native.GetAsyncKeyState(0x02) & 0x8000) != 0 || (Native.GetAsyncKeyState(0x04) & 0x8000) != 0;
         }
 
+        // Why a push on a watched side's edge didn't cross, for the log (main: kvm.js 'edgeNote'): at
+        // most one note every NoteMs, only for a move outward while the pointer is on that side's edge
+        // of its monitor. notOuterEdge / outsideZone (worked out here) win over the caller's reason
+        // (button, cooldown, arrivalGuard; null: only those two). Never on a move
+        // that crosses or is still summing toward the resistance.
+        const int NoteMs = 2000;
+        DateTime lastNote = DateTime.MinValue;
+
+        void EdgeNote(int x, int y, string side, double outward, string reason, bool button)
+        {
+            if (outward <= 0) return;
+            DateTime now = DateTime.UtcNow;
+            if ((now - lastNote).TotalMilliseconds < NoteMs) return;
+            if (!Screens.OnMonitorEdge(x, y, side)) return;
+            lastNote = now;
+            bool outer = Screens.OnOuterEdge(x, y, side);
+            bool inZone = InZone(EdgeZones, x, y, side);
+            // Not the outer edge / outside the zones would stop it anyway: that one is the cause.
+            if (!outer) reason = "notOuterEdge";
+            else if (!inZone) reason = "outsideZone";
+            else if (reason == null) reason = "unknown";
+            Dictionary<string, object> d = Ev("edgeNote");
+            d["side"] = side;
+            d["x"] = x;
+            d["y"] = y;
+            d["reason"] = reason;
+            d["outer"] = outer;
+            d["inZone"] = inZone;
+            d["zones"] = ZonesText(EdgeZones);
+            d["button"] = button;
+            d["driveOther"] = DriveOther;
+#if MULTI
+            d["watched"] = string.Join(",", Sides.ToArray());
+#else
+            d["watched"] = Side ?? "";
+#endif
+            d["offset"] = Math.Round(Screens.Offset(x, y, side), 4);
+            d["monitors"] = Screens.Describe();
+            emit(d);
+        }
+
+        // EdgeZones for the log: "all" (null), "none" (empty) or "0.1-0.5,0.7-1".
+        static string ZonesText(List<double[]> zones)
+        {
+            if (zones == null) return "all";
+            if (zones.Count == 0) return "none";
+            string[] parts = new string[zones.Count];
+            for (int i = 0; i < zones.Count; i++)
+                parts[i] = zones[i][0].ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "-" + zones[i][1].ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            return string.Join(",", parts);
+        }
+
 #if !MULTI
         void OnRawMove(int dx, int dy)
         {
@@ -538,10 +590,17 @@ namespace MacShare
             Native.POINT p;
             Native.GetCursorPos(out p);
             if (retArmed) { FeedReturn(p.x, p.y, dx, dy); return; }
-            if (!DriveOther || Side == null || AnyButtonDown()) { push = 0; return; } // Rule 6: no crossing mid-drag
+            if (!DriveOther || Side == null) { push = 0; return; }
+            if (AnyButtonDown()) // Rule 6: no crossing mid-drag
+            {
+                push = 0;
+                EdgeNote(p.x, p.y, Side, Screens.Outward(Side, dx, dy), "button", true);
+                return;
+            }
             double outward = Screens.Outward(Side, dx, dy);
-            if (!MayCross(Side, outward)) { push = 0; return; }
-            if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, Side) || !InZone(EdgeZones, p.x, p.y, Side)) { push = 0; return; }
+            bool cooling = (DateTime.UtcNow - lastCross).TotalMilliseconds < CooldownMs; // read before MayCross
+            if (!MayCross(Side, outward)) { push = 0; EdgeNote(p.x, p.y, Side, outward, cooling ? "cooldown" : "arrivalGuard", false); return; }
+            if (outward <= 0 || !Screens.OnOuterEdge(p.x, p.y, Side) || !InZone(EdgeZones, p.x, p.y, Side)) { push = 0; EdgeNote(p.x, p.y, Side, outward, null, false); return; }
             DateTime now = DateTime.UtcNow;
             if ((now - lastPush).TotalMilliseconds > 300) push = 0;
             lastPush = now;

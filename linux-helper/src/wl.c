@@ -25,7 +25,8 @@
 #include <linux/input.h>
 #include <linux/uinput.h>
 
-#define NAME_PREFIX "TwinDesk virtual"
+#define NAME_PREFIX "DuoDesk virtual"
+#define OLD_PREFIX "TwinDesk virtual" // older versions' name: a device one of them left is still ours
 #define ABS_MAXV 65535
 #define MAX_IN 32
 
@@ -176,7 +177,7 @@ static void scan(void) {
     if (fd < 0) continue;
     char name[256] = "";
     ioctl(fd, EVIOCGNAME(sizeof name), name);
-    if (!strncmp(name, NAME_PREFIX, strlen(NAME_PREFIX))) { close(fd); continue; } // ours (rule 4)
+    if (!strncmp(name, NAME_PREFIX, strlen(NAME_PREFIX)) || !strncmp(name, OLD_PREFIX, strlen(OLD_PREFIX))) { close(fd); continue; } // ours (rule 4)
     unsigned long ev[(EV_CNT + 63) / 64] = { 0 }, key[(KEY_CNT + 63) / 64] = { 0 }, rel[(REL_CNT + 63) / 64] = { 0 }, abs[(ABS_CNT + 63) / 64] = { 0 };
     ioctl(fd, EVIOCGBIT(0, sizeof ev), ev);
     ioctl(fd, EVIOCGBIT(EV_KEY, sizeof key), key);

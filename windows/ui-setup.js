@@ -17,7 +17,7 @@ UI.setup = (() => {
   const helperRow = UI.row('Mouse and keyboard helper', '', [helperPill, helperDone]);
   const drvBtn = UI.button('Install', () => api.installVdd(), 'small');
   const drvDone = done();
-  const drvRow = UI.row('TwinDesk virtual display', '', [drvBtn, drvDone]);
+  const drvRow = UI.row('DuoDesk virtual display', '', [drvBtn, drvDone]);
 
   const page = el('section', { class: 'setup-page', hidden: true }, [
     el('div', { class: 'app-mark', attrs: { 'aria-hidden': 'true' } }),

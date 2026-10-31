@@ -385,6 +385,12 @@ class Kvm {
       case 'return':
         if (this.mode === 'driven' && !this.locked) this._sendHome(msg.offset, '', msg.drag || {});
         break;
+      case 'edgeNote': // the helper refused a push on the watched side's edge (at most one every 2 s)
+        console.log('[kvm] edge push on ' + msg.side + ' at (' + msg.x + ',' + msg.y + ') offset ' + msg.offset + ' not crossed: ' + (msg.reason || '?')
+          + ' (outer=' + msg.outer + ' inZone=' + msg.inZone + ' zones=' + (msg.zones || 'all') + ' button=' + msg.button
+          + ' watched=' + (msg.watched || 'none') + ' driveOther=' + msg.driveOther + '; app mode=' + this.mode + ' side=' + (this.crossingSide || 'none')
+          + ' connected=' + this.connected + ' linked=' + this.linked + ' paused=' + this.paused + ') monitors ' + msg.monitors);
+        break;
       case 'ev':
         if (this.mode === 'driving' && msg.ev && (K_TYPES.has(msg.ev.t) || (msg.ev.t === T.K_GESTURE && this.cfg.gestures !== false))) {
           if (this.local && this.local.drives() && this._lockKeyHere(msg.ev)) break; // a phone has no lock key: ours counts there

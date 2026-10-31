@@ -26,7 +26,7 @@ function writable() {
 }
 
 const driver = {
-  name: 'TwinDesk Gamepad',
+  name: 'DuoDesk Gamepad',
 
   async check() {
     if (!fs.existsSync(WRITER)) return { supported: false, message: 'Not in this build of DuoDesk' };

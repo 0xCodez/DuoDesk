@@ -2,7 +2,7 @@
 // Actions from the control window (and the menu bar): validate, save settings, apply.
 'use strict';
 
-const { ipcMain, shell, app, screen, dialog, clipboard, Menu } = require('electron');
+const { ipcMain, shell, app, screen, dialog, clipboard, Menu, systemPreferences } = require('electron');
 const P = require('../../shared/protocol.js');
 const CL = require('../../shared/cursorlock.js');
 const { LINKS } = require('../../shared/about.js');
@@ -18,7 +18,7 @@ const SETTINGS_URLS = {
   location: 'x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices',
   extensions: 'x-apple.systempreferences:com.apple.ExtensionsPreferences?Sharing',
 };
-const TABS = ['phone', 'overview', 'connection', 'mirror', 'papps', 'calls', 'messages', 'media', 'pfiles', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'apps', 'multi', 'general', 'about', 'feedback', 'tip'];
+const TABS = ['phone', 'overview', 'connection', 'mirror', 'papps', 'calls', 'messages', 'media', 'pfiles', 'share', 'receive', 'cursor', 'keyboard', 'clipboard', 'notifications', 'files', 'mount', 'terminal', 'audio', 'camera', 'apps', 'multi', 'general', 'about', 'feedback', 'tip'];
 
 const bool = (v) => !!v;
 const clamp = (lo, hi, dflt) => (v) => {
@@ -157,6 +157,40 @@ function setupIpc(ctx) {
         for (const v of ctx.phoneViews.list()) if (v.kind === 'screen') ctx.phoneViews.close(v.id);
       } else ctx.phoneViews.openScreen();
     },
+    // Camera: the selected phone's camera here, back or front (phoneview.js openCamera; a computer's
+    // camera running here stops: one at a time). Off: every phone's camera here stops.
+    phoneCamera(m) {
+      const { open, opts } = m && typeof m === 'object' ? m : { open: m }; // preload-control: {open, opts}
+      if (open === false) return ctx.closePhoneCameras();
+      ctx.phoneViews.openCamera(opts && typeof opts === 'object' ? { facing: opts.facing, show: opts.show === true, size: opts.size } : undefined);
+    },
+    phoneListCameras() {
+      return ctx.phone && ctx.phone.bridge ? ctx.phone.bridge.listCameras() : [];
+    },
+    // Camera tab (shared/camshare-mesh.js): the selected computer's camera here, this Mac's there.
+    // macOS asks for the camera when sharing is first turned on.
+    camera(m) {
+      if (m && m.do === 'on') return ctx.setCamera(m.on === true); // Camera's switch: loads it, or stops it
+      const { camShare: c, vcam } = ctx.cam();
+      if (!c || !m || typeof m !== 'object') return;
+      const allowed = async () => {
+        const st = systemPreferences.getMediaAccessStatus('camera');
+        return st === 'granted' || (st === 'not-determined' && systemPreferences.askForMediaAccess('camera'));
+      };
+      if (m.do === 'view') { // one camera at a time: a phone's running here stops
+        ctx.closePhoneCameras();
+        c.view(m.show === true); // show: its window too
+      } else if (m.do === 'close') c.closeView();
+      else if (m.do === 'share') c.setShare(m.on === true, allowed);
+      else if (m.do === 'device') c.setDevice(m.id);
+      else if (m.do === 'stop') c.stopSending();
+      else if (m.do === 'devices') c.listDevices();
+      // Camera › Virtual camera (shared/vcam.js).
+      else if (m.do === 'virtual' && vcam) vcam.setOn(m.on === true);
+      else if (m.do === 'vcamRemove' && vcam) vcam.remove();
+      else if (m.do === 'vcamTarget' && vcam) vcam.setTarget(m.target);
+      else if (m.do === 'rotate' && vcam) vcam.turn();
+    },
     phoneOpenApp(arg) {
       if (arg && typeof arg.id === 'string') ctx.phoneViews.openApp(arg.id.slice(0, 200), String(arg.name || '').slice(0, 100));
     },
@@ -279,13 +313,13 @@ function setupIpc(ctx) {
       if (typeof id !== 'string' || !choice || typeof choice !== 'object') return undefined;
       return ctx.stream.setTarget(id, { mode: String(choice.mode), displayId: choice.displayId });
     },
-    // null = the TwinDesk virtual display
+    // null = the DuoDesk virtual display
     selectDisplay(displayId) {
       settings.sharing.displayId = displayId == null ? null : Number(displayId);
       save();
       ctx.stream.restart('display selected');
     },
-    // Extend: Monitor 2 is the TwinDesk virtual display. Mirror: it shows this Mac's main screen.
+    // Extend: Monitor 2 is the DuoDesk virtual display. Mirror: it shows this Mac's main screen.
     setDisplayMode(mode) {
       if (mode === 'mirror') {
         settings.sharing.displayId = screen.getPrimaryDisplay().id;
@@ -387,7 +421,7 @@ function setupIpc(ctx) {
       if (settings.smb.connectPc) ctx.smb.mountPc();
       else ctx.smb.unmountPc();
     },
-    // One switch: on = share the chosen folder (default ~/TwinDesk); off = stop sharing.
+    // One switch: on = share the chosen folder (default ~/MacShare); off = stop sharing.
     setShareMac(on) {
       if (on) ctx.smb.startSharing();
       else ctx.smb.stopSharing();

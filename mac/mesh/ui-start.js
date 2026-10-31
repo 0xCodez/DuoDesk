@@ -129,7 +129,8 @@
       v.body.hidden = !v.art.el.hidden;
     }
     if (v.devTag) { // the selected device's name on the sections that show its settings and data
-      const n = M.isScoped(v.def.id) && s.client ? s.client.name : '';
+      // devName: a page about another device than the selected one for now (Camera: whose runs here).
+      const n = M.isScoped(v.def.id) ? (v.def.devName && v.def.devName(s)) || (s.client ? s.client.name : '') : '';
       v.devTag.hidden = !n;
       v.devTag.textContent = n || '';
     }

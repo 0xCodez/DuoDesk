@@ -269,7 +269,7 @@
     },
     // A terminal: the command typed, the other computer answering.
     terminal: (id) => {
-      const cmd = 'ssh twindesk';
+      const cmd = 'ssh duodesk';
       let out = '<circle class="fa-bg" cx="200" cy="120" r="108"/>'
         + `<rect fill="url(#fa-g-${id})" class="fa-termwin" x="54" y="32" width="292" height="176" rx="12"/>`
         + '<path class="fa-termbar" d="M54 44a12 12 0 0 1 12-12h268a12 12 0 0 1 12 12v12H54z"/>'

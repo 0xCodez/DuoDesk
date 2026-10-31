@@ -3,7 +3,7 @@
 // opens, and every photo taken goes to the computer, into the folder that was right-clicked there,
 // then the camera opens again for the next one. Back in the camera ends it, and the computer hears
 // it (cam.capture {on: false}); the computer ending it closes this. The photos also stay in the
-// phone's Pictures/TwinDesk.
+// phone's Pictures/DuoDesk.
 package com.twindesk.android
 
 import android.content.ContentValues
@@ -51,11 +51,11 @@ class CaptureActivity : ComponentActivity() {
     }
 
     private fun next() {
-        val name = "TwinDesk_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".jpg"
+        val name = "DuoDesk_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".jpg"
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, name)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            if (android.os.Build.VERSION.SDK_INT >= 29) put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TwinDesk")
+            if (android.os.Build.VERSION.SDK_INT >= 29) put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/DuoDesk") // older versions' pictures stay in Pictures/TwinDesk
         }
         val u = runCatching { contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) }.getOrNull() ?: return end()
         uri = u

@@ -183,7 +183,7 @@
       AUDIO_STOP: 'audio.stop', // sender->receiver {dir}
       // Camera sharing between two computers (shared/camshare.js, the Camera tab): one's camera in a
       // window on the other, WebRTC set up through these, the picture straight between them.
-      CAM_POLICY: 'cam.policy', // either way, after welcome and on change {share}: this side lets the other see its camera
+      CAM_POLICY: 'cam.policy', // either way, after welcome and on change {share, ask?}: this side lets the other see its camera; ask: answer with yours (sent by a side loaded after the welcome)
       CAM_OPEN: 'cam.open', // viewer->sharer: show me your camera (it answers cam.offer, or cam.state {status: 'refused'})
       CAM_CLOSE: 'cam.close', // either way: the viewer's window closed, or the sharer stopped
       CAM_OFFER: 'cam.offer', // sharer->viewer {sdp}

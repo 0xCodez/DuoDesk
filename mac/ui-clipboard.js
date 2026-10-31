@@ -75,7 +75,7 @@ UI.tab({
       pictures.set(!!c.images);
       // ⇧⌘4 saves a screenshot to a file; with ⌃ it goes on the clipboard, and over.
       picturesRow.setHint(!c.images ? 'Pictures you copy and screenshots taken with ⌃⇧⌘4, up to 10 MB, both ways'
-        : s.client && !c.peerImages ? `Turn on Pictures on ${s.client.name} too (DuoDesk 2.3 or later there)`
+        : s.client && !c.peerImages ? `Turn on Pictures on ${s.client.name} too (an older version there can’t: update DuoDesk)`
           : 'Pictures you copy and screenshots taken with ⌃⇧⌘4, up to 10 MB, both ways. Not over Bluetooth');
       concealed.set(c.skipConcealed);
       maxKB.set(c.maxKB);

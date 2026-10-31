@@ -17,7 +17,7 @@
 //   X11 with NVIDIA's own driver — it names its outputs itself and ignores the kernel's connector
 //     status, so none of that works. Install puts the screen in its configuration instead: a free
 //     DisplayPort output forced connected (ConnectedMonitor, which replaces its detection, so the
-//     ports in use are listed too) with a TwinDesk EDID of common sizes (CustomEDID), read when X
+//     ports in use are listed too) with a DuoDesk EDID of common sizes (CustomEDID), read when X
 //     starts (log out and back in once). Extend then switches that output on at the size nearest
 //     the other screen's shape, and off after; off at start too once the person says so (the
 //     desktop turns every connected screen on at login, and switching it off blanks every monitor).
@@ -47,7 +47,8 @@ exit 1
 `;
 const NV_CONF = '/etc/X11/xorg.conf.d/20-twindesk-nvidia.conf';
 const NV_EDID = '/etc/X11/twindesk-virtual.edid';
-const EDID_NAME = 'TwinDesk';
+const EDID_NAME = 'DuoDesk'; // the monitor's name in the display settings
+const OLD_EDID_NAME = 'TwinDesk'; // what older versions installed: still ours (installing again renames it)
 const POLICY_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
@@ -310,9 +311,9 @@ async function outputs(probe = true) {
   return list;
 }
 
-// Our NVIDIA screen: the output whose EDID names TwinDesk.
-const OUR_EDID = Buffer.from(EDID_NAME).toString('hex');
-const nvOurs = (outs) => outs.find((o) => o.connected && o.edid.includes(OUR_EDID)) || null;
+// Our NVIDIA screen: the output whose EDID names DuoDesk (or TwinDesk, from an older version).
+const OUR_EDIDS = [EDID_NAME, OLD_EDID_NAME].map((n) => Buffer.from(n).toString('hex'));
+const nvOurs = (outs) => outs.find((o) => o.connected && OUR_EDIDS.some((e) => o.edid.includes(e))) || null;
 
 // A detailed timing descriptor (18 bytes) for w × h at 60 Hz (CVT reduced blanking).
 function dtd(w, h) {
@@ -379,7 +380,7 @@ function nvPorts() {
 
 const spareOf = (outs) => outs.filter((o) => !o.connected && o.crtcs > 0 && hasConnector(o));
 const SWITCHED_OFF = 'something on this computer switched it off again (in a virtual machine, its guest tools do that)';
-const modeName = (w, h) => 'TwinDesk_' + cvtRB(w, h).width + 'x' + h;
+const modeName = (w, h) => 'DuoDesk_' + cvtRB(w, h).width + 'x' + h;
 
 class Vdd {
   // opts: onChange(), popup?(kind, text)
@@ -681,7 +682,7 @@ class Vdd {
         const conf = `# DuoDesk: an extra screen for Extend on NVIDIA's driver (Share screen › Extend; Remove takes it away).
 # ConnectedMonitor replaces the driver's detection: the ports in use when it was installed, and ours.
 Section "OutputClass"
-    Identifier "TwinDesk virtual screen"
+    Identifier "DuoDesk virtual screen"
     MatchDriver "nvidia-drm"
     Option "ConnectedMonitor" "${[...ports.connected, ports.pick].join(', ')}"
     Option "CustomEDID" "${ports.pick}:${NV_EDID}"

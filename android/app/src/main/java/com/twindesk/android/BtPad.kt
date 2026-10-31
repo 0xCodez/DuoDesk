@@ -86,7 +86,7 @@ class BtPad(private val core: Core) {
                 val h = proxy as BluetoothHidDevice
                 hid = h
                 if (!on) return stop()
-                val sdp = BluetoothHidDeviceAppSdpSettings("TwinDesk Gamepad", "${core.store.deviceName} as a gamepad", "DuoDesk",
+                val sdp = BluetoothHidDeviceAppSdpSettings("DuoDesk Gamepad", "${core.store.deviceName} as a gamepad", "DuoDesk",
                     BluetoothHidDevice.SUBCLASS2_GAMEPAD, DESCRIPTOR)
                 if (!h.registerApp(sdp, null, null, io, callback)) set("unavailable", "Another app is using this device as a Bluetooth keyboard or controller: turn that off first")
             }

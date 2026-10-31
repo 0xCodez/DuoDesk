@@ -207,7 +207,7 @@ class PcShareProvider : DocumentsProvider() {
         else copy(documentId, signal)
         return ParcelFileDescriptor.open(f, m, writes) { e ->
             if (e == null) {
-                runCatching { call("PUT", "file", documentId, body = f) }.onFailure { Log.w("TwinDesk", "pcshare: write back $documentId: $it") }
+                runCatching { call("PUT", "file", documentId, body = f) }.onFailure { Log.w("DuoDesk", "pcshare: write back $documentId: $it") }
                 notifyChildren(parentId(documentId))
             }
             f.delete()

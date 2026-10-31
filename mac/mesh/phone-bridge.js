@@ -170,11 +170,13 @@ class PhoneBridge extends EventEmitter {
     return /[:]/.test(this.serial) || this.serial.includes('._adb-tls') ? 'wifi' : 'usb';
   }
 
-  // viewed: a phone window is open here (meanwhile the phone keeps its Wi-Fi out of power save).
+  // viewed: a phone window is open here (meanwhile the phone keeps its Wi-Fi out of power save);
+  // camera: its camera here, for its Camera page ({on, facing, error, virtual}: phoneview.js cameraState).
   _tellPhone() {
     if (!isPhone(this.server.current)) return;
     const viewed = !!(this.views && this.views.list().length);
-    this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message, canPair: this.canPair, inputBlocked: this.inputBlocked, viewed });
+    const camera = this.views ? this.views.cameraState() : null;
+    this.server.sendToClient({ t: T.ADB_BRIDGE, state: this.state, message: this.message, canPair: this.canPair, inputBlocked: this.inputBlocked, viewed, camera });
   }
 
   // MIUI and HyperOS refuse adb's touches and keys (INJECT_EVENTS) until Developer options ›
@@ -722,12 +724,24 @@ class PhoneBridge extends EventEmitter {
 
   // ---- windows (phoneview.js) ----
 
-  // Options for a new screen/app session, from settings.
+  // Options for a new screen/app/camera session, from settings.
   sessionOpts(kind, extra = {}) {
     const ph = this.getSettings().phone || {};
     const base = { video: true, control: true, maxFps: 60, videoBitRate: (ph.bitrateMbps || 8) * 1000000 };
+    if (kind === 'camera') return { ...base, audio: false, stayAwake: true, flex: false, ...extra };
     if (kind === 'screen') return { ...base, audio: !!ph.sound, maxSize: ph.maxSize || 0, stayAwake: true, ...extra };
     return { ...base, audio: false, flex: true, ...extra };
+  }
+
+  // The phone's cameras (scrcpy --list-cameras), for the Camera tab.
+  async listCameras() {
+    if (!this.serial || this.state !== 'ready') return [];
+    try {
+      return await Session.listCameras(this.adb, this.serial);
+    } catch (e) {
+      console.log('[phone-bridge] listCameras failed:', e && e.message);
+      return [];
+    }
   }
 
   setupView() {

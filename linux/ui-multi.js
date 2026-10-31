@@ -9,11 +9,10 @@ UI.tab({
   title: 'Multi-device',
   color: 'linear-gradient(#5e5ce6, #3634a3)',
   desc: 'Several computers and phones connected at once',
-  tag: 'Beta',
   bottom: true,
   build(body) {
     const { api } = UI;
-    // Mesh mode is in beta: the popup says so (shared/mesh-intro.js) before it restarts.
+    // The popup says what it is (shared/mesh-intro.js) before it restarts.
     const turnOn = UI.button('Turn on', () => MeshIntro.confirm(() => {
       turnOn.disabled = true;
       turnOn.textContent = 'Restarting…';

@@ -1,6 +1,6 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // About tab (same cards on all three apps): the app icon and version, update checks, the
-// maker, this computer, the app's build and the licence with TwinDesk's attribution. Facts
+// maker, this computer, the app's build and the licence with the original author's notice (GPLv3 §5d). Facts
 // come from shared/about.js.
 'use strict';
 
@@ -69,8 +69,8 @@ UI.tab({
       pc,
       build,
       UI.card('Licence', [
-        UI.row('GNU General Public License v3', 'Free and open source. Copyright © 2026 0xCodez; based on TwinDesk, Copyright © 2026 inukaasith', [link('Read', 'licence')]),
-        UI.row('Based on TwinDesk by Inuka Asith', 'github.com/InukaAsith/TwinDesk', [link('TwinDesk', 'upstream')]),
+        UI.row('GNU General Public License v3', 'Free and open source. © 2026 0xCodez. Includes code © 2026 Inuka Asith.', [link('Read', 'licence')]),
+        UI.row('Original source', 'The GPL-3.0 code DuoDesk is built on, by Inuka Asith', [link('Open', 'upstream')]),
         thanksRow,
       ], { cls: 'keep-on' }),
     );

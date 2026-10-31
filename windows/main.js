@@ -73,6 +73,7 @@ app.commandLine.appendSwitch('force-fieldtrials', 'WebRTC-ForceSendPlayoutDelay/
 if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), 'MacShare'));
 require('../shared/applog.js').start(app); // console.* and crashes into the log folder, both apps
 // Multi-device switched on (multi.js, docs/multi-device.md): mesh/main.js runs instead of everything below.
+console.log('[app] mode: ' + (require('./multi').on() ? 'Multi-device (mesh/main.js)' : 'one-to-one (main.js)'));
 if (require('./multi').on()) return void require('./mesh/main.js');
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -549,7 +550,7 @@ function loadCamera() {
   });
   if (phoneViews) phoneViews.vcam = vcam; // the phone may have started first
   vcam.check();
-  camShare.sendPolicy(); // connected already: the other computer hears whether it's shared
+  camShare.sendPolicy(true); // connected already: the other computer hears whether it's shared, and says whether it shares
   return camShare;
 }
 
@@ -557,8 +558,10 @@ function loadCamera() {
 function setCamera(on) {
   settings.camera.on = !!on;
   saveSettings();
-  if (on) loadCamera();
-  else {
+  if (on) {
+    if (camShare) camShare.sendPolicy(); // loaded before and turned off: the other side heard "not shared"
+    loadCamera();
+  } else {
     if (camShare) {
       camShare.closeView();
       camShare.stopSending();
@@ -1031,7 +1034,7 @@ function buildState() {
     pcScreen: pcScreen.view(),
     pcApps: pcApps.view(),
     macApps: settings.macApps,
-    terminal: { ...settings.terminal, ...(terminal ? terminal.view() : { status: 'off', message: '', command: 'ssh twindesk' }), installedKey: undefined, server: sshd.view() },
+    terminal: { ...settings.terminal, ...(terminal ? terminal.view() : { status: 'off', message: '', command: 'ssh duodesk' }), installedKey: undefined, server: sshd.view() },
     files: { ...settings.files, importTo: explorer ? explorer.view : null, ...fileDrop.view(), received: receivedDir(settings, app.getPath('downloads')), smb: smb.view(), incoming: fileRecv.view(), drag: kvm.dragRecv.view(), macDrags: kvm.peerDrags, clip: fileClip.view() },
     notifs: { ...settings.notifs, ...notifs.view() },
     chats: chats ? chats.view() : null, // Messages' WhatsApp, Instagram… conversations

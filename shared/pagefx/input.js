@@ -438,7 +438,7 @@
       const srv = t.server || {};
       const allowIn = t.allowMac != null ? !!t.allowMac : !!t.allowPc;
       const service = srv.service || (t.remoteLogin ? 'running' : t.remoteLogin === false ? 'stopped' : t.installed ? 'running' : 'unknown');
-      return { enabled, status, user: t.user || o.user || '', message: t.message || (o.why && o.why !== 'waiting' ? o.why : ''), command: t.command || 'ssh twindesk',
+      return { enabled, status, user: t.user || o.user || '', message: t.message || (o.why && o.why !== 'waiting' ? o.why : ''), command: t.command || 'ssh duodesk',
         allowIn, service, busy: !!srv.busy, srvMsg: srv.message || '', peerCan: !!(srv.info && srv.info.enabled) };
     }
     FX.register('terminal', {

@@ -7,8 +7,9 @@
 
 const { execFile } = require('child_process');
 
-const NAME = 'twindesk_sound';
-const LABEL = 'TwinDesk-Sound';
+const NAME = 'duodesk_sound';
+const LABEL = 'DuoDesk-Sound';
+const OLD_NAME = 'twindesk_sound'; // older versions' source (TwinDesk-Sound): unloaded like a stale one
 
 const pactl = (args) => new Promise((resolve, reject) => {
   execFile('pactl', args, { timeout: 8000 }, (err, out, stderr) => {
@@ -31,11 +32,11 @@ async function defaultSink() {
   return m[1].trim();
 }
 
-// Modules left behind by a crash.
+// Modules left behind by a crash (or by an older version, under its old name).
 async function unloadStale() {
   const list = await pactl(['list', 'short', 'modules']).catch(() => '');
   for (const line of list.split('\n')) {
-    if (line.includes('source_name=' + NAME)) await pactl(['unload-module', line.split('\t')[0]]).catch(() => {});
+    if (line.includes('source_name=' + NAME) || line.includes('source_name=' + OLD_NAME)) await pactl(['unload-module', line.split('\t')[0]]).catch(() => {});
   }
 }
 

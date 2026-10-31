@@ -140,7 +140,7 @@ class SoundService : Service() {
         try {
             begin(core, code, data)
         } catch (e: Exception) {
-            Log.w("TwinDesk", "sound: ${e.message}")
+            Log.w("DuoDesk", "sound: ${e.message}")
             core.sound.failed(e.message ?: "couldn’t capture"); end(); stopSelf()
             return START_NOT_STICKY
         }

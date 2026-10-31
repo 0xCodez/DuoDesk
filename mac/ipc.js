@@ -270,13 +270,13 @@ function setupIpc(ctx) {
       if (!on) ctx.input.releaseAll();
       ctx.server.sendToClient({ t: P.T.STREAM_INPUT, on: !!on }); // Windows goes view-only when off
     },
-    // null = the TwinDesk virtual display
+    // null = the DuoDesk virtual display
     selectDisplay(displayId) {
       settings.sharing.displayId = displayId == null ? null : Number(displayId);
       save();
       ctx.stream.restart('display selected');
     },
-    // Extend: Monitor 2 is the TwinDesk virtual display. Mirror: it shows this Mac's main screen.
+    // Extend: Monitor 2 is the DuoDesk virtual display. Mirror: it shows this Mac's main screen.
     setDisplayMode(mode) {
       if (mode === 'mirror') {
         settings.sharing.displayId = screen.getPrimaryDisplay().id;
@@ -373,7 +373,7 @@ function setupIpc(ctx) {
       if (settings.smb.connectPc) ctx.smb.mountPc();
       else ctx.smb.unmountPc();
     },
-    // One switch: on = share the chosen folder (default ~/TwinDesk); off = stop sharing.
+    // One switch: on = share the chosen folder (default ~/MacShare); off = stop sharing.
     setShareMac(on) {
       if (on) ctx.smb.startSharing();
       else ctx.smb.stopSharing();

@@ -36,7 +36,7 @@ class Screenshots(core: Core) : Feature(core) {
     val canRead: Boolean get() = (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()) ||
         core.ctx.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
-    private val look = Runnable { core.bg.execute { runCatching { send() }.onFailure { Log.w("TwinDesk", "screenshot: ${it.message}") } } }
+    private val look = Runnable { core.bg.execute { runCatching { send() }.onFailure { Log.w("DuoDesk", "screenshot: ${it.message}") } } }
 
     override fun onWelcome(host: Host) = watch()
     override fun onClosed() = watch()
@@ -56,7 +56,7 @@ class Screenshots(core: Core) : Feature(core) {
                 runCatching {
                     core.ctx.contentResolver.registerContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, o)
                     observer = o
-                }.onFailure { Log.w("TwinDesk", "screenshots: ${it.message}") }
+                }.onFailure { Log.w("DuoDesk", "screenshots: ${it.message}") }
             } else if (!want && observer != null) {
                 observer?.let { runCatching { core.ctx.contentResolver.unregisterContentObserver(it) } }
                 observer = null

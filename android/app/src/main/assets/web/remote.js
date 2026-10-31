@@ -66,9 +66,9 @@
     $('note-on').hidden = !(note && allowed === false && off && opts.connected);
     // A real controller: what the computer sees it as.
     const sees = !game ? ''
-      : opts.bt ? `${opts.btName || 'The computer'} sees ${opts.me} as “TwinDesk Gamepad”, a Bluetooth game controller`
+      : opts.bt ? `${opts.btName || 'The computer'} sees ${opts.me} as “DuoDesk Gamepad”, a Bluetooth game controller`
         : real && opts.os === 'win' ? `Windows sees it as an Xbox 360 Controller: games take it as one (joy.cpl lists it under Game Controllers)`
-          : real && opts.os === 'linux' ? `${opts.name} sees it as “TwinDesk Gamepad”, an Xbox 360 controller`
+          : real && opts.os === 'linux' ? `${opts.name} sees it as “DuoDesk Gamepad”, an Xbox 360 controller`
             : real ? `${opts.name} sees it as a game controller` : '';
     $('pad-note').textContent = sees;
     $('pad-note').hidden = !sees;

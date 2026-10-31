@@ -457,9 +457,10 @@ class Kvm {
       case 'return':
         if (this.mode === 'driven' && !this.locked) this._onReturn(msg);
         break;
-      case 'edgeNote': // pushing on a watched side's edge that is not the outer edge of the desktop (more monitors beyond it)
-        if (msg.outer) console.log('[kvm] push at the outer ' + msg.side + ' edge (' + msg.x + ',' + msg.y + '): watched=' + (msg.watched || 'none') + ' driveOther=' + msg.driveOther + ' button=' + msg.button + ' monitors ' + msg.monitors);
-        else console.log('[kvm] push at ' + msg.side + ' edge (' + msg.x + ',' + msg.y + ') is not the outer edge; monitors ' + msg.monitors);
+      case 'edgeNote': // the helper refused a push on a watched side's edge (at most one every 2 s)
+        console.log('[kvm] edge push on ' + msg.side + ' at (' + msg.x + ',' + msg.y + ') offset ' + msg.offset + ' not crossed: ' + (msg.reason || '?')
+          + ' (outer=' + msg.outer + ' inZone=' + msg.inZone + ' zones=' + (msg.zones || 'all') + ' button=' + msg.button
+          + ' watched=' + (msg.watched || 'none') + ' driveOther=' + msg.driveOther + '; mode=' + this.mode + ') monitors ' + msg.monitors);
         break;
       case 'ev':
         if (this.mode === 'driving' && msg.ev && (K_TYPES.has(msg.ev.t) || (msg.ev.t === T.K_GESTURE && this.cfg.gestures !== false))) {

@@ -17,11 +17,11 @@ UI.tab({
     const outSw = UI.switch((v) => api.setTerminal({ connectPc: v }), { label: 'Open shells there' });
     const shellBtn = UI.button('Open', () => api.openPcShell(), 'small');
     const outRow = UI.row('Open shells on {name} from {me}', '', [outSw]);
-    const cmdRow = UI.row('In Terminal', '', [el('code', { class: 'mono', text: 'ssh twindesk' }), shellBtn]);
+    const cmdRow = UI.row('In Terminal', '', [el('code', { class: 'mono', text: 'ssh duodesk' }), shellBtn]);
     const inSw = UI.switch((v) => api.setTerminal({ allowPc: v }), { label: 'Allow shells here' });
     const inRow = UI.row('Let {name} open shells on {me}', '', [inSw]);
     const rl = UI.row('Remote Login', '', [UI.button('Settings', () => api.openSharingSettings(), 'small')]);
-    const how = UI.row('On {name}', '', [el('code', { class: 'mono', text: 'ssh twindesk' })]);
+    const how = UI.row('On {name}', '', [el('code', { class: 'mono', text: 'ssh duodesk' })]);
     body.append(
       UI.pair(
         UI.dir('m2w', [outRow, cmdRow]),

@@ -19,7 +19,7 @@ const LINKS = {
   releases: REPO_URL + '/releases',
   issues: REPO_URL + '/issues',
   licence: REPO_URL + '/blob/main/LICENSE',
-  // GPL attribution: DuoDesk is based on TwinDesk by Inuka Asith.
+  // GPL attribution (About › Licence › Original source): the upstream code DuoDesk is built on, by Inuka Asith.
   upstream: 'https://github.com/InukaAsith/TwinDesk',
 };
 

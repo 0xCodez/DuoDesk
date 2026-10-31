@@ -102,6 +102,8 @@ let mesh = null; // shared/mesh.js: the device registry and roster
 let link = null; // hub.facade: the SELECTED device, for every one-to-one feature
 let devctl = null; // Overview's controls of the selected device (shared/devctl.js)
 let chats = null; // Messages' chat apps from a phone, kept per phone (shared/chats.js)
+let camShare = null; // Camera tab: the cameras of this computer and the connected computers (shared/camshare-mesh.js)
+let vcam = null; // Camera: the running camera's picture, to the tab and the virtual camera (shared/vcam.js, ../vcam.js: v4l2loopback)
 let settings = null;
 let device = null;
 let screen = null;
@@ -187,6 +189,7 @@ function start() {
   devctl.on('change', pushState);
   const { Chats } = require('../../shared/chats.js');
   chats = new Chats({ link, dir: app.getPath('userData'), want: () => settings.ui.chats === true, onChange: pushState });
+  loadCamera(); // only while it's on
   hub.on('change', () => {
     discovery.wantProbes = link.snapshot().link.state !== 'connected'; // probe every 10 s only while not connected
     pushState();
@@ -329,6 +332,7 @@ function start() {
   updates.start();
   const ipc = setupIpc({ devctl: () => devctl, chats: () => chats, hub, link, discovery, screen, clip, kvm, layoutSync, fileDrop, smb, fileClip, vdd, sound, pcScreen, notifs, wake, terminal, sshd, apps, pcApps, peerApps, updates, settings, save: saveSettings, push: pushState, buildState,
     get phone() { return phone; }, get phoneViews() { return phone ? phone.views : null; }, get phoneDrive() { return phoneDrive; }, connectPhoneDev, cancelPhoneInvite, phoneHub: loadHub,
+    get camShare() { return camShare; }, get vcam() { return vcam; }, setCamera, closePhoneCameras,
     applyMesh: () => autoJoin && autoJoin.schedule(),
     get net() { return net; }, get wifi() { return wifi; }, applyNet, joinHotspot, openBluetoothSettings,
     checkFirewall, fixFirewall, fixInput, setStartup, onApp: () => updateTray(buildState()) });
@@ -438,6 +442,16 @@ function startPhone(server, pairing) {
       };
       viaWifi(views, 'openScreen', 'phone');
       viaWifi(views, 'openApp', 'phone');
+      // Its camera here (the Camera tab, or the phone's own Camera page): the picture goes to the
+      // virtual camera, so a computer's or another phone's camera running here stops (one at a time).
+      views.vcam = vcam;
+      const openCamera = views.openCamera.bind(views);
+      views.openCamera = (opts) => {
+        if (!views.cameraOn) return openCamera(opts); // it says Camera is off
+        if (camShare && camShare.viewing) camShare.closeView();
+        closePhoneCameras(views);
+        return openCamera(opts);
+      };
       return { phone: ph, bridge, views };
     },
     onUnit: (u) => {
@@ -753,6 +767,57 @@ function viaWifi(obj, method, why) {
   obj[method] = (...args) => waitWifi(why, () => orig(...args));
 }
 
+// Camera (docs: specs/mesh-camera.md): the connected computers' cameras here and this one's there
+// (shared/camshare-mesh.js: camshare.js per computer, the one-to-one protocol), a phone's through its
+// stack (phoneview.js openCamera), and the running one's picture to the tab and the virtual camera
+// (shared/vcam.js, ../vcam.js: v4l2loopback). Loaded only while Camera's switch is on.
+function loadCamera() {
+  if (camShare || !settings.camera.on) return camShare;
+  const { MeshCamShare } = require('../../shared/camshare-mesh.js');
+  const { VirtualCam } = require('../../shared/vcam.js');
+  const tellPhones = () => { if (phone) for (const u of phone.all) if (u.bridge) u.bridge._tellPhone(); }; // their Camera pages say so
+  vcam = new VirtualCam({ driver: require('../vcam'), cfg: () => settings.camera, save: saveSettings, onChange: pushState, onReady: tellPhones, ui: () => mainWin });
+  camShare = new MeshCamShare({
+    bus: hub.bus,
+    peer: (id) => {
+      const s = hub.sessions.get(id);
+      return s && s.connected ? { name: s.displayName(), os: s.peerOs, ble: s.transport === 'ble' } : null;
+    },
+    cfg: () => settings.camera,
+    save: saveSettings,
+    popup: (kind, text) => hud && hud.show(kind, text),
+    onChange: pushState,
+  });
+  if (phone) for (const u of phone.all) if (u.views) u.views.vcam = vcam; // the phones may have started first
+  vcam.check();
+  return camShare;
+}
+
+// Every phone's camera running here (a computer's starts: one at a time); but: that phone's stays.
+function closePhoneCameras(but = null) {
+  if (!phone) return;
+  for (const u of phone.all) if (u.views && u.views !== but) for (const v of u.views.list()) if (v.kind === 'camera') u.views.close(v.id);
+}
+
+// Camera's switch: on loads it; off, whatever runs stops (the phones' cameras too) and nothing is shared.
+function setCamera(on) {
+  settings.camera.on = !!on;
+  saveSettings();
+  if (on) {
+    if (camShare) camShare.sendPolicy(); // loaded before and turned off: the other side heard "not shared"
+    loadCamera();
+  } else {
+    if (camShare) {
+      camShare.closeView();
+      camShare.stopSending();
+      camShare.sendPolicy();
+    }
+    closePhoneCameras();
+  }
+  if (phone) for (const u of phone.all) if (u.bridge) u.bridge._tellPhone();
+  pushState();
+}
+
 // A phone found nearby: a paired one is asked to connect, any other to pair with this computer.
 // An unpaired one: the popup says Pair has to be pressed on it, until it starts pairing or a minute went by.
 let phoneInvite = null; // {id, name, until}
@@ -920,6 +985,8 @@ function buildState() {
     macApps: settings.macApps,
     notifs: { ...settings.notifs, ...notifs.view() },
     chats: chats ? chats.view() : null, // Messages' WhatsApp, Instagram… conversations
+    camera: camShare ? { ...camShare.state, on: !!settings.camera.on } : { on: false }, // on: the switch (off, it stays loaded but stopped)
+    vcam: vcam ? vcam.view() : { checked: true, supported: true, on: false },
     startup: autostart.get(),
     setup: { missing: miss, show: setupShows(miss) },
     phone: phone ? { ...phone.view, settings: settings.phone, ...meshPhoneCtl() } : null,
@@ -1067,7 +1134,7 @@ function createTray() {
     img.addRepresentation({ scaleFactor: 2, buffer: nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'tray@2x.png')).toPNG() });
     tray = new Tray(img);
   } catch (e) {
-    console.error('[tray]', e.message); // no tray on this desktop: start TwinDesk again to show the window
+    console.error('[tray]', e.message); // no tray on this desktop: start DuoDesk again to show the window
     return;
   }
   tray.setToolTip('DuoDesk');
@@ -1156,6 +1223,7 @@ app.on('before-quit', () => {
   if (phoneHub && phoneHub.audio) phoneHub.audio.stop(); // the phone's calls go back to it
   if (phoneHub && phoneHub.share) phoneHub.share.stop();
   if (callwin) callwin.close();
+  if (vcam) vcam.stop(); // the virtual camera's feed
   if (kvm) kvm.shutdown(); // gives back any captured input and stops the helper
   loopback.shutdown();
 });

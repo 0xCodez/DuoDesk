@@ -106,7 +106,7 @@ async function main() {
     config: {
       appId: 'org.macshare.linux',
       productName: 'DuoDesk',
-      copyright: 'Copyright (C) 2026 0xCodez; based on TwinDesk, Copyright (C) 2026 inukaasith',
+      copyright: 'Copyright (C) 2026 0xCodez. Includes code Copyright (C) 2026 Inuka Asith. GPL-3.0.',
       electronVersion,
       directories: { app: STAGE, output: path.join(LIN, 'dist') },
       asar: false,

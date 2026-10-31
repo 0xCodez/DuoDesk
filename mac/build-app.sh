@@ -62,7 +62,7 @@ cat > dist/extra.plist <<'EOF'
   <key>NSLocationAlwaysAndWhenInUseUsageDescription</key><string>macOS shows Wi-Fi networks only to apps with Location. DuoDesk joins your phone's or PC's Wi-Fi to send files when they aren't on your network.</string>
   <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>DuoDesk</string><key>CFBundleURLSchemes</key><array><string>macshare</string></array></dict></array>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-  <key>NSHumanReadableCopyright</key><string>Copyright (C) 2026 0xCodez; based on TwinDesk, Copyright (C) 2026 inukaasith. GPL-3.0.</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright (C) 2026 0xCodez. Includes code Copyright (C) 2026 Inuka Asith. GPL-3.0.</string>
 </dict></plist>
 EOF
 

@@ -1,9 +1,13 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
-// The virtual camera on Windows 11 (shared/vcam.js's driver): "TwinDesk Camera", a camera every
+// The virtual camera on Windows 11 (shared/vcam.js's driver): "DuoDesk Camera", a camera every
 // app can pick (Windows' MFCreateVirtualCamera). Its media source, windows-helper/bin/
 // twindesk-vcam-<arch>.dll, is registered once for the whole PC (one UAC prompt,
 // scripts/vcam-install.ps1); twindesk-vcam.exe then adds the camera for this user, and feeds it the
-// frames TwinDesk sends (NV12, 1280×720) through shared memory. Windows 10 has no virtual cameras.
+// frames DuoDesk sends (NV12, 1280×720) through shared memory. Windows 10 has no virtual cameras.
+// Before 2.5 the camera was "TwinDesk Camera" (the same CLSID): with Virtual camera on, the next start
+// finds it under that name (status' legacy), installs again (this build's DLL, one UAC prompt) and
+// `add` takes the old one away before it adds "DuoDesk Camera". Declined or failed, the old camera
+// keeps working as it was (its DLL stays registered), and it's tried again at the next start.
 const { app } = require('electron');
 const { execFile, spawn } = require('child_process');
 const crypto = require('crypto');
@@ -19,6 +23,7 @@ const ARCH = /arm64/i.test(process.env.PROCESSOR_ARCHITEW6432 || process.env.PRO
 const DLL = path.join(BIN, `twindesk-vcam-${ARCH}.dll`);
 const CLSID = '{36D4122A-6D38-4C6A-B622-E9DD756F6C5D}';
 const REG = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'reg.exe');
+let migrating = false; // this start tried to rename the camera ("TwinDesk Camera" → "DuoDesk Camera")
 const DIR = path.join(process.env.ProgramData || 'C:\\ProgramData', 'TwinDesk', 'vcam');
 
 function run(file, args, timeout = 20000) {
@@ -50,17 +55,36 @@ async function registered() {
 }
 
 const driver = {
-  name: 'TwinDesk Camera',
+  name: 'DuoDesk Camera',
 
   async check() {
     if (Number((os.release().split('.')[2]) || 0) < 22000) return { supported: false, message: 'Needs Windows 11: Windows 10 has no virtual cameras' };
     if (!fs.existsSync(EXE) || !fs.existsSync(DLL)) return { supported: false, message: 'Not in this build of DuoDesk' };
     const [reg, st] = await Promise.all([registered(), exe('status')]);
-    return { supported: true, installed: reg && st.camera === true };
+    if (reg && st.camera === true) return { supported: true, installed: true };
+    // Only the old "TwinDesk Camera": installed again (renamed) once per start; until then it works as it is.
+    if (st.camera !== true && st.legacy === true) {
+      return migrating ? { supported: true, installed: true, message: 'Still named “TwinDesk Camera” here: it’s renamed at the next start' } : { supported: true, installed: false };
+    }
+    return { supported: true, installed: false };
   },
 
   // One UAC prompt when this build's DLL isn't the registered one; adding the camera needs none.
   async install() {
+    const before = await exe('status');
+    if (before.camera !== true && before.legacy === true) {
+      migrating = true;
+      try {
+        return await driver._install();
+      } catch (e) {
+        console.log('[vcam] renaming the camera:', e.message); // the old one is still there and works
+        return;
+      }
+    }
+    return driver._install();
+  },
+
+  async _install() {
     if (!(await registered())) {
       const log = path.join(app.getPath('userData'), 'vcam-result.txt');
       try { fs.unlinkSync(log); } catch {}
@@ -85,7 +109,8 @@ const driver = {
     if (!r.ok) throw new Error(r.error || 'unknown');
   },
 
-  // The frames' way in: twindesk-vcam.exe feed, each frame on its stdin.
+  // The frames' way in: twindesk-vcam.exe feed, each frame on its stdin (one shared memory for the
+  // camera under either name).
   feed(onExit) {
     const p = spawn(EXE, ['feed'], { windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'] });
     p.on('exit', onExit);

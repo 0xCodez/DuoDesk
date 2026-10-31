@@ -49,7 +49,7 @@ class Direct(private val ctx: Context) {
             }
         })
         done.await(10, TimeUnit.SECONDS)
-        if (err != null) Log.i("TwinDesk", "direct: $what: $err")
+        if (err != null) Log.i("DuoDesk", "direct: $what: $err")
         return err
     }
 
@@ -71,7 +71,7 @@ class Direct(private val ctx: Context) {
     // (a notification, or the Wi-Fi panel if TwinDesk is open) and wait for it.
     private fun ensureWifi(name: String) {
         if (wifi?.isWifiEnabled == true) return
-        Log.i("TwinDesk", "direct: Wi-Fi is off, asking for it")
+        Log.i("DuoDesk", "direct: Wi-Fi is off, asking for it")
         Notify.wifiOff(ctx, name)
         repeat(90) {
             if (wifi?.isWifiEnabled == true) { Notify.cancelWifiOff(ctx); Thread.sleep(1500); return } // P2P comes up a moment after Wi-Fi
@@ -333,7 +333,7 @@ class Netlink(core: Core) : Feature(core) {
             val swap = !swapped && direct.can() && synchronized(this) { peerCaps?.optBoolean("join") == true }
             if (swap) {
                 swapped = true
-                Log.i("TwinDesk", "netlink: couldn’t join $s (${e.message}): hosting here")
+                Log.i("DuoDesk", "netlink: couldn’t join $s (${e.message}): hosting here")
                 core.link.send(msg(Proto.T.NET_JOINED, "ok" to false, "error" to (e.message ?: "failed"), "retry" to true))
                 Thread.sleep(2000) // the Wi-Fi chip settles after the joins first
                 if (state != "joining") return
@@ -352,7 +352,7 @@ class Netlink(core: Core) : Feature(core) {
     }
 
     private fun fail(why: String) {
-        Log.i("TwinDesk", "netlink: $why")
+        Log.i("DuoDesk", "netlink: $why")
         synchronized(this) { needs.clear() }
         down()
         set("failed", why)

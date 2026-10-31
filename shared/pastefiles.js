@@ -12,15 +12,19 @@ const path = require('path');
 const KEEP_MS = 24 * 3600 * 1000; // an app may read the files late: they stay a day
 const SETTLE_MS = 500; // after the files land, before the paste keys
 
-// A new folder for one paste; earlier ones go after a day.
+// A new folder for one paste; earlier ones go after a day (also those in "TwinDesk Paste", where
+// older versions put them, and that folder once it's empty). Windows' fclip.js does the same.
 function pasteDir() {
-  const root = path.join(os.tmpdir(), 'TwinDesk Paste');
-  try {
-    for (const d of fs.readdirSync(root)) {
-      const p = path.join(root, d);
-      if (Date.now() - fs.statSync(p).mtimeMs > KEEP_MS) fs.rmSync(p, { recursive: true, force: true });
-    }
-  } catch (_) { /* none yet */ }
+  const root = path.join(os.tmpdir(), 'DuoDesk Paste');
+  for (const r of [root, path.join(os.tmpdir(), 'TwinDesk Paste')]) {
+    try {
+      for (const d of fs.readdirSync(r)) {
+        const p = path.join(r, d);
+        if (Date.now() - fs.statSync(p).mtimeMs > KEEP_MS) fs.rmSync(p, { recursive: true, force: true });
+      }
+      if (r !== root && !fs.readdirSync(r).length) fs.rmdirSync(r);
+    } catch (_) { /* none yet */ }
+  }
   const dir = path.join(root, String(Date.now()));
   try {
     fs.mkdirSync(dir, { recursive: true });

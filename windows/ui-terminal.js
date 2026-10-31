@@ -1,7 +1,7 @@
 // TwinDesk — Copyright (C) 2026 inukaasith. GPL-3.0, see LICENSE.
 // Terminal tab: shells both ways as two direction cards, with any computer. The other computer →
 // here: it opens a shell here (Windows' OpenSSH Server, sshd.js). Here → the other computer: a
-// shell there (terminal.js), also as `ssh twindesk` in any terminal.
+// shell there (terminal.js), also as `ssh duodesk` in any terminal.
 'use strict';
 
 UI.tab({
@@ -24,7 +24,7 @@ UI.tab({
     const pill = el('span', { class: 'pill' });
     const openBtn = UI.button('Open Terminal', () => api.openTerminal(), 'small primary');
     const status = UI.row('Shell on {name}', '', [pill, openBtn]);
-    const cmdRow = UI.row('In any terminal', '', [el('code', { class: 'mono', text: 'ssh twindesk' })]);
+    const cmdRow = UI.row('In any terminal', '', [el('code', { class: 'mono', text: 'ssh duodesk' })]);
     const pair = UI.dirCards(
       { on: { get: (s) => s.terminal.allowMac, set: (v) => api.setTerminal({ allowMac: v }) }, label: 'Let {name} open a terminal on {me}', rows: [
         srvRow,
