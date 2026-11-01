@@ -194,6 +194,7 @@ function loadDevice() {
 function start() {
   device = loadDevice();
   settings = normalize(store.read('settings.json', {}));
+  adoptInstallerLanguage();
   applyLanguage();
 
   discovery = new Discovery(device);
@@ -1159,6 +1160,16 @@ function setStartup(on) {
 
 function saveSettings() {
   store.write('settings.json', settings);
+}
+
+// The installer's language choice (installer.nsh writes install-lang) becomes the app's, once, unless the user already picked one.
+function adoptInstallerLanguage() {
+  const f = path.join(app.getPath('userData'), 'install-lang');
+  try {
+    const l = require('fs').readFileSync(f, 'utf8').trim();
+    if (settings.app.lang === 'auto' && (l === 'en' || l === 'pt-BR')) { settings.app.lang = l; saveSettings(); }
+    require('fs').unlinkSync(f);
+  } catch (_) { /* no file: nothing to adopt */ }
 }
 
 // The tray and the other native texts follow the General page's language (settings.app.lang).
