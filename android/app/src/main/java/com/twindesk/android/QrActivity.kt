@@ -33,7 +33,7 @@ class QrActivity : Activity() {
         val nonce = u?.getQueryParameter("k").orEmpty().take(64)
         val name = u?.getQueryParameter("n").orEmpty().take(64)
         if (u?.scheme != "twindesk" || id.isEmpty() || addrs.isEmpty() || port !in 1..65535) {
-            Toast.makeText(this, "That isn’t a DuoDesk pairing code", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.dev_that_isn_t_a), Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -42,7 +42,10 @@ class QrActivity : Activity() {
         core.bg.execute {
             val ok = core.connectQr(id, addrs, port, nonce, name)
             runOnUiThread {
-                Toast.makeText(this, if (ok) "Pairing with ${name.ifEmpty { "your computer" }}. Allow it there." else "Can’t reach ${name.ifEmpty { "the computer" }}. Is the phone on the same Wi-Fi?", Toast.LENGTH_LONG).show()
+                val compName = name.ifEmpty { getString(R.string.common_your_computer) }
+                val targetName = name.ifEmpty { getString(R.string.common_the_computer) }
+                val msg = if (ok) getString(R.string.qr_pairing_with, compName) else getString(R.string.qr_cant_reach, targetName)
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
                 startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                 finish()
             }

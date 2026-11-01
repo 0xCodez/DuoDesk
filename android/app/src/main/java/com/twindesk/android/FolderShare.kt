@@ -61,7 +61,7 @@ class FolderShare(core: Core) : Feature(core) {
     }
 
     // ~ for the phone's storage, in what's shown.
-    fun shown(f: File = folder) = f.path.replace(Environment.getExternalStorageDirectory().path, "Phone storage")
+    fun shown(f: File = folder) = f.path.replace(Environment.getExternalStorageDirectory().path, core.ctx.getString(R.string.fs_phone_storage))
 
     override fun onWelcome(host: Host) {
         lastLink = ""

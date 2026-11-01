@@ -24,6 +24,7 @@ import android.os.Environment
 import android.os.Process
 import android.provider.Settings
 import android.util.Log
+import androidx.annotation.StringRes
 import org.json.JSONObject
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -325,7 +326,18 @@ class Hub(core: Core) : Feature(core) {
             else -> wanted(what).first()
         }
 
-        fun label(what: String) = when (what) { "calls" -> "Calls"; "messages" -> "Messages"; "files" -> "Files"; "bt" -> "Calls on the computer"; else -> "Photos and videos" }
+        @StringRes
+        fun labelRes(what: String): Int = when (what) {
+            "calls" -> R.string.nav_calls
+            "messages" -> R.string.nav_messages
+            "files" -> R.string.nav_files
+            "bt" -> R.string.hub_calls_on_computer
+            else -> R.string.hub_photos_and_videos
+        }
+
+        fun label(ctx: Context, what: String): String = ctx.getString(labelRes(what))
+
+        fun label(what: String): String = when (what) { "calls" -> "Calls"; "messages" -> "Messages"; "files" -> "Files"; "bt" -> "Calls on the computer"; else -> "Photos and videos" }
     }
 }
 

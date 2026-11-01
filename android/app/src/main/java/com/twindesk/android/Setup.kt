@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,15 +47,15 @@ object SetupCheck {
         val c = { h: Color -> listOf(h, h) }
         val list = mutableListOf<Item>()
         if (Build.VERSION.SDK_INT >= 33) list += Item(
-            "notify", "Notifications", "Files arriving, copies from your computer, and its notifications",
+            "notify", ctx.getString(R.string.nav_notifications), ctx.getString(R.string.setup_files_arriving_copies_from),
             Ico.bell, c(Hue.violet), true,
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
         )
-        if (core.notifs.supported) list += Item("listener", "Notification access", "This device’s notifications on your computer", Ico.bell, c(Hue.violet), true, core.notifs.hasAccess)
-        list += Item("battery", "Run in the background", "So your computer can reach this device any time", Ico.general, c(Hue.grey), true, pm.isIgnoringBatteryOptimizations(ctx.packageName))
-        list += Item("overlay", "Show the pointer", "Your computer’s pointer over other apps when its mouse is here", Ico.cursor, c(Hue.violet), true, core.pointer.allowed)
-        list += Item("adb", "Wireless debugging", "This screen on your computer, its mouse and keyboard here, and sound. Your Mac pairs with it once", Ico.display, c(Hue.pink), false, core.adb.wifiDebugging)
-        if (Build.VERSION.SDK_INT >= 30) list += Item("wallpaper", "Wallpaper on your computer", "Optional: Android shares the wallpaper only with All files access", Ico.files, c(Hue.green), false, android.os.Environment.isExternalStorageManager())
+        if (core.notifs.supported) list += Item("listener", ctx.getString(R.string.notifs_notification_access), ctx.getString(R.string.setup_this_device_s_notifications), Ico.bell, c(Hue.violet), true, core.notifs.hasAccess)
+        list += Item("battery", ctx.getString(R.string.gen_run_in_the_background), ctx.getString(R.string.setup_so_your_computer_can), Ico.general, c(Hue.grey), true, pm.isIgnoringBatteryOptimizations(ctx.packageName))
+        list += Item("overlay", ctx.getString(R.string.gen_show_the_pointer), ctx.getString(R.string.setup_your_computer_s_pointer), Ico.cursor, c(Hue.violet), true, core.pointer.allowed)
+        list += Item("adb", ctx.getString(R.string.sc_adb_short), ctx.getString(R.string.setup_this_screen_on_your), Ico.display, c(Hue.pink), false, core.adb.wifiDebugging)
+        if (Build.VERSION.SDK_INT >= 30) list += Item("wallpaper", ctx.getString(R.string.setup_wallpaper_on_your_computer), ctx.getString(R.string.setup_optional_android_shares_the), Ico.files, c(Hue.green), false, android.os.Environment.isExternalStorageManager())
         return list
     }
 
@@ -96,9 +97,9 @@ fun SetupScreen(core: Core, ctx: Context, v: Int, done: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Logo(84)
-            Text("Set up DuoDesk", fontSize = 28.sp, fontWeight = FontWeight.Light, letterSpacing = (-0.8).sp, color = pal.text, modifier = Modifier.padding(top = 12.dp))
+            Text(stringResource(R.string.setup_set_up_duodesk), fontSize = 28.sp, fontWeight = FontWeight.Light, letterSpacing = (-0.8).sp, color = pal.text, modifier = Modifier.padding(top = 12.dp))
             Text(
-                "Allow these so this device and your computer work as one. You can change them any time in General › Setup.",
+                stringResource(R.string.setup_allow_these_so_this),
                 color = pal.muted, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp, bottom = 22.dp),
             )
             MacCard {
@@ -108,11 +109,11 @@ fun SetupScreen(core: Core, ctx: Context, v: Int, done: () -> Unit) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Tile(it.icon, it.colors, 30)
                             Column(Modifier.weight(1f).padding(start = 12.dp, end = 10.dp)) {
-                                Text(it.title + if (it.required) "" else " (optional)", color = pal.text, fontSize = 15.sp)
+                                Text(if (it.required) it.title else stringResource(R.string.setup_optional, it.title), color = pal.text, fontSize = 15.sp)
                                 Text(it.hint, color = pal.muted, fontSize = 12.5.sp)
                             }
-                            if (it.done) Pill("Allowed", "good")
-                            else PrimaryButton(if (it.id == "adb") "Turn on" else "Allow") {
+                            if (it.done) Pill(stringResource(R.string.common_allowed), "good")
+                            else PrimaryButton(if (it.id == "adb") stringResource(R.string.common_turn_on) else stringResource(R.string.common_allow)) {
                                 SetupCheck.open(ctx, core, it.id) { askNotify.launch(Manifest.permission.POST_NOTIFICATIONS) }
                             }
                         }
@@ -120,9 +121,9 @@ fun SetupScreen(core: Core, ctx: Context, v: Int, done: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(8.dp))
-            if (ready) PrimaryButton("Continue", Modifier.fillMaxWidth()) { done() }
-            else SecondaryButton("Skip for now", Modifier.fillMaxWidth()) { SetupCheck.skip(ctx, core) }
-            if (!ready) Text("DuoDesk works without these, but some features won’t.", color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(top = 8.dp))
+            if (ready) PrimaryButton(stringResource(R.string.setup_continue), Modifier.fillMaxWidth()) { done() }
+            else SecondaryButton(stringResource(R.string.setup_skip_for_now), Modifier.fillMaxWidth()) { SetupCheck.skip(ctx, core) }
+            if (!ready) Text(stringResource(R.string.setup_duodesk_works_without_these), color = pal.muted, fontSize = 12.5.sp, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }

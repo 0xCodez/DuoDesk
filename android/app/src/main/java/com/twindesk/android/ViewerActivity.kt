@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -127,14 +128,14 @@ private fun Viewer(core: Core, host: WebHost, close: () -> Unit) {
                 if (s.remote) {
                     for (mode in listOf("mirror", "extend")) {
                         val on = s.sharing && s.mode == mode
-                        val label = if (mode == "mirror") "Mirror" else "Extend"
+                        val label = if (mode == "mirror") stringResource(R.string.common_mirror) else stringResource(R.string.common_extend)
                         if (on) FilledTonalButton(onClick = { bar = true }) { Text(label) }
                         else TextButton(onClick = { s.pick(mode); bar = true }) { Text(label, color = ink) }
                     }
-                    if (s.sharing) TextButton(onClick = { s.control(share = false) }) { Text("Stop", color = ink) }
+                    if (s.sharing) TextButton(onClick = { s.control(share = false) }) { Text(stringResource(R.string.common_stop), color = ink) }
                 }
-                TextButton(onClick = { keyboard = !keyboard; s.keyboard(keyboard); bar = true }) { Text(if (keyboard) "Hide keyboard" else "Keyboard", color = ink) }
-                TextButton(onClick = { s.end(); close() }) { Text("Close", color = ink) }
+                TextButton(onClick = { keyboard = !keyboard; s.keyboard(keyboard); bar = true }) { Text(if (keyboard) stringResource(R.string.viewer_hide_keyboard) else stringResource(R.string.nav_keyboard), color = ink) }
+                TextButton(onClick = { s.end(); close() }) { Text(stringResource(R.string.common_close), color = ink) }
             }
         }
     }

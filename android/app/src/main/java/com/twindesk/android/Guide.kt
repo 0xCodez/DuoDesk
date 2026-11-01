@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -64,22 +65,22 @@ private val xiaomi = Build.MANUFACTURER.equals("Xiaomi", true) || Build.BRAND.eq
 fun WirelessGuide(core: Core, ctx: Context, v: Int) {
     @Suppress("UNUSED_EXPRESSION") v
     val a = core.adb
-    val name = core.host?.name ?: core.hosts().firstOrNull()?.name ?: "your computer"
+    val name = core.host?.name ?: core.hosts().firstOrNull()?.name ?: stringResource(R.string.common_your_computer)
 
     Box(Modifier.fillMaxSize().background(pal.content).safeDrawingPadding(), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Tile(Ico.display, listOf(Hue.pink, Hue.pink), 44)
                 Column(Modifier.padding(start = 14.dp)) {
-                    Text("Wireless debugging", fontSize = 26.sp, fontWeight = FontWeight.Light, letterSpacing = (-0.6).sp, color = pal.text)
-                    Text("Once, so $name can show this screen and use its mouse and keyboard here", color = pal.muted, fontSize = 13.5.sp)
+                    Text(stringResource(R.string.sc_adb_short), fontSize = 26.sp, fontWeight = FontWeight.Light, letterSpacing = (-0.6).sp, color = pal.text)
+                    Text(stringResource(R.string.guide_once_so_can_show, name), color = pal.muted, fontSize = 13.5.sp)
                 }
             }
             Spacer(Modifier.height(20.dp))
-            if (a.paired) Note("Done: $name is paired with this device’s wireless debugging.", "info")
+            if (a.paired) Note(stringResource(R.string.guide_done_is_paired_with, name), "info")
             WirelessSteps(core, ctx, "")
             Spacer(Modifier.height(8.dp))
-            PrimaryButton("Done", Modifier.fillMaxWidth()) { Guide.close(core) }
+            PrimaryButton(stringResource(R.string.guide_done), Modifier.fillMaxWidth()) { Guide.close(core) }
         }
     }
 }
@@ -89,28 +90,30 @@ fun WirelessGuide(core: Core, ctx: Context, v: Int) {
 @Composable
 private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Composable () -> Unit = {}) {
     val a = core.adb
-    val name = core.host?.name ?: core.hosts().firstOrNull()?.name ?: "your computer"
+    val name = core.host?.name ?: core.hosts().firstOrNull()?.name ?: stringResource(R.string.common_your_computer)
     val connected = core.host != null
-    class S(val title: String, val hint: String, val done: Boolean, val optional: Boolean = false, val action: @Composable () -> Unit = {})
+    class S(val title: String, val hint: String, val done: Boolean, val optional: Boolean = false, val short: String = title, val action: @Composable () -> Unit = {})
     val steps = listOfNotNull(
-        S("Connect to $name", "Open DuoDesk on $name, then tap Connect on Overview.", connected) {
-            core.hosts().firstOrNull()?.let { h -> Secondary("Connect") { core.connect(h) } }
+        S(stringResource(R.string.notif_connect_to, name), stringResource(R.string.guide_open_duodesk_on_then, name), connected, short = stringResource(R.string.common_connect)) {
+            core.hosts().firstOrNull()?.let { h -> Secondary(stringResource(R.string.common_connect)) { core.connect(h) } }
         },
         S(
-            "Turn on Developer options",
-            if (xiaomi) "About phone › tap “OS version” 7 times." else "About phone › tap “Build number” 7 times.", a.devOptions,
-        ) { Secondary("Open") { ctx.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
+            stringResource(R.string.guide_turn_on_developer_options),
+            if (xiaomi) stringResource(R.string.guide_about_phone_tap_os) else stringResource(R.string.guide_about_phone_tap_build), a.devOptions,
+            short = stringResource(R.string.guide_short_developer_options),
+        ) { Secondary(stringResource(R.string.common_open)) { ctx.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } },
         // Without it MIUI and HyperOS refuse the computer's touches and keys (the computer tells us).
         if (xiaomi) S(
-            "Xiaomi: “USB debugging (Security settings)”",
-            "Developer options › USB debugging (Security settings): on, for touch, mouse and keyboard from $name. It asks for a Mi account.",
+            stringResource(R.string.guide_xiaomi_usb_debugging_security),
+            stringResource(R.string.guide_developer_options_usb_debugging, name),
             a.paired && !a.inputBlocked, optional = !a.inputBlocked,
-        ) { Secondary("Open") { a.openSettings() } } else null,
-        S("Turn on USB and Wireless debugging", "Developer options › USB debugging and Wireless debugging: both on.", a.wifiDebugging) { Secondary("Open") { a.turnOn() } },
+        ) { Secondary(stringResource(R.string.common_open)) { a.openSettings() } } else null,
+        S(stringResource(R.string.guide_turn_on_usb_and), stringResource(R.string.guide_developer_options_usb_debugging_2), a.wifiDebugging, short = stringResource(R.string.guide_short_usb_and_wireless_debugging)) { Secondary(stringResource(R.string.common_open)) { a.turnOn() } },
         S(
-            "Pair with $name",
-            if (a.pairing) "Pairing…" else "“Pair device with pairing code”, then type the code in DuoDesk’s notification.", a.paired,
-        ) { Primary("Pair") { a.askForCode(); a.openSettings() } },
+            stringResource(R.string.guide_pair_with, name),
+            if (a.pairing) stringResource(R.string.pair_pairing) else stringResource(R.string.guide_pair_device_with_pairing), a.paired,
+            short = stringResource(R.string.pair_btn_pair),
+        ) { Primary(stringResource(R.string.pair_btn_pair)) { a.askForCode(); a.openSettings() } },
     )
     val current = steps.indexOfFirst { !it.done && !it.optional }
     MacCard(title) {
@@ -119,7 +122,7 @@ private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Compos
             Box(Modifier.size(22.dp).clip(CircleShape).background(pal.good), contentAlignment = Alignment.Center) {
                 Text("✓", color = Color(0xFF040405), fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
-            Text(done.joinToString(" · ") { it.title.removePrefix("Turn on ").removeSuffix(" with $name").removeSuffix(" to $name") }, color = pal.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 10.dp))
+            Text(done.joinToString(" · ") { it.short }, color = pal.muted, fontSize = 13.sp, modifier = Modifier.padding(start = 10.dp))
         }
         var first = done.isEmpty()
         steps.forEachIndexed { i, st ->
@@ -138,12 +141,12 @@ private fun WirelessSteps(core: Core, ctx: Context, title: String, foot: @Compos
             Box(Modifier.fillMaxWidth().height(1.dp).background(pal.line))
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    code, { code = it.filter { c -> c.isDigit() }.take(6) }, placeholder = { Text("Or type the code here", color = pal.faint, fontSize = 14.sp) }, singleLine = true,
+                    code, { code = it.filter { c -> c.isDigit() }.take(6) }, placeholder = { Text(stringResource(R.string.guide_or_type_the_code), color = pal.faint, fontSize = 14.sp) }, singleLine = true,
                     modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp),
                     textStyle = LocalTextStyle.current.copy(fontFamily = GeistMono, fontSize = 16.sp, color = pal.text, letterSpacing = 3.sp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 )
-                Primary("Pair") { a.askForCode(); a.sendPairCode(code) }
+                Primary(stringResource(R.string.pair_btn_pair)) { a.askForCode(); a.sendPairCode(code) }
             }
         }
         foot()

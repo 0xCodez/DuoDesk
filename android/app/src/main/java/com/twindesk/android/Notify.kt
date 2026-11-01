@@ -48,23 +48,23 @@ object Notify {
 
     fun channels(ctx: Context) {
         val n = nm(ctx)
-        n.createNotificationChannel(NotificationChannel(CH_LINK, "Connection", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Shown while DuoDesk is ready for your computer"
+        n.createNotificationChannel(NotificationChannel(CH_LINK, ctx.getString(R.string.nav_connection), NotificationManager.IMPORTANCE_LOW).apply {
+            description = ctx.getString(R.string.notif_shown_while_duodesk_is)
             setShowBadge(false)
         })
-        n.createNotificationChannel(NotificationChannel(CH_INVITE, "Pairing requests", NotificationManager.IMPORTANCE_HIGH))
-        n.createNotificationChannel(NotificationChannel(CH_FILES, "Files", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "Files arriving from your computer"
+        n.createNotificationChannel(NotificationChannel(CH_INVITE, ctx.getString(R.string.notif_pairing_requests), NotificationManager.IMPORTANCE_HIGH))
+        n.createNotificationChannel(NotificationChannel(CH_FILES, ctx.getString(R.string.nav_files), NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = ctx.getString(R.string.notif_files_arriving_from_your)
         })
-        n.createNotificationChannel(NotificationChannel(CH_CLIP, "Copied on your computer", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Files copied with the shortcut, ready to copy or save here"
+        n.createNotificationChannel(NotificationChannel(CH_CLIP, ctx.getString(R.string.notif_copied_on_your_computer), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = ctx.getString(R.string.notif_files_copied_with_the)
         })
-        n.createNotificationChannel(NotificationChannel(CH_COMPUTER, "Your computer’s notifications", NotificationManager.IMPORTANCE_HIGH))
-        n.createNotificationChannel(NotificationChannel(CH_SCREEN, "Shared screens", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Your computer started sharing its screen with this phone"
+        n.createNotificationChannel(NotificationChannel(CH_COMPUTER, ctx.getString(R.string.notif_your_computer_s_notifications), NotificationManager.IMPORTANCE_HIGH))
+        n.createNotificationChannel(NotificationChannel(CH_SCREEN, ctx.getString(R.string.notif_shared_screens), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = ctx.getString(R.string.notif_your_computer_started_sharing)
         })
-        n.createNotificationChannel(NotificationChannel(CH_UPDATES, "Updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "A new version of DuoDesk on GitHub"
+        n.createNotificationChannel(NotificationChannel(CH_UPDATES, ctx.getString(R.string.about_card_updates), NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = ctx.getString(R.string.notif_a_new_version_of)
         })
     }
 
@@ -88,8 +88,8 @@ object Notify {
         runCatching {
             nm(ctx).notify(ID_SCREEN, nb(ctx, CH_SCREEN)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("$name is sharing its screen")
-                .setContentText("Tap to see it here")
+                .setContentTitle(ctx.getString(R.string.notif_is_sharing_its_screen, name))
+                .setContentText(ctx.getString(R.string.notif_tap_to_see_it))
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build())
@@ -107,21 +107,21 @@ object Notify {
             .setShowWhen(false)
         when {
             h != null -> {
-                b.setContentTitle("Connected to ${h.name}")
-                b.setContentText(core.files.activeLine() ?: "Files, clipboard and notifications are shared")
+                b.setContentTitle(ctx.getString(R.string.notif_connected_to, h.name))
+                b.setContentText(core.files.activeLine() ?: ctx.getString(R.string.notif_files_clipboard_and_notifications))
                 // Three buttons at most: wireless debugging being off has its own notification (adbOff).
-                b.addAction(Notification.Action.Builder(null, "Send clipboard", action(ctx, ActionReceiver.SEND_CLIP, 11)).build())
-                b.addAction(Notification.Action.Builder(null, "Disconnect", action(ctx, ActionReceiver.DISCONNECT, 12)).build())
+                b.addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_send_clipboard), action(ctx, ActionReceiver.SEND_CLIP, 11)).build())
+                b.addAction(Notification.Action.Builder(null, ctx.getString(R.string.common_disconnect), action(ctx, ActionReceiver.DISCONNECT, 12)).build())
             }
-            core.link.state == "connecting" -> b.setContentTitle("Connecting to ${core.link.host?.name ?: "your computer"}…")
+            core.link.state == "connecting" -> b.setContentTitle(ctx.getString(R.string.notif_connecting_to, core.link.host?.name ?: ctx.getString(R.string.common_your_computer)))
             else -> {
-                b.setContentTitle("Ready for your computer")
+                b.setContentTitle(ctx.getString(R.string.notif_ready_for_your_computer))
                 val near = core.hosts().firstOrNull { core.isNear(it.id) }
-                b.setContentText(if (near != null) "${near.name} is nearby" else "Open DuoDesk on your computer to connect")
-                if (near != null) b.addAction(Notification.Action.Builder(null, "Connect to ${near.name}", action(ctx, ActionReceiver.CONNECT, 13, near.id)).build())
+                b.setContentText(if (near != null) ctx.getString(R.string.notif_is_nearby, near.name) else ctx.getString(R.string.notif_open_duodesk_on_your))
+                if (near != null) b.addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_connect_to, near.name), action(ctx, ActionReceiver.CONNECT, 13, near.id)).build())
             }
         }
-        b.addAction(Notification.Action.Builder(null, "Exit", action(ctx, ActionReceiver.EXIT, 15)).build())
+        b.addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_exit), action(ctx, ActionReceiver.EXIT, 15)).build())
         return b.build()
     }
 
@@ -130,8 +130,8 @@ object Notify {
             ID_INVITE,
             nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("$name wants to pair")
-                .setContentText("Open DuoDesk to compare the code")
+                .setContentTitle(ctx.getString(R.string.pair_invite_title, name))
+                .setContentText(ctx.getString(R.string.notif_open_duodesk_to_compare))
                 .setContentIntent(openApp(ctx))
                 .setAutoCancel(true)
                 .build(),
@@ -150,9 +150,9 @@ object Notify {
         runCatching {
             nm(ctx).notify(ID_HOTSPOT, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Switch on the hotspot for $name")
-                .setContentText("$name isn’t on this phone’s network. Tap to open the hotspot, then type its name and password on $name.")
-                .setStyle(Notification.BigTextStyle().bigText("$name isn’t on this phone’s network. Tap to open the hotspot, then type its name and password on $name."))
+                .setContentTitle(ctx.getString(R.string.notif_switch_on_the_hotspot, name))
+                .setContentText(ctx.getString(R.string.notif_isn_t_on_this, name))
+                .setStyle(Notification.BigTextStyle().bigText(ctx.getString(R.string.notif_isn_t_on_this, name)))
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build())
@@ -166,11 +166,11 @@ object Notify {
         val panel = Intent(if (Build.VERSION.SDK_INT >= 29) android.provider.Settings.Panel.ACTION_WIFI else android.provider.Settings.ACTION_WIFI_SETTINGS)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val open = PendingIntent.getActivity(ctx, 9, panel, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val text = "Files and screens with $name go over a direct Wi-Fi link. Tap to switch Wi-Fi on; it doesn’t need to join a network."
+        val text = ctx.getString(R.string.notif_files_and_screens_with, name)
         runCatching {
             nm(ctx).notify(ID_WIFI, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Switch on Wi-Fi for $name")
+                .setContentTitle(ctx.getString(R.string.notif_switch_on_wi_fi, name))
                 .setContentText(text)
                 .setStyle(Notification.BigTextStyle().bigText(text))
                 .setContentIntent(open)
@@ -189,12 +189,12 @@ object Notify {
         val to = if (supported) Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS) else Intent(ctx, MainActivity::class.java)
         val open = PendingIntent.getActivity(ctx, 10, to.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val text = if (supported) "To use $name’s mouse and keyboard here without wireless debugging, switch on DuoDesk in Accessibility (Installed apps). Tap to open it."
-            else "This build of DuoDesk can’t take $name’s mouse and keyboard without wireless debugging. Set up wireless debugging, then $name installs DuoDesk with notifications, which can (its Phone page › Install)."
+        val text = if (supported) ctx.getString(R.string.notif_to_use_s_mouse, name)
+            else ctx.getString(R.string.notif_this_build_of_duodesk, name)
         runCatching {
             nm(ctx).notify(ID_INPUT, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Let $name control this phone")
+                .setContentTitle(ctx.getString(R.string.notif_let_control_this_phone, name))
                 .setContentText(text)
                 .setStyle(Notification.BigTextStyle().bigText(text))
                 .setContentIntent(open)
@@ -209,15 +209,15 @@ object Notify {
     fun sound(ctx: Context, name: String) {
         val start = PendingIntent.getActivity(ctx, 12, Intent(ctx, SoundActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val text = "Without wireless debugging, DuoDesk captures it: Start, then Android asks once more. Apps that don’t allow it stay silent."
+        val text = ctx.getString(R.string.notif_without_wireless_debugging_duodesk)
         runCatching {
             nm(ctx).notify(ID_SOUND, nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Play this phone’s sound on $name")
+                .setContentTitle(ctx.getString(R.string.notif_play_this_phone_s, name))
                 .setContentText(text)
                 .setStyle(Notification.BigTextStyle().bigText(text))
                 .setContentIntent(start)
-                .addAction(Notification.Action.Builder(null, "Start", start).build())
+                .addAction(Notification.Action.Builder(null, ctx.getString(R.string.common_start), start).build())
                 .setOnlyAlertOnce(true)
                 .build())
         }
@@ -228,10 +228,10 @@ object Notify {
     // While it plays there (SoundService's own notification): Stop ends it.
     fun soundOn(ctx: Context, name: String): Notification = nb(ctx, CH_LINK)
         .setSmallIcon(R.drawable.ic_stat)
-        .setContentTitle("This phone’s sound plays on $name")
+        .setContentTitle(ctx.getString(R.string.notif_this_phone_s_sound, name))
         .setContentIntent(openApp(ctx))
         .setOngoing(true)
-        .addAction(Notification.Action.Builder(null, "Stop", action(ctx, ActionReceiver.SOUND_STOP, 13)).build())
+        .addAction(Notification.Action.Builder(null, ctx.getString(R.string.common_stop), action(ctx, ActionReceiver.SOUND_STOP, 13)).build())
         .build()
 
     // The computer's Allow for Calls, Messages or Photos, when the prompt can't open by itself
@@ -239,14 +239,14 @@ object Notify {
     fun hubAsk(ctx: Context, what: String, name: String) {
         val open = PendingIntent.getActivity(ctx, 11, Intent(ctx, PermActivity::class.java).putExtra("what", what).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val text = "$name asks to use ${Hub.label(what)} from this phone. Tap to allow it."
+        val text = ctx.getString(R.string.notif_asks_to_use_from, name, Hub.label(ctx, what))
         runCatching {
-            nm(ctx).createNotificationChannel(NotificationChannel(CH_ASK, "Requests from your computer", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Your computer asks for access it needs (Calls, Messages, Photos)"
+            nm(ctx).createNotificationChannel(NotificationChannel(CH_ASK, ctx.getString(R.string.notif_requests_from_your_computer), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = ctx.getString(R.string.notif_your_computer_asks_for)
             })
             nm(ctx).notify(ID_HUB_ASK, nb(ctx, CH_ASK)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Allow ${Hub.label(what)} for $name")
+                .setContentTitle(ctx.getString(R.string.notif_allow_for, Hub.label(ctx, what), name))
                 .setContentText(text)
                 .setStyle(Notification.BigTextStyle().bigText(text))
                 .setContentIntent(open)
@@ -267,8 +267,8 @@ object Notify {
             ID_UPDATE,
             nb(ctx, CH_UPDATES)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("DuoDesk $latest is available")
-                .setContentText("You have $current. Tap to download the new version.")
+                .setContentTitle(ctx.getString(R.string.notif_duodesk_is_available, latest))
+                .setContentText(ctx.getString(R.string.notif_you_have_tap_to, current))
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build(),
@@ -285,9 +285,9 @@ object Notify {
             ID_ADB,
             nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Wireless debugging is off")
-                .setContentText("$computer needs it for this screen, its mouse and keyboard here, and sound. Tap, then turn on USB debugging and Wireless debugging (both).")
-                .setStyle(Notification.BigTextStyle().bigText("$computer needs it for this screen, its mouse and keyboard here, and sound. Tap, then turn on USB debugging and Wireless debugging (both)."))
+                .setContentTitle(ctx.getString(R.string.notif_wireless_debugging_is_off))
+                .setContentText(ctx.getString(R.string.notif_needs_it_for_this, computer))
+                .setStyle(Notification.BigTextStyle().bigText(ctx.getString(R.string.notif_needs_it_for_this, computer)))
                 .setContentIntent(open)
                 .setOnlyAlertOnce(true)
                 .setAutoCancel(true)
@@ -300,7 +300,7 @@ object Notify {
     // The pairing code box: type the code from "Pair device with pairing code" right here, so
     // Settings' dialog stays open (it closes when you switch apps).
     fun pairCode(ctx: Context, computer: String) {
-        val input = android.app.RemoteInput.Builder("code").setLabel("6-digit pairing code").build()
+        val input = android.app.RemoteInput.Builder("code").setLabel(ctx.getString(R.string.notif_6_digit_pairing_code)).build()
         val pi = PendingIntent.getBroadcast(
             ctx, 40, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.PAIR_CODE),
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -309,11 +309,11 @@ object Notify {
             ID_PAIR,
             nb(ctx, CH_INVITE)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Type the pairing code here")
-                .setContentText("Settings shows a 6-digit code. Type it here to pair with $computer.")
-                .setStyle(Notification.BigTextStyle().bigText("Settings shows a 6-digit code under “Pair with device”. Tap Enter code, type it, and send. $computer does the rest."))
+                .setContentTitle(ctx.getString(R.string.notif_type_the_pairing_code))
+                .setContentText(ctx.getString(R.string.notif_settings_shows_a_6, computer))
+                .setStyle(Notification.BigTextStyle().bigText(ctx.getString(R.string.notif_settings_shows_a_6_2, computer)))
                 .setOnlyAlertOnce(false)
-                .addAction(Notification.Action.Builder(null, "Enter code", pi).addRemoteInput(input).build())
+                .addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_enter_code), pi).addRemoteInput(input).build())
                 .build(),
         )
     }
@@ -327,12 +327,12 @@ object Notify {
             .setAutoCancel(!progress)
         if (progress) b.setProgress(0, 0, true).setOngoing(true)
         if (again) {
-            val input = android.app.RemoteInput.Builder("code").setLabel("6-digit pairing code").build()
+            val input = android.app.RemoteInput.Builder("code").setLabel(ctx.getString(R.string.notif_6_digit_pairing_code)).build()
             val pi = PendingIntent.getBroadcast(
                 ctx, 40, Intent(ctx, ActionReceiver::class.java).setAction(ActionReceiver.PAIR_CODE),
                 PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            b.addAction(Notification.Action.Builder(null, "Enter code", pi).addRemoteInput(input).build())
+            b.addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_enter_code), pi).addRemoteInput(input).build())
         }
         nm(ctx).notify(ID_PAIR, b.build())
     }
@@ -361,12 +361,12 @@ object Notify {
             ID_FCLIP,
             nb(ctx, CH_CLIP)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Copied on $from")
+                .setContentTitle(ctx.getString(R.string.files_copied_on, from))
                 .setContentText(what)
                 .setContentIntent(openApp(ctx))
                 .setTimeoutAfter(10 * 60 * 1000L)
-                .addAction(Notification.Action.Builder(null, "Copy to clipboard", action(ctx, ActionReceiver.FCLIP_COPY, 21, id)).build())
-                .addAction(Notification.Action.Builder(null, "Save to Downloads", action(ctx, ActionReceiver.FCLIP_SAVE, 22, id)).build())
+                .addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_copy_to_clipboard), action(ctx, ActionReceiver.FCLIP_COPY, 21, id)).build())
+                .addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_save_to_downloads), action(ctx, ActionReceiver.FCLIP_SAVE, 22, id)).build())
                 .build(),
         )
     }
@@ -381,8 +381,8 @@ object Notify {
             .setTimeoutAfter(5 * 60 * 1000L)
             .setAutoCancel(true)
         if (share != null) {
-            val pi = PendingIntent.getActivity(ctx, 23, Intent.createChooser(share, "Share").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            b.addAction(Notification.Action.Builder(null, "Share…", pi).build())
+            val pi = PendingIntent.getActivity(ctx, 23, Intent.createChooser(share, ctx.getString(R.string.nav_share)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            b.addAction(Notification.Action.Builder(null, ctx.getString(R.string.notif_share), pi).build())
             b.setContentIntent(pi)
         }
         nm(ctx).notify(ID_FCLIP, b.build())
@@ -426,22 +426,22 @@ object Notify {
         val n = nm(ctx)
         if (n.getNotificationChannel(CH_REZUME) == null) {
             runCatching { n.deleteNotificationChannel("rezume") } // the first one, silent: it went under the computer's notifications
-            n.createNotificationChannel(NotificationChannel(CH_REZUME, "ReZume", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "What you were doing on your computer, to go on with here"
+            n.createNotificationChannel(NotificationChannel(CH_REZUME, ctx.getString(R.string.nav_rezume), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = ctx.getString(R.string.notif_what_you_were_doing)
                 setSound(null, null)
                 enableVibration(false)
                 setShowBadge(false)
             })
         }
-        if (loud && n.getNotificationChannel(CH_REZUME_SENT) == null) n.createNotificationChannel(NotificationChannel(CH_REZUME_SENT, "ReZume: sent to this phone", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "A page or document sent here from your computer"
+        if (loud && n.getNotificationChannel(CH_REZUME_SENT) == null) n.createNotificationChannel(NotificationChannel(CH_REZUME_SENT, ctx.getString(R.string.notif_rezume_sent_to_this), NotificationManager.IMPORTANCE_HIGH).apply {
+            description = ctx.getString(R.string.notif_a_page_or_document)
         })
         val tap = PendingIntent.getActivity(ctx, ID_REZUME, Intent(ctx, RezumeActivity::class.java).putExtra("id", o.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val what = if (o.kind == "web") (Uri.parse(o.url).host ?: o.url) else o.name
         n.notify(ID_REZUME, nb(ctx, if (loud) CH_REZUME_SENT else CH_REZUME)
             .setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle("Continue from $computer")
+            .setContentTitle(ctx.getString(R.string.rezume_continue_from, computer))
             .setContentText(o.title + if (what != o.title) " · $what" else "")
             .setSubText(o.appName.ifEmpty { null })
             .setContentIntent(tap)
@@ -449,8 +449,8 @@ object Notify {
             .setAutoCancel(false)
             .setGroup("rezume") // its own card, never bundled with the computer's notifications
             .setOnlyAlertOnce(!loud)
-            .addAction(Notification.Action.Builder(null, "Open", tap).build())
-            .addAction(Notification.Action.Builder(null, "Dismiss", action(ctx, ActionReceiver.REZUME_DISMISS, ID_REZUME)).build())
+            .addAction(Notification.Action.Builder(null, ctx.getString(R.string.common_open), tap).build())
+            .addAction(Notification.Action.Builder(null, ctx.getString(R.string.common_dismiss), action(ctx, ActionReceiver.REZUME_DISMISS, ID_REZUME)).build())
             .build())
     }
 
@@ -460,7 +460,7 @@ object Notify {
         nm(ctx).notify(ID_REZUME_READY, nb(ctx, CH_FILES)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(name)
-            .setContentText("From your computer. Tap to open.")
+            .setContentText(ctx.getString(R.string.notif_from_your_computer_tap))
             .setContentIntent(PendingIntent.getActivity(ctx, ID_REZUME_READY, view, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
             .setAutoCancel(true)
             .build())
