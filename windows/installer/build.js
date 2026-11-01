@@ -144,6 +144,10 @@ async function pack(arch) {
         uninstallerIcon: path.join(__dirname, 'icon.ico'),
         license: path.join(ROOT, 'LICENSE'),
         include: path.join(__dirname, 'installer.nsh'),
+        // Installer language: asks on start, English or Brazilian Portuguese (installer screens only).
+        multiLanguageInstaller: true,
+        displayLanguageSelector: true,
+        installerLanguages: ['en_US', 'pt_BR'],
         shortcutName: 'DuoDesk',
         createDesktopShortcut: true,
         createStartMenuShortcut: true,
