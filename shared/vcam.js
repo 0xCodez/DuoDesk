@@ -19,6 +19,8 @@
 // ui() → the main window (the tab's picture goes there).
 'use strict';
 
+const { t: tr } = require('./i18n.js'); // `t` is a local name in places here
+
 const FRAME = 1280 * 720 * 3 / 2;
 const IDLE_MS = 5000; // no frames this long: the feed process goes (it starts again with the next one)
 const LIVE_MS = 2000;
@@ -103,12 +105,12 @@ class VirtualCam {
   }
 
   async check() {
-    if (!this.driver) return this._set({ checked: true, supported: false, message: 'Not on this computer' });
+    if (!this.driver) return this._set({ checked: true, supported: false, message: tr('sh_vcam.not_on_computer', null, 'Not on this computer') });
     try {
       const r = await this.driver.check(this.target);
       this._set({ checked: true, supported: r.supported !== false, installed: !!r.installed, message: r.message || '' });
     } catch (e) {
-      this._set({ checked: true, message: 'Couldn’t check the virtual camera: ' + e.message });
+      this._set({ checked: true, message: tr('sh_vcam.check_failed', { error: e.message }, 'Couldn’t check the virtual camera: ' + e.message) });
     }
     if (this.on && this.state.supported && !this.state.installed && !this.state.busy) await this.install();
   }
@@ -128,7 +130,7 @@ class VirtualCam {
       await this.driver.install((text) => this._set({ message: String(text || '') }), this.target);
       const r = await this.driver.check(this.target);
       this.state.installed = !!r.installed;
-      this.state.message = r.installed ? '' : (r.message || 'It didn’t install');
+      this.state.message = r.installed ? '' : (r.message || tr('sh_vcam.didnt_install', null, 'It didn’t install'));
     } catch (e) {
       this.state.message = e.message;
     }
@@ -146,7 +148,7 @@ class VirtualCam {
       await this.driver.remove(this.target);
       this.state.installed = false;
     } catch (e) {
-      this.state.message = 'Couldn’t remove it: ' + e.message;
+      this.state.message = tr('sh_vcam.remove_failed', { error: e.message }, 'Couldn’t remove it: ' + e.message);
     }
     try {
       const r = await this.driver.check(this.target);

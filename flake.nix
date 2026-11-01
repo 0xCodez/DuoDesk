@@ -97,7 +97,7 @@
               # Copy shared files
               cp -r shared/*.js shared/*.css shared/*.html "$share/shared/"
               # The pages' fonts (Geist woff2 + OFL.txt), the art kit and scenes, the per-page effects
-              cp -r shared/fonts shared/art shared/pagefx "$share/shared/"
+              cp -r shared/fonts shared/art shared/pagefx shared/locales "$share/shared/"
               if [ -d shared/icon ]; then
                 cp -r shared/icon "$share/shared/"
               fi

@@ -66,12 +66,13 @@
     const selId = sel ? sel.id : null;
     const phoneT = (d) => {
       const connected = !!d.connected;
+      const tFn = (k, p, def) => (typeof t === 'function' ? t(k, p, def) : (typeof root !== 'undefined' && root.t ? root.t(k, p, def) : (def !== undefined ? def : k)));
       return {
         id: d.id, kind: 'phone', os: 'android', name: d.name || 'Phone', connected, via: [], forget: [],
         state: connected ? 'connected' : d.connecting ? 'connecting' : 'nearby',
         selected: connected && (!selId || selId === d.id),
         action: connected ? 'select' : 'connect',
-        sub: d.sub || (connected ? 'Connected' : d.connecting ? 'Connecting…' : 'Nearby · Click to connect'),
+        sub: d.sub || (connected ? tFn('sidebar.connected', null, 'Connected') : d.connecting ? tFn('sidebar.connecting', null, 'Connecting…') : tFn('sidebar.nearby_click_to_connect', null, 'Nearby · Click to connect')),
       };
     };
     const peerT = (p) => {
@@ -79,13 +80,14 @@
       const connected = !via && !!p.connected;
       const connecting = !via && !connected && (p.state === 'connecting' || p.state === 'reconnecting');
       const selected = connected && !!p.selected;
+      const tFn = (k, p, def) => (typeof t === 'function' ? t(k, p, def) : (typeof root !== 'undefined' && root.t ? root.t(k, p, def) : (def !== undefined ? def : k)));
       let sub;
-      if (via) sub = 'via ' + ((p.via || []).join(', ') || 'another device');
-      else if (connected) sub = (p.rtt != null ? p.rtt + ' ms' : 'Connected') + (selected && transport && transport !== 'Wi-Fi' ? ' · ' + transport : '');
-      else if (connecting) sub = 'Connecting…';
-      else if (p.state === 'waiting') sub = 'Waiting for it to connect';
-      else if (p.state === 'identity_changed') sub = 'Identity changed';
-      else sub = 'Not connected';
+      if (via) sub = tFn('sidebar.via', { name: ((p.via || []).join(', ') || 'another device') }, 'via ' + ((p.via || []).join(', ') || 'another device'));
+      else if (connected) sub = (p.rtt != null ? p.rtt + ' ms' : tFn('sidebar.connected', null, 'Connected')) + (selected && transport && transport !== 'Wi-Fi' ? ' · ' + transport : '');
+      else if (connecting) sub = tFn('sidebar.connecting', null, 'Connecting…');
+      else if (p.state === 'waiting') sub = tFn('sidebar.waiting', null, 'Waiting for it to connect');
+      else if (p.state === 'identity_changed') sub = tFn('sidebar.identity_changed', null, 'Identity changed');
+      else sub = tFn('sidebar.not_connected', null, 'Not connected');
       const state = via ? 'via' : connected ? 'connected' : connecting ? 'connecting' : 'offline';
       return {
         id: p.id, kind: kindOf(p.os), os: p.os || 'win', name: p.name || 'Device', connected, selected, via: via ? (p.via || []) : [],
@@ -129,7 +131,18 @@
     return [{ id: peer.id, name: peer.name, os: peer.os, state: connected ? 'connected' : linkState || 'offline', rtt: connected && rtt != null ? rtt : null, selected: true, connected, via: [] }];
   }
 
-  const api = { PHONE_ONLY, COMPUTER_ONLY, GLOBAL, kindOf, sectionVisible, isScoped, firstSection, targetSection, selectedOf, selectedKind, buildTiles, singlePeer };
+  // Returns the localized title of a section/page if available, falling back to default or id.
+  function sectionTitle(pageId, fallback) {
+    const tFn = typeof t === 'function' ? t : (typeof root !== 'undefined' && root.t ? root.t : null);
+    if (tFn) {
+      const def = fallback !== undefined ? fallback : pageId;
+      const navKey = pageId === 'general' ? 'nav.settings' : 'nav.' + pageId;
+      return tFn('nav.' + pageId, null, tFn(navKey, null, def));
+    }
+    return fallback !== undefined ? fallback : pageId;
+  }
+
+  const api = { PHONE_ONLY, COMPUTER_ONLY, GLOBAL, kindOf, sectionVisible, isScoped, firstSection, targetSection, selectedOf, selectedKind, buildTiles, singlePeer, sectionTitle };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SidebarModel = api;
 })(typeof self !== 'undefined' ? self : this);

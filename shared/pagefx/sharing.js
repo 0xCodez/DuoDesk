@@ -21,6 +21,7 @@
   FX._sharing = true;
   const UI = window.UI || {};
   const api = () => UI.api || window.macshare || {};
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
   const safe = (fn, dflt) => { try { const v = fn(); return v === undefined ? dflt : v; } catch (e) { return dflt; } };
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
   const arr = (v) => (Array.isArray(v) ? v : []);
@@ -48,21 +49,22 @@
   }
   const osGlyph = (os) => ({ mac: 'mac', win: 'win', windows: 'win', linux: 'linux', android: 'phone' })[os] || 'desktop';
   const myGlyph = (ctx) => (ctx.platform === 'mac' ? 'mac' : ctx.platform === 'linux' ? 'linux' : 'win');
-  // The card-wrap whose title reads `re` (a page's cards have no stable class).
-  function cardByTitle(body, re) {
+  // The card-wrap whose title reads `re`, or is the page's own translated title `key` (a page's cards have no stable class).
+  function cardByTitle(body, re, key, en) {
     if (!body) return null;
     for (const w of body.querySelectorAll(':scope > .card-wrap')) {
       const t = w.querySelector(':scope > .card-title > span');
-      if (t && re.test(t.textContent || '')) return w;
+      const text = t ? t.textContent || '' : '';
+      if (t && (re.test(text) || (key && text.trim().toLowerCase() === String(tr(key, null, en)).toLowerCase()))) return w;
     }
     return null;
   }
   // Linked to the other computer (Windows / Linux s.link, Mac s.client, mesh s.peers).
   const connected = (s, ctx) => ctx.linkState(s) === 'connected' && !!(s && (s.link ? s.link.state === 'connected' : true));
-  const peerLabel = (s, ctx) => ctx.peerName(s) || safe(() => UI.peer(s).name, '') || 'the other computer';
+  const peerLabel = (s, ctx) => ctx.peerName(s) || safe(() => UI.peer(s).name, '') || tr('kit.the_other_computer', null, 'the other computer');
   const myLabel = (s, ctx) => ctx.myName(s);
   // The phone's own name: the hub's, else the connected phone's (UI.phoneName falls back to "your phone").
-  const phoneLabel = (s, ctx) => (s && s.hub && s.hub.name) || (ctx.phone(s) || {}).name || 'your phone';
+  const phoneLabel = (s, ctx) => (s && s.hub && s.hub.name) || (ctx.phone(s) || {}).name || tr('hub.your_phone', null, 'your phone');
   const ext = (name) => { const m = /\.([a-z0-9]{1,5})$/i.exec(String(name || '')); return m ? m[1].toUpperCase() : ''; };
   // A mono tag: <span class="shr-tag">[icon] text</span>; returns { e, t }.
   const mkTag = (ctx, cls, iconName) => {
@@ -84,7 +86,7 @@
     const FROM = { in: [X0, YI], out: [X1, YO] };    // where it leaves from
     function build(page, ctx) {
       const { el, svg } = ctx;
-      const h = ctx.hdr(page, { cls: 'shr shr-clip', interactive: true, label: 'Clipboard between your computers' });
+      const h = ctx.hdr(page, { cls: 'shr shr-clip', interactive: true, label: tr('pfx_sharing.clipboard_between', null, 'Clipboard between your computers') });
       const kick = el('div', 'pg-kick shr-clip-kick');
       const thumb = el('img', 'shr-clip-thumb', null, { alt: '' });
       thumb.hidden = true;
@@ -138,7 +140,7 @@
       flyEnd = ctx.after(1100, () => { r.dot.classList.remove('shr-fly'); flyEnd = null; });
     }
     function tagCards(page, ctx, c) {
-      const priv = cardByTitle(ctx.body, /privacy/i);
+      const priv = cardByTitle(ctx.body, /privacy/i, 'clipboard.privacy', 'Privacy');
       if (priv) { ctx.cls(priv, 'pg-privacy', true); ctx.cls(priv, 'pg-shield-on', !!c.skipConcealed); }
     }
     return {
@@ -166,29 +168,29 @@
         const thumbSrc = img && img.thumb ? img.thumb : '';
         r.thumb.hidden = !thumbSrc;
         if (thumbSrc && r.thumb.getAttribute('src') !== thumbSrc) r.thumb.src = thumbSrc;
-        ctx.text(r.figText, !h0 ? (histOff ? 'Recent items are off' : 'Nothing copied yet')
-          : img ? (img.shot ? 'Screenshot' : 'Picture') + (img.w ? ' ' + img.w + ' × ' + img.h : '')
+        ctx.text(r.figText, !h0 ? (histOff ? tr('clipboard.recent_off', null, 'Recent items are off') : tr('pfx_sharing.nothing_copied', null, 'Nothing copied yet'))
+          : img ? (img.shot ? tr('clipboard.screenshot', null, 'Screenshot') : tr('clipboard.picture', null, 'Picture')) + (img.w ? ' ' + img.w + ' × ' + img.h : '')
             : '“' + (clip(h0.text, 44) || ' ') + '”');
         const can = !!h0 && (!img || !!img.copy);
         r.fig.disabled = !can;
-        r.fig.title = can ? 'Copy it again' : '';
-        r.fig.setAttribute('aria-label', can ? 'Copy the latest item again' : (r.figText.textContent || 'Clipboard'));
-        ctx.text(r.kick, !h0 ? 'Clipboard' : h0.dir === 'out' ? 'Latest · to ' + pn : 'Latest · from ' + pn);
+        r.fig.title = can ? tr('pfx_sharing.copy_it_again', null, 'Copy it again') : '';
+        r.fig.setAttribute('aria-label', can ? tr('pfx_sharing.copy_latest_again', null, 'Copy the latest item again') : (r.figText.textContent || tr('clipboard.title', null, 'Clipboard')));
+        ctx.text(r.kick, !h0 ? tr('clipboard.title', null, 'Clipboard') : h0.dir === 'out' ? tr('pfx_sharing.latest_to', { name: pn }, 'Latest · to {name}') : tr('pfx_sharing.latest_from', { name: pn }, 'Latest · from {name}'));
 
         // the caption
         const copied = Date.now() < copiedUntil;
         ctx.cls(r.h, 'copied', copied);
-        ctx.text(r.cap, copied ? 'Copied'
-          : !on ? 'Waiting for ' + pn
-            : refused ? 'Clipboard is off on ' + pn
+        ctx.text(r.cap, copied ? tr('pfx_sharing.copied', null, 'Copied')
+          : !on ? tr('kit.waiting_for_name', { name: pn }, 'Waiting for {name}')
+            : refused ? tr('pfx_sharing.clipboard_off_on', { name: pn }, 'Clipboard is off on {name}')
               : h0 ? [ctx.ago(h0.at), h0.size != null ? ctx.bytes(h0.size) : ''].filter(Boolean).join(' · ')
-                : histOff ? 'Copies still go across'
-                  : c.receive && c.send ? 'Copy on either one, paste on the other'
-                    : c.receive ? 'Copies on ' + pn + ' paste here'
-                      : c.send ? 'Copies here paste on ' + pn : 'Both directions are off');
-        showTag(ctx, r.mode, true, c.mode === 'switch' ? 'On switch' : 'Instant');
-        showTag(ctx, r.pics, !!(c.imageSupport && c.images), 'Pictures');
-        showTag(ctx, r.skip, !!(c.enabled && c.lastSkip), 'Not sent: ' + clip(c.lastSkip, 28));
+                : histOff ? tr('pfx_sharing.copies_still_go', null, 'Copies still go across')
+                  : c.receive && c.send ? tr('pfx_sharing.copy_either_paste_other', null, 'Copy on either one, paste on the other')
+                    : c.receive ? tr('pfx_sharing.copies_there_paste_here', { name: pn }, 'Copies on {name} paste here')
+                      : c.send ? tr('pfx_sharing.copies_here_paste_there', { name: pn }, 'Copies here paste on {name}') : tr('pfx_sharing.both_directions_off', null, 'Both directions are off'));
+        showTag(ctx, r.mode, true, c.mode === 'switch' ? tr('pfx_sharing.on_switch', null, 'On switch') : tr('pfx_sharing.instant', null, 'Instant'));
+        showTag(ctx, r.pics, !!(c.imageSupport && c.images), tr('clipboard.pictures', null, 'Pictures'));
+        showTag(ctx, r.skip, !!(c.enabled && c.lastSkip), tr('pfx_sharing.not_sent_reason', { reason: clip(c.lastSkip, 28) }, 'Not sent: {reason}'));
 
         // the rails
         const inOn = on && !!c.receive;
@@ -200,7 +202,7 @@
         ctx.cls(r.sweepOut, 'on', outOn);
         ctx.text(r.lPeer, pn);
         ctx.text(r.lMe, myLabel(s, ctx));
-        ctx.text(r.lOff, refused ? 'off' : '');
+        ctx.text(r.lOff, refused ? tr('pfx_sharing.off_lc', null, 'off') : '');
 
         // the dot: the item, at its destination (parked on me while unlinked); flies once per new item,
         // keyed on history[0].at — the page's list rebuilds every 15 s, so never key on the DOM
@@ -236,13 +238,14 @@
         svg('circle', { class: 'shr-bell-dot', cx: '23', cy: '9', r: '2.6' }),
       ]);
       const bellWrap = el('div', 'shr-bell-wrap', [bell]);
-      const counter = (label) => {
+      const counter = () => {
         const n = el('span', 'pg-fig shr-n');
-        const e = el('div', 'shr-count', [n, el('span', 'pg-kick', label)]);
-        return { e, n };
+        const k = el('span', 'pg-kick');
+        const e = el('div', 'shr-count', [n, k]);
+        return { e, n, k };
       };
-      const shown = counter('shown here');
-      const sent = counter('sent');
+      const shown = counter();
+      const sent = counter();
       const counts = el('div', 'shr-counts', [shown.e, el('i', 'pg-vr'), sent.e]);
       const cap = el('div', 'shr-cap');
       const hide = mkTag(ctx, 'shr-notif-hide', 'eyeoff');
@@ -260,10 +263,10 @@
       if (key !== toastKey) {
         toastKey = key;
         if (!top.length) {
-          r.stack.replaceChildren(ctx.el('div', 'shr-toast empty', [ctx.el('span', 'shr-toast-text', 'Quiet. New ones land here.')]));
+          r.stack.replaceChildren(ctx.el('div', 'shr-toast empty', [ctx.el('span', 'shr-toast-text', tr('pfx_sharing.quiet_new_land', null, 'Quiet. New ones land here.'))]));
         } else {
           r.stack.replaceChildren(...top.map((it, i) => {
-            const app = String(it.appName || it.app || 'App');
+            const app = String(it.appName || it.app || tr('rezume.app', null, 'App'));
             const av = icons[it.app]
               ? ctx.el('img', 'shr-toast-av', null, { src: icons[it.app], alt: '' })
               : ctx.el('span', 'shr-toast-av letter', app.trim().charAt(0).toUpperCase() || '·');
@@ -280,8 +283,8 @@
     function tagCards(page, ctx, n, hist, fresh) {
       const body = ctx.body;
       if (!body) return;
-      let feed = cardByTitle(body, /recent notif|notifications/i);
-      let apps = cardByTitle(body, /^\s*apps\s*$/i);
+      let feed = cardByTitle(body, /recent notif|notifications/i, 'notifs.recent_notifications', 'Recent Notifications');
+      let apps = cardByTitle(body, /^\s*apps\s*$/i, 'nav.apps', 'Apps');
       const wraps = body.querySelectorAll(':scope > .card-wrap');
       if (!feed && wraps[0]) feed = wraps[0];
       if (!apps && wraps[1]) apps = wraps[1];
@@ -316,14 +319,16 @@
         ctx.cls(r.h, 'quiet', !hist.length);
         ctx.count(r.shown.n, num(n.shown) || 0);
         ctx.count(r.sent.n, num(n.sent) || 0);
+        ctx.text(r.shown.k, tr('pfx_sharing.shown_here', null, 'shown here'));
+        ctx.text(r.sent.k, tr('pfx_sharing.sent_lc', null, 'sent'));
         ctx.cls(r.shown.e, 'dim', !n.receive);
         const unreadable = n.readable === false || n.access === 'noAccess'; // Mac: Full Disk Access
         ctx.cls(r.sent.e, 'dim', !n.send || unreadable);
-        showTag(ctx, r.hide, !!n.hideText && !!n.send && !unreadable, 'Text hidden');
-        showTag(ctx, r.warn, unreadable, n.access === 'noAccess' ? 'Needs Full Disk Access' : ctx.platform === 'win' ? 'Can’t read Windows’ list' : 'Can’t read the list');
-        ctx.text(r.cap, !on ? 'Nothing comes in until ' + pn + ' connects'
-          : !hist.length ? (n.receive ? 'Waiting for the first one' : 'Receiving is off')
-            : 'Latest ' + [hist[0].appName || hist[0].app, ctx.ago(hist[0].at)].filter(Boolean).join(' · '));
+        showTag(ctx, r.hide, !!n.hideText && !!n.send && !unreadable, tr('pfx_sharing.text_hidden', null, 'Text hidden'));
+        showTag(ctx, r.warn, unreadable, n.access === 'noAccess' ? tr('notifs.needs_full_disk_access', null, 'Needs Full Disk Access') : ctx.platform === 'win' ? tr('pfx_sharing.cant_read_windows_list', null, 'Can’t read Windows’ list') : tr('pfx_sharing.cant_read_list', null, 'Can’t read the list'));
+        ctx.text(r.cap, !on ? tr('pfx_sharing.nothing_comes_in', { name: pn }, 'Nothing comes in until {name} connects')
+          : !hist.length ? (n.receive ? tr('pfx_sharing.waiting_first_one', null, 'Waiting for the first one') : tr('pfx_sharing.receiving_off', null, 'Receiving is off'))
+            : tr('pfx_sharing.latest_what', { what: [hist[0].appName || hist[0].app, ctx.ago(hist[0].at)].filter(Boolean).join(' · ') }, 'Latest {what}'));
         toasts(ctx, n, hist);
         const id = hist[0] ? (hist[0].id != null ? hist[0].id : hist[0].at) : null;
         const fresh = lastId !== undefined && id != null && id !== lastId;
@@ -373,7 +378,7 @@
       return { h, kick, status, fig, peer, me, line, tok, tokExt, tokMark, queue, cap, drive, share };
     }
     function tagPage(page, ctx, live) {
-      const log = cardByTitle(ctx.body, /^\s*recent\s*$/i);
+      const log = cardByTitle(ctx.body, /^\s*recent\s*$/i, 'files.recent', 'Recent');
       if (!log) return;
       ctx.cls(log, 'pg-files-log', true);
       const rows = log.querySelectorAll(':scope > .card > .row');
@@ -406,15 +411,15 @@
         const take = !!(f.acceptFromMac != null ? f.acceptFromMac : f.acceptDrops);
         const send = f.dropToMac != null ? !!f.dropToMac : Array.isArray(f.sending);
         ctx.cls(r.peer.lamp, 'on', on && send);
-        ctx.text(r.peer.lamp.lastElementChild, send ? 'Gets your files' : 'Sending off');
+        ctx.text(r.peer.lamp.lastElementChild, send ? tr('pfx_sharing.gets_your_files', null, 'Gets your files') : tr('pfx_sharing.sending_off', null, 'Sending off'));
         ctx.cls(r.me.lamp, 'on', on && take);
-        ctx.text(r.me.lamp.lastElementChild, take ? 'Takes files' : 'Taking off');
+        ctx.text(r.me.lamp.lastElementChild, take ? tr('pfx_sharing.takes_files', null, 'Takes files') : tr('pfx_sharing.taking_off', null, 'Taking off'));
         ctx.cls(r.h, 'no-peer', !on);
         ctx.cls(r.h, 'idle-dirs', !take && !send);
 
         // what moves: a batch (Send / paste) or the current file out; files coming in; a drag
         const b = f.batch || (macSending.length ? {
-          kind: 'send', name: macSending.length > 1 ? macSending.length + ' files' : macSending[0].name,
+          kind: 'send', name: macSending.length > 1 ? tr('pfx_sharing.n_files_other', { n: macSending.length }, '{n} files') : macSending[0].name,
           bytes: macSending.reduce((a, x) => a + (num(x.size) || 0), 0), sent: macSending.reduce((a, x) => a + (num(x.sent) || 0), 0), files: 1, index: 0,
         } : null);
         const c = f.current;
@@ -432,7 +437,7 @@
           dr.last ? Object.assign({}, dr.last, { dir: 'in', name: dr.last.name || '' }) : null,
           arr(f.recent)[0] ? Object.assign({}, f.recent[0], { dir: 'in' }) : null,
           arr(f.sent)[0] ? Object.assign({}, f.sent[0], { dir: 'out' }) : null,
-        ].filter((x) => x && x.at).map((x) => (x.text != null ? x : Object.assign(x, { text: x.ok ? '' : x.error ? 'Failed: ' + x.error : '' })))
+        ].filter((x) => x && x.at).map((x) => (x.text != null ? x : Object.assign(x, { text: x.ok ? '' : x.error ? tr('pfx_sharing.failed_error', { error: x.error }, 'Failed: {error}') : '' })))
           .sort((x, y) => y.at - x.at);
         const lastR = lasts[0] || null;
         const st = sending ? 'out' : dragging ? 'drag' : receiving ? 'in' : lastR ? 'done' : 'idle';
@@ -444,7 +449,7 @@
         r.tok.hidden = st === 'idle' || st === 'in';
         const tokName = st === 'out' ? outName : st === 'drag' ? dr.name : lastR ? lastR.name : '';
         const e = ext(tokName);
-        ctx.text(r.tokExt, (e || 'FILE').slice(0, 4));
+        ctx.text(r.tokExt, (e || tr('pfx_sharing.file_token', null, 'FILE')).slice(0, 4));
         ctx.attr(r.tok, 'data-ok', st === 'done' ? (lastR.ok ? '1' : '0') : null);
         ctx.text(r.tokMark, st === 'done' ? (lastR.ok ? '✓' : '×') : '');
         if (st === 'done' && ctx.changed('doneAt', lastR.at)) ctx.pop(r.tok, 'shr-dock', 800);
@@ -460,32 +465,31 @@
         // the status line and the figure
         let kick, status, fig = '', cap;
         if (st === 'out') {
-          const kind = b && b.kind === 'paste' ? 'Pasting' : 'Sending';
-          const idx = b ? (b.files > 1 ? (b.index + 1) + ' of ' + b.files : '') : c && c.count > 1 ? (c.index + 1) + ' of ' + c.count : '';
-          kick = kind + ' to ' + pn;
+          const idx = b ? (b.files > 1 ? tr('pfx_sharing.i_of_n', { i: b.index + 1, n: b.files }, '{i} of {n}') : '') : c && c.count > 1 ? tr('pfx_sharing.i_of_n', { i: c.index + 1, n: c.count }, '{i} of {n}') : '';
+          kick = b && b.kind === 'paste' ? tr('pfx_sharing.pasting_to', { name: pn }, 'Pasting to {name}') : tr('pfx_sharing.sending_to', { name: pn }, 'Sending to {name}');
           status = clip(outName, 48);
           fig = pct(p) + '%';
-          cap = [idx, mb(sentB) + ' of ' + mb(total), q ? q + ' more waiting' : ''].filter(Boolean).join(' · ');
+          cap = [idx, tr('pfx_sharing.mb_of_mb', { sent: mb(sentB), total: mb(total) }, '{sent} of {total}'), q ? tr('pfx_sharing.n_more_waiting', { n: q }, '{n} more waiting') : ''].filter(Boolean).join(' · ');
         } else if (st === 'drag') {
-          kick = dr.state === 'copying' ? 'Copying across the edge' : 'Dragging across the edge';
-          status = clip(dr.name, 48) || 'Files';
-          cap = dr.state === 'copying' ? 'Into ' + safe(() => UI.receivedName(s), 'Downloads') : 'Esc cancels';
+          kick = dr.state === 'copying' ? tr('pfx_sharing.copying_across_edge', null, 'Copying across the edge') : tr('pfx_sharing.dragging_across_edge', null, 'Dragging across the edge');
+          status = clip(dr.name, 48) || tr('hub.files', null, 'Files');
+          cap = dr.state === 'copying' ? tr('pfx_sharing.into_folder', { folder: safe(() => UI.receivedName(s), tr('general.downloads', null, 'Downloads')) }, 'Into {folder}') : tr('files.esc_cancels', null, 'Esc cancels');
         } else if (st === 'in') {
-          kick = 'Receiving from ' + pn;
-          status = macReceiving.length === 1 && !inc.receiving ? clip(macReceiving[0].name, 48) : recvN + ' file' + (recvN > 1 ? 's' : '');
-          cap = 'Into ' + safe(() => UI.receivedName(s), 'Downloads');
+          kick = tr('pfx_sharing.receiving_from', { name: pn }, 'Receiving from {name}');
+          status = macReceiving.length === 1 && !inc.receiving ? clip(macReceiving[0].name, 48) : recvN > 1 ? tr('pfx_sharing.n_files_other', { n: recvN }, '{n} files') : tr('pfx_sharing.n_files_one', { n: recvN }, '{n} file');
+          cap = tr('pfx_sharing.into_folder', { folder: safe(() => UI.receivedName(s), tr('general.downloads', null, 'Downloads')) }, 'Into {folder}');
         } else if (!on) {
-          kick = 'File sharing';
-          status = 'Connect to send files';
-          cap = lastR ? 'Last: ' + clip(lastR.name, 32) + ' · ' + ctx.ago(lastR.at) : 'Waiting for ' + pn;
+          kick = tr('feature_art.files_title', null, 'File sharing');
+          status = tr('pfx_sharing.connect_to_send', null, 'Connect to send files');
+          cap = lastR ? tr('pfx_sharing.last_file', { name: clip(lastR.name, 32), ago: ctx.ago(lastR.at) }, 'Last: {name} · {ago}') : tr('kit.waiting_for_name', { name: pn }, 'Waiting for {name}');
         } else if (lastR) {
-          kick = lastR.ok ? (lastR.dir === 'out' ? 'Sent to ' + pn : 'Received from ' + pn) : (lastR.dir === 'out' ? 'Not sent' : 'Not received');
-          status = clip(lastR.name, 48) || (lastR.ok ? 'Done' : 'Didn’t go through');
+          kick = lastR.ok ? (lastR.dir === 'out' ? tr('pfx_sharing.sent_to', { name: pn }, 'Sent to {name}') : tr('pfx_sharing.received_from', { name: pn }, 'Received from {name}')) : (lastR.dir === 'out' ? tr('messages.status_not_sent', null, 'Not sent') : tr('files.not_received', null, 'Not received'));
+          status = clip(lastR.name, 48) || (lastR.ok ? tr('setup.done', null, 'Done') : tr('pfx_sharing.didnt_go_through', null, 'Didn’t go through'));
           cap = [lastR.text, ctx.ago(lastR.at)].filter(Boolean).join(' · ');
         } else {
-          kick = 'File sharing';
-          status = 'Ready when you are';
-          cap = !take && !send ? 'Both directions are off' : 'Drop files below, or drag them across the screen edge';
+          kick = tr('feature_art.files_title', null, 'File sharing');
+          status = tr('pfx_sharing.ready_when_you_are', null, 'Ready when you are');
+          cap = !take && !send ? tr('pfx_sharing.both_directions_off', null, 'Both directions are off') : tr('pfx_sharing.drop_files_below', null, 'Drop files below, or drag them across the screen edge');
         }
         ctx.text(r.kick, kick);
         ctx.text(r.status, status);
@@ -494,9 +498,9 @@
         ctx.text(r.cap, cap);
 
         // folder tags
-        showTag(ctx, r.drive, !!smb.drive, 'Their folder · ' + smb.drive);
+        showTag(ctx, r.drive, !!smb.drive, tr('pfx_sharing.their_folder', { drive: smb.drive }, 'Their folder · {drive}'));
         const pe = smb.peer || {};
-        showTag(ctx, r.share, !!f.shareOn, pe.mounted ? 'Folder shared · open there' : pe.error ? 'Sharing: problem' : 'Folder shared');
+        showTag(ctx, r.share, !!f.shareOn, pe.mounted ? tr('pfx_sharing.folder_shared_open', null, 'Folder shared · open there') : pe.error ? tr('pfx_sharing.sharing_problem', null, 'Sharing: problem') : tr('pfx_sharing.folder_shared', null, 'Folder shared'));
         ctx.cls(r.share.e, 'warn', !!(f.shareOn && pe.error));
         tagPage(page, ctx, { out: sending, in: receiving || dragging });
       },
@@ -542,10 +546,10 @@
       const fig = el('div', 'pg-fig', [n, unit]);
       const cap = el('div', 'shr-cap');
       const mid = el('div', 'shr-text', [kick, fig, cap]);
-      const stat = (label) => { const v = el('b'); const e = el('div', 'shr-stat', [v, el('span', null, label)]); return { e, v }; };
-      const sFolders = stat('folders');
-      const sFiles = stat('files');
-      const sSize = stat('in this folder');
+      const stat = () => { const v = el('b'); const k = el('span'); const e = el('div', 'shr-stat', [v, k]); return { e, v, k }; };
+      const sFolders = stat();
+      const sFiles = stat();
+      const sSize = stat();
       const stats = el('div', 'shr-stats', [sFolders.e, sFiles.e, sSize.e]);
       const chosen = mkTag(ctx, 'shr-pf-chosen', 'check');
       const imp = mkTag(ctx, 'shr-pf-import');
@@ -577,7 +581,7 @@
       if (wrap) {
         const crumbs = page.querySelectorAll('.hub-crumbs > .hub-crumb');
         const last = crumbs[crumbs.length - 1];
-        const target = (last && last.textContent) || 'Storage';
+        const target = (last && last.textContent) || tr('pfiles.storage', null, 'Storage');
         ctx.attr(wrap, 'data-target', target);
         // the drop label is the card's ::after, and attr() reads the pseudo's own element
         for (const card of wrap.querySelectorAll('.card')) ctx.attr(card, 'data-target', target);
@@ -604,7 +608,7 @@
       });
     }
     function chosenTag(ctx, n) {
-      showTag(ctx, r.chosen, n > 0, n + ' chosen');
+      showTag(ctx, r.chosen, n > 0, tr('pfx_sharing.n_chosen', { n }, '{n} chosen'));
       if (ctx.changed('chosen', n) && n) ctx.pop(r.chosen.e, 'pg-pop', 700);
     }
     return {
@@ -650,7 +654,8 @@
         const ready = safe(() => UI.hubReady(s, 'files'), !!hub.files && !!hub.connected);
         const ble = safe(() => UI.onBle(s), false);
         const listNode = listEl(page);
-        const loading = !!(listNode && /loading/i.test((listNode.querySelector('.hub-empty') || {}).textContent || ''));
+        const emptyText = ((listNode && listNode.querySelector('.hub-empty')) || {}).textContent || '';
+        const loading = !!(listNode && (/loading/i.test(emptyText) || emptyText === tr('general.loading', null, 'Loading…')));
         const err = ready && !ble && fs && fs.error ? (page.querySelector('.hub-fs-status') || {}).textContent || fs.error : '';
         const st = !ready ? 'off' : ble ? 'ble' : err ? 'error' : !(fs && fs.total) ? 'loading' : 'ok';
         ctx.attr(r.h, 'data-state', st);
@@ -662,9 +667,9 @@
         ctx.text(r.kick, ph);
         if (hasSpace) {
           ctx.text(r.n, gb(fs.free || 0));
-          ctx.text(r.unit, 'GB free');
+          ctx.text(r.unit, tr('pfx_sharing.gb_free', null, 'GB free'));
         } else {
-          ctx.text(r.n, st === 'ble' ? 'Needs Wi-Fi' : st === 'off' ? 'Not ready' : st === 'error' ? 'Can’t open that' : 'Reading…');
+          ctx.text(r.n, st === 'ble' ? tr('pfx_sharing.needs_wifi', null, 'Needs Wi-Fi') : st === 'off' ? tr('pfx_sharing.not_ready', null, 'Not ready') : st === 'error' ? tr('pfx_sharing.cant_open_that', null, 'Can’t open that') : tr('pfx_sharing.reading', null, 'Reading…'));
           ctx.text(r.unit, '');
         }
         // the level follows (a short tween; jumps under reduced motion / while paused)
@@ -681,24 +686,27 @@
         const files = items.filter((x) => x && !x.dir);
         const size = files.reduce((a, x) => a + (num(x.size) || 0), 0);
         r.stats.hidden = !hasSpace;
+        ctx.text(r.sFolders.k, tr('pfx_sharing.folders', null, 'folders'));
+        ctx.text(r.sFiles.k, tr('pfx_sharing.files', null, 'files'));
+        ctx.text(r.sSize.k, tr('pfx_sharing.in_this_folder', null, 'in this folder'));
         ctx.text(r.sFolders.v, String(dirs));
         ctx.text(r.sFiles.v, String(files.length));
         ctx.text(r.sSize.v, files.length ? ctx.bytes(size) : '–');
         const perm = ctx.get(s, 'hub.perm.files.perm', '');
         const imp = (s && s.files && s.files.importTo) || null;
-        ctx.text(r.cap, st === 'off' ? (!hub.connected ? 'Connect ' + ph : perm === 'ask' ? 'Waiting for All files access' : 'Getting ' + ph + ' ready')
-          : st === 'ble' ? 'Over Bluetooth · connect with Wi-Fi Direct to browse'
+        ctx.text(r.cap, st === 'off' ? (!hub.connected ? tr('pfx_phone_media.connect_phone', { phone: ph }, 'Connect {phone}') : perm === 'ask' ? tr('pfx_sharing.waiting_all_files_access', null, 'Waiting for All files access') : tr('pfx_sharing.getting_ready', { phone: ph }, 'Getting {phone} ready'))
+          : st === 'ble' ? tr('pfx_sharing.over_bluetooth_browse', null, 'Over Bluetooth · connect with Wi-Fi Direct to browse')
             : st === 'error' ? clip(err, 80)
-              : st === 'loading' ? 'Opening Storage'
-                : 'of ' + gb(fs.total) + ' GB · ' + pct(used) + '% used · in ' + ((fs.path && fs.path.split('/').pop()) || 'Storage'));
+              : st === 'loading' ? tr('pfx_sharing.opening_storage', null, 'Opening Storage')
+                : tr('pfx_sharing.of_gb_used_in', { total: gb(fs.total), pct: pct(used), folder: (fs.path && fs.path.split('/').pop()) || tr('pfiles.storage', null, 'Storage') }, 'of {total} GB · {pct}% used · in {folder}'));
         // import mode
-        showTag(ctx, r.imp, !!imp, imp ? (imp.why === 'capture' ? 'Capturing into ' : 'Importing into ') + clip(imp.name, 20) : '');
+        showTag(ctx, r.imp, !!imp, imp ? (imp.why === 'capture' ? tr('pfx_sharing.capturing_into', { name: clip(imp.name, 20) }, 'Capturing into {name}') : tr('pfx_sharing.importing_into', { name: clip(imp.name, 20) }, 'Importing into {name}')) : '');
         // shared folders
         const sh = hub.share || {};
         const pm = !!(sh.phone && sh.phone.mounted);
         const mo = !!(sh.mine && sh.mine.on);
-        showTag(ctx, r.lampPhone, !!sh.phone, 'Phone’s folder open');
-        showTag(ctx, r.lampMine, !!sh.mine, 'Sharing a folder');
+        showTag(ctx, r.lampPhone, !!sh.phone, tr('pfx_sharing.phone_folder_open', null, 'Phone’s folder open'));
+        showTag(ctx, r.lampMine, !!sh.mine, tr('pfx_sharing.sharing_a_folder', null, 'Sharing a folder'));
         ctx.cls(r.lampPhone.e, 'on', pm);
         ctx.cls(r.lampMine.e, 'on', mo);
         chosenTag(ctx, tagRows(page, ctx));
@@ -731,9 +739,9 @@
       const bayLbl = el('span', 'shr-mt-baylbl');
       const bay = el('div', 'shr-mt-bay', [el('div', 'shr-mt-slot', [letter, led]), bayLbl]);
       const stage = el('div', 'shr-mt-stage', [phone, conn, bay], { 'aria-hidden': 'true' });
-      const spec = (k) => { const v = el('b'); return { e: el('span', 'shr-spec', [el('span', null, k), v]), v }; };
-      const cVia = spec('Via');
-      const cDrive = spec('Drive');
+      const spec = () => { const v = el('b'); const k = el('span'); return { e: el('span', 'shr-spec', [k, v]), v, k }; };
+      const cVia = spec();
+      const cDrive = spec();
       const cap = el('div', 'shr-cap');
       const foot = el('div', 'shr-capline', [cap, el('div', 'shr-specs', [cVia.e, cDrive.e])]);
       h.replaceChildren(stage, foot);
@@ -760,22 +768,25 @@
         const via = ble ? '' : d.via === 'usb' ? 'usb' : d.via === 'wifi' ? 'wifi' : (ph.connected && ph.connected.usb ? 'usb' : '');
         ctx.attr(r.h, 'data-state', st);
         ctx.attr(r.h, 'data-via', via || 'none');
-        const name = d.name && d.name !== 'Phone' ? d.name : (s && s.hub && s.hub.name) || (ctx.phone(s) || {}).name || 'Phone';
+        const name = d.name && d.name !== 'Phone' ? d.name : (s && s.hub && s.hub.name) || (ctx.phone(s) || {}).name || tr('nav.phone', null, 'Phone');
         ctx.text(r.pname, clip(name, 22));
         const lvl = num(info.battery);
-        ctx.text(r.batt, lvl == null ? '' : Math.round(lvl) + '%' + (info.charging ? ' · charging' : ''));
+        ctx.text(r.batt, lvl == null ? '' : info.charging ? tr('pfx_sharing.pct_charging', { n: Math.round(lvl) }, '{n}% · charging') : Math.round(lvl) + '%');
         // Windows: a drive letter; Mac / Linux: a mount path, shown by its last part
         const vol = !letter && typeof d.mounted === 'string' ? clip(d.mounted.split(/[\\/]/).filter(Boolean).pop() || '', 12) : '';
         ctx.text(r.letter, letter || vol || (d.mounted ? '●' : st === 'mounting' || st === 'unmounting' ? '…' : '—'));
         ctx.cls(r.letter, 'long', !letter && !!vol);
-        ctx.text(r.bayLbl, ctx.platform === 'mac' ? 'This Mac' : ctx.platform === 'linux' ? 'This computer' : 'This PC');
-        ctx.text(r.cVia.v, ble ? '—' : via === 'usb' ? 'USB' : via === 'wifi' ? 'Wireless' : '—');
-        ctx.text(r.cDrive.v, letter || (d.mounted ? 'Mounted' : '—'));
-        ctx.text(r.cap, st === 'ble' ? 'Needs Wi-Fi · Bluetooth can’t carry a drive' : st === 'error' ? clip(d.message, 90)
-          : st === 'adb' ? 'Wireless debugging is off on the phone'
-            : st === 'mounting' ? 'Mounting…' : st === 'unmounting' ? 'Unmounting…'
-              : st === 'mounted' ? (letter ? 'In ' + (ctx.platform === 'win' ? 'File Explorer' : 'the file manager') + ' as ' + letter : 'In your file manager') + (via === 'usb' ? ', through the cable' : via === 'wifi' ? ', over wireless debugging' : '')
-                : 'Ready · Mount puts it in ' + (ctx.platform === 'win' ? 'This PC' : 'the file manager'));
+        ctx.text(r.bayLbl, ctx.platform === 'mac' ? tr('control.this_mac', null, 'This Mac') : ctx.platform === 'linux' ? tr('general.this_computer', null, 'This computer') : tr('pfx_sharing.this_pc', null, 'This PC'));
+        ctx.text(r.cVia.k, tr('pfx_sharing.via', null, 'Via'));
+        ctx.text(r.cDrive.k, tr('mount.drive', null, 'Drive'));
+        ctx.text(r.cVia.v, ble ? '—' : via === 'usb' ? 'USB' : via === 'wifi' ? tr('pfx_sharing.wireless', null, 'Wireless') : '—');
+        ctx.text(r.cDrive.v, letter || (d.mounted ? tr('pfx_sharing.mounted', null, 'Mounted') : '—'));
+        const where = letter ? (ctx.platform === 'win' ? tr('pfx_sharing.in_explorer_as', { letter }, 'In File Explorer as {letter}') : tr('pfx_sharing.in_manager_as', { letter }, 'In the file manager as {letter}')) : tr('pfx_sharing.in_your_manager', null, 'In your file manager');
+        ctx.text(r.cap, st === 'ble' ? tr('pfx_sharing.needs_wifi_bt_no_drive', null, 'Needs Wi-Fi · Bluetooth can’t carry a drive') : st === 'error' ? clip(d.message, 90)
+          : st === 'adb' ? tr('pfx_sharing.wd_off_on_phone', null, 'Wireless debugging is off on the phone')
+            : st === 'mounting' ? tr('mount.mounting', null, 'Mounting…') : st === 'unmounting' ? tr('pfx_sharing.unmounting', null, 'Unmounting…')
+              : st === 'mounted' ? (via === 'usb' ? tr('pfx_sharing.where_cable', { where }, '{where}, through the cable') : via === 'wifi' ? tr('pfx_sharing.where_wireless', { where }, '{where}, over wireless debugging') : where)
+                : ctx.platform === 'win' ? tr('pfx_sharing.ready_mount_this_pc', null, 'Ready · Mount puts it in This PC') : tr('pfx_sharing.ready_mount_manager', null, 'Ready · Mount puts it in the file manager'));
         if (st !== lastState) {
           if (st === 'mounted' && lastState !== 'unmounting') ctx.pop(r.bay, 'shr-lockin', 900);
           lastState = st;

@@ -4,6 +4,7 @@
 //   MeshIntro.art()                 -> an element: devices, each one linked to every other
 //   MeshIntro.confirm(onTurnOn)     -> the popup (styled as pairpop.js's .pair-pop); Turn on calls onTurnOn
 (function () {
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
   // Each device: [kind, x, y]. Lines join every pair, as the mesh does.
   const NODES = [['monitor', 110, 78], ['laptop', 320, 46], ['monitor', 530, 84], ['phone', 214, 196], ['laptop', 430, 200]];
 
@@ -28,7 +29,8 @@
     wrap.className = 'mesh-art';
     wrap.setAttribute('aria-hidden', 'true');
     wrap.innerHTML = `<svg viewBox="0 0 640 250" role="img">${lines.join('')}${dots.join('')}${NODES.map((n) => device(...n)).join('')}</svg>`
-      + '<p>Every device linked to every other: one clipboard and one set of notifications for all, and the mouse and keyboard across all of them.</p>';
+      + '<p></p>';
+    wrap.querySelector('p').textContent = tr('sh_mesh_intro.every_device_linked', null, 'Every device linked to every other: one clipboard and one set of notifications for all, and the mouse and keyboard across all of them.');
     return wrap;
   }
 
@@ -45,15 +47,15 @@
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-modal', 'true');
     const body = el('div', 'pop-body');
-    const title = el('strong', '', 'Turn on Multi-device?');
+    const title = el('strong', '', tr('sh_mesh_intro.turn_on_multi_device', null, 'Turn on Multi-device?'));
     body.append(
       title,
-      el('p', '', 'Mesh mode links three or more computers and phones at once: every device to every other.'),
-      el('p', '', 'If you connect only two devices, keep it off.'),
-      el('div', 'hint', 'DuoDesk restarts when you turn it on or off.'),
+      el('p', '', tr('sh_mesh_intro.mesh_links_three_more', null, 'Mesh mode links three or more computers and phones at once: every device to every other.')),
+      el('p', '', tr('sh_mesh_intro.only_two_keep_off', null, 'If you connect only two devices, keep it off.')),
+      el('div', 'hint', tr('multi.duodesk_restarts_when_you_turn', null, 'DuoDesk restarts when you turn it on or off.')),
     );
-    const cancel = el('button', 'btn', 'Cancel');
-    const ok = el('button', 'btn primary', 'Turn on');
+    const cancel = el('button', 'btn', tr('pair.cancel', null, 'Cancel'));
+    const ok = el('button', 'btn primary', tr('multi.turn_on', null, 'Turn on'));
     const actions = el('div', 'banner-actions');
     actions.append(cancel, ok);
     pop.append(body, actions);
