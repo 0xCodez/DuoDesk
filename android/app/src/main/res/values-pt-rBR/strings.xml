@@ -453,7 +453,7 @@
     <string name="gen_name">Nome</string>
     <string name="gen_language">Idioma</string>
     <string name="gen_language_auto">Automático</string>
-    <string name="gen_language_auto_hint">Segue o idioma do celular</string>
+    <string name="gen_language_auto_hint">Segue o idioma do telefone</string>
     <string name="gen_what_your_computers_call">Como seus computadores o chamam</string>
     <string name="gen_files_arriving_invites_from">Chegada de arquivos, convites de %1$s e o DuoDesk permanecendo conectado</string>
     <string name="gen_your_photos_and_videos">Suas fotos e vídeos em %1$s</string>
