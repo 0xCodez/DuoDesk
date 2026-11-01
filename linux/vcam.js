@@ -12,6 +12,8 @@
 const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const NAME = 'DuoDesk Camera';
 const LEGACY = 'TwinDesk Camera'; // its name before 2.5
@@ -80,10 +82,10 @@ const driver = {
   always: true,
 
   async check() {
-    if (!fs.existsSync(WRITER)) return { supported: false, message: 'Not in this build of DuoDesk' };
+    if (!fs.existsSync(WRITER)) return { supported: false, message: tr('lin_vcam.not_in_build', null, 'Not in this build of DuoDesk') };
     if (device()) return { supported: true, installed: true };
     // Only the old "TwinDesk Camera": installed again (renamed) once per start; until then it works as it is.
-    if (device(LEGACY)) return migrating ? { supported: true, installed: true, message: `Still named “${LEGACY}” here: it’s renamed at the next start` } : { supported: true, installed: false };
+    if (device(LEGACY)) return migrating ? { supported: true, installed: true, message: tr('lin_vcam.still_legacy_name', { legacy: LEGACY }, `Still named “${LEGACY}” here: it’s renamed at the next start`) } : { supported: true, installed: false };
     return { supported: true, installed: false };
   },
 
@@ -100,9 +102,9 @@ const driver = {
 
   async _install(legacy) {
     const r = await run('pkexec', ['sh', '-c', INSTALL, 'sh', legacy]);
-    if (!r.ok) throw new Error(r.code === 126 ? 'The password prompt was closed' : (r.err.split('\n').pop() || 'pkexec failed'));
+    if (!r.ok) throw new Error(r.code === 126 ? tr('lin_vcam.password_closed', null, 'The password prompt was closed') : (r.err.split('\n').pop() || 'pkexec failed'));
     for (let i = 0; i < 30 && !device(); i++) await new Promise((res) => setTimeout(res, 100));
-    if (!device()) throw new Error('v4l2loopback is loaded but has no “' + NAME + '” device');
+    if (!device()) throw new Error(tr('lin_vcam.no_device', { name: NAME }, 'v4l2loopback is loaded but has no “' + NAME + '” device'));
   },
 
   // Our device goes (under either name); the module only when it's ours alone.
@@ -113,7 +115,7 @@ rm -f /etc/modules-load.d/twindesk-vcam.conf /etc/modprobe.d/twindesk-vcam.conf
 if [ -n "${dev}" ] && command -v v4l2loopback-ctl >/dev/null 2>&1 && v4l2loopback-ctl delete ${dev} >/dev/null 2>&1; then :
 else modprobe -r v4l2loopback; fi
 `]);
-    if (!r.ok) throw new Error(r.code === 126 ? 'The password prompt was closed' : (r.err.split('\n').pop() || 'pkexec failed'));
+    if (!r.ok) throw new Error(r.code === 126 ? tr('lin_vcam.password_closed', null, 'The password prompt was closed') : (r.err.split('\n').pop() || 'pkexec failed'));
   },
 
   feed(onExit) {

@@ -7,6 +7,7 @@
 const WebSocket = require('ws');
 const P = require('../shared/protocol.js');
 const { PairLimit, versionMessage } = require('../shared/pairlimit.js');
+const { t: tr } = require('../shared/i18n.js');
 
 const T = P.T;
 // A host without `os` is an older Mac.
@@ -15,12 +16,13 @@ const HELLO_TIMEOUT_MS = P.TIMEOUT_MS; // no `welcome` this long after hello = r
 const RESUME_RETRY_MS = 5000; // a failed move to the network: try again after this
 const isBle = (a) => String(a || '').startsWith('ble:');
 
-const PAIR_ERRORS = {
-  [P.E.PAIR_REFUSED]: '{Name} refused pairing.',
-  [P.E.PAIR_TIMEOUT]: 'Pairing timed out.',
-  [P.E.BUSY]: '{Name} is already pairing with another device.',
-  [P.E.VERSION_MISMATCH]: '{Name} runs a different DuoDesk version. Update both apps.',
-};
+// Built when needed, so it follows the language chosen at run time.
+const pairError = (code) => ({
+  [P.E.PAIR_REFUSED]: () => tr('win_link.pair_refused', null, '{Name} refused pairing.'),
+  [P.E.PAIR_TIMEOUT]: () => tr('win_link.pair_timeout', null, 'Pairing timed out.'),
+  [P.E.BUSY]: () => tr('win_link.pair_busy', null, '{Name} is already pairing with another device.'),
+  [P.E.VERSION_MISMATCH]: () => tr('win_link.version_mismatch', null, '{Name} runs a different DuoDesk version. Update both apps.'),
+}[code] || (() => undefined))();
 
 class Link {
   // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null,
@@ -176,8 +178,8 @@ class Link {
     const viaBle = isBle(target.address) || (mode === 'session' && near && !this.resolveAddress(hostId));
     if (!viaBle) return this._open(target.address, target.port, 'ip');
     if (!near) {
-      this.lastError = '{Name} isn’t nearby';
-      return mode === 'pair' ? this._pairFailed('{Name} isn’t nearby any more.') : this._scheduleReconnect();
+      this.lastError = tr('win_link.not_nearby', null, '{Name} isn’t nearby');
+      return mode === 'pair' ? this._pairFailed(tr('win_link.not_nearby_any_more', null, '{Name} isn’t nearby any more.')) : this._scheduleReconnect();
     }
     this.ws = { readyState: WebSocket.CONNECTING, terminate: () => {}, close: () => {}, bufferedAmount: 0 }; // opening the pipe
     this.ble.open(hostId).then((port) => {
@@ -298,7 +300,7 @@ class Link {
     }
     if (!seenFp || seenFp !== this.pairing.fp) {
       this._closeSocket();
-      this._setStatus('identity_changed', 'This Mac looks different now. Forget it and pair again.');
+      this._setStatus('identity_changed', tr('overview.identity_changed', { kind: 'Mac' }, 'This {kind} looks different now. Forget it and pair again.'));
       return;
     }
     this._hello();
@@ -308,7 +310,7 @@ class Link {
     const p = this.pairing;
     this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.WIN, token: p.token, fx: 1, ...(this.takeover ? { takeover: true } : {}) });
     this.timers.hello = setTimeout(() => {
-      this.lastError = 'No welcome from {name}';
+      this.lastError = tr('win_link.no_welcome', null, 'No welcome from {name}');
       if (this.ws) this.ws.terminate();
     }, this.transport === 'ble' ? P.BLE_TIMEOUT_MS : HELLO_TIMEOUT_MS);
   }
@@ -325,7 +327,7 @@ class Link {
     switch (msg.t) {
       case T.PAIR_NONCE: return this._onNonce(msg);
       case T.PAIR_OK: return this._onPairOk(msg);
-      case T.PAIR_CANCEL: return this._pairFailed('Pairing was cancelled on {name}.');
+      case T.PAIR_CANCEL: return this._pairFailed(tr('win_link.pair_cancelled_on', null, 'Pairing was cancelled on {name}.'));
       case T.WELCOME: return this._onWelcome(msg);
       case T.ERROR: return this._onError(msg);
       case T.PING: return this.authed && ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: T.PONG, ts: msg.ts }));
@@ -347,7 +349,7 @@ class Link {
     const ps = this.pairState;
     if (this.mode !== 'pair' || !ps || !this.nw || this.nm) return;
     if (typeof msg.nonce !== 'string' || !/^[0-9a-f]{32,128}$/.test(msg.nonce) || msg.nonce.length % 2) {
-      return this._pairFailed('{Name} sent a bad pairing message.');
+      return this._pairFailed(tr('win_link.bad_pair_message', null, '{Name} sent a bad pairing message.'));
     }
     this.nm = msg.nonce;
     this._raw({ t: T.PAIR_REVEAL, nonce: this.nw });
@@ -360,7 +362,7 @@ class Link {
     const ps = this.pairState;
     if (this.mode !== 'pair' || !ps || ps.phase !== 'waiting') return;
     if (typeof msg.token !== 'string' || !msg.token || typeof msg.macId !== 'string') {
-      return this._pairFailed('{Name} sent a bad pairing message.');
+      return this._pairFailed(tr('win_link.bad_pair_message', null, '{Name} sent a bad pairing message.'));
     }
     this.pairing = {
       macId: msg.macId,
@@ -400,7 +402,7 @@ class Link {
         if (!ws || !ws.transport) continue;
         const rx = Math.max(ws.lastRx, (ws.transport === 'ble' && this.ble && this.ble.lastDown) || 0); // a big message's bytes count too
         if (now - rx > (ws.transport === 'ble' ? P.BLE_TIMEOUT_MS : P.TIMEOUT_MS)) {
-          if (ws === this.ws) this.lastError = '{Name} stopped answering';
+          if (ws === this.ws) this.lastError = tr('kvm.stopped_answering', null, '{Name} stopped answering');
           ws.terminate();
         } else if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ t: T.PING, ts: now }));
@@ -418,18 +420,18 @@ class Link {
     const code = msg.code;
     if (this.mode === 'pair') {
       const name = (this.pairState && this.pairState.macName) || '{Name}';
-      return this._pairFailed((code === P.E.VERSION_MISMATCH && versionMessage(msg, name)) || PAIR_ERRORS[code] || 'Pairing failed (' + code + ').');
+      return this._pairFailed((code === P.E.VERSION_MISMATCH && versionMessage(msg, name)) || pairError(code) || tr('win_link.pair_failed_code', { code }, 'Pairing failed (' + code + ').'));
     }
     if (code === P.E.BAD_TOKEN) {
       this.forget();
-      this._setStatus('not_paired', 'Your Mac forgot {me}. Pair again.');
+      this._setStatus('not_paired', tr('win_link.mac_forgot_me', null, 'Your Mac forgot {me}. Pair again.'));
       return;
     }
-    if (code === P.E.VERSION_MISMATCH) this.lastError = PAIR_ERRORS[code];
+    if (code === P.E.VERSION_MISMATCH) this.lastError = pairError(code);
     else if (code === P.E.REPLACED || code === P.E.RELEASED) {
-      this.stopped = { why: code, message: String(msg.message || (code === P.E.RELEASED ? '{Name} disconnected' : 'Another device took over')).slice(0, 120) };
-    } else if (code === P.E.BUSY) this.lastError = this.busyBy = String(msg.message || 'In use by another device').slice(0, 120);
-    else this.lastError = '{Name} closed the link (' + code + ')';
+      this.stopped = { why: code, message: String(msg.message || (code === P.E.RELEASED ? tr('kvm.partner_disconnected', null, '{Name} disconnected') : tr('win_link.took_over', null, 'Another device took over'))).slice(0, 120) };
+    } else if (code === P.E.BUSY) this.lastError = this.busyBy = String(msg.message || tr('win_link.in_use', null, 'In use by another device')).slice(0, 120);
+    else this.lastError = tr('win_link.closed_link', { code }, '{Name} closed the link (' + code + ')');
     // The Mac closes the socket after an error; _onClose reconnects.
   }
 
@@ -460,8 +462,9 @@ class Link {
       if (ps && ps.phase !== 'failed') {
         const nobody = /^(ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/.test(this.lastError);
         this._pairFailed(ps.phase === 'connecting'
-          ? (nobody ? 'No DuoDesk at ' + ps.address + '.' : 'Could not connect to ' + ps.address + (this.lastError ? ' (' + this.lastError + ')' : '') + '.')
-          : 'The connection to {name} closed.');
+          ? (nobody ? tr('win_link.no_duodesk_at', { address: ps.address }, 'No DuoDesk at ' + ps.address + '.')
+            : this.lastError ? tr('win_link.could_not_connect_why', { address: ps.address, why: this.lastError }, 'Could not connect to ' + ps.address + ' (' + this.lastError + ').') : tr('win_link.could_not_connect', { address: ps.address }, 'Could not connect to ' + ps.address + '.'))
+          : tr('win_link.connection_closed', null, 'The connection to {name} closed.'));
       }
       return;
     }

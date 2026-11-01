@@ -15,6 +15,8 @@ const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { Session, ACTION, TYPE } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const NOTIFIED_MS = 60000; // how long a clicked notification waits for the unlock and wireless debugging
@@ -57,7 +59,7 @@ class PhoneViews extends EventEmitter {
     ipcMain.on('phoneview:drop', (e, paths) => {
       if (!Array.isArray(paths) || !paths.length || !this.server.current) return;
       const b = this.fileSend.sendBatch(paths.filter((p) => typeof p === 'string' && path.isAbsolute(p)).slice(0, 1000), 'send');
-      if (b) this.bridge.emit('popup', 'away', `Sending ${b.name} to ${this.server.current.name}`);
+      if (b) this.bridge.emit('popup', 'away', tr('files.sending_to', { name: b.name, the: this.server.current.name }, `Sending ${b.name} to ${this.server.current.name}`));
     });
   }
 
@@ -65,7 +67,7 @@ class PhoneViews extends EventEmitter {
   sound(on) {
     const open = [...this.views.values()].find((v) => v.kind === 'sound');
     if (on && !open && this.bridge.serial) {
-      this._open({ kind: 'sound', title: 'Phone sound', width: 200, height: 100, hidden: true, opts: { video: false, audio: true, control: false, audioSource: 'output' } });
+      this._open({ kind: 'sound', title: tr('phone.phone_sound', null, 'Phone sound'), width: 200, height: 100, hidden: true, opts: { video: false, audio: true, control: false, audioSource: 'output' } });
     } else if (!on && open) this.close(open.id);
   }
 
@@ -73,7 +75,7 @@ class PhoneViews extends EventEmitter {
   // hidden window with no adb session, fed what comes through the session.
   netSound(on) {
     const open = [...this.views.values()].find((v) => v.kind === 'netsound');
-    if (on && !open) this._open({ kind: 'netsound', title: 'Phone sound', width: 200, height: 100, hidden: true });
+    if (on && !open) this._open({ kind: 'netsound', title: tr('phone.phone_sound', null, 'Phone sound'), width: 200, height: 100, hidden: true });
     else if (!on && open) this.close(open.id);
   }
 
@@ -204,8 +206,9 @@ class PhoneViews extends EventEmitter {
     if (!n) return;
     n.answered = true;
     if (!m.unlocked) {
-      const phone = (this.server.current && this.server.current.name) || 'the phone';
-      return void (m.waiting && this.bridge.emit('popup', 'away', `Unlock ${phone} to open ${n.name || 'the app'}`));
+      const phone = (this.server.current && this.server.current.name) || tr('lin_phoneview.the_phone', null, 'the phone');
+      const what = n.name || tr('apps.the_app', null, 'the app');
+      return void (m.waiting && this.bridge.emit('popup', 'away', tr('lin_phoneview.unlock_to_open', { phone, app: what }, `Unlock ${phone} to open ${what}`)));
     }
     n.unlocked = true;
     this._openNotified();
@@ -241,7 +244,7 @@ class PhoneViews extends EventEmitter {
     if (!this.bridge.serial && kind !== 'netsound') {
       // Wireless debugging not up yet (just on Wi-Fi after Bluetooth): main.js opens it once it is.
       if (this.onNoAdb && this.onNoAdb({ kind, app, title, width, height, opts, hidden })) return;
-      return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
+      return this.bridge.emit('popup', 'home', tr('lin_phoneview.setup_adb_first', null, 'Set up wireless debugging on the Phone page first'));
     }
     const id = nextId++;
     const win = new BrowserWindow({

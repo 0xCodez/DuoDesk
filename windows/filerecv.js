@@ -10,6 +10,7 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { t: tr } = require('../shared/i18n.js');
 const P = require('../shared/protocol.js');
 const { receivedDir } = require('../shared/received.js');
 
@@ -117,7 +118,7 @@ class FileRecv {
     this.files.delete(f.id);
     try { if (!ok) fs.unlinkSync(f.tmp); } catch (_) { /* gone */ }
     this.link.send(ok ? { t: T.FILE_DONE, id: f.id, ok: true, path: pathOrError } : { t: T.FILE_DONE, id: f.id, ok: false, error: pathOrError });
-    this.last = { name: f.name, ok, text: ok ? 'Saved to ' + path.dirname(pathOrError) : pathOrError, at: Date.now() };
+    this.last = { name: f.name, ok, text: ok ? tr('win_filerecv.saved_to', { dir: path.dirname(pathOrError) }, 'Saved to ' + path.dirname(pathOrError)) : pathOrError, at: Date.now() };
     if (!this.files.size) this.target = null;
     this.onChange();
   }
@@ -216,7 +217,7 @@ class FileRecv {
     this.batches.delete(batch);
     this.link.send({ t: T.FILES_DONE, batch, ok: b.ok === b.count, where: b.dir, files: b.ok });
     const name = b.placed.length === 1 ? path.basename(b.placed[0]) : b.placed.length + ' items';
-    this.last = { name, ok: b.ok > 0, text: b.ok === b.count ? 'Saved to ' + b.dir : (b.count - b.ok) + ' of ' + b.count + ' failed', at: Date.now() };
+    this.last = { name, ok: b.ok > 0, text: b.ok === b.count ? tr('win_filerecv.saved_to', { dir: b.dir }, 'Saved to ' + b.dir) : tr('win_filerecv.n_of_count_failed', { failed: b.count - b.ok, count: b.count }, (b.count - b.ok) + ' of ' + b.count + ' failed'), at: Date.now() };
     if (b.ok && !b.app) {
       if (b.kind === 'paste') this.helper.request('selectItems', { dir: b.dir, names: b.placed.map((p) => path.basename(p)) }).catch(() => {});
       else spawn('explorer.exe', ['/select,', b.placed[0]], { detached: true, stdio: 'ignore' }).unref();

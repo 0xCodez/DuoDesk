@@ -7,6 +7,8 @@
 const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const WRITER = path.join(__dirname, '..', 'linux-helper', 'bin', 'twindesk-pad');
 const DEV = '/dev/uinput';
@@ -29,7 +31,7 @@ const driver = {
   name: 'DuoDesk Gamepad',
 
   async check() {
-    if (!fs.existsSync(WRITER)) return { supported: false, message: 'Not in this build of DuoDesk' };
+    if (!fs.existsSync(WRITER)) return { supported: false, message: tr('lin_gamepad.not_in_build', null, 'Not in this build of DuoDesk') };
     return { supported: true, installed: writable() };
   },
 
@@ -37,9 +39,9 @@ const driver = {
     const r = await new Promise((resolve) => {
       execFile('pkexec', ['sh', '-c', INSTALL], { timeout: 120000 }, (err, _out, stderr) => resolve({ err, stderr: String(stderr || '').trim() }));
     });
-    if (r.err) throw new Error(r.err.code === 126 ? 'The password prompt was closed' : (r.stderr.split('\n').pop() || 'pkexec failed'));
+    if (r.err) throw new Error(r.err.code === 126 ? tr('lin_gamepad.password_closed', null, 'The password prompt was closed') : (r.stderr.split('\n').pop() || 'pkexec failed'));
     for (let i = 0; i < 30 && !writable(); i++) await new Promise((res) => setTimeout(res, 100));
-    if (!writable()) throw new Error('/dev/uinput is there but not this user’s yet: log out and in again');
+    if (!writable()) throw new Error(tr('lin_gamepad.uinput_not_yours', null, '/dev/uinput is there but not this user’s yet: log out and in again'));
   },
 
   feed(onExit) {

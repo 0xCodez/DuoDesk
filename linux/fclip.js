@@ -15,6 +15,8 @@
 const { app, clipboard } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 const fm = require('./fm');
 const pastefiles = require('../shared/pastefiles.js');
@@ -44,7 +46,7 @@ class FileClip {
       if (this.incoming && this.incoming.id === m.id) this.incoming = null;
       if (this.pasting && this.pasting.id === m.id) {
         this.pasting = null;
-        this.popup('home', 'Those files aren’t there any more');
+        this.popup('home', tr('fclip.files_not_there_anymore', null, 'Those files aren’t there any more'));
       }
       this.onChange();
     });
@@ -91,7 +93,7 @@ class FileClip {
     if (p && p.into && b.files && b.placed && b.placed.length) {
       pastefiles.pasteInto(this.helper, b.placed)
         .then(() => this.popup('home', done))
-        .catch(() => this.popup('home', done + ': they’re on the clipboard, paste them with Ctrl+V'));
+        .catch(() => this.popup('home', tr('fclip.paste_with_shortcut', { done, shortcut: 'Ctrl+V' }, done + ': they’re on the clipboard, paste them with Ctrl+V')));
     } else {
       this.popup('home', done);
     }
@@ -160,7 +162,7 @@ class FileClip {
 
   async copy() {
     if (this.busy) return;
-    if (!this.connected) return this.popup('home', 'Not connected');
+    if (!this.connected) return this.popup('home', tr('main.not_connected', null, 'Not connected'));
     this.busy = true;
     let paths = [];
     try {
@@ -168,22 +170,25 @@ class FileClip {
     } finally {
       this.busy = false;
     }
-    if (!paths.length) return this.popup('home', 'Select files in the file manager first');
+    if (!paths.length) return this.popup('home', tr('fclip.select_files_file_manager', null, 'Select files in the file manager first'));
     const plan = this.fileDrop.plan(paths);
-    if (!plan || !plan.jobs.length) return this.popup('home', 'Nothing to copy there');
+    if (!plan || !plan.jobs.length) return this.popup('home', tr('fclip.nothing_to_copy_there', null, 'Nothing to copy there'));
     if (this.offer) this.link.send({ t: T.FCLIP_GONE, id: this.offer.id }); // newest copy wins
     const files = plan.jobs.length;
     this.offer = { id: crypto.randomUUID(), paths, items: plan.items, files, bytes: plan.bytes };
     // list/dirs: every file and folder, so a PC can paste it with Windows' own copy.
     this.link.send({ t: T.FCLIP_OFFER, id: this.offer.id, items: plan.items, files, bytes: plan.bytes, list: plan.list, dirs: plan.dirs });
-    this.popup('away', 'Copied ' + (plan.items.length === 1 ? plan.items[0].name : plural(plan.items.length, 'item')) + ' for ' + this.peerName());
+    const copiedMsg = plan.items.length === 1
+      ? tr('fclip.copied_items_for_peer_one', { name: plan.items[0].name, peer: this.peerName() }, 'Copied ' + plan.items[0].name + ' for ' + this.peerName())
+      : tr('fclip.copied_items_for_peer_other', { count: plan.items.length, peer: this.peerName() }, 'Copied ' + plural(plan.items.length, 'item') + ' for ' + this.peerName());
+    this.popup('away', copiedMsg);
     this.onChange();
   }
 
   async paste() {
     const inc = this.incoming;
-    if (!this.connected) return this.popup('home', 'Not connected');
-    if (!inc) return this.popup('home', 'Nothing copied on ' + this.peerName());
+    if (!this.connected) return this.popup('home', tr('main.not_connected', null, 'Not connected'));
+    if (!inc) return this.popup('home', tr('fclip.nothing_copied_on_peer', { peer: this.peerName() }, 'Nothing copied on ' + this.peerName()));
     if (this.pasting) return;
     this.pasting = { id: inc.id, files: inc.files };
     const win = await fm.front(this.helper);
@@ -193,7 +198,10 @@ class FileClip {
     if (into) this.pasting.into = { app: win.app };
     this.fileRecv.expectBatch(inc.id, front || into || receivedDir(this.settings, app.getPath('downloads')), inc.bytes, !front && !into);
     this.link.send({ t: T.FCLIP_PASTE, id: inc.id });
-    this.popup('driven', 'Pasting ' + plural(inc.files, 'file') + '…');
+    const pastingMsg = inc.files === 1
+      ? tr('fclip.pasting_files_one', null, 'Pasting 1 file…')
+      : tr('fclip.pasting_files_other', { count: inc.files }, 'Pasting ' + inc.files + ' files…');
+    this.popup('driven', pastingMsg);
     this.onChange();
   }
 

@@ -25,6 +25,8 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const WAYLAND = process.env.XDG_SESSION_TYPE === 'wayland';
 
@@ -379,7 +381,7 @@ function nvPorts() {
 }
 
 const spareOf = (outs) => outs.filter((o) => !o.connected && o.crtcs > 0 && hasConnector(o));
-const SWITCHED_OFF = 'something on this computer switched it off again (in a virtual machine, its guest tools do that)';
+const switchedOff = () => tr('lin_vdd.switched_off_again', null, 'something on this computer switched it off again (in a virtual machine, its guest tools do that)');
 const modeName = (w, h) => 'DuoDesk_' + cvtRB(w, h).width + 'x' + h;
 
 class Vdd {
@@ -413,7 +415,7 @@ class Vdd {
       if (WAYLAND) {
         const r = JSON.parse(await run('python3', ['-c', CHECK]));
         this._set({ checked: true, kind: 'mutter', hint: '', installed: !!(r.mutter && r.pipewiresrc),
-          message: !r.mutter ? 'Extend on Wayland needs GNOME (its virtual monitors)' : !r.pipewiresrc ? 'Extend needs GStreamer’s PipeWire plugin (gstreamer1.0-pipewire)' : '' });
+          message: !r.mutter ? tr('lin_vdd.mutter_needs_gnome', null, 'Extend on Wayland needs GNOME (its virtual monitors)') : !r.pipewiresrc ? tr('lin_vdd.needs_pipewire_plugin', null, 'Extend needs GStreamer’s PipeWire plugin (gstreamer1.0-pipewire)') : '' });
       } else {
         this.gnome = await run('python3', ['-c', CHECK]).then((t) => JSON.parse(t).displayconfig === true).catch(() => false);
         if (!this.state.on) await this._xLeftover();
@@ -425,11 +427,11 @@ class Vdd {
         const { app } = require('electron');
         this._set({ checked: true, kind: 'xrandr', hint: '', installed: spare && ready, setup: spare && !ready,
           removable: ready && !(app.isPackaged && !process.env.APPIMAGE), // the .deb's own files stay
-          message: spare ? '' : NVIDIA() ? 'NVIDIA’s driver doesn’t let DuoDesk add a monitor on X11. Extend works on GNOME with Wayland, or with the open-source driver'
-            : 'Your graphics driver has no spare output for a virtual monitor' });
+          message: spare ? '' : NVIDIA() ? tr('lin_vdd.nvidia_no_x11_monitor', null, 'NVIDIA’s driver doesn’t let DuoDesk add a monitor on X11. Extend works on GNOME with Wayland, or with the open-source driver')
+            : tr('lin_vdd.no_spare_output', null, 'Your graphics driver has no spare output for a virtual monitor') });
       }
     } catch (e) {
-      this._set({ checked: true, installed: false, message: WAYLAND ? 'Extend needs Python 3 with GObject (python3-gi)' : 'Couldn’t check the monitors: ' + e.message });
+      this._set({ checked: true, installed: false, message: WAYLAND ? tr('lin_vdd.needs_python_gi', null, 'Extend needs Python 3 with GObject (python3-gi)') : tr('lin_vdd.couldnt_check_monitors', { error: e.message }, 'Couldn’t check the monitors: ' + e.message) });
     }
   }
 
@@ -445,10 +447,10 @@ class Vdd {
     try {
       const { dialog } = require('electron');
       const r = await dialog.showMessageBox({
-        type: 'question', title: 'DuoDesk', buttons: ['Switch it off', 'Leave it on'], defaultId: 0, cancelId: 1,
-        message: 'Switch off DuoDesk’s extra screen?',
-        detail: 'DuoDesk’s extra screen for Extend is on (' + names.join(', ') + '), so windows can end up on a screen nobody sees until Extend is on. '
-          + 'Switching it off makes your monitors go black for a moment.',
+        type: 'question', title: 'DuoDesk', buttons: [tr('lin_vdd.switch_it_off', null, 'Switch it off'), tr('lin_vdd.leave_it_on', null, 'Leave it on')], defaultId: 0, cancelId: 1,
+        message: tr('lin_vdd.switch_off_title', null, 'Switch off DuoDesk’s extra screen?'),
+        detail: tr('lin_vdd.switch_off_detail', { names: names.join(', ') }, 'DuoDesk’s extra screen for Extend is on (' + names.join(', ') + '), so windows can end up on a screen nobody sees until Extend is on. '
+          + 'Switching it off makes your monitors go black for a moment.'),
       });
       if (r.response !== 0) { for (const n of names) this.declined.add(n); return; }
       for (const n of names) if (!(this.state.on && n === this.output)) await run('xrandr', ['--output', n, '--off']).catch(() => {});
@@ -475,11 +477,11 @@ class Vdd {
     const ports = conf || ours ? null : nvPorts();
     this._set({
       checked: true, kind: 'nvidia', installed: !!ours, setup: !conf && !ours && !!(ports && ports.pick), removable: conf,
-      hint: ours ? (conf ? 'Installed. Adds the extra screen for Extend.' : 'Removed. Log out and back in to finish.')
-        : conf ? 'Log out and back in once to finish installing.'
-          : 'NVIDIA’s driver needs the extra screen in its settings. Install asks for your password once, then log out and back in. If you later plug a monitor into another port, install again.',
-      message: ours ? (conf ? '' : 'Removed: log out and back in to finish') : conf ? 'Log out and back in once to finish adding the extra screen for Extend'
-        : ports && ports.pick ? '' : 'NVIDIA’s driver doesn’t let DuoDesk add a monitor on X11, and this card has no free DisplayPort port for one',
+      hint: ours ? (conf ? tr('share.installed_adds_the_extra_screen', null, 'Installed. Adds the extra screen for Extend.') : tr('lin_vdd.nv_removed_logout', null, 'Removed. Log out and back in to finish.'))
+        : conf ? tr('lin_vdd.nv_logout_installing', null, 'Log out and back in once to finish installing.')
+          : tr('lin_vdd.nv_needs_settings', null, 'NVIDIA’s driver needs the extra screen in its settings. Install asks for your password once, then log out and back in. If you later plug a monitor into another port, install again.'),
+      message: ours ? (conf ? '' : tr('lin_vdd.nv_removed_msg', null, 'Removed: log out and back in to finish')) : conf ? tr('lin_vdd.nv_logout_adding', null, 'Log out and back in once to finish adding the extra screen for Extend')
+        : ports && ports.pick ? '' : tr('lin_vdd.nv_no_port', null, 'NVIDIA’s driver doesn’t let DuoDesk add a monitor on X11, and this card has no free DisplayPort port for one'),
     });
   }
 
@@ -487,16 +489,16 @@ class Vdd {
   async _nvOn() {
     const outs = await outputs();
     const ours = nvOurs(outs);
-    if (!ours) throw new Error('log out and back in once to finish installing');
+    if (!ours) throw new Error(tr('lin_vdd.logout_to_finish', null, 'log out and back in once to finish installing'));
     const [w, h] = this.size;
     const want = w / h;
     const pick = ours.modes.slice().sort((a, b) => Math.abs(a[0] / a[1] - want) - Math.abs(b[0] / b[1] - want) || Math.abs(a[0] - w) - Math.abs(b[0] - w))[0];
-    if (!pick) throw new Error('the extra screen has no sizes');
+    if (!pick) throw new Error(tr('lin_vdd.no_sizes', null, 'the extra screen has no sizes'));
     this.output = ours.name;
     const main = outs.find((o) => o.primary && o.active && o.name !== ours.name) || outs.filter((o) => o.active && o.name !== ours.name).sort((a, b) => b.x + b.width - (a.x + a.width))[0];
     await run('xrandr', ['--output', ours.name, '--mode', pick[0] + 'x' + pick[1], ...(main ? ['--right-of', main.name] : [])]);
     const mon = await waitFor(() => this.find(), 5000);
-    if (!mon) throw new Error('the desktop didn’t switch it on');
+    if (!mon) throw new Error(tr('lin_vdd.desktop_didnt_switch_it_on', null, 'the desktop didn’t switch it on'));
     return mon;
   }
 
@@ -526,7 +528,7 @@ class Vdd {
       return true;
     } catch (e) {
       this.mon = null;
-      this._set({ on: false, message: (on ? 'Couldn’t add the virtual monitor: ' : 'Couldn’t remove the virtual monitor: ') + e.message });
+      this._set({ on: false, message: on ? tr('lin_vdd.couldnt_add', { error: e.message }, 'Couldn’t add the virtual monitor: ' + e.message) : tr('lin_vdd.couldnt_remove', { error: e.message }, 'Couldn’t remove the virtual monitor: ' + e.message) });
       return false;
     }
   }
@@ -539,7 +541,7 @@ class Vdd {
       this.proc = p;
       let buf = '';
       let settled = false;
-      const timer = setTimeout(() => done(new Error('it took too long')), 20000);
+      const timer = setTimeout(() => done(new Error(tr('lin_vdd.too_long', null, 'it took too long'))), 20000);
       const done = (err, mon) => {
         if (settled) return;
         settled = true;
@@ -568,8 +570,8 @@ class Vdd {
       p.on('exit', () => {
         if (this.proc !== p) return;
         this.proc = null;
-        done(new Error('the virtual monitor stopped'));
-        if (this.state.on) { this.mon = null; this._set({ on: false, message: 'The virtual monitor went away' }); }
+        done(new Error(tr('lin_vdd.monitor_stopped', null, 'the virtual monitor stopped')));
+        if (this.state.on) { this.mon = null; this._set({ on: false, message: tr('lin_vdd.monitor_went_away', null, 'The virtual monitor went away') }); }
       });
     });
   }
@@ -584,7 +586,7 @@ class Vdd {
   async _xOn() {
     const spare = spareOf(await outputs());
     const out = spare.find((o) => o.name === this.output) || spare[0];
-    if (!out) throw new Error('no spare output');
+    if (!out) throw new Error(tr('lin_vdd.no_spare_output_short', null, 'no spare output'));
     this.output = out.name;
     const [w, h] = this.size;
     this.mode = await this._xAddMode(w, h); // before it comes on: Mutter reads its modes then
@@ -593,14 +595,14 @@ class Vdd {
       this.connector = connectorName(out); // forced: given back by _xOff, or after a crash (_xLeftover)
       this._mark();
       // `xrandr --verbose` also makes the X server look at the outputs again (and tell Mutter).
-      if (!(await waitFor(async () => (await outputs()).some((o) => o.name === this.output && o.connected), 5000))) throw new Error(this.output + ' didn’t come on');
+      if (!(await waitFor(async () => (await outputs()).some((o) => o.name === this.output && o.connected), 5000))) throw new Error(tr('lin_vdd.didnt_come_on', { output: this.output }, this.output + ' didn’t come on'));
       await this._xPlace(w, h);
-      if (!(await waitFor(() => this.find(), 5000))) throw new Error('the desktop didn’t switch ' + this.output + ' on');
+      if (!(await waitFor(() => this.find(), 5000))) throw new Error(tr('lin_vdd.desktop_didnt_switch_on', { output: this.output }, 'the desktop didn’t switch ' + this.output + ' on'));
       // Something else may switch it straight back off: a virtual machine's guest tools keep its
       // screens as the host shows them (Parallels Tools does, within a second).
       await new Promise((r) => setTimeout(r, 1500));
       const mon = await this.find();
-      if (!mon) throw new Error(SWITCHED_OFF);
+      if (!mon) throw new Error(switchedOff());
       return mon;
     } catch (e) {
       await this._xOff().catch(() => {});
@@ -658,7 +660,7 @@ class Vdd {
     try {
       await run('pkexec', [HELPER, state, connector], 60000);
     } catch (e) {
-      throw new Error(e.code === 126 ? 'the password prompt was closed' : e.code === 127 ? 'not allowed to switch the output' : e.message);
+      throw new Error(e.code === 126 ? tr('lin_vdd.password_closed', null, 'the password prompt was closed') : e.code === 127 ? tr('lin_vdd.not_allowed', null, 'not allowed to switch the output') : e.message);
     }
   }
 
@@ -666,7 +668,7 @@ class Vdd {
   async _layout(w, h) {
     const out = await run('python3', ['-c', LAYOUT, this.output, String(w), String(h)], 20000);
     const r = JSON.parse(out.trim().split('\n').pop() || '{}');
-    if (!r.ok) throw new Error(r.error || 'the desktop didn’t answer');
+    if (!r.ok) throw new Error(r.error || tr('lin_vdd.desktop_no_answer', null, 'the desktop didn’t answer'));
   }
 
   // X11: HELPER and its polkit action, once (pkexec asks for the password). NVIDIA: its
@@ -678,7 +680,7 @@ class Vdd {
     try {
       if (this.state.kind === 'nvidia') {
         const ports = nvPorts();
-        if (!ports.pick) throw new Error('no free DisplayPort port');
+        if (!ports.pick) throw new Error(tr('lin_vdd.no_free_dp', null, 'no free DisplayPort port'));
         const conf = `# DuoDesk: an extra screen for Extend on NVIDIA's driver (Share screen › Extend; Remove takes it away).
 # ConnectedMonitor replaces the driver's detection: the ports in use when it was installed, and ours.
 Section "OutputClass"
@@ -693,7 +695,7 @@ EndSection
         await run('pkexec', ['sh', '-c', [`mkdir -p ${path.dirname(HELPER)}`, put(HELPER, HELPER_SH, 755), put(POLICY, POLICY_XML, 644)].join(' && ')], 120000);
       }
     } catch (e) {
-      this.state.message = e.code === 126 ? 'The password prompt was closed' : 'Installing the virtual display helper failed: ' + e.message;
+      this.state.message = e.code === 126 ? tr('lin_vdd.password_closed_cap', null, 'The password prompt was closed') : tr('lin_vdd.install_failed', { error: e.message }, 'Installing the virtual display helper failed: ' + e.message);
     } finally {
       this.state.busy = '';
       await this.check();
@@ -707,7 +709,7 @@ EndSection
       if (this.state.on) await this.setOn(false);
       await run('pkexec', ['rm', '-f', ...(this.state.kind === 'nvidia' ? [NV_CONF, NV_EDID] : [HELPER, POLICY])], 120000);
     } catch (e) {
-      this.state.message = e.code === 126 ? 'The password prompt was closed' : 'Removing the virtual display helper failed: ' + e.message;
+      this.state.message = e.code === 126 ? tr('lin_vdd.password_closed_cap', null, 'The password prompt was closed') : tr('lin_vdd.remove_failed', { error: e.message }, 'Removing the virtual display helper failed: ' + e.message);
     } finally {
       this.state.busy = '';
       await this.check();
@@ -720,7 +722,7 @@ EndSection
     if (!this.output) return (this.mon = null);
     const o = (await outputs()).find((x) => x.name === this.output && x.active);
     this.mon = o ? { name: o.name, x: o.x, y: o.y, width: o.width, height: o.height } : null;
-    if (!o && this.state.on && !this.state.message) this._set({ message: 'Something on this computer switched the extra screen off (in a virtual machine, its guest tools do that)' });
+    if (!o && this.state.on && !this.state.message) this._set({ message: tr('lin_vdd.switched_off_msg', null, 'Something on this computer switched the extra screen off (in a virtual machine, its guest tools do that)') });
     return this.mon;
   }
 
@@ -737,7 +739,7 @@ EndSection
           await run('xrandr', ['--rmmode', old]).catch(() => {});
         }
       } catch (e) {
-        this._set({ message: 'Couldn’t resize the virtual monitor: ' + e.message });
+        this._set({ message: tr('lin_vdd.couldnt_resize', { error: e.message }, 'Couldn’t resize the virtual monitor: ' + e.message) });
       }
       await waitFor(() => this.find(), 3000);
     }

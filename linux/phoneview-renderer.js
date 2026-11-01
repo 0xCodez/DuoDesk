@@ -9,6 +9,7 @@
 
 (() => {
   const api = window.phoneview;
+  const tr = (k, p, d) => (window.DuoDeskI18n ? window.DuoDeskI18n.t(k, p, d) : (d || k));
   const q = new URLSearchParams(location.search);
   const kind = q.get('kind') || 'screen';
   // A camera's window opens hidden: its picture goes to the Camera tab, and to the virtual camera
@@ -16,7 +17,7 @@
   const vcam = kind === 'camera' && window.CamOut ? window.CamOut() : null;
   let turn = 0;
   document.body.classList.add(kind);
-  document.getElementById('title').textContent = q.get('title') || 'Phone';
+  document.getElementById('title').textContent = q.get('title') || tr('phoneview.title', null, 'Phone');
   const canvas = document.getElementById('screen');
   const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
   const status = document.getElementById('status');
@@ -110,12 +111,12 @@
       const el = document.getElementById('via');
       el.textContent = s.via === 'usb' ? 'USB' : 'Wi-Fi';
       el.className = s.via;
-      el.title = s.via === 'usb' ? 'Through the USB cable' : 'Through wireless debugging';
+      el.title = s.via === 'usb' ? tr('phoneview.via_usb', null, 'Through the USB cable') : tr('phoneview.via_wireless', null, 'Through wireless debugging');
       el.hidden = false;
     }
     if (s.error) setStatus(s.error);
-    else if (s.closed) setStatus(`The phone stopped sharing (${s.closed}).`);
-    else if (s.ready && !size) setStatus('Waiting for the picture…');
+    else if (s.closed) setStatus(tr('phoneview.stopped_sharing', { reason: s.closed }, 'The phone stopped sharing (' + s.closed + ').'));
+    else if (s.ready && !size) setStatus(tr('phoneview.waiting_for_picture', null, 'Waiting for the picture…'));
   });
 
   // An app's virtual display has at least 2 pixels per point, like the Mac's: at 100% scaling a

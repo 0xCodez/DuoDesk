@@ -10,6 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const { script, scriptElevated } = require('./ps');
 const Helper = require('./helper');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 // Pinned release, driver package only: the "x86" one is x64 despite its name (see the project's
 // silent-install.ps1). Windows on ARM needs the ARM64 one (same files and settings layout).
@@ -48,7 +50,7 @@ class Vdd {
       this._set({ checked: true, installed: !!(r.device && r.tasks), on: r.status === 'OK' });
       if (this.state.installed && this.state.on && !this.wanted) await this.setOn(false);
     } catch (e) {
-      this._set({ checked: true, message: 'Couldn’t check the display driver: ' + e.message });
+      this._set({ checked: true, message: tr('vdd.check_failed', { error: e.message }, 'Couldn’t check the display driver: ' + e.message) });
     }
   }
 
@@ -63,18 +65,18 @@ class Vdd {
       // ask WMI: Win32_Processor.Architecture 12 = ARM64.
       let sid;
       [sid, cpu] = (await script('vdd-whoami')).trim().split(/\s+/);
-      if (!/^S-1-[\d-]+$/.test(sid)) throw new Error('couldn’t read this account’s id');
+      if (!/^S-1-[\d-]+$/.test(sid)) throw new Error(tr('win_vdd.cant_read_account', null, 'couldn’t read this account’s id'));
       const driver = DRIVERS[cpu === '12' ? 'arm64' : 'x64'];
       await scriptElevated('vdd-install', { Helper: Helper.EXE, UserSid: sid, Log: log, Url: driver.url, Sha256: driver.sha256 }, 300000);
-      const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: the setup didn’t finish';
+      const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: ' + tr('win_vcam.setup_unfinished', null, 'the setup didn’t finish');
       if (r !== 'ok') throw new Error(r.replace(/^error: /, ''));
       this.state.message = '';
     } catch (e) {
-      if (/cancel/i.test(e.message)) this.state.message = 'The administrator prompt was declined';
+      if (/cancel/i.test(e.message)) this.state.message = tr('vdd.admin_declined', null, 'The administrator prompt was declined');
       // Windows on ARM takes only Microsoft-signed drivers; the ARM64 build is signed by SignPath
       // only (VirtualDrivers/Virtual-Display-Driver#465). Install works again once a signed one is pinned.
-      else if (cpu === '12' && /800B0109/.test(e.message)) this.state.message = 'Extend isn’t available on Windows on ARM yet: Windows there accepts only Microsoft-signed display drivers, and the virtual display driver’s ARM64 build isn’t one (Virtual-Display-Driver#465)';
-      else this.state.message = 'Installing the display driver failed: ' + e.message;
+      else if (cpu === '12' && /800B0109/.test(e.message)) this.state.message = tr('vdd.arm_unsupported', null, 'Extend isn’t available on Windows on ARM yet: Windows there accepts only Microsoft-signed display drivers, and the virtual display driver’s ARM64 build isn’t one (Virtual-Display-Driver#465)');
+      else this.state.message = tr('vdd.install_failed', { error: e.message }, 'Installing the display driver failed: ' + e.message);
     } finally {
       try { fs.unlinkSync(log); } catch (_) { /* none */ }
       this.state.busy = '';
@@ -89,10 +91,10 @@ class Vdd {
     try {
       if (this.state.on) await this.setOn(false);
       await scriptElevated('vdd-remove', { Log: log }, 120000);
-      const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: it didn’t finish';
+      const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: ' + tr('win_vdd.didnt_finish', null, 'it didn’t finish');
       if (r !== 'ok') throw new Error(r.replace(/^error: /, ''));
     } catch (e) {
-      this.state.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined' : 'Removing the display driver failed: ' + e.message;
+      this.state.message = /cancel/i.test(e.message) ? tr('vdd.admin_declined', null, 'The administrator prompt was declined') : tr('win_vdd.remove_failed', { error: e.message }, 'Removing the display driver failed: ' + e.message);
     } finally {
       try { fs.unlinkSync(log); } catch (_) { /* none */ }
       this.state.busy = '';
@@ -107,7 +109,7 @@ class Vdd {
     if (!this.state.installed) return false;
     await new Promise((resolve) => execFile(SCHTASKS, ['/run', '/tn', on ? '\\MacShare\\Extend on' : '\\MacShare\\Extend off'],
       { windowsHide: true, timeout: 15000 }, (err) => {
-        if (err) this.state.message = 'Couldn’t switch the virtual monitor: ' + String(err.message).split('\n')[0];
+        if (err) this.state.message = tr('vdd.switch_failed', { error: String(err.message).split('\n')[0] }, 'Couldn’t switch the virtual monitor: ' + String(err.message).split('\n')[0]);
         resolve();
       }));
     const until = Date.now() + 20000;
@@ -121,7 +123,7 @@ class Vdd {
       // remembers that per set of monitors). The helper extends only then.
       if (on) await this.helper.request('displayExtend', { monitor: MONITOR_ID }).catch(() => {});
       if (Date.now() > until) {
-        this._set({ message: on ? 'The virtual monitor didn’t appear' : 'The virtual monitor didn’t go away' });
+        this._set({ message: on ? tr('win_vdd.didnt_appear', null, 'The virtual monitor didn’t appear') : tr('win_vdd.didnt_go_away', null, 'The virtual monitor didn’t go away') });
         return false;
       }
       await new Promise((r) => setTimeout(r, 500));

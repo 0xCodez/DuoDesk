@@ -6,6 +6,8 @@
 // this electron.exe must cover it, and no block rule may apply. Fix adds the rule (and makes the
 // LAN Private) with one elevated PowerShell (one UAC prompt).
 const { script, scriptElevated } = require('./ps');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 // scripts/firewall-status.ps1: the rules for this exe, the networks, whether this account is an admin.
 
@@ -31,10 +33,10 @@ function interpret(payload) {
   // A Public network only matters when no allow rule covers Public (the installer's rule does).
   const publicNets = lan.filter((n) => n.category === 'Public' && !unread && !allows.some((p) => touches(p, ['Public']))).map((n) => ({ index: n.index, alias: n.alias }));
   let message = 'OK';
-  if (!lan.length) message = 'No network connection.';
-  else if (publicNets.length) message = 'The network "' + publicNets[0].alias + '" is Public, so Windows blocks {name}’s broadcasts.';
-  else if (blocked) message = 'A Windows Firewall rule blocks DuoDesk.';
-  else if (!covered) message = 'DuoDesk isn’t allowed through Windows Firewall on this network.';
+  if (!lan.length) message = tr('firewall.no_network', null, 'No network connection.');
+  else if (publicNets.length) message = tr('firewall.network_public', { network: publicNets[0].alias }, 'The network "' + publicNets[0].alias + '" is Public, so Windows blocks {name}’s broadcasts.');
+  else if (blocked) message = tr('firewall.rule_blocks', null, 'A Windows Firewall rule blocks DuoDesk.');
+  else if (!covered) message = tr('firewall.not_allowed_network', null, 'DuoDesk isn’t allowed through Windows Firewall on this network.');
   return { ok: lan.length > 0 && !publicNets.length && !blocked && covered, message, publicNets, blocked, covered, admin: payload.admin !== false, unread };
 }
 
@@ -42,7 +44,7 @@ async function check(exe = process.execPath) {
   try {
     return { ...interpret(JSON.parse(await script('firewall-status', { Exe: exe }) || '{}')), checkedAt: Date.now() };
   } catch (e) {
-    return { ok: false, message: 'Couldn’t check the firewall: ' + e.message, error: true, checkedAt: Date.now() };
+    return { ok: false, message: tr('firewall.check_failed', { error: e.message }, 'Couldn’t check the firewall: ' + e.message), error: true, checkedAt: Date.now() };
   }
 }
 

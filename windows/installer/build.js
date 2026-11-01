@@ -21,7 +21,7 @@ const pkg = require(path.join(WIN, 'package.json'));
 const electronVersion = require(path.join(WIN, 'node_modules', 'electron', 'package.json')).version;
 
 const SKIP = new Set(['node_modules', 'dist', 'installer', 'test', 'package-lock.json']); // tests (mesh/test) stay out of the package
-const SHARED_DIRS = ['fonts', 'art', 'pagefx']; // shared/ subfolders the pages load at run time
+const SHARED_DIRS = ['fonts', 'art', 'pagefx', 'locales']; // shared/ subfolders the pages load at run time
 const ARCHS = process.argv.slice(2).length ? process.argv.slice(2) : ['x64'];
 for (const a of ARCHS) if (a !== 'x64' && a !== 'arm64') throw new Error('Unknown architecture ' + a + ' (x64 or arm64)');
 

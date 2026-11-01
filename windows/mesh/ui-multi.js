@@ -3,6 +3,7 @@
 // Turn off (DuoDesk restarts one to one), where the devices sit (the shared layout's grid, docs/mesh.md
 // "Shared layout"), and Join every device automatically (docs/mesh.md "Joining everyone").
 'use strict';
+var tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
 
 UI.tab({
   id: 'multi',
@@ -10,13 +11,13 @@ UI.tab({
   title: 'Multi-device',
   heading: 'Multi-device · Mesh mode',
   color: 'linear-gradient(#5e5ce6, #3634a3)',
-  desc: 'Several computers and phones connected at once',
+  desc: tr('mesh_multi.desc', null, 'Several computers and phones connected at once'),
   bottom: true,
   build(body) {
     const { api } = UI;
-    const turnOff = UI.button('Turn off', () => {
+    const turnOff = UI.button(tr('general.turn_off', null, 'Turn off'), () => {
       turnOff.disabled = true;
-      turnOff.textContent = 'Restarting…';
+      turnOff.textContent = tr('general.restarting', null, 'Restarting…');
       api.setMulti(false);
     }, 'small');
 
@@ -45,7 +46,7 @@ UI.tab({
 
     function move(id, x, y) {
       api.setLayoutCell(id, x, y).then((ok) => {
-        if (ok === false) layoutHint.set('That did not move: a device goes next to another one, side by side.');
+        if (ok === false) layoutHint.set(tr('mesh_multi.did_not_move', null, 'That did not move: a device goes next to another one, side by side.'));
       });
     }
 
@@ -99,7 +100,7 @@ UI.tab({
       return UI.el('button', {
         class: 'lay-place' + (ok ? ' target' : ''),
         disabled: !!picked && !ok,
-        attrs: { type: 'button', 'aria-label': ok ? 'Move here' : 'Empty place' },
+        attrs: { type: 'button', 'aria-label': ok ? tr('mesh_multi.move_here', null, 'Move here') : tr('mesh_multi.empty_place', null, 'Empty place') },
         onclick: () => onPlace(x, y),
       });
     }
@@ -136,15 +137,15 @@ UI.tab({
         : 'Click a device, then a place next to another device to move it there, or another device to swap places. Devices sit side by side, with no empty space between them.');
     }
 
-    const joinSw = UI.switch((v) => api.setMesh({ autoJoin: v }), { label: 'Join every device automatically' });
-    const joinRow = UI.row('Join every device automatically', '', [joinSw]);
+    const joinSw = UI.switch((v) => api.setMesh({ autoJoin: v }), { label: tr('mesh_multi.join_auto', null, 'Join every device automatically') });
+    const joinRow = UI.row(tr('mesh_multi.join_auto', null, 'Join every device automatically'), '', [joinSw]);
 
     body.append(
-      UI.card('Mesh mode', [
-        UI.row('Use several devices at once', 'On. DuoDesk restarts when you turn it on or off', [turnOff]),
+      UI.card(tr('mesh_multi.mesh_mode', null, 'Mesh mode'), [
+        UI.row(tr('mesh_multi.use_several_devices', null, 'Use several devices at once'), tr('mesh_multi.restart_hint', null, 'On. DuoDesk restarts when you turn it on or off'), [turnOff]),
       ]),
-      UI.card('Layout', [gridEl, reachNote, layoutHint], { cls: 'keep-on' }),
-      UI.card('Joining', [joinRow]),
+      UI.card(tr('mesh_multi.layout', null, 'Layout'), [gridEl, reachNote, layoutHint], { cls: 'keep-on' }),
+      UI.card(tr('mesh_multi.joining', null, 'Joining'), [joinRow]),
     );
 
     return (s) => {

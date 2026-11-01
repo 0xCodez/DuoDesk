@@ -11,6 +11,8 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 const P = require('../shared/protocol.js');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const OPTIONS = 'no-agent-forwarding,no-X11-forwarding';
@@ -107,7 +109,7 @@ class Sshd {
         this.save();
         this.message = '';
       } catch (e) {
-        this.message = 'Couldn’t add {name}’s key: ' + e.message;
+        this.message = tr('lin_sshd.couldnt_add_key', { error: e.message }, 'Couldn’t add {name}’s key: ' + e.message);
         return this._info(false, 'not_allowed');
       }
     }
@@ -136,7 +138,7 @@ class Sshd {
       this.cfg.installedKey = '';
       this.save();
     } catch (e) {
-      this.message = '{Name}’s key is still installed: ' + e.message;
+      this.message = tr('lin_sshd.key_still_installed', { error: e.message }, '{Name}’s key is still installed: ' + e.message);
     }
     this.onChange();
   }
@@ -158,7 +160,7 @@ class Sshd {
       'systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd',
     ].join('\n');
     const r = await run('pkexec', ['sh', '-c', script], 600000);
-    if (!r.ok) this.message = r.code === 126 ? 'The password prompt was closed' : 'Setup failed: ' + (r.err.split('\n').pop() || 'pkexec failed');
+    if (!r.ok) this.message = r.code === 126 ? tr('lin_sshd.password_closed', null, 'The password prompt was closed') : tr('lin_sshd.setup_failed', { error: r.err.split('\n').pop() || 'pkexec failed' }, 'Setup failed: ' + (r.err.split('\n').pop() || 'pkexec failed'));
     this.busy = false;
     await this.refresh();
     await this.apply();

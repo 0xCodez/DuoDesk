@@ -16,18 +16,19 @@ UI.tab({
   badge: (s) => (s.apps.open + s.pcApps.streaming ? String(s.apps.open + s.pcApps.streaming) : ''),
   build(body) {
     const { el, api } = UI;
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
     const note = UI.note('warn', '');
-    const refresh = UI.button('Refresh', () => api.listApps(), 'small');
-    const filter = el('input', { type: 'text', placeholder: 'Search apps', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Search apps' } });
+    const refresh = UI.button(t('overview.refresh', null, 'Refresh'), () => api.listApps(), 'small');
+    const filter = el('input', { type: 'text', placeholder: t('phone.search_apps', null, 'Search apps'), autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': t('phone.search_apps', null, 'Search apps') } });
     const grid = el('div', { class: 'app-grid' });
     const status = UI.row('', '');
     const openCount = UI.row('', '');
     const pcState = UI.row('', '');
     const pair = UI.dirCards(
-      { on: { get: (s) => s.macApps.on, set: (v) => api.setMacApps({ on: v }) }, label: 'Open {name}’s apps on {me}', hint: 'Pick one below', rows: [openCount] },
-      { on: { get: (s) => s.pcApps.allow, set: (v) => api.setPcApps({ allow: v }) }, label: 'Open {me}’s apps on {name}', hint: 'Pick them over there', rows: [pcState] },
+      { on: { get: (s) => s.macApps.on, set: (v) => api.setMacApps({ on: v }) }, label: t('apps.open_name_s_apps_on', null, 'Open {name}’s apps on {me}'), hint: t('apps.pick_one_below', null, 'Pick one below'), rows: [openCount] },
+      { on: { get: (s) => s.pcApps.allow, set: (v) => api.setPcApps({ allow: v }) }, label: t('apps.open_me_s_apps_on', null, 'Open {me}’s apps on {name}'), hint: t('apps.pick_them_over_there', null, 'Pick them over there'), rows: [pcState] },
     );
-    const listCard = UI.card('Mac apps', [UI.row('Search', '', [filter]), grid, status], { actions: [refresh] });
+    const listCard = UI.card(t('apps.mac_apps', null, 'Mac apps'), [UI.row(t('apps.search', null, 'Search'), '', [filter]), grid, status], { actions: [refresh] });
     const rezume = UI.rezumeCard ? UI.rezumeCard() : { el: UI.el('div', { hidden: true }), update() {} }; // the other computer's ReZume (shared/ui-rezume.js; not in Multi-device)
     body.append(pair.el, rezume.el, note, listCard);
     filter.oninput = () => { key = ''; if (UI.state) render(UI.state); };
@@ -40,14 +41,14 @@ UI.tab({
       const connected = s.link.state === 'connected';
       pair.update(s); // the two direction switches follow the settings
       listCard.hidden = !s.macApps.on;
-      listCard.querySelector('.card-title > span').textContent = UI.peer(s).name + '’s apps';
+      listCard.querySelector('.card-title > span').textContent = t('apps.peer_apps', { name: UI.peer(s).name }, '{name}’s apps');
       if (connected && s.macApps.on && !asked && !a.list.length) { asked = true; api.listApps(); }
       openCount.hidden = !a.open;
-      openCount.label.textContent = a.open + ' open here';
+      openCount.label.textContent = a.open === 1 ? t('apps.open_here_one', { count: a.open }, '{count} open here') : t('apps.open_here_other', { count: a.open }, '{count} open here');
       const pa = s.pcApps;
       pcState.hidden = !pa.allow;
-      pcState.label.textContent = pa.streaming ? pa.streaming + ' open on {name}'
-        : !connected ? 'Waiting for {name}' : !pa.macAccepts ? 'Turned off on {name}' : pa.open ? 'Connecting…' : 'None open';
+      pcState.label.textContent = pa.streaming ? (pa.streaming === 1 ? t('apps.open_on_name_one', { count: pa.streaming }, '{count} open on {name}') : t('apps.open_on_name_other', { count: pa.streaming }, '{count} open on {name}'))
+        : !connected ? t('apps.waiting_for_name', null, 'Waiting for {name}') : !pa.macAccepts ? t('clipboard.turned_off_on', null, 'Turned off on {name}') : pa.open ? t('sidebar.connecting', null, 'Connecting…') : t('apps.none_open', null, 'None open');
       pcState.setHint(pa.message || '');
       if (!connected) asked = false;
       note.set(a.message || '');
@@ -59,14 +60,14 @@ UI.tab({
       key = k;
       const items = a.list.filter((x) => !q || x.name.toLowerCase().includes(q));
       grid.replaceChildren(...items.map((x) => {
-        const b = el('button', { class: 'app-tile', title: 'Open ' + x.name + ' on {name}' }, [
+        const b = el('button', { class: 'app-tile', title: t('apps.open_app_on_name', { app: x.name }, 'Open {app} on {name}') }, [
           UI.appIcon(x.icon),
           el('span', { class: 'app-name', text: x.name }),
         ]);
         b.onclick = () => api.launchApp(x.id);
         if (a.peerPc) return b; // apps of another PC: no Start shortcut yet
         // Pin to Start (a shortcut in Start › DuoDesk Apps), on hover or right-click.
-        const pin = el('span', { class: 'app-pin', title: 'Pin to Start', attrs: { role: 'button', tabindex: '0', 'aria-label': 'Pin ' + x.name + ' to Start' } }, [UI.icon('pin')]);
+        const pin = el('span', { class: 'app-pin', title: t('apps.pin_to_start', null, 'Pin to Start'), attrs: { role: 'button', tabindex: '0', 'aria-label': t('apps.pin_app_to_start', { app: x.name }, 'Pin {app} to Start') } }, [UI.icon('pin')]);
         pin.onclick = (e) => { e.stopPropagation(); api.pinApp(x.id); };
         pin.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); api.pinApp(x.id); } };
         b.oncontextmenu = (e) => { e.preventDefault(); api.pinApp(x.id); };
@@ -74,8 +75,8 @@ UI.tab({
         return b;
       }));
       status.hidden = items.length > 0;
-      status.label.textContent = !connected ? 'Waiting for {name}' : a.loading ? 'Loading…' : q ? 'No app matches' : 'No apps yet';
-      status.setHint(!connected || a.loading || q ? '' : 'Click Refresh to ask {name} for its apps.');
+      status.label.textContent = !connected ? t('apps.waiting_for_name', null, 'Waiting for {name}') : a.loading ? t('apps.loading', null, 'Loading…') : q ? t('apps.no_app_matches', null, 'No app matches') : t('apps.no_apps_yet', null, 'No apps yet');
+      status.setHint(!connected || a.loading || q ? '' : t('apps.click_refresh_to_ask_name', null, 'Click Refresh to ask {name} for its apps.'));
     }
     return render;
   },

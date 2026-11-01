@@ -7,6 +7,7 @@
 const T = window.MacShareProtocol.T;
 const api = window.sound;
 const player = document.getElementById('play');
+const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d);
 
 let recv = null; // {pc, session, pending}
 let send = null; // {pc, session, stream, pending}
@@ -54,7 +55,7 @@ async function onOffer(m) {
     await pc.setLocalDescription(await pc.createAnswer());
     if (recv === me) api.send({ t: T.AUDIO_ANSWER, dir: 'm2w', session: m.session, sdp: pc.localDescription.sdp });
   } catch (e) {
-    error = '{Name}’s sound: ' + e.message;
+    error = t('lin_sound_renderer.peer_sound', { error: e.message }, '{Name}’s sound: ' + e.message);
     report();
   }
 }
@@ -72,7 +73,7 @@ function closeRecv() {
 async function systemSound(label) {
   const devs = await navigator.mediaDevices.enumerateDevices();
   const d = devs.find((x) => x.kind === 'audioinput' && x.label.includes(label));
-  if (!d) throw new Error('the sound loopback device didn’t show up');
+  if (!d) throw new Error(t('lin_sound_renderer.no_loopback', null, 'the sound loopback device didn’t show up'));
   return navigator.mediaDevices.getUserMedia({
     audio: { deviceId: { exact: d.deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 },
     video: false,
@@ -86,7 +87,7 @@ async function startSend(session, label, ice) {
     const stream = await systemSound(label);
     const track = stream.getAudioTracks()[0];
     if (send !== me) return stream.getTracks().forEach((t) => t.stop());
-    if (!track) throw new Error('no sound track');
+    if (!track) throw new Error(t('lin_sound_renderer.no_track', null, 'no sound track'));
     me.stream = stream;
     const pc = (me.pc = new RTCPeerConnection(ice || { iceServers: [] }));
     pc.addTransceiver(track, { direction: 'sendonly' });
@@ -96,7 +97,7 @@ async function startSend(session, label, ice) {
     api.send({ t: T.AUDIO_OFFER, dir: 'w2m', session, sdp: pc.localDescription.sdp });
     error = '';
   } catch (e) {
-    error = 'Sending this computer’s sound: ' + e.message;
+    error = t('lin_sound_renderer.sending_sound', { error: e.message }, 'Sending this computer’s sound: ' + e.message);
   }
   report();
 }
@@ -109,7 +110,7 @@ async function onAnswer(m) {
     for (const c of me.pending.splice(0)) await me.pc.addIceCandidate(c).catch(() => {});
     me.pending = null;
   } catch (e) {
-    error = 'Sending this computer’s sound: ' + e.message;
+    error = t('lin_sound_renderer.sending_sound', { error: e.message }, 'Sending this computer’s sound: ' + e.message);
     report();
   }
 }

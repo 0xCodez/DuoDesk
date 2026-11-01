@@ -19,6 +19,22 @@
   const orderOf = (d) => ORDER[d.id] ?? d.order ?? 50;
   let lastGroup = null;
   let gap = null; // the gap before the current group (hidden with the group: renderSidebar)
+  const tFn = (typeof window !== 'undefined' && window.t) || ((k, p, d) => d || k);
+  let handedOverLang = false;
+  function syncSavedLanguage(s) {
+    if (handedOverLang || !s || !s.app) return;
+    let saved = null;
+    try { saved = localStorage.getItem('duodesk.general.language') || localStorage.getItem('duodesk.lang'); } catch (_) {}
+    if (saved && saved !== 'auto' && s.app.lang === 'auto') {
+      handedOverLang = true;
+      if (api.setApp) api.setApp({ lang: saved });
+    }
+  }
+
+  const savedLang = typeof localStorage !== 'undefined' ? (localStorage.getItem('duodesk.general.language') || localStorage.getItem('duodesk.lang')) : null;
+  if (savedLang && typeof DuoDeskI18n !== 'undefined' && DuoDeskI18n.setLanguage) {
+    DuoDeskI18n.setLanguage(savedLang === 'auto' ? (navigator.language || 'en') : savedLang);
+  }
   for (const def of UI.tabs.slice().sort((a, b) => orderOf(a) - orderOf(b))) {
     if (def.id in GROUP) def.group = GROUP[def.id];
     if (def.navHidden) { // reached another way (the phone tile)
@@ -32,7 +48,8 @@
     const stateEl = el('span', { class: 'state' });
     const tile = el('span', { class: 'tile' }, [UI.icon(def.icon || def.id)]);
     tile.style.background = def.color; // CSSOM, allowed by the CSP (inline style attributes aren't)
-    const label = el('span', { class: 'label', text: def.title });
+    const navTitle = tFn('nav.' + def.id, null, def.id === 'general' ? tFn('nav.settings', null, def.title) : def.title);
+    const label = el('span', { class: 'label', text: navTitle });
     if (def.title.includes('{')) label.dataset.peer = def.title; // peer-dependent (UI.names)
     const navBtn = el('button', { class: 'nav-item', attrs: { role: 'tab', 'aria-controls': `page-${def.id}` } }, [
       tile,
@@ -41,15 +58,29 @@
     ]);
     navBtn.onclick = () => show(def.id, true);
     nav.append(el('li', {}, [navBtn]));
-    views.set(def.id, { def, ...buildPage(def), navBtn, stateEl, gap });
+    views.set(def.id, { def, ...buildPage(def), navBtn, stateEl, label, gap });
+  }
+
+  if (typeof DuoDeskI18n !== 'undefined' && DuoDeskI18n.onLanguageChange) {
+    DuoDeskI18n.onLanguageChange(() => {
+      for (const [id, v] of views) {
+        if (v.label && !v.label.dataset.peer) {
+          v.label.textContent = tFn('nav.' + id, null, id === 'general' ? tFn('nav.settings', null, v.def.title) : v.def.title);
+        }
+      }
+    });
   }
 
   function buildPage(def) {
     const page = el('section', { class: 'page', id: `page-${def.id}`, hidden: true, attrs: { role: 'tabpanel' } });
-    const h1Text = el('span', { text: def.heading || def.title });
-    const descEl = el('p', { text: def.desc || '' });
-    if ((def.heading || def.title).includes('{')) h1Text.dataset.peer = def.heading || def.title;
-    if ((def.desc || '').includes('{')) descEl.dataset.peer = def.desc;
+    // The tab file's own text is the English; the dictionary holds the translation (and the Mac's variants).
+    const tabText = (field) => (def[field] ? tFn('tab.' + def.id + '.' + field + '_mac', null, tFn('tab.' + def.id + '.' + field, null, def[field])) : '');
+    const headTpl = def.heading ? tabText('heading') : tFn('nav.' + def.id, null, def.id === 'general' ? tFn('nav.settings', null, def.title) : def.title);
+    const descTpl = tabText('desc');
+    const h1Text = el('span', { text: headTpl });
+    const descEl = el('p', { text: descTpl });
+    if (headTpl.includes('{')) h1Text.dataset.peer = headTpl;
+    if (descTpl.includes('{')) descEl.dataset.peer = descTpl;
     const titles = el('div', { class: 'titles' }, [
       el('h1', {}, [h1Text, def.phase ? el('span', { class: 'pill muted', text: `Phase ${def.phase}` }) : null,
         def.tag ? el('span', { class: 'pill beta', text: def.tag }) : null]),
@@ -145,7 +176,7 @@
     $('peer-dot').className = `dot ${c ? 'good' : s.pairing ? 'warn' : ''}`;
     const gs = s.guest && s.guest.status && s.guest.status.state;
     $('peer-text').textContent = c ? `${c.name}${UI.via(s) !== 'Wi-Fi' ? ` · ${UI.via(s)}` : ''}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}`
-      : s.pairing || (s.guest && s.guest.pairing) ? 'Pairing…' : gs === 'connecting' || gs === 'reconnecting' ? 'Connecting…' : 'Not connected';
+      : s.pairing || (s.guest && s.guest.pairing) ? tFn('sidebar.pairing', null, 'Pairing…') : gs === 'connecting' || gs === 'reconnecting' ? tFn('sidebar.connecting', null, 'Connecting…') : tFn('sidebar.not_connected', null, 'Not connected');
     renderPhones(s);
     // Tabs that don't apply to the peer (a phone has no terminal or screen to share to it…).
     for (const v of views.values()) {
@@ -189,9 +220,9 @@
       else if (d.connected && colors) wall.style.backgroundImage = `linear-gradient(160deg, ${colors.join(', ')}${colors.length === 1 ? `, ${colors[0]}` : ''})`;
       const connecting = ph.connecting && ph.connecting.id === d.id;
       const sub = d.connected
-        ? `${ph.connected.rttMs != null ? `${ph.connected.rttMs} ms` : 'Connected'}${info.battery != null ? ` · ${info.battery}%${info.charging ? ' ⚡' : ''}` : ''}`
-        : connecting ? 'Connecting…' : 'Nearby · Click to connect';
-      const b = el('button', { class: `phone-tile${d.connected ? ' connected' : ''}`, title: d.connected ? `${d.name}` : `Connect to ${d.name}` }, [
+        ? `${ph.connected.rttMs != null ? `${ph.connected.rttMs} ms` : tFn('sidebar.connected', null, 'Connected')}${info.battery != null ? ` · ${info.battery}%${info.charging ? ' ⚡' : ''}` : ''}`
+        : connecting ? tFn('sidebar.connecting', null, 'Connecting…') : tFn('sidebar.nearby_click_to_connect', null, 'Nearby · Click to connect');
+      const b = el('button', { class: `phone-tile${d.connected ? ' connected' : ''}`, title: d.connected ? `${d.name}` : tFn('sidebar.connect_to', { name: d.name }, 'Connect to {name}') }, [
         wall,
         el('span', { class: 'phone-text' }, [el('span', { class: 'phone-name', text: d.name }), el('span', { class: 'phone-sub', text: sub })]),
         d.connected ? el('span', { class: 'dot good' }) : ph.connecting && ph.connecting.id === d.id ? el('span', { class: 'spin', attrs: { 'aria-hidden': 'true' } }) : null,
@@ -206,6 +237,11 @@
   // Two kinds of pairing request: someone pairs with this Mac (Allow / Deny), or this Mac pairs
   // with another Mac as its guest (Codes match / Cancel, like the PC app).
   let bannerMode = null;
+  // A sentence with the other computer's name in bold: the template is cut at {name}.
+  const withName = (key, name, def) => {
+    const [a, b = ''] = tFn(key, null, def).split('{name}');
+    return [a, el('strong', { text: name }), b];
+  };
   function renderBanner(s) {
     const p = s.pairing;
     const g = s.guest && s.guest.pairing;
@@ -215,39 +251,39 @@
     $('banner').hidden = !bannerMode;
     if (!bannerMode) return;
     if (inv) {
-      $('pair-title').replaceChildren('Press Pair on ', el('strong', { text: inv.name }));
+      $('pair-title').replaceChildren(...withName('pair.press_pair_on', inv.name, 'Press Pair on {name}'));
       $('pair-code').hidden = $('pair-code-label').hidden = true;
       $('pair-allow').hidden = true;
-      $('pair-deny').textContent = 'Cancel';
-      $('pair-hint').textContent = `DuoDesk on ${inv.name} asks to pair with this Mac. Press Pair there, then compare the codes.`;
+      $('pair-deny').textContent = tFn('pair.cancel', null, 'Cancel');
+      $('pair-hint').textContent = tFn('start.duodesk_on_name_asks_to', { name: inv.name }, 'DuoDesk on {name} asks to pair with this Mac. Press Pair there, then compare the codes.');
       return;
     }
     const code = (p || g).code;
     $('pair-code').textContent = code ? `${code.slice(0, 3)} ${code.slice(3)}` : '…';
     $('pair-code').hidden = $('pair-code-label').hidden = !!(p && p.wired); // on the USB cable: nothing to compare
     if (p) {
-      $('pair-title').replaceChildren(el('strong', { text: p.name }), ' wants to pair');
-      $('pair-allow').textContent = 'Allow';
-      $('pair-deny').textContent = 'Deny';
+      $('pair-title').replaceChildren(...withName('pair.wants_to_pair', p.name, '{name} wants to pair'));
+      $('pair-allow').textContent = tFn('pair.allow', null, 'Allow');
+      $('pair-deny').textContent = tFn('pair.deny', null, 'Deny');
       $('pair-allow').hidden = false;
       $('pair-allow').disabled = !p.code || p.allowed;
       const other = p.name;
-      let hint = `Check that ${other} shows the same code.`;
-      if (p.wired) hint = p.allowed ? 'Pairing…' : `${other} is on the USB cable. Click Allow to pair.`;
-      else if (!p.code) hint = 'Waiting for the code…';
-      else if (p.allowed && !p.confirmed) hint = `Allowed. Waiting for “Codes match” on ${other}…`;
-      else if (p.confirmed && !p.allowed) hint = `${other[0].toUpperCase()}${other.slice(1)} confirmed the code. Click Allow if it matches.`;
+      let hint = tFn('start.check_that_name_shows_the', { name: other }, 'Check that {name} shows the same code.');
+      if (p.wired) hint = p.allowed ? tFn('sidebar.pairing', null, 'Pairing…') : tFn('start.name_is_on_the_usb', { name: other }, '{name} is on the USB cable. Click Allow to pair.');
+      else if (!p.code) hint = tFn('start.waiting_for_the_code', null, 'Waiting for the code…');
+      else if (p.allowed && !p.confirmed) hint = tFn('start.allowed_waiting_for_codes_match', { name: other }, 'Allowed. Waiting for “Codes match” on {name}…');
+      else if (p.confirmed && !p.allowed) hint = tFn('start.name_confirmed_the_code_click', { name: `${other[0].toUpperCase()}${other.slice(1)}` }, '{name} confirmed the code. Click Allow if it matches.');
       $('pair-hint').textContent = hint;
       return;
     }
-    $('pair-title').replaceChildren('Pairing with ', el('strong', { text: g.name }));
-    $('pair-allow').textContent = 'Codes match';
-    $('pair-deny').textContent = g.phase === 'failed' ? 'OK' : 'Cancel';
+    $('pair-title').replaceChildren(...withName('pair.title_with', g.name, 'Pairing with {name}'));
+    $('pair-allow').textContent = tFn('pair.match', null, 'Codes match');
+    $('pair-deny').textContent = g.phase === 'failed' ? tFn('start.ok', null, 'OK') : tFn('pair.cancel', null, 'Cancel');
     $('pair-allow').hidden = g.phase === 'failed';
     $('pair-allow').disabled = g.phase !== 'code';
     $('pair-hint').textContent = g.phase === 'failed' ? g.error
-      : g.phase === 'code' ? `Check that ${g.name} shows the same code.`
-        : g.phase === 'waiting' ? `Waiting for Allow on ${g.name}…` : 'Connecting…';
+      : g.phase === 'code' ? tFn('start.check_that_name_shows_the', { name: g.name }, 'Check that {name} shows the same code.')
+        : g.phase === 'waiting' ? tFn('start.waiting_for_allow_on_name', { name: g.name }, 'Waiting for Allow on {name}…') : tFn('sidebar.connecting', null, 'Connecting…');
   }
 
   // Wi-Fi for a session through Bluetooth (netlink.js): what's happening, and for a phone's screen
@@ -256,33 +292,35 @@
   function renderNet(s) {
     const n = s.net;
     const c = s.client;
-    const name = (c && c.name) || 'the other device';
+    const name = (c && c.name) || tFn('start.the_other_device', null, 'the other device');
     const show = n && ['asking', 'hosting', 'joining', 'hotspot', 'failed'].includes(n.state) && (n.state !== 'failed' || n.error);
     $('net-banner').hidden = !show;
     if (!show) return void (netShown = '');
     const form = n.state === 'hotspot';
     $('net-form').hidden = !form;
     $('net-join').hidden = !form;
-    $('net-cancel').textContent = n.state === 'failed' ? 'OK' : 'Cancel';
+    $('net-cancel').textContent = n.state === 'failed' ? tFn('start.ok', null, 'OK') : tFn('pair.cancel', null, 'Cancel');
     if (form && netShown !== 'hotspot') { // fill in once, not while typing
       $('net-ssid').value = n.hotspotSsid || '';
       $('net-pass').value = '';
-      $('net-pass').placeholder = n.hotspotSaved ? 'Password (saved)' : 'Password';
+      $('net-pass').placeholder = n.hotspotSaved ? tFn('overview.password_saved', null, 'Password (saved)') : tFn('overview.password', null, 'Password');
       setTimeout(() => (n.hotspotSsid ? $('net-pass') : $('net-ssid')).focus(), 0);
     }
     netShown = n.state;
     const TITLES = {
-      asking: `Moving to Wi-Fi with ${name}…`,
-      hosting: `Starting Wi-Fi for ${name}…`,
-      joining: `Joining ${n.ssid || 'Wi-Fi'}…`,
-      hotspot: `Switch on ${name}’s hotspot`,
-      failed: 'Couldn’t move to Wi-Fi',
+      asking: tFn('start.moving_to_wifi_with_name', { name }, 'Moving to Wi-Fi with {name}…'),
+      hosting: tFn('overview.starting_wifi_for', { name }, 'Starting Wi-Fi for {name}…'),
+      joining: tFn('overview.joining_ssid', { ssid: n.ssid || 'Wi-Fi' }, 'Joining {ssid}…'),
+      hotspot: tFn('start.switch_on_names_hotspot', { name }, 'Switch on {name}’s hotspot'),
+      failed: tFn('start.couldnt_move_to_wifi', null, 'Couldn’t move to Wi-Fi'),
     };
     $('net-title').textContent = TITLES[n.state];
     $('net-hint').textContent = n.state === 'hotspot'
-      ? `${name} isn’t on this Mac’s network. Its screen needs Wi-Fi: switch its hotspot on, then type its name and password here.`
-      : n.state === 'failed' ? `${n.error}. Still connected over Bluetooth.`
-        : n.kind === 'direct' ? `${name} isn’t on this network: a direct Wi-Fi link${n.why.includes('user') || n.peerWhy.includes('user') ? '' : ` for ${n.why.includes('files') || n.peerWhy.includes('files') ? 'the files' : 'the screen'}`}. This Mac is off its own Wi-Fi meanwhile.` : '';
+      ? tFn('start.name_isnt_on_this_macs', { name }, '{name} isn’t on this Mac’s network. Its screen needs Wi-Fi: switch its hotspot on, then type its name and password here.')
+      : n.state === 'failed' ? tFn('start.error_still_connected_over', { error: n.error }, '{error}. Still connected over Bluetooth.')
+        : n.kind === 'direct' ? (n.why.includes('user') || n.peerWhy.includes('user') ? tFn('start.name_isnt_on_this_network', { name }, '{name} isn’t on this network: a direct Wi-Fi link. This Mac is off its own Wi-Fi meanwhile.')
+          : n.why.includes('files') || n.peerWhy.includes('files') ? tFn('start.name_isnt_on_this_network_files', { name }, '{name} isn’t on this network: a direct Wi-Fi link for the files. This Mac is off its own Wi-Fi meanwhile.')
+            : tFn('start.name_isnt_on_this_network_screen', { name }, '{name} isn’t on this network: a direct Wi-Fi link for the screen. This Mac is off its own Wi-Fi meanwhile.')) : '';
   }
   $('net-join').onclick = () => api.netJoinHotspot({ ssid: $('net-ssid').value, pass: $('net-pass').value });
   $('net-pass').onkeydown = $('net-ssid').onkeydown = (e) => { if (e.key === 'Enter') $('net-join').click(); };
@@ -327,9 +365,10 @@
   // Relative times ("2 min ago") age without a state push.
   setInterval(() => UI.state && current && renderPage(current, UI.state), 15000);
 
-  api.onState(render);
+  api.onState((s) => { syncSavedLanguage(s); render(s); });
   api.getState().then((s) => {
     UI.state = s;
+    syncSavedLanguage(s);
     show((s.ui && s.ui.tab) || home(s), false); // 'display' (before the split) goes to Share screen: ALIAS
     render(s);
   });

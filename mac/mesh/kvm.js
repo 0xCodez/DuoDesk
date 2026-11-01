@@ -20,11 +20,16 @@ const { KvmMoves } = require('../../shared/kvm-moves.js');
 const { KeyLayout } = require('../../shared/keylayout.js');
 const CL = require('../../shared/cursorlock.js');
 const store = require('./store');
+const i18n = require('../../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 // {them} = the other computer's name (Kvm._them).
-const REFUSED = { busy: '{them} is using this computer right now', not_allowed: '{them} doesn’t accept input from here' };
+const REFUSED = {
+  busy: tr('kvm.partner_driving_me_mac', null, '{them} is using this computer right now'),
+  not_allowed: tr('kvm.not_accept_input_mac', null, '{them} doesn’t accept input from here'),
+};
 
-const OFF_BLE = 'Cursor sharing is off over Bluetooth';
+const OFF_BLE = tr('kvm.off_bluetooth', null, 'Cursor sharing is off over Bluetooth');
 
 class Kvm extends EventEmitter {
   // hub: hub.js (bus, sessions, select, selectedId, device); helper: the Mac helper; getSettings;
@@ -77,7 +82,7 @@ class Kvm extends EventEmitter {
         if (this.mode === 'driving' && from === this.partner && m.route === this.route) clearTimeout(this.acceptTimer);
       },
       [P.T.KVM_REFUSE]: (m, from) => {
-        if (this.mode === 'driving' && from === this.partner && m.route === this.route) this.goHome(this._them(REFUSED[m.why] || '{them} refused', from), false);
+        if (this.mode === 'driving' && from === this.partner && m.route === this.route) this.goHome(this._them(REFUSED[m.why] || tr('kvm.partner_refused_mac', null, '{them} refused'), from), false);
       },
       [P.T.KVM_HOME]: (m, from) => {
         if (this.mode !== 'driving' || from !== this.partner || m.route !== this.route) return;
@@ -369,8 +374,8 @@ class Kvm extends EventEmitter {
 
   _onPeerDown(id) {
     if ((this.mode === 'driving' || this.mode === 'driven') && id === this.partner) {
-      if (this.mode === 'driving') this.goHome(this._them('{them} disconnected', id));
-      else this._drivenHome(this._them('{them} disconnected', id));
+      if (this.mode === 'driving') this.goHome(this._them(tr('kvm.partner_disconnected_mac', null, '{them} disconnected'), id));
+      else this._drivenHome(this._them(tr('kvm.partner_disconnected_mac', null, '{them} disconnected'), id));
     }
     if (this.locked && !this.hub.bus.connectedIds().length) this.locked = false;
     this.config();
@@ -410,7 +415,7 @@ class Kvm extends EventEmitter {
     if (this.mode === 'driving') this.helper.send('keepalive');
     const s = this.partner ? this.hub.sessions.get(this.partner) : null;
     if (!s || !s.connected || Date.now() - s.lastRx > (s.transport === 'ble' ? P.KVM_SILENCE_BLE_MS : P.KVM_SILENCE_MS)) {
-      const text = this._them('{them} stopped answering');
+      const text = this._them(tr('kvm.stopped_answering_mac', null, '{them} stopped answering'));
       if (this.mode === 'driving') this.goHome(text);
       else this._drivenHome(text);
     }
@@ -464,7 +469,7 @@ class Kvm extends EventEmitter {
     clearTimeout(this.acceptTimer);
     const route = this.route;
     this.acceptTimer = setTimeout(() => {
-      if (this.mode === 'driving' && this.route === route) this.goHome(this._them('{them} didn’t answer'));
+      if (this.mode === 'driving' && this.route === route) this.goHome(this._them(tr('kvm.partner_no_answer_mac', null, '{them} didn’t answer')));
     }, P.KVM_TAKE_TIMEOUT_MS);
   }
 

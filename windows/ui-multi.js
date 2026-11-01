@@ -12,20 +12,21 @@ UI.tab({
   bottom: true,
   build(body) {
     const { api } = UI;
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
     // The popup says what it is (shared/mesh-intro.js) before it restarts.
-    const turnOn = UI.button('Turn on', () => MeshIntro.confirm(() => {
+    const turnOn = UI.button(t('multi.turn_on', null, 'Turn on'), () => MeshIntro.confirm(() => {
       turnOn.disabled = true;
-      turnOn.textContent = 'Restarting…';
+      turnOn.textContent = t('multi.restarting', null, 'Restarting…');
       api.setMulti(true);
     }), 'small primary');
 
     body.append(
-      UI.card('Mesh mode', [
-        UI.row('Use several devices at once',
-          'Computers and phones connected at the same time: one clipboard and one set of notifications for all, each screen edge leading to another device, a phone and a computer together',
+      UI.card(t('multi.mesh_mode', null, 'Mesh mode'), [
+        UI.row(t('multi.use_several_devices_at_once', null, 'Use several devices at once'),
+          t('multi.computers_and_phones_connected_at', null, 'Computers and phones connected at the same time: one clipboard and one set of notifications for all, each screen edge leading to another device, a phone and a computer together'),
           [turnOn]),
       ]),
-      UI.note('info', 'DuoDesk restarts when you turn it on or off.'),
+      UI.note('info', t('multi.duodesk_restarts_when_you_turn', null, 'DuoDesk restarts when you turn it on or off.')),
       MeshIntro.art(),
     );
 

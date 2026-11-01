@@ -15,6 +15,8 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const { redirectTo, redirected } = require('../shared/received.js');
 
 const ARG = '--td';
@@ -84,18 +86,18 @@ class Explorer {
   import(dir) {
     redirectTo(dir, IMPORT_MS, 'import');
     this.goTab('pfiles');
-    if (!this.phoneOn()) this.popup('phoneOff', 'Connect your phone', 'Then choose files in Phone Files');
+    if (!this.phoneOn()) this.popup('phoneOff', tr('explorer.connect_your_phone', null, 'Connect your phone'), tr('explorer.then_choose_files', null, 'Then choose files in Phone Files'));
     this.onChange();
   }
 
   capture(dir) {
     if (!this.phoneOn()) {
       this.goTab('connection');
-      return this.popup('phoneOff', 'Connect your phone', 'Capture from phone needs it');
+      return this.popup('phoneOff', tr('explorer.connect_your_phone', null, 'Connect your phone'), tr('explorer.capture_needs_it', null, 'Capture from phone needs it'));
     }
     redirectTo(dir, CAPTURE_MS, 'capture');
     this.send({ t: 'cam.capture', on: true });
-    this.popup('camera', 'Take photos on your phone', 'They come into ' + path.basename(dir));
+    this.popup('camera', tr('explorer.take_photos_on_phone', null, 'Take photos on your phone'), tr('explorer.they_come_into_folder', { folder: path.basename(dir) }, 'They come into ' + path.basename(dir)));
     this.onChange();
   }
 

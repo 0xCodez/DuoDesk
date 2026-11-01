@@ -3,6 +3,8 @@
 'use strict';
 
 const { ipcMain, shell, app, screen, dialog, clipboard, Menu, systemPreferences } = require('electron');
+const i18n = require('../../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../../shared/protocol.js');
 const CL = require('../../shared/cursorlock.js');
 const { LINKS } = require('../../shared/about.js');
@@ -387,7 +389,7 @@ function setupIpc(ctx) {
       if (list.length && ctx.server.current) ctx.fileSend.sendBatch(list, 'send');
     },
     async chooseSendFiles() {
-      const r = await dialog.showOpenDialog({ properties: ['openFile', 'openDirectory', 'multiSelections'], buttonLabel: 'Send' });
+      const r = await dialog.showOpenDialog({ properties: ['openFile', 'openDirectory', 'multiSelections'], buttonLabel: tr('general.send', null, 'Send') });
       if (!r.canceled) actions.sendFiles(r.filePaths);
     },
     setNotifs(partial) {
@@ -404,7 +406,7 @@ function setupIpc(ctx) {
       if (bundle.endsWith('.app')) shell.showItemInFolder(bundle);
     },
     async pickDropFolder() {
-      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Use This Folder' });
+      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: tr('files.use_this_folder_cap', null, 'Use This Folder') });
       if (r.canceled || !r.filePaths[0]) return;
       settings.files.folder = r.filePaths[0];
       save();
@@ -427,7 +429,7 @@ function setupIpc(ctx) {
       else ctx.smb.stopSharing();
     },
     async chooseShareFolder() {
-      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Share This Folder' });
+      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: tr('files.share_this_folder', null, 'Share This Folder') });
       if (r.canceled || !r.filePaths[0]) return;
       if (settings.smb.sharing) await ctx.smb.stopSharing();
       settings.smb.folder = r.filePaths[0];

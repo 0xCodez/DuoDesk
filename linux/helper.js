@@ -8,6 +8,8 @@ const { spawn } = require('child_process');
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const BIN = path.join(__dirname, '..', 'linux-helper', 'bin', 'macshare-linuxhelper');
 const RESTART_MS = 1000;
@@ -27,6 +29,10 @@ class Helper extends EventEmitter {
     this.fails = 0;
   }
 
+  // 'Helper not built' is read in the current language each time
+  get error() { return this._notBuilt ? tr('lin_helper.not_built', null, 'Helper not built (run npm run build:helper)') : this._error; }
+  set error(v) { this._notBuilt = false; this._error = v; }
+
   start() {
     this.stopped = false;
     if (this.proc) return;
@@ -37,7 +43,7 @@ class Helper extends EventEmitter {
       return;
     }
     if (!fs.existsSync(BIN)) {
-      this.error = 'Helper not built (run npm run build:helper)';
+      this._notBuilt = true; // the text is built when read, so a language change shows at once
       this.emit('exit', -1);
       return;
     }
@@ -56,10 +62,10 @@ class Helper extends EventEmitter {
     proc.on('exit', (code) => {
       if (this.proc !== proc) return;
       this.proc = null;
-      for (const p of this.pending.values()) p.reject(new Error('helper exited'));
+      for (const p of this.pending.values()) p.reject(new Error(tr('lin_helper.exited', null, 'helper exited')));
       this.pending.clear();
       this.backend = '';
-      if (code && !this.stopped) this.error = stderr ? stderr.split('\n').pop() : 'The helper stopped (' + code + ')';
+      if (code && !this.stopped) this.error = stderr ? stderr.split('\n').pop() : tr('lin_helper.stopped', { code }, 'The helper stopped (' + code + ')');
       this.emit('exit', code);
       // Exits right after starting (no display, no XInput 2): try less often.
       this.fails = this.error && code ? this.fails + 1 : 0;
@@ -114,10 +120,10 @@ class Helper extends EventEmitter {
   request(cmd, args = {}, ms = REQUEST_MS) {
     return new Promise((resolve, reject) => {
       const id = this.nextId++;
-      if (!this._write({ ...args, cmd, id })) return reject(new Error('helper not running'));
+      if (!this._write({ ...args, cmd, id })) return reject(new Error(tr('lin_helper.not_running', null, 'helper not running')));
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error('helper: ' + cmd + ' timed out'));
+        reject(new Error(tr('lin_helper.timed_out', { cmd }, 'helper: ' + cmd + ' timed out')));
       }, ms);
       this.pending.set(id, { resolve, reject, timer });
     });

@@ -12,6 +12,8 @@ const P = require('../shared/protocol.js');
 const { script } = require('./ps');
 const RemoteInput = require('./remote-input');
 const PcScreen = require('./pcscreen'); // fps()
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const POLL_MS = 250;
@@ -148,7 +150,7 @@ class PcApps {
       this.message = '';
       this.link.send({ t: T.PAPPS_RESULT, apps });
     } catch (e) {
-      this.message = 'Couldn’t list this PC’s apps: ' + e.message;
+      this.message = tr('win_pcapps.couldnt_list', { error: e.message }, 'Couldn’t list this PC’s apps: ' + e.message);
       this.link.send({ t: T.PAPPS_RESULT, apps: [] });
     }
     this.onChange();

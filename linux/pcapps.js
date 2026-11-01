@@ -14,6 +14,8 @@ const P = require('../shared/protocol.js');
 const desktopApps = require('./desktopapps');
 const RemoteInput = require('./remote-input');
 const PcScreen = require('./pcscreen'); // fps()
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const POLL_MS = 250;
@@ -129,7 +131,7 @@ class PcApps {
 
   async _list() {
     if (!this.allowed || WAYLAND) {
-      if (WAYLAND) this.message = 'Needs an Xorg session: Wayland doesn’t let apps show other apps’ windows';
+      if (WAYLAND) this.message = tr('apps.needs_an_xorg_session_wayland', null, 'Needs an Xorg session: Wayland doesn’t let apps show other apps’ windows');
       this.onChange();
       return this.link.send({ t: T.PAPPS_RESULT, apps: [] });
     }
@@ -138,7 +140,7 @@ class PcApps {
       this.message = '';
       this.link.send({ t: T.PAPPS_RESULT, apps });
     } catch (e) {
-      this.message = 'Couldn’t list this computer’s apps: ' + e.message;
+      this.message = tr('lin_pcapps.couldnt_list', { error: e.message }, 'Couldn’t list this computer’s apps: ' + e.message);
       this.link.send({ t: T.PAPPS_RESULT, apps: [] });
     }
     this.onChange();

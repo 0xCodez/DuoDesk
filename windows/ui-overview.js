@@ -16,7 +16,8 @@ UI.tab({
   badge: (s) => (s.link.state === 'identity_changed' || (s.discovery && !s.discovery.on) || s.found.some((d) => d.invited) ? 'warn' : ''),
   build(body) {
     const { el, api } = UI;
-    const WHERE = { driving: 'You’re using {there}', driven: '{There} is using {me}' };
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
+    const WHERE = { driving: t('overview.youre_using', null, 'You’re using {there}'), driven: t('overview.peer_using_me', null, '{There} is using {me}') };
 
     const linkLine = el('div', { class: 'hero-link' }, [el('span', { class: 'hero-pulse' })]);
     const linkText = el('div', { class: 'hero-link-text' });
@@ -24,23 +25,23 @@ UI.tab({
     const macName = el('div', { class: 'hero-name' });
     const status = el('div', { class: 'hero-status' });
     // The session: Disconnect it; Connect again after one (or Take over while another device has it).
-    const discBtn = UI.button('Disconnect', () => api.disconnect(), 'small');
-    const againBtn = UI.button('Connect', () => api.connectAgain(), 'small primary');
+    const discBtn = UI.button(t('overview.disconnect', null, 'Disconnect'), () => api.disconnect(), 'small');
+    const againBtn = UI.button(t('overview.connect', null, 'Connect'), () => api.connectAgain(), 'small primary');
     const sessionBtns = el('div', { class: 'hero-actions' }, [againBtn, discBtn]);
-    const netCancel = UI.button('Cancel', () => api.netCancel(), 'small');
+    const netCancel = UI.button(t('overview.cancel', null, 'Cancel'), () => api.netCancel(), 'small');
     netCancel.hidden = true;
-    const netLocation = UI.button('Location settings', () => api.netLocation(), 'small'); // joining needed Windows' Location
+    const netLocation = UI.button(t('overview.location_settings', null, 'Location settings'), () => api.netLocation(), 'small'); // joining needed Windows' Location
     netLocation.hidden = true;
     // A session on Bluetooth: onto a direct Wi-Fi link on request, until Back to Bluetooth.
     let wifiOn = false;
-    const wifiBtn = UI.button('Connect with Wi-Fi Direct', () => api.netWifi(!wifiOn), 'small');
+    const wifiBtn = UI.button(t('overview.connect_wifi_direct', null, 'Connect with Wi-Fi Direct'), () => api.netWifi(!wifiOn), 'small');
     wifiBtn.hidden = true;
     // A phone: its hotspot instead. It switches it on; its name and password here once (saved for it).
-    const hotspotBtn = UI.button('Connect with hotspot', () => api.netWifi('hotspot'), 'small');
+    const hotspotBtn = UI.button(t('overview.connect_hotspot', null, 'Connect with hotspot'), () => api.netWifi('hotspot'), 'small');
     hotspotBtn.hidden = true;
-    const hsSsid = el('input', { type: 'text', placeholder: 'Hotspot name', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Hotspot name' } });
-    const hsPass = el('input', { type: 'password', placeholder: 'Password', autocomplete: 'off', attrs: { 'aria-label': 'Hotspot password' } });
-    const hsJoin = UI.button('Join', () => api.netJoinHotspot({ ssid: hsSsid.value, pass: hsPass.value }), 'small primary');
+    const hsSsid = el('input', { type: 'text', placeholder: t('overview.hotspot_name', null, 'Hotspot name'), autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': t('overview.hotspot_name', null, 'Hotspot name') } });
+    const hsPass = el('input', { type: 'password', placeholder: t('overview.password', null, 'Password'), autocomplete: 'off', attrs: { 'aria-label': t('overview.password', null, 'Password') } });
+    const hsJoin = UI.button(t('overview.join', null, 'Join'), () => api.netJoinHotspot({ ssid: hsSsid.value, pass: hsPass.value }), 'small primary');
     hsSsid.onkeydown = hsPass.onkeydown = (e) => { if (e.key === 'Enter') hsJoin.click(); };
     const hsForm = el('div', { class: 'hero-actions' }, [hsSsid, hsPass, hsJoin]);
     hsForm.hidden = true;
@@ -62,11 +63,11 @@ UI.tab({
 
     // ---- this PC + connect by address (always visible) ----
     const addrVal = el('span', { class: 'value addr' });
-    const copyBtn = UI.button('Copy', () => UI.state && api.copyText(UI.state.addresses[0] || ''), 'small');
+    const copyBtn = UI.button(t('overview.copy', null, 'Copy'), () => UI.state && api.copyText(UI.state.addresses[0] || ''), 'small');
     const addrRow = UI.row('{me}', '', [addrVal, copyBtn]);
-    const ipInput = el('input', { type: 'text', placeholder: '192.168.1.20', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': 'Address' } });
+    const ipInput = el('input', { type: 'text', placeholder: '192.168.1.20', autocomplete: 'off', spellcheck: false, attrs: { 'aria-label': t('overview.address_aria', null, 'Address') } });
     let asking = '';
-    const ipBtn = UI.button('Connect', async () => {
+    const ipBtn = UI.button(t('overview.connect', null, 'Connect'), async () => {
       const v = ipInput.value.trim();
       if (!v || asking) return;
       asking = v;
@@ -74,20 +75,20 @@ UI.tab({
       try { await api.connectAddress(v); } finally { asking = ''; render(); }
     }, 'small primary');
     ipInput.onkeydown = (e) => { if (e.key === 'Enter') ipBtn.click(); };
-    const ipRow = UI.row('Connect by address', '', [ipInput, ipBtn]);
+    const ipRow = UI.row(t('overview.connect_by_address', null, 'Connect by address'), '', [ipInput, ipBtn]);
 
     // ---- found nearby (always visible) ----
-    const discRow = UI.row('Can’t look for computers on this network.', '', [UI.button('Fix firewall', () => api.fixFirewall(), 'small')]);
+    const discRow = UI.row(t('overview.cant_look_network', null, 'Can’t look for computers on this network.'), '', [UI.button(t('overview.fix_firewall', null, 'Fix firewall'), () => api.fixFirewall(), 'small')]);
     const foundList = el('div');
     // General's two Bluetooth switches, here too: who can turn up through Bluetooth.
-    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: 'Bluetooth with phones' });
-    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: 'Bluetooth with computers' });
-    const bleRows = [UI.row('Bluetooth with phones', '', [bleSw]), UI.row('Bluetooth with computers', '', [blePcSw])];
-    const refresh = UI.button('Refresh', () => { // the list empties and fills again with whoever answers
+    const bleSw = UI.switch((v) => api.setNet({ ble: v }), { label: t('overview.ble_phones', null, 'Bluetooth with phones') });
+    const blePcSw = UI.switch((v) => api.setNet({ blePc: v }), { label: t('overview.ble_computers', null, 'Bluetooth with computers') });
+    const bleRows = [UI.row(t('overview.ble_phones', null, 'Bluetooth with phones'), '', [bleSw]), UI.row(t('overview.ble_computers', null, 'Bluetooth with computers'), '', [blePcSw])];
+    const refresh = UI.button(t('overview.refresh', null, 'Refresh'), () => { // the list empties and fills again with whoever answers
       api.refreshFound();
       refresh.disabled = true;
-      refresh.textContent = 'Looking…';
-      setTimeout(() => { refresh.disabled = false; refresh.textContent = 'Refresh'; }, 1500);
+      refresh.textContent = t('overview.looking', null, 'Looking…');
+      setTimeout(() => { refresh.disabled = false; refresh.textContent = t('overview.refresh', null, 'Refresh'); }, 1500);
     }, 'small');
 
     // ---- a connected phone's wireless debugging (shared/ui-adb.js) and pairing by QR code (shared/ui-qrpair.js) ----
@@ -97,11 +98,11 @@ UI.tab({
     const pairedList = el('div');
     body.append(
       UI.card('', [addrRow, ipRow]),
-      UI.card('Found nearby', [discRow, foundList, ...bleRows], { actions: [refresh] }),
+      UI.card(t('overview.found_nearby', null, 'Found nearby'), [discRow, foundList, ...bleRows], { actions: [refresh] }),
       ...(qrPair ? [qrPair.el] : []),
       hero,
       adb.el,
-      UI.card('Paired', [pairedList]),
+      UI.card(t('overview.paired', null, 'Paired'), [pairedList]),
     );
 
     let last = null;
@@ -135,17 +136,17 @@ UI.tab({
           setTimeout(redraw, 1550);
         }
         const d = done[dev.id];
-        return d && Date.now() - d.at < 1500 ? { ok: true, text: d.kind === 'pair' ? 'Paired ✓' : 'Connected' } : null;
+        return d && Date.now() - d.at < 1500 ? { ok: true, text: d.kind === 'pair' ? t('overview.paired_check', null, 'Paired ✓') : t('overview.connected', null, 'Connected') } : null;
       }
       if (p) {
         if (mine) mine.seen = true;
         if (p.phase === 'failed') {
-          const fw = s.firewall && s.firewall.ok === false ? ' The firewall blocks DuoDesk here: Fix firewall above.' : '';
+          const fw = s.firewall && s.firewall.ok === false ? ' ' + t('overview.fix_firewall', null, 'Fix firewall') : '';
           return { fail: true, text: named(p.error, dev) + fw };
         }
         if (p.phase === 'code') return { code: p.code };
-        if (p.phase === 'waiting') return { wait: true, text: 'Waiting for ' + dev.name + ' to allow…' };
-        return { busy: true, text: 'Connecting…' };
+        if (p.phase === 'waiting') return { wait: true, text: t('overview.waiting_allow', { name: dev.name }, 'Waiting for ' + dev.name + ' to allow…') };
+        return { busy: true, text: t('overview.connecting', null, 'Connecting…') };
       }
       if (!mine) return null;
       if (mine.seen) { // its pairing ended without connecting (Cancel)
@@ -153,9 +154,9 @@ UI.tab({
         return null;
       }
       if (Date.now() - mine.since > LIMIT_MS) {
-        return { fail: true, text: 'Can’t reach ' + dev.name + ' at ' + dev.address + '. Is DuoDesk open there, on the same Wi-Fi?' };
+        return { fail: true, text: t('overview.cant_reach', { name: dev.name, address: dev.address }, 'Can’t reach ' + dev.name + ' at ' + dev.address + '. Is DuoDesk open there, on the same Wi-Fi?') };
       }
-      return { busy: true, text: mine.kind === 'take' ? 'Taking over…' : 'Connecting…' };
+      return { busy: true, text: mine.kind === 'take' ? t('overview.taking_over', null, 'Taking over…') : t('overview.connecting', null, 'Connecting…') };
     }
     const update = (s) => {
       last = s;
@@ -165,35 +166,41 @@ UI.tab({
       const connected = l.state === 'connected';
       pcName.textContent = s.device.name;
       const p = UI.peer(s);
-      macName.textContent = s.peer ? s.peer.name : 'The other computer';
+      macName.textContent = s.peer ? s.peer.name : t('overview.other_computer', null, 'The other computer');
       peerDev.className = 'device ' + UI.osClass(p.os);
       if (UI.phoneWall && p.phone) peerDev.style.setProperty('--phone-wall', UI.phoneWall);
       else peerDev.style.removeProperty('--phone-wall');
       linkLine.className = 'hero-link' + (connected ? ' up' : '');
       const ble = s.net && s.net.transport === 'ble';
       linkText.textContent = connected ? (l.rtt != null ? l.rtt + ' ms · ' : '') + UI.via(s)
-        : s.pairing ? 'Pairing…' : s.paired ? 'Connecting…' : 'Not connected';
+        : s.pairing ? t('overview.pairing', null, 'Pairing…') : s.paired ? t('overview.connecting', null, 'Connecting…') : t('overview.not_connected', null, 'Not connected');
       const bad = l.state === 'identity_changed';
-      status.textContent = bad ? 'This ' + p.kind + ' looks different now. Forget it and pair again.'
-        : connected ? s.kvmState.message || (WHERE[s.input] || 'Connected').replace('{there}', p.the).replace('{There}', p.the.charAt(0).toUpperCase() + p.the.slice(1))
-          : s.peer ? 'Open DuoDesk on ' + s.peer.name + '.'
-            : 'Pick a computer below, or connect by address.';
+      status.textContent = bad ? t('overview.identity_changed', { kind: p.kind }, 'This ' + p.kind + ' looks different now. Forget it and pair again.')
+        : connected ? s.kvmState.message || (WHERE[s.input] || t('overview.connected', null, 'Connected')).replace('{there}', p.the).replace('{There}', p.the.charAt(0).toUpperCase() + p.the.slice(1))
+          : s.peer ? t('overview.open_on_peer', { name: s.peer.name }, 'Open DuoDesk on ' + s.peer.name + '.')
+            : t('overview.pick_below', null, 'Pick a computer below, or connect by address.');
       status.classList.toggle('bad', bad);
       // Disconnected here or by the other side, taken over, or in use by another device.
       const stopped = l.state === 'stopped';
       const busyBy = !connected && !stopped && l.busy;
       if (s.paired && !connected && (stopped || busyBy)) {
-        status.textContent = stopped ? (l.message || 'Disconnected').replace(/\{Name\}/g, s.paired.macName) + '.' : busyBy + '.';
+        status.textContent = stopped ? (l.message || t('overview.disconnected', null, 'Disconnected')).replace(/\{Name\}/g, s.paired.macName) + '.' : busyBy + '.';
       }
       discBtn.hidden = !connected;
       againBtn.hidden = connected || !s.paired || !(stopped || busyBy);
-      againBtn.textContent = busyBy || (stopped && l.message) ? 'Take over' : 'Connect';
+      againBtn.textContent = busyBy || (stopped && l.message) ? t('overview.take_over', null, 'Take over') : t('overview.connect', null, 'Connect');
       sessionBtns.hidden = discBtn.hidden && againBtn.hidden;
       // Moving the session to Wi-Fi (files, screens through Bluetooth: netlink.js)
       const n = s.net || {};
-      const moving = { hotspot: 'Switch on {name}’s hotspot, then type its name and password here.', asking: 'Asking {name} for Wi-Fi…', hosting: 'Starting Wi-Fi Direct for {name}…', joining: 'Joining ' + (n.ssid || 'Wi-Fi') + '…', joined: 'On Wi-Fi with {name}' }[n.state];
+      const moving = {
+        hotspot: t('overview.hotspot_hint', { name: n.name }, 'Switch on ' + n.name + '’s hotspot, then type its name and password here.'),
+        asking: t('overview.asking_wifi', { name: n.name }, 'Asking ' + n.name + ' for Wi-Fi…'),
+        hosting: t('overview.starting_wifi_direct', { name: n.name }, 'Starting Wi-Fi Direct for ' + n.name + '…'),
+        joining: t('overview.joining_ssid', { ssid: n.ssid || 'Wi-Fi' }, 'Joining ' + (n.ssid || 'Wi-Fi') + '…'),
+        joined: t('overview.on_wifi_with', { name: n.name }, 'On Wi-Fi with ' + n.name)
+      }[n.state];
       if (connected && !bad && (moving || n.state === 'failed')) {
-        status.textContent = n.state === 'failed' ? n.error || 'Wi-Fi didn’t come up' : moving;
+        status.textContent = n.state === 'failed' ? n.error || t('overview.wifi_failed', null, 'Wi-Fi didn’t come up') : moving;
         status.classList.toggle('bad', n.state === 'failed');
       }
       netCancel.hidden = !(connected && ['asking', 'hosting', 'joining', 'hotspot'].includes(n.state));
@@ -201,13 +208,13 @@ UI.tab({
       if (!hsForm.hidden && !hsShown) { // filled in once, not while typing
         hsSsid.value = n.hotspotSsid || '';
         hsPass.value = '';
-        hsPass.placeholder = n.hotspotSaved ? 'Password (saved)' : 'Password';
+        hsPass.placeholder = n.hotspotSaved ? t('overview.password_saved', null, 'Password (saved)') : t('overview.password', null, 'Password');
         setTimeout(() => (n.hotspotSsid ? hsPass : hsSsid).focus(), 0);
       }
       hsShown = !hsForm.hidden;
       netLocation.hidden = !(connected && n.state === 'failed' && n.location);
       wifiOn = (n.why || []).includes('user') || !!n.linked; // made for the screen or files too
-      wifiBtn.textContent = wifiOn ? 'Back to Bluetooth' : 'Connect with Wi-Fi Direct';
+      wifiBtn.textContent = wifiOn ? t('overview.back_to_bluetooth', null, 'Back to Bluetooth') : t('overview.connect_wifi_direct', null, 'Connect with Wi-Fi Direct');
       wifiBtn.hidden = !connected || !netCancel.hidden || !(wifiOn || ble);
       hotspotBtn.hidden = !connected || !netCancel.hidden || wifiOn || !ble || !UI.isPhone(s);
 
@@ -216,12 +223,12 @@ UI.tab({
       if (qrPair) qrPair.update(s);
 
       // this PC
-      addrVal.textContent = s.addresses.length ? s.addresses[0] : 'No network'; // The one the other computer can reach
+      addrVal.textContent = s.addresses.length ? s.addresses[0] : t('overview.no_network', null, 'No network'); // The one the other computer can reach
       copyBtn.hidden = !s.addresses.length;
       const busy = !!s.pairing && s.pairing.phase !== 'failed';
       ipBtn.disabled = busy || !!asking;
       const failed = s.pairing && s.pairing.phase === 'failed';
-      ipRow.setHint(asking ? 'Looking for DuoDesk at ' + asking + '…' : failed ? s.pairing.error : '');
+      ipRow.setHint(asking ? t('overview.looking_at_addr', { addr: asking }, 'Looking for DuoDesk at ' + asking + '…') : failed ? s.pairing.error : '');
       ipRow.hint.classList.toggle('bad', !asking && !!failed);
 
       // found nearby
@@ -229,7 +236,7 @@ UI.tab({
       const fwBad = s.firewall && s.firewall.ok === false && !s.firewall.checking;
       const blocked = !d.on || fwBad;
       discRow.hidden = !blocked;
-      discRow.setHint(!d.on ? d.error + '. Connect by address still works.' : 'The firewall blocks it. Connect by address may still work.');
+      discRow.setHint(!d.on ? d.error + '. ' + t('overview.connect_by_addr_works', null, 'Connect by address still works.') : t('overview.fw_blocked', null, 'The firewall blocks it. Connect by address may still work.'));
       // Paired both ways: the computer we connect to (s.paired) and the ones that connect to us (s.guests).
       const known = new Set([...(s.paired ? [s.paired.macId] : []), ...s.guests.map((g) => g.id)]);
       const live = s.peer && connected ? s.peer.id : '';
@@ -244,21 +251,21 @@ UI.tab({
           const pairIt = () => go(dev, 'pair', () => api.pair(dev.id));
           // A Mac hosts; with a PC or Linux the one who clicks is the guest. A phone is asked to pair.
           const btn = online || isKnown || (st && !st.fail) ? null
-            : UI.button(st ? 'Retry' : dev.os === 'mac' || dev.os === 'android' ? 'Pair' : 'Connect', pairIt, 'small' + (dev.invited || st ? ' primary' : ''));
+            : UI.button(st ? t('overview.retry', null, 'Retry') : dev.os === 'mac' || dev.os === 'android' ? t('overview.pair_btn', null, 'Pair') : t('overview.connect', null, 'Connect'), pairIt, 'small' + (dev.invited || st ? ' primary' : ''));
           if (btn) btn.disabled = (busy && !st) || connected;
           // Paired: Take over (the computer we're a guest of: a takeover hello; one that connects to us:
           // invited, and its hello takes the session from whoever has it).
-          const take = !online && isKnown && !(st && !st.fail) ? UI.button(st ? 'Retry' : 'Take over',
+          const take = !online && isKnown && !(st && !st.fail) ? UI.button(st ? t('overview.retry', null, 'Retry') : t('overview.take_over', null, 'Take over'),
             () => go(dev, 'take', () => (s.paired && dev.id === s.paired.macId ? api.connectAgain() : api.connectGuest(dev.id))), 'small') : null;
           if (take) take.disabled = busy;
-          const match = st && st.code ? UI.button('Codes match', () => api.confirmCode(), 'small primary') : null;
+          const match = st && st.code ? UI.button(t('overview.codes_match', null, 'Codes match'), () => api.confirmCode(), 'small primary') : null;
           if (btn && dev.invited && !busy) focus = btn;
-          const hint = !st || st.ok ? dev.address + (dev.invited ? ' · wants to connect' : '')
-            : st.code ? 'Check the code: ' + st.code.slice(0, 3) + ' ' + st.code.slice(3) + ' (the same on ' + dev.name + '?)'
+          const hint = !st || st.ok ? dev.address + (dev.invited ? ' · ' + t('overview.wants_to_connect', null, 'wants to connect') : '')
+            : st.code ? t('overview.check_code_named', { code: st.code.slice(0, 3) + ' ' + st.code.slice(3), name: dev.name }, 'Check the code: ' + st.code.slice(0, 3) + ' ' + st.code.slice(3) + ' (the same on ' + dev.name + '?)')
               : st.text;
           const r = UI.row(dev.name, hint, [
             st && (st.busy || st.wait) ? el('span', { class: 'spin', attrs: { 'aria-hidden': 'true' } }) : null,
-            st && st.ok ? el('span', { class: 'pill good', text: st.text }) : online ? el('span', { class: 'pill good', text: 'Connected' }) : isKnown && !st ? el('span', { class: 'pill muted', text: 'Paired' }) : null,
+            st && st.ok ? el('span', { class: 'pill good', text: st.text }) : online ? el('span', { class: 'pill good', text: t('overview.connected', null, 'Connected') }) : isKnown && !st ? el('span', { class: 'pill muted', text: t('overview.paired', null, 'Paired') }) : null,
             match, btn, take]);
           if (st && st.fail) r.hint.classList.add('bad');
           if (st && st.code) r.hint.classList.add('code-hint');
@@ -266,7 +273,7 @@ UI.tab({
           r.classList.add('with-ico');
           return r;
         });
-        if (!rows.length && !blocked) rows.push(UI.row('Looking for computers…', 'Open DuoDesk on the other computer.'));
+        if (!rows.length && !blocked) rows.push(UI.row(t('overview.looking_for_computers', null, 'Looking for computers…'), t('overview.open_other_pc', null, 'Open DuoDesk on the other computer.')));
         foundList.replaceChildren(...rows);
         if (focus) focus.focus();
       }
@@ -279,26 +286,26 @@ UI.tab({
       pairedKey = pk;
       const all = [
         ...(s.paired ? [{ id: s.paired.macId, name: s.paired.macName, os: s.paired.os, hint: s.paired.address, forget: () => api.forget(), connect: () => api.connectAgain() }] : []),
-        ...s.guests.map((g) => ({ id: g.id, name: g.name, os: g.os, hint: g.lastSeen ? 'Last seen ' + UI.ago(g.lastSeen) : '', forget: () => api.forgetGuest(g.id),
+        ...s.guests.map((g) => ({ id: g.id, name: g.name, os: g.os, hint: g.lastSeen ? t('overview.last_seen', { time: UI.ago(g.lastSeen) }, 'Last seen ' + UI.ago(g.lastSeen)) : '', forget: () => api.forgetGuest(g.id),
           connect: near.has(g.id) ? () => api.connectGuest(g.id) : null })),
       ];
       pairedList.replaceChildren(...(all.length ? all.map((x) => {
         const online = x.id === live;
         const waking = !online && wk.waking === x.id;
         // An offline computer that told us how to wake it gets Wake.
-        const wakeBtn = !online && wk.peers[x.id] ? UI.button(waking ? 'Waking…' : 'Wake', () => api.wakePeer(x.id), 'small') : null;
+        const wakeBtn = !online && wk.peers[x.id] ? UI.button(waking ? t('overview.waking', null, 'Waking…') : t('overview.wake', null, 'Wake'), () => api.wakePeer(x.id), 'small') : null;
         if (wakeBtn) wakeBtn.disabled = waking;
-        const r = UI.row(x.name, online ? 'Connected' : waking ? 'Waking ' + x.name + '…' : x.hint, [
-          online ? el('span', { class: 'pill good', text: 'Online' }) : null,
+        const r = UI.row(x.name, online ? t('overview.connected', null, 'Connected') : waking ? t('overview.waking_name', { name: x.name }, 'Waking ' + x.name + '…') : x.hint, [
+          online ? el('span', { class: 'pill good', text: t('overview.online', null, 'Online') }) : null,
           wakeBtn,
           // Switch to it: whatever the session is now, it ends (paired, and nearby to be reached).
-          !online && x.connect ? UI.button(live ? 'Switch' : 'Connect', x.connect, 'small') : null,
-          UI.button('Forget', x.forget, 'small'),
+          !online && x.connect ? UI.button(live ? t('overview.switch', null, 'Switch') : t('overview.connect', null, 'Connect'), x.connect, 'small') : null,
+          UI.button(t('overview.forget', null, 'Forget'), x.forget, 'small'),
         ]);
         r.querySelector('.text').prepend(UI.osIcon(x.os));
         r.classList.add('with-ico');
         return r;
-      }) : [UI.row('Nothing paired yet', 'Pair with a computer in Found nearby.')]));
+      }) : [UI.row(t('overview.nothing_paired', null, 'Nothing paired yet'), t('overview.pair_in_found_nearby', null, 'Pair with a computer in Found nearby.'))]));
     };
     return update;
   },

@@ -40,6 +40,8 @@
 
 const path = require('path');
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, systemPreferences, Notification, dialog, globalShortcut } = require('electron');
+const i18n = require('../../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 // ../main.js has set the command-line switches (WebRTC, autoplay) and the user data folder before handing over.
 if (!app.requestSingleInstanceLock()) {
@@ -125,7 +127,7 @@ function openPhoneApp(pkg) {
     pendingPhoneApp = null;
     return svc.phoneViews.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
   }
-  if (!pendingPhoneApp) hud.show('home', 'Opening it when the phone is ready…');
+  if (!pendingPhoneApp) hud.show('home', tr('main.opening_phone_ready', null, 'Opening it when the phone is ready…'));
   pendingPhoneApp = { pkg, until: (pendingPhoneApp && pendingPhoneApp.until) || Date.now() + 2 * 60 * 1000 };
   clearTimeout(openPhoneApp.timer);
   if (Date.now() > pendingPhoneApp.until) return (pendingPhoneApp = null);
@@ -296,9 +298,9 @@ function handleSendLink(url) {
   try { u = new URL(url); } catch { return; }
   const paths = u.searchParams.getAll('p').filter((x) => x.startsWith('/')).slice(0, 1000);
   if (!paths.length) return;
-  if (!peer.current) return hud && hud.show('away', 'Not connected', 'Open DuoDesk on the other computer first');
+  if (!peer.current) return hud && hud.show('away', tr('main.not_connected', null, 'Not connected'), tr('main.open_duodesk_other_first', null, 'Open DuoDesk on the other computer first'));
   actions.sendFiles(paths);
-  hud && hud.show('away', `Sending ${paths.length} item${paths.length === 1 ? '' : 's'} to ${peer.current.name}`);
+  hud && hud.show('away', paths.length === 1 ? tr('main.sending_item_to_peer_one', { name: peer.current.name }, 'Sending 1 item to ' + peer.current.name) : tr('main.sending_item_to_peer_other', { count: paths.length, name: peer.current.name }, 'Sending ' + paths.length + ' items to ' + peer.current.name));
 }
 
 function displayMode() {
@@ -432,8 +434,10 @@ function showUpdateWindow() {
 // while nothing is connected.
 function updateTray() {
   if (!tray) return;
+  const l = settings && settings.app && settings.app.lang;
+  i18n.setLanguage(!l || l === 'auto' ? app.getLocale() : l);
   const c = state.client;
-  const name = c ? c.name : 'the other computer';
+  const name = c ? c.name : tr('main.the_other_computer', null, 'the other computer');
   const k = settings.kvm;
   const where = state.input && state.input.where;
   tray.setToolTip(c ? `DuoDesk: ${c.name}` : 'DuoDesk');
@@ -441,26 +445,26 @@ function updateTray() {
   const other = c ? name : 'Other Computer';
   tray.setContextMenu(Menu.buildFromTemplate(trayMenu.template({
     connected: !!c,
-    status: c ? `Connected to ${c.name}${c.rttMs != null ? ` · ${c.rttMs} ms` : ''}` : 'Not connected',
+    status: c ? tr('tray.connected_to', { name: c.name + (c.rttMs != null ? ` · ${c.rttMs} ms` : '') }, 'Connected to {name}') : tr('sidebar.not_connected', null, 'Not connected'),
     home: where === 'driving' || where === 'driven' ? () => svc.kvm.home() : null,
     shared: { checked: k.linked !== false, set: (on) => actions.setKvm({ linked: on }) },
-    lock: c ? { label: `Lock Cursor on ${where === 'driving' ? name : id.macName} (${CL.keysLabel(settings.keys.lockKeys, 'mac')})`, checked: svc && svc.kvm.locked, set: (on) => svc.kvm.setLocked(on) } : null,
+    lock: c ? { label: tr('tray.lock_cursor_on', { name: where === 'driving' ? name : id.macName, keys: CL.keysLabel(settings.keys.lockKeys, 'mac') }, 'Lock Cursor on {name} ({keys})'), checked: svc && svc.kvm.locked, set: (on) => svc.kvm.setLocked(on) } : null,
     keyboard: { checked: k.keyboard, set: (on) => actions.setKvm({ keyboard: on }) },
-    drive: { label: `Use Mouse and Keyboard on ${other}`, checked: k.driveOther, set: (on) => actions.setKvm({ driveOther: on }) },
-    driven: { label: `Let ${other} Control ${id.macName}`, checked: k.beDriven, set: (on) => actions.setKvm({ beDriven: on }) },
+    drive: { label: tr('tray.use_mk_on', { name: other }, 'Use Mouse and Keyboard on {name}'), checked: k.driveOther, set: (on) => actions.setKvm({ driveOther: on }) },
+    driven: { label: tr('tray.let_control', { name: other, me: id.macName }, 'Let {name} Control {me}'), checked: k.beDriven, set: (on) => actions.setKvm({ beDriven: on }) },
     popup: { checked: settings.app.hud !== false, set: (on) => actions.setApp({ hud: on }) },
     screen: [
-      { label: 'Share Screen', checked: settings.sharing.on, set: (on) => actions.setSharing(on) },
-      { label: 'Receive Screen', checked: svc && svc.pcView.isOpen, set: (on) => (on ? actions.showPcView() : actions.closePcView()) },
+      { label: tr('tray.share_screen', null, 'Share Screen'), checked: settings.sharing.on, set: (on) => actions.setSharing(on) },
+      { label: tr('tray.receive_screen', null, 'Receive Screen'), checked: svc && svc.pcView.isOpen, set: (on) => (on ? actions.showPcView() : actions.closePcView()) },
     ],
     clipboard: { checked: settings.clipboard.enabled, set: (on) => actions.setClipboard({ enabled: on }) },
     sound: { checked: settings.audio.send, set: (on) => actions.setAudio({ send: on }) },
     drag: { checked: settings.files.dragEdge !== false, set: (on) => actions.setFiles({ dragEdge: on }) },
-    shortcuts: { label: `Copy and Paste Files (${CL.keysLabel(settings.files.copyKeys, 'mac')}, ${CL.keysLabel(settings.files.pasteKeys, 'mac')})`, checked: settings.files.shortcuts !== false, set: (on) => actions.setFiles({ shortcuts: on }) },
+    shortcuts: { label: tr('tray.copy_paste_files', { copy: CL.keysLabel(settings.files.copyKeys, 'mac'), paste: CL.keysLabel(settings.files.pasteKeys, 'mac') }, 'Copy and Paste Files ({copy}, {paste})'), checked: settings.files.shortcuts !== false, set: (on) => actions.setFiles({ shortcuts: on }) },
     found: found.map((d) => ({ label: `${d.name} (${d.os === 'mac' ? 'Mac' : d.os === 'linux' ? 'Linux' : 'PC'})`, click: () => actions.pairWith(d.id) })),
     byAddress: () => { actions.setTab('connection'); showWindow(); },
     lookAgain: () => actions.refreshDiscovery(),
-    update: updates && updates.status.available ? { label: `DuoDesk ${updates.status.latest} available…`, click: showUpdateWindow } : null,
+    update: updates && updates.status.available ? { label: tr('tray.download_version', { version: updates.status.latest }, 'Download DuoDesk ' + updates.status.latest + '…'), click: showUpdateWindow } : null,
     open: showWindow,
     log: () => require('../../shared/applog.js').open(),
     quit: () => app.quit(),
@@ -666,16 +670,16 @@ app.whenReady().then(() => {
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'trayTemplate.png'))); // "Template": macOS tints it
   hud = new Hud(() => settings);
   svc.kvm.on('where', (mode) => {
-    const name = peer.current ? peer.current.name : 'the other computer';
-    if (mode === 'driving') hud.show('away', settings.kvm.mouse ? `Using ${name}` : `Typing on ${name}`);
-    else if (mode === 'driven') hud.show('driven', `${name} is using ${id.macName}`);
-    else hud.show('home', `Back on ${id.macName}`);
+    const name = peer.current ? peer.current.name : tr('main.the_other_computer', null, 'the other computer');
+    if (mode === 'driving') hud.show('away', settings.kvm.mouse ? tr('main.using_peer', { name }, 'Using ' + name) : tr('main.typing_on', { name }, 'Typing on ' + name));
+    else if (mode === 'driven') hud.show('driven', tr('main.peer_is_using_me', { name }, name + ' is using {me}'));
+    else hud.show('home', tr('main.back_on_me', null, 'Back on {me}'));
   });
   // Cursor lock: the popup goes where the pointer is (the other computer shows its own while we drive it).
   svc.kvm.on('lock', (on, mode) => {
     if (mode === 'driving' && !(svc.kvm.local && svc.kvm.local.drives(svc.kvm.partner))) return;
-    const where = mode === 'driving' ? (peer.current ? peer.current.name : 'the other computer') : id.macName;
-    hud.show('lock', on ? `Cursor locked on ${where}` : 'Cursor unlocked');
+    const where = mode === 'driving' ? (peer.current ? peer.current.name : tr('main.the_other_computer', null, 'the other computer')) : id.macName;
+    hud.show('lock', on ? tr('main.cursor_locked_on', { where }, 'Cursor locked on ' + where) : tr('main.cursor_unlocked', null, 'Cursor unlocked'));
   });
   // The lock key at home: a global shortcut, held while connected (pushState syncs it).
   lockKey = new CL.GlobalLockKey(globalShortcut, () => svc.kvm.toggleLock());
@@ -688,12 +692,17 @@ app.whenReady().then(() => {
   svc.kvm.on('linked', (on, here) => {
     const name = peer.current ? peer.current.name : '';
     const key = P.hotkeyName(settings.keys.hotkey);
-    const sub = !here && name ? `Turned ${on ? 'on' : 'off'} on ${name}`
-      : on ? `${name ? `With ${name}. ` : ''}Double-tap ${key} to turn it off` : `Double-tap ${key} to turn it on`;
-    hud.show(on ? 'linkOn' : 'linkOff', `Cursor sharing ${on ? 'on' : 'off'}`, sub);
+    const sub = !here && name ? (on ? tr('main.turned_on_on', { name }, 'Turned on on ' + name) : tr('main.turned_off_on', { name }, 'Turned off on ' + name))
+      : on ? (name ? tr('main.with_peer_double_tap_off', { name, key }, 'With ' + name + '. Double-tap ' + key + ' to turn it off') : tr('main.double_tap_off', { key }, 'Double-tap ' + key + ' to turn it off'))
+        : tr('main.double_tap_on', { key }, 'Double-tap ' + key + ' to turn it on');
+    const text = on ? tr('main.cursor_sharing_on', null, 'Cursor sharing on') : tr('main.cursor_sharing_off', null, 'Cursor sharing off');
+    hud.show(on ? 'linkOn' : 'linkOff', text, sub);
   });
   svc.drop.on('batch', (b) => {
-    if (b.kind === 'send') hud.show('driven', `Received ${b.files} file${b.files === 1 ? '' : 's'} from ${peer.current ? peer.current.name : 'the other computer'}`);
+    if (b.kind === 'send') {
+      const peerName = peer.current ? peer.current.name : tr('main.the_other_computer', null, 'the other computer');
+      hud.show('driven', b.files === 1 ? tr('main.received_file_from_peer_one', { name: peerName }, 'Received 1 file from ' + peerName) : tr('main.received_file_from_peer_other', { count: b.files, name: peerName }, 'Received ' + b.files + ' files from ' + peerName));
+    }
   });
   createWindow();
   refreshPermissions();

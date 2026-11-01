@@ -10,6 +10,7 @@ const api = window.sender;
 
 const sessions = new Map(); // session → {session, pc, stream, pending, mbps, statsTimer, last}
 const alive = (me) => sessions.get(me.session) === me;
+var tx = typeof t === 'function' ? t : function (k, p, d) { return d; }; // t: shared/i18n.js, when the page loads it
 
 function report(me, status, error) {
   api.state({ session: me.session, status, error: error || '' });
@@ -72,7 +73,7 @@ async function start(m) {
     if (!alive(me)) return stream.getTracks().forEach((t) => t.stop());
     me.stream = stream;
     const captured = stream.getVideoTracks()[0];
-    captured.onended = () => alive(me) && report(me, 'ended', 'The captured ' + (m.offer.kind === 'window' ? 'window' : 'monitor') + ' went away');
+    captured.onended = () => alive(me) && report(me, 'ended', m.offer.kind === 'window' ? tx('lin_sender.window_went_away', null, 'The captured window went away') : tx('lin_sender.monitor_went_away', null, 'The captured monitor went away'));
     me.inset = m.inset || null;
     const track = m.offer.kind === 'window' ? cropped(captured, me) : captured;
     track.contentHint = 'motion';
@@ -106,7 +107,7 @@ async function start(m) {
     report(me, 'connecting');
     me.statsTimer = setInterval(() => stats(me), 1000);
   } catch (e) {
-    if (alive(me)) report(me, 'failed', 'Capturing: ' + e.message);
+    if (alive(me)) report(me, 'failed', tx('lin_sender.capturing_error', { error: e.message }, 'Capturing: ' + e.message));
   }
 }
 
@@ -185,7 +186,7 @@ async function onAnswer(m) {
     for (const c of me.pending.splice(0)) await me.pc.addIceCandidate(c).catch(() => {});
     me.pending = null;
   } catch (e) {
-    report(me, 'failed', '{Name}’s answer: ' + e.message);
+    report(me, 'failed', tx('lin_sender.answer_error', { error: e.message }, '{Name}’s answer: ' + e.message));
   }
 }
 

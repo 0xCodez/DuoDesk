@@ -11,6 +11,8 @@
 // for its first policy to arrive. We tell the viewer what we share (`screen.state`) and, when
 // "Let <peer> start and switch this screen" is on (pcScreen.remote), obey its `screen.ctl`.
 const { desktopCapturer, screen: displays } = require('electron');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 const RemoteInput = require('./remote-input');
 const loopback = require('./loopback');
@@ -198,7 +200,7 @@ class PcScreen {
     const key = [d.id, rect.x, rect.y, rect.width, rect.height, width, this.cfg.mbps, this.cfg.sound, fps, transport].join(',');
     if (this.sending && this.sending.key === key) return;
     // Wayland: the portal's picker lists the virtual monitor with the others.
-    if (WAYLAND && this.mode === 'extend' && this.popup) this.popup('away', 'Choose “Virtual remote monitor” to extend onto {name}');
+    if (WAYLAND && this.mode === 'extend' && this.popup) this.popup('away', tr('pcscreen.choose_virtual_monitor', null, 'Choose “Virtual remote monitor” to extend onto {name}'));
     let sources;
     try {
       sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
@@ -212,7 +214,7 @@ class PcScreen {
       return this._stopSend(true);
     }
     let audio = '';
-    if (this.cfg.sound) audio = await loopback.acquire().catch((e) => { this.status.error = 'Sound: ' + e.message; return ''; });
+    if (this.cfg.sound) audio = await loopback.acquire().catch((e) => { this.status.error = tr('lin_pcscreen.sound_error', { error: e.message }, 'Sound: ' + e.message); return ''; });
     if (!this.mode || this.mode === 'off' || !this.mac.accept) { if (audio) loopback.release(); return; }
     this._stopSend(true);
     // A phone over Wi-Fi: a high rate only fills the radio's queues (latency), it isn't sharper there.

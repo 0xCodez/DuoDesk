@@ -5,6 +5,8 @@
 // (main.js sets the AppUserModelID, or Windows shows none). Port of mac/notifs.js.
 const { Notification, nativeImage } = require('electron');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 const { IconsIn } = require('../shared/notificon.js');
 const { otpOf } = require('../shared/otp.js');
@@ -145,7 +147,7 @@ class Notifs {
         icon,
         toastXml: '<toast launch="' + xmlEsc('twindesk:open?app=' + encodeURIComponent(item.app) + '&name=' + encodeURIComponent(appName)) + '" activationType="protocol">'
           + '<visual><binding template="ToastGeneric"><text>' + xmlEsc(title) + '</text><text>' + xmlEsc(body) + '</text></binding></visual>'
-          + '<actions><action content="' + xmlEsc('Copy ' + code) + '" activationType="protocol" arguments="twindesk:copy?code=' + code + '"/></actions></toast>',
+          + '<actions><action content="' + xmlEsc(tr('mac_notifs.copy_code', { code }, 'Copy ' + code)) + '" activationType="protocol" arguments="twindesk:copy?code=' + code + '"/></actions></toast>',
       }) : new Notification({ title, icon, body });
       this.live.add(n);
       const drop = () => this.live.delete(n);

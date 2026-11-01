@@ -39,11 +39,28 @@ const ICONS = {
   feedback: 'M3.5 4.5h13v9h-7l-3.5 3v-3H3.5z M7 8h6 M7 10.5h3.5', // a speech bubble with two lines: Feedback
 };
 
+// The Details rows are asked for by these English ids; the card shows them translated.
+const DETAIL_LABELS = {
+  Status: () => UI.t('kit.status', null, 'Status'),
+  Display: () => UI.t('kit.display', null, 'Display'),
+  Picture: () => UI.t('kit.picture', null, 'Picture'),
+  Speed: () => UI.t('kit.speed', null, 'Speed'),
+  'Round trip': () => UI.t('kit.round_trip', null, 'Round trip'),
+  Codec: () => UI.t('kit.codec', null, 'Codec'),
+  Decoder: () => UI.t('kit.decoder', null, 'Decoder'),
+  Encoder: () => UI.t('kit.encoder', null, 'Encoder'),
+  Delay: () => UI.t('kit.delay', null, 'Delay'),
+  'Frames dropped': () => UI.t('kit.frames_dropped', null, 'Frames dropped'),
+  Freezes: () => UI.t('kit.freezes', null, 'Freezes'),
+};
+
 const UI = {
   api: window.macshare,
   P: window.MacShareProtocol,
   tabs: [],
   state: null,
+  // Translate: the same lookup the tab scripts use (shared/i18n.js), English when it isn't loaded.
+  t: (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k),
 
   el(tag, props = {}, children = []) {
     const e = document.createElement(tag);
@@ -187,12 +204,12 @@ const UI = {
   },
 
   ago(ts) {
-    if (!ts) return 'never';
+    if (!ts) return UI.t('kit.never', null, 'never');
     const s = Math.round((Date.now() - ts) / 1000);
-    if (s < 10) return 'just now';
-    if (s < 60) return `${s} s ago`;
-    if (s < 3600) return `${Math.round(s / 60)} min ago`;
-    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    if (s < 10) return UI.t('kit.just_now', null, 'just now');
+    if (s < 60) return UI.t('kit.seconds_ago', { seconds: s }, '{seconds} s ago');
+    if (s < 3600) return UI.t('kit.minutes_ago', { minutes: Math.round(s / 60) }, '{minutes} min ago');
+    if (s < 86400) return UI.t('kit.hours_ago', { hours: Math.round(s / 3600) }, '{hours} h ago');
     return new Date(ts).toLocaleDateString();
   },
 
@@ -226,11 +243,11 @@ const UI = {
         const { el } = UI;
         body.append(
           el('div', { class: 'card soon keep-on' }, [
-            el('div', { class: 'soon-head' }, [el('span', { class: 'pill', text: 'Coming in phase ' + r.phase })]),
+            el('div', { class: 'soon-head' }, [el('span', { class: 'pill', text: UI.t('kit.coming_in_phase', { phase: r.phase }, 'Coming in phase {phase}') })]),
             ...r.what.map(([t, d]) => el('div', { class: 'soon-item' }, [el('strong', { text: t }), el('div', { class: 'hint', text: d })])),
           ]),
-          UI.card('How it will work', [UI.row(r.how, '')], { cls: 'keep-on' }),
-          UI.card('Settings it will have', r.settings.map((label) => UI.row(label, '', [UI.switch(() => {}, { disabled: true, label })]))),
+          UI.card(UI.t('kit.how_it_will_work', null, 'How it will work'), [UI.row(r.how, '')], { cls: 'keep-on' }),
+          UI.card(UI.t('kit.settings_it_will_have', null, 'Settings it will have'), r.settings.map((label) => UI.row(label, '', [UI.switch(() => {}, { disabled: true, label })]))),
         );
       },
     });
@@ -241,12 +258,12 @@ const UI = {
   details(labels) {
     const vals = {};
     const rows = labels.map((label) => {
-      const r = UI.row(label, '');
+      const r = UI.row(DETAIL_LABELS[label] ? DETAIL_LABELS[label]() : label, '');
       vals[label] = UI.el('span', { class: 'value' });
       r.querySelector('.controls').append(vals[label]);
       return r;
     });
-    const card = UI.card('Details', rows);
+    const card = UI.card(UI.t('kit.details', null, 'Details'), rows);
     card.set = (map) => labels.forEach((label, i) => {
       const t = map[label];
       vals[label].textContent = t == null ? '' : String(t);
@@ -257,7 +274,8 @@ const UI = {
 
   // "Hardware" / "Software" from getStats' powerEfficient flag, with the implementation name.
   codecImpl(name, hw) {
-    return (hw ? 'Hardware' : 'Software') + (name ? ' (' + name + ')' : '');
+    if (!name) return hw ? UI.t('kit.hardware', null, 'Hardware') : UI.t('kit.software', null, 'Software');
+    return hw ? UI.t('kit.hardware_name', { name }, 'Hardware ({name})') : UI.t('kit.software_name', { name }, 'Software ({name})');
   },
 
   // Who the other computer is: titles name what is connected. With a
@@ -267,12 +285,12 @@ const UI = {
   peer(s) {
     const p = s && s.peer;
     const os = p ? p.os : 'win';
-    const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux', android: 'Phone' };
+    const KIND = { mac: 'Mac', win: 'PC', linux: 'Linux', android: UI.t('sidebar.phone', null, 'Phone') };
     const same = os === 'win';
     // Device names everywhere: this PC by its own name,
     // the other computer by its name (or "the other computer" before anything was paired).
-    const me = (s && s.device && s.device.name) || 'This PC';
-    const name = (p && p.name) || 'the other computer';
+    const me = (s && s.device && s.device.name) || UI.t('kit.this_pc', null, 'This PC');
+    const name = (p && p.name) || UI.t('kit.the_other_computer', null, 'the other computer');
     const Name = name.charAt(0).toUpperCase() + name.slice(1);
     return {
       os, same, me, name, Name, phone: os === 'android',
@@ -306,15 +324,15 @@ const UI = {
   // pair.sync): one row used by Share and Receive. Returns the row with .render(state).
   paceRow() {
     const seg = UI.segmented([
-      { value: 'fast', label: 'Fastest' },
-      { value: 'smooth', label: 'Smooth' },
+      { value: 'fast', label: UI.t('kit.fastest', null, 'Fastest') },
+      { value: 'smooth', label: UI.t('kit.smooth', null, 'Smooth') },
     ], (v) => UI.api.setMonitor({ pacing: v }));
-    const row = UI.row('Playback', '', [seg]);
+    const row = UI.row(UI.t('kit.playback', null, 'Playback'), '', [seg]);
     row.render = (s) => {
       const pace = (s.monitor && s.monitor.pacing) || 'fast';
       seg.set(pace);
-      row.setHint(pace === 'smooth' ? 'Even motion, about one frame later. The same on {name}'
-        : 'Each frame the moment it arrives. The same on {name}');
+      row.setHint(pace === 'smooth' ? UI.t('kit.even_motion_about_one_frame', null, 'Even motion, about one frame later. The same on {name}')
+        : UI.t('kit.each_frame_the_moment_it', null, 'Each frame the moment it arrives. The same on {name}'));
     };
     return row;
   },
@@ -338,7 +356,7 @@ const UI = {
     return img;
   },
   osIcon(os) {
-    return UI.el('span', { class: `os-ico ${UI.osClass(os)}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? 'Phone' : 'PC' } });
+    return UI.el('span', { class: `os-ico ${UI.osClass(os)}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? UI.t('sidebar.phone', null, 'Phone') : 'PC' } });
   },
 
   // Two equal direction cards, always Mac → PC then PC → Mac.
@@ -358,7 +376,7 @@ const UI = {
     const make = (dir, def) => {
       const toMe = dir === 'm2p';
       const route = UI.el('span', { class: 'route', attrs: { role: 'img' } }, [node(!toMe), UI.el('span', { class: 'flow' }), node(toMe)]);
-      const head = UI.el('div', { class: 'dir-head' }, [route, def.soon ? UI.el('span', { class: 'pill muted', text: 'Coming in phase ' + def.soon }) : null]);
+      const head = UI.el('div', { class: 'dir-head' }, [route, def.soon ? UI.el('span', { class: 'pill muted', text: UI.t('kit.coming_in_phase', { phase: def.soon }, 'Coming in phase {phase}') }) : null]);
       let sw = null, main = null;
       if (def.on) {
         const label = def.label || (toMe ? '{name} on {me}' : '{me} on {name}');
@@ -390,7 +408,7 @@ const UI = {
   keyRecorder(onChange, opts = {}) {
     const b = UI.el('button', { class: 'btn small keyrec' });
     let value = '', recording = false;
-    const show = () => { b.textContent = recording ? 'Press keys…' : UI.keysLabel(value) || 'None'; b.classList.toggle('on', recording); };
+    const show = () => { b.textContent = recording ? UI.t('kit.press_keys', null, 'Press keys…') : UI.keysLabel(value) || UI.t('cursor.none', null, 'None'); b.classList.toggle('on', recording); };
     const keyOf = (e) => {
       if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3);
       if (/^Digit\d$/.test(e.code)) return e.code.slice(5);
@@ -431,12 +449,12 @@ const UI = {
   // Cursor tab › Cursor lock (shared/cursorlock.js): the switch is not a setting, it lasts until the
   // pointer is moved some other way; the lock key is (settings.keys.lockKeys).
   cursorLock() {
-    const lock = UI.switch((v) => UI.api.setKvm({ locked: v }), { label: 'Lock the cursor' });
-    const lockRow = UI.row('Lock the cursor', '', [lock]);
+    const lock = UI.switch((v) => UI.api.setKvm({ locked: v }), { label: UI.t('kit.lock_the_cursor', null, 'Lock the cursor') });
+    const lockRow = UI.row(UI.t('kit.lock_the_cursor', null, 'Lock the cursor'), '', [lock]);
     const key = UI.keyRecorder((v) => UI.api.setKeys({ lockKeys: v }), { bare: true });
-    const keyRow = UI.row('Lock key', 'Scroll Lock or F13–F24 on its own, or a combination with Ctrl, Alt or Win', [key.el]);
+    const keyRow = UI.row(UI.t('kit.lock_key', null, 'Lock key'), UI.t('kit.scroll_lock_or_f13_f24', null, 'Scroll Lock or F13–F24 on its own, or a combination with Ctrl, Alt or Win'), [key.el]);
     return {
-      el: UI.card('Cursor lock', [lockRow, keyRow]),
+      el: UI.card(UI.t('kit.cursor_lock', null, 'Cursor lock'), [lockRow, keyRow]),
       update(s) {
         const k = s.kvmState;
         const connected = s.link.state === 'connected';
@@ -445,10 +463,16 @@ const UI = {
         lock.disable(!connected);
         key.set(s.keys.lockKeys);
         const where = k.mode === 'driving' ? p.name : p.me;
-        const press = s.keys.lockKeys ? ' While the pointer is on ' + p.me + ', ' + UI.keysLabel(s.keys.lockKeys) + ' on either keyboard locks or unlocks it (each computer has its own key).' : '';
-        lockRow.setHint(k.lockError ? k.lockError : !connected ? 'Keeps the pointer on one computer, even when the mouse is plugged into another.' + press
-          : k.locked ? 'The pointer stays on ' + where + ': the screen edges don’t cross.' + press
-            : 'Keeps the pointer on ' + where + ', where it is now, even when the mouse is plugged into another computer.' + press);
+        const keys = s.keys.lockKeys ? UI.keysLabel(s.keys.lockKeys) : '';
+        const q = { me: p.me, keys, where };
+        lockRow.setHint(k.lockError ? k.lockError : !connected
+          ? (keys ? UI.t('kit.keeps_pointer_one_computer_keys', q, 'Keeps the pointer on one computer, even when the mouse is plugged into another. While the pointer is on {me}, {keys} on either keyboard locks or unlocks it (each computer has its own key).')
+            : UI.t('kit.keeps_pointer_one_computer', null, 'Keeps the pointer on one computer, even when the mouse is plugged into another.'))
+          : k.locked
+            ? (keys ? UI.t('kit.pointer_stays_on_where_keys', q, 'The pointer stays on {where}: the screen edges don’t cross. While the pointer is on {me}, {keys} on either keyboard locks or unlocks it (each computer has its own key).')
+              : UI.t('kit.pointer_stays_on_where', q, 'The pointer stays on {where}: the screen edges don’t cross.'))
+            : (keys ? UI.t('kit.keeps_pointer_on_where_keys', q, 'Keeps the pointer on {where}, where it is now, even when the mouse is plugged into another computer. While the pointer is on {me}, {keys} on either keyboard locks or unlocks it (each computer has its own key).')
+              : UI.t('kit.keeps_pointer_on_where', q, 'Keeps the pointer on {where}, where it is now, even when the mouse is plugged into another computer.')));
       },
     };
   },
@@ -456,20 +480,24 @@ const UI = {
   // "Right now" row for the Cursor/Keyboard tabs: where input is + the last KVM event.
   inputStatus() {
     const pill = UI.el('span', { class: 'pill' });
-    const row = UI.row('Keyboard and mouse', '', [pill]);
+    const row = UI.row(UI.t('kit.keyboard_and_mouse', null, 'Keyboard and mouse'), '', [pill]);
     row.update = (s) => {
       const k = s.kvmState;
       const p = UI.peer(s);
-      const WHERE = { home: 'On ' + p.me, driving: 'On ' + p.name, driven: p.Name + ' is using ' + p.me };
+      const WHERE = { home: UI.t('kit.on_me', { me: p.me }, 'On {me}'), driving: UI.t('kit.on_name', { name: p.name }, 'On {name}'), driven: UI.t('kit.name_is_using_me', { Name: p.Name, me: p.me }, '{Name} is using {me}') };
       const off = k.linked === false || k.paused;
-      pill.textContent = off ? 'Sharing off' : (k.locked ? 'Locked · ' : '') + (WHERE[k.mode] || WHERE.home);
+      pill.textContent = off ? UI.t('kit.sharing_off', null, 'Sharing off') : k.locked ? UI.t('kit.locked_where', { where: WHERE[k.mode] || WHERE.home }, 'Locked · {where}') : (WHERE[k.mode] || WHERE.home);
       pill.className = 'pill ' + (off ? 'bad' : k.mode === 'home' ? 'muted' : 'good');
+      const hk = { hotkey: UI.hotkeyName(s) };
       row.setHint(k.helper && k.helper !== 'starting' ? k.helper
-        : k.linked === false ? 'Cursor sharing is off. Double-tap ' + UI.hotkeyName(s) + ' to turn it on.'
-        : k.paused ? 'Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap ' + UI.hotkeyName(s) + ' to turn it on.'
-        : s.link.state !== 'connected' ? 'Waiting for ' + p.the
-          : k.mode === 'home' && !k.message ? 'Connected to ' + p.name + '. Double-tap ' + UI.hotkeyName(s) + ' to turn cursor sharing off.'
-          : k.message || 'Double-tap ' + UI.hotkeyName(s) + ({ home: ' to turn cursor sharing off', driving: ' to come back and turn cursor sharing off', driven: ' to take it back' }[k.mode] || ''));
+        : k.linked === false ? UI.t('kit.cursor_sharing_is_off_double_tap', hk, 'Cursor sharing is off. Double-tap {hotkey} to turn it on.')
+        : k.paused ? UI.t('kit.cursor_sharing_is_off_over_bluetooth', hk, 'Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap {hotkey} to turn it on.')
+        : s.link.state !== 'connected' ? UI.t('kit.waiting_for_name', { name: p.the }, 'Waiting for {name}')
+          : k.mode === 'home' && !k.message ? UI.t('kit.connected_to_name_double_tap', { name: p.name, hotkey: hk.hotkey }, 'Connected to {name}. Double-tap {hotkey} to turn cursor sharing off.')
+          : k.message || (k.mode === 'home' ? UI.t('kit.double_tap_to_turn_cursor_off', hk, 'Double-tap {hotkey} to turn cursor sharing off')
+            : k.mode === 'driving' ? UI.t('kit.double_tap_to_come_back', hk, 'Double-tap {hotkey} to come back and turn cursor sharing off')
+              : k.mode === 'driven' ? UI.t('kit.double_tap_to_take_it_back', hk, 'Double-tap {hotkey} to take it back')
+                : UI.t('kit.double_tap_hotkey', hk, 'Double-tap {hotkey}')));
     };
     return row;
   },

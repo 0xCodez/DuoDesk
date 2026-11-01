@@ -10,6 +10,7 @@
 
 const { execFile } = require('child_process');
 const tabs = require('../shared/browsertabs.js');
+const { t: tr } = require('../shared/i18n.js');
 
 const CHROMIUMS = ['com.google.Chrome', 'com.google.Chrome.beta', 'com.microsoft.edgemac', 'com.brave.Browser', 'com.vivaldi.Vivaldi', 'com.operasoftware.Opera', 'company.thebrowser.Browser', 'org.chromium.Chromium'];
 const SKIP = /^(com\.apple\.(finder|dock|loginwindow|systemuiserver|controlcenter|notificationcenterui|Spotlight|systempreferences)|org\.macshare\.|com\.twindesk\.|com\.github\.Electron)/;
@@ -64,11 +65,11 @@ function create({ cfg }) {
       const app = r.id;
       const appName = r.name;
       if (r.browser || /firefox|librewolf|zen/i.test(app)) {
-        if (refused(r.err)) return { why: 'Let DuoDesk control ' + appName + ' to offer its tabs: System Settings › Privacy & Security › Automation › DuoDesk' };
+        if (refused(r.err)) return { why: tr('mac_activity.let_control', { app: appName }, 'Let DuoDesk control ' + appName + ' to offer its tabs: System Settings › Privacy & Security › Automation › DuoDesk') };
         const url = r.url || (tabs.tabOf(app, r.title || '') || {}).url;
         return url ? { kind: 'web', url, title: tabs.splitTitle(r.title || '').page || r.title || url, app, appName } : null;
       }
-      if (refused(r.serr)) return { why: 'Let DuoDesk control System Events to offer documents: System Settings › Privacy & Security › Automation › DuoDesk' };
+      if (refused(r.serr)) return { why: tr('mac_activity.let_control_events', null, 'Let DuoDesk control System Events to offer documents: System Settings › Privacy & Security › Automation › DuoDesk') };
       if (typeof r.doc === 'string' && r.doc.startsWith('file://')) {
         let p = '';
         try { p = decodeURIComponent(new URL(r.doc).pathname); } catch (_) { p = ''; }

@@ -193,11 +193,11 @@ const UI = {
     }
     os = os || 'win';
     const same = os === 'mac';
-    const kind = os === 'linux' ? 'Linux' : same ? 'Mac' : os === 'android' ? 'Phone' : 'PC';
+    const kind = os === 'linux' ? 'Linux' : same ? 'Mac' : os === 'android' ? UI.tr('sidebar.phone', null, 'Phone') : 'PC';
     // Computers are called by their names everywhere — this one by its own name, the
     // other by its name (or "the other computer" before anything was paired).
-    const me = (s && s.macName) || 'This Mac';
-    name = name || 'the other computer';
+    const me = (s && s.macName) || UI.tr('control.this_mac', null, 'This Mac');
+    name = name || UI.tr('control.the_other_computer', null, 'the other computer');
     const Name = name.charAt(0).toUpperCase() + name.slice(1);
     return {
       os, same, kind, me, name, Name, phone: os === 'android',
@@ -212,15 +212,15 @@ const UI = {
   // one row used by Share and Receive. Returns the row with .render(state).
   paceRow() {
     const seg = UI.segmented([
-      { value: 'fast', label: 'Fastest' },
-      { value: 'smooth', label: 'Smooth' },
+      { value: 'fast', label: UI.tr('control.fastest', null, 'Fastest') },
+      { value: 'smooth', label: UI.tr('control.smooth', null, 'Smooth') },
     ], (v) => UI.api.setSharingOpts({ pace: v }));
-    const row = UI.row('Playback', '', [seg]);
+    const row = UI.row(UI.tr('control.playback', null, 'Playback'), '', [seg]);
     row.render = (s) => {
       const pace = (s.sharing && s.sharing.pace) || 'fast';
       seg.set(pace);
-      row.setHint(pace === 'smooth' ? 'Even motion, about one frame later. The same on {name}'
-        : 'Each frame the moment it arrives. The same on {name}');
+      row.setHint(pace === 'smooth' ? UI.tr('control.even_motion_about_one_frame', null, 'Even motion, about one frame later. The same on {name}')
+        : UI.tr('control.each_frame_the_moment_it', null, 'Each frame the moment it arrives. The same on {name}'));
     };
     return row;
   },
@@ -247,7 +247,7 @@ const UI = {
     const from = dir === 'm2w';
     const head = UI.el('div', { class: 'dir-head' }, [
       UI.el('span', { class: 'route', attrs: { role: 'img' } }, [node(from), UI.el('span', { class: 'flow' }), node(!from)]),
-      soon || role ? UI.el('span', { class: 'dir-role', text: soon ? `Coming in phase ${soon}` : role }) : null,
+      soon || role ? UI.el('span', { class: 'dir-role', text: soon ? UI.tr('control.coming_in_phase', { phase: soon }, 'Coming in phase {phase}') : role }) : null,
     ]);
     const card = UI.el('div', { class: `card dir-card${soon ? ' soon-card' : ''}` }, [head, ...rows]);
     UI.names(UI.state);
@@ -259,12 +259,15 @@ const UI = {
     const p = UI.peer(s);
     for (const e of document.querySelectorAll('[data-side]')) e.textContent = p[e.dataset.side];
     for (const e of document.querySelectorAll('[data-os]')) e.className = `os-ico ${UI.osClass(p.os)}`;
-    for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', `From ${e.firstChild.textContent} to ${e.lastChild.textContent}`);
+    for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', UI.tr('control.from_from_to_to', { from: e.firstChild.textContent, to: e.lastChild.textContent }, 'From {from} to {to}'));
     for (const e of document.querySelectorAll('[data-peer]')) {
       e.textContent = e.dataset.peer.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
     }
     return p;
   },
+
+  // Text through the i18n engine (shared/i18n.js); the English default when it isn't there.
+  tr: (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k),
 
   isPhone: (s) => !!(s && s.client && s.client.os === 'android'),
 
@@ -278,7 +281,7 @@ const UI = {
     return img;
   },
   osIcon(os) {
-    return UI.el('span', { class: `os-ico ${UI.osClass(os)}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? 'Phone' : 'PC' } });
+    return UI.el('span', { class: `os-ico ${UI.osClass(os)}`, attrs: { 'aria-label': os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? UI.tr('sidebar.phone', null, 'Phone') : 'PC' } });
   },
 
   // Two equal direction cards side by side (stacked when narrow), always Mac → PC first.
@@ -303,7 +306,7 @@ const UI = {
   keyRecorder(onChange, opts = {}) {
     const b = UI.el('button', { class: 'btn small keyrec' });
     let value = '', recording = false;
-    const show = () => { b.textContent = recording ? 'Press keys…' : UI.keysLabel(value) || 'None'; b.classList.toggle('on', recording); };
+    const show = () => { b.textContent = recording ? UI.tr('control.press_keys', null, 'Press keys…') : UI.keysLabel(value) || UI.tr('cursor.none', null, 'None'); b.classList.toggle('on', recording); };
     const keyOf = (e) => {
       if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3);
       if (/^Digit\d$/.test(e.code)) return e.code.slice(5);
@@ -337,12 +340,12 @@ const UI = {
   // Cursor tab › Cursor lock (shared/cursorlock.js): the switch is not a setting, it lasts until the
   // pointer is moved some other way; the lock key is (settings.keys.lockKeys).
   cursorLock() {
-    const lock = UI.switch((v) => UI.api.setKvm({ locked: v }), { label: 'Lock the cursor' });
-    const lockRow = UI.row('Lock the cursor', '', [lock]);
+    const lock = UI.switch((v) => UI.api.setKvm({ locked: v }), { label: UI.tr('control.lock_the_cursor', null, 'Lock the cursor') });
+    const lockRow = UI.row(UI.tr('control.lock_the_cursor', null, 'Lock the cursor'), '', [lock]);
     const key = UI.keyRecorder((v) => UI.api.setKeys({ lockKeys: v }), { bare: true });
-    const keyRow = UI.row('Lock key', 'F13–F24 on its own (a PC keyboard’s Scroll Lock is F14), or a combination with ⌃, ⌥ or ⌘', [key.el]);
+    const keyRow = UI.row(UI.tr('control.lock_key', null, 'Lock key'), UI.tr('control.f13_f24_on_its_own', null, 'F13–F24 on its own (a PC keyboard’s Scroll Lock is F14), or a combination with ⌃, ⌥ or ⌘'), [key.el]);
     return {
-      el: UI.card('Cursor lock', [lockRow, keyRow]),
+      el: UI.card(UI.tr('control.cursor_lock', null, 'Cursor lock'), [lockRow, keyRow]),
       update(s) {
         const i = s.input || {};
         const keys = (s.keys && s.keys.lockKeys) || '';
@@ -351,10 +354,11 @@ const UI = {
         lock.disable(!s.client);
         key.set(keys);
         const where = i.where === 'driving' ? p.name : p.me;
-        const press = keys ? ` While the pointer is on ${p.me}, ${UI.keysLabel(keys)} on either keyboard locks or unlocks it (each computer has its own key).` : '';
-        lockRow.setHint(i.lockError ? i.lockError : !s.client ? `Keeps the pointer on one computer, even when the mouse is plugged into another.${press}`
-          : i.locked ? `The pointer stays on ${where}: the screen edges don’t cross.${press}`
-            : `Keeps the pointer on ${where}, where it is now, even when the mouse is plugged into another computer.${press}`);
+        // With the lock key set, each hint ends with the sentence naming it ({me} is filled by UI.fill).
+        const w = { where, keys: UI.keysLabel(keys) };
+        lockRow.setHint(i.lockError ? i.lockError : !s.client ? (keys ? UI.tr('control.keeps_the_pointer_on_one_key', w, 'Keeps the pointer on one computer, even when the mouse is plugged into another. While the pointer is on {me}, {keys} on either keyboard locks or unlocks it (each computer has its own key).') : UI.tr('control.keeps_the_pointer_on_one', null, 'Keeps the pointer on one computer, even when the mouse is plugged into another.'))
+          : i.locked ? (keys ? UI.tr('control.the_pointer_stays_on_where_key', w, 'The pointer stays on {where}: the screen edges don’t cross. While the pointer is on {me}, {keys} on either keyboard locks or unlocks it (each computer has its own key).') : UI.tr('control.the_pointer_stays_on_where', w, 'The pointer stays on {where}: the screen edges don’t cross.'))
+            : (keys ? UI.tr('control.keeps_the_pointer_on_where_key', w, 'Keeps the pointer on {where}, where it is now, even when the mouse is plugged into another computer. While the pointer is on {me}, {keys} on either keyboard locks or unlocks it (each computer has its own key).') : UI.tr('control.keeps_the_pointer_on_where', w, 'Keeps the pointer on {where}, where it is now, even when the mouse is plugged into another computer.')));
       },
     };
   },
@@ -367,23 +371,23 @@ const UI = {
   // Live shared-input status (Cursor / Keyboard tabs): where input is, last message, tap problems.
   kvmStatus(s) {
     const i = s.input || { where: 'home' };
-    if (i.tapError) return ['bad', 'macOS is blocking the mouse and keyboard. Allow Accessibility and Input Monitoring in General, then restart.'];
-    if (s.kvm && s.kvm.linked === false) return ['warn', `Cursor sharing is off. Double-tap ${UI.hotkeyName(s)} to turn it on.`];
-    if (i.paused) return ['warn', `Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap ${UI.hotkeyName(s)} to turn it on.`];
-    if (!s.client) return ['info', `Waiting for ${UI.peer(s).name}.`];
+    if (i.tapError) return ['bad', UI.tr('control.macos_is_blocking_the_mouse', null, 'macOS is blocking the mouse and keyboard. Allow Accessibility and Input Monitoring in General, then restart.')];
+    if (s.kvm && s.kvm.linked === false) return ['warn', UI.tr('control.cursor_sharing_is_off_double', { hotkey: UI.hotkeyName(s) }, 'Cursor sharing is off. Double-tap {hotkey} to turn it on.')];
+    if (i.paused) return ['warn', UI.tr('control.cursor_sharing_is_off_over', { hotkey: UI.hotkeyName(s) }, 'Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap {hotkey} to turn it on.')];
+    if (!s.client) return ['info', UI.tr('control.waiting_for_name', { name: UI.peer(s).name }, 'Waiting for {name}.')];
     const hk = UI.hotkeyName(s);
-    if (i.where === 'driving') return ['info', `You’re using ${s.client.name}. Double-tap ${hk} to come back and turn cursor sharing off.`];
-    if (i.where === 'driven') return ['info', `${s.client.name} is using ${UI.peer(s).me}. Double-tap ${hk} to take it back.`];
-    return [i.message ? 'warn' : 'info', i.message ? `${i.message}.` : `Connected to ${s.client.name}. Double-tap ${hk} to turn cursor sharing off.`];
+    if (i.where === 'driving') return ['info', UI.tr('control.youre_using_name_double_tap', { name: s.client.name, hotkey: hk }, 'You’re using {name}. Double-tap {hotkey} to come back and turn cursor sharing off.')];
+    if (i.where === 'driven') return ['info', UI.tr('control.name_is_using_me_double', { name: s.client.name, me: UI.peer(s).me, hotkey: hk }, '{name} is using {me}. Double-tap {hotkey} to take it back.')];
+    return [i.message ? 'warn' : 'info', i.message ? `${i.message}.` : UI.tr('control.connected_to_name_double_tap', { name: s.client.name, hotkey: hk }, 'Connected to {name}. Double-tap {hotkey} to turn cursor sharing off.')];
   },
 
   ago(ts) {
-    if (!ts) return 'never';
+    if (!ts) return UI.tr('control.never', null, 'never');
     const s = Math.round((Date.now() - ts) / 1000);
-    if (s < 10) return 'just now';
-    if (s < 60) return `${s} s ago`;
-    if (s < 3600) return `${Math.round(s / 60)} min ago`;
-    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    if (s < 10) return UI.tr('control.just_now', null, 'just now');
+    if (s < 60) return UI.tr('control.n_s_ago', { n: s }, '{n} s ago');
+    if (s < 3600) return UI.tr('control.n_min_ago', { n: Math.round(s / 60) }, '{n} min ago');
+    if (s < 86400) return UI.tr('control.n_h_ago', { n: Math.round(s / 3600) }, '{n} h ago');
     return new Date(ts).toLocaleDateString();
   },
 

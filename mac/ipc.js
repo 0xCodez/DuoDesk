@@ -3,6 +3,8 @@
 'use strict';
 
 const { ipcMain, shell, app, screen, dialog, clipboard, Menu, systemPreferences } = require('electron');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 const CL = require('../shared/cursorlock.js');
 const { LINKS } = require('../shared/about.js');
@@ -38,7 +40,7 @@ const SCHEMA = {
     resistancePx: (v) => Math.round(clamp(0, 400, 120)(v)), speed: clamp(0.25, 4, 1), reverseScroll: bool, hotkeySwitch: bool, linked: bool, gestures: bool, ble: bool,
   },
   keys: { swapCtrlCmd: bool, hotkey: oneOf(P.HOTKEYS, 'AltRight'), lockKeys: (v) => CL.validKeys(v, CL.DEFAULT_KEYS.mac) },
-  app: { openAtLogin: bool, keepAwake: bool, hud: bool },
+  app: { openAtLogin: bool, keepAwake: bool, hud: bool, lang: oneOf(['auto', 'en', 'pt-BR'], 'auto') },
   updates: { auto: bool, skipped: (v) => (typeof v === 'string' ? v.slice(0, 40) : '') },
   audio: { send: bool, receive: bool, muteLocal: bool, volume: clamp(0, 1, 1), phoneMedia: bool },
   terminal: { allowPc: bool, connectPc: bool },
@@ -174,8 +176,8 @@ function setupIpc(ctx) {
       if (!arg || typeof arg.id !== 'string' || !/^[\w.]{1,200}$/.test(arg.id)) return;
       const name = String(arg.name || arg.id).slice(0, 100);
       Menu.buildFromTemplate([
-        { label: 'Open in a Window', click: () => ctx.phoneViews.openApp(arg.id, name) },
-        { label: 'Add to Dock', click: () => ctx.phoneViews.pin(arg.id, name) },
+        { label: tr('mac_ipc.open_in_window', null, 'Open in a Window'), click: () => ctx.phoneViews.openApp(arg.id, name) },
+        { label: tr('mac_ipc.add_to_dock', null, 'Add to Dock'), click: () => ctx.phoneViews.pin(arg.id, name) },
       ]).popup();
     },
     phoneInstallFull() {
@@ -339,7 +341,7 @@ function setupIpc(ctx) {
       if (list.length && ctx.server.current) ctx.fileSend.sendBatch(list, 'send');
     },
     async chooseSendFiles() {
-      const r = await dialog.showOpenDialog({ properties: ['openFile', 'openDirectory', 'multiSelections'], buttonLabel: 'Send' });
+      const r = await dialog.showOpenDialog({ properties: ['openFile', 'openDirectory', 'multiSelections'], buttonLabel: tr('general.send', null, 'Send') });
       if (!r.canceled) actions.sendFiles(r.filePaths);
     },
     setNotifs(partial) {
@@ -356,7 +358,7 @@ function setupIpc(ctx) {
       if (bundle.endsWith('.app')) shell.showItemInFolder(bundle);
     },
     async pickDropFolder() {
-      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Use This Folder' });
+      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: tr('files.use_this_folder_cap', null, 'Use This Folder') });
       if (r.canceled || !r.filePaths[0]) return;
       settings.files.folder = r.filePaths[0];
       save();
@@ -379,7 +381,7 @@ function setupIpc(ctx) {
       else ctx.smb.stopSharing();
     },
     async chooseShareFolder() {
-      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: 'Share This Folder' });
+      const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], buttonLabel: tr('files.share_this_folder', null, 'Share This Folder') });
       if (r.canceled || !r.filePaths[0]) return;
       if (settings.smb.sharing) await ctx.smb.stopSharing();
       settings.smb.folder = r.filePaths[0];
@@ -525,6 +527,7 @@ function setupIpc(ctx) {
       setGroup('app', partial);
       ctx.login.apply(settings.app.openAtLogin);
       ctx.updateAwake();
+      if (ctx.updateTray) ctx.updateTray();
     },
     setUpdates(partial) {
       setGroup('updates', partial);

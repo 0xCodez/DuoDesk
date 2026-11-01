@@ -11,15 +11,17 @@ const os = require('os');
 const path = require('path');
 const P = require('../shared/protocol.js');
 const SshConfig = require('../shared/sshconfig.js');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const SSH_DIR = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'OpenSSH');
 const SSH = path.join(SSH_DIR, 'ssh.exe');
 const KEYGEN = path.join(SSH_DIR, 'ssh-keygen.exe');
 const WHY = {
-  remote_login_off: 'Remote Login is off on {name} (System Settings → General → Sharing).',
-  sshd_off: 'The SSH server isn’t running on {name} (its Terminal tab → Set up).',
-  not_allowed: '{Name} doesn’t allow shells from {me} (its Terminal tab).',
+  remote_login_off: tr('terminal.remote_login_off', null, 'Remote Login is off on {name} (System Settings → General → Sharing).'),
+  sshd_off: tr('terminal.sshd_off', null, 'The SSH server isn’t running on {name} (its Terminal tab → Set up).'),
+  not_allowed: tr('terminal.not_allowed', null, '{Name} doesn’t allow shells from {me} (its Terminal tab).'),
 };
 
 class Terminal {
@@ -127,7 +129,7 @@ class Terminal {
 
   view() {
     if (this.status === 'ready' && this.onBle) {
-      return { status: 'unavailable', message: 'The terminal doesn’t work over Bluetooth. Connect with Wi-Fi Direct, or join {name}’s network.', user: this.info && this.info.user, command: 'ssh ' + SshConfig.ALIAS };
+      return { status: 'unavailable', message: tr('terminal.unavailable_bluetooth', null, 'The terminal doesn’t work over Bluetooth. Connect with Wi-Fi Direct, or join {name}’s network.'), user: this.info && this.info.user, command: 'ssh ' + SshConfig.ALIAS };
     }
     return { status: this.status, message: this.message, user: this.info && this.info.user, command: 'ssh ' + SshConfig.ALIAS };
   }

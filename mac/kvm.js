@@ -15,10 +15,15 @@ const { KeyLayout } = require('../shared/keylayout.js');
 const CL = require('../shared/cursorlock.js');
 const store = require('./store');
 const { KvmMap } = require('../shared/kvm-map.js');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 // {them} = the other computer's name (Kvm._them).
-const REFUSED = { busy: '{them} is using this computer right now', not_allowed: '{them} doesn’t accept input from here' };
-const OFF_BLE = 'Cursor sharing is off over Bluetooth';
+const REFUSED = {
+  busy: tr('kvm.partner_driving_me_mac', null, '{them} is using this computer right now'),
+  not_allowed: tr('kvm.not_accept_input_mac', null, '{them} doesn’t accept input from here'),
+};
+const OFF_BLE = tr('kvm.off_bluetooth', null, 'Cursor sharing is off over Bluetooth');
 
 class Kvm extends EventEmitter {
   constructor({ server, helper, getSettings, clipboard, input, drop, fileSend }) {
@@ -125,7 +130,7 @@ class Kvm extends EventEmitter {
       if (this.mode === 'driving' && m.route === this.route) clearTimeout(this.acceptTimer);
     });
     on(P.T.KVM_REFUSE, (m) => {
-      if (this.mode === 'driving' && m.route === this.route) this.goHome(this._them(REFUSED[m.why] || '{them} refused'), false);
+      if (this.mode === 'driving' && m.route === this.route) this.goHome(this._them(REFUSED[m.why] || tr('kvm.partner_refused_mac', null, '{them} refused')), false);
     });
     on(P.T.KVM_HOME, (m) => {
       if (this.mode !== 'driving' || m.route !== this.route) return;

@@ -10,6 +10,7 @@ const { Notification, nativeImage } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const { IconsOut, IconsIn } = require('../shared/notificon.js');
+const { t: tr } = require('../shared/i18n.js');
 
 const T = P.T;
 const str = (v, n = 500) => (typeof v === 'string' ? v.slice(0, n) : '');
@@ -120,7 +121,7 @@ class Notifs extends EventEmitter {
       subtitle: [appName, peer].filter(Boolean).join(' · '),
       body: [str(m.subtitle, 200), str(m.body)].filter(Boolean).join('\n'),
       icon: this.iconsIn.for(m),
-      actions: code ? [{ type: 'button', text: 'Copy ' + code }] : [],
+      actions: code ? [{ type: 'button', text: tr('mac_notifs.copy_code', { code }, 'Copy {code}') }] : [],
     });
     if (code) n.on('action', () => require('electron').clipboard.writeText(code));
     this.live.push(n);

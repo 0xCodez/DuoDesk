@@ -14,9 +14,10 @@ UI.tab({
   bottom: true,
   build(body) {
     const { api } = UI;
-    const turnOff = UI.button('Turn off', () => {
+    const tr = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k); // local: classic scripts share one global scope
+    const turnOff = UI.button(tr('general.turn_off', null, 'Turn off'), () => {
       turnOff.disabled = true;
-      turnOff.textContent = 'Restarting…';
+      turnOff.textContent = tr('general.restarting', null, 'Restarting…');
       api.setMulti(false);
     }, 'small');
 
@@ -38,14 +39,14 @@ UI.tab({
     // shared/layout.js). A tile on its own may go anywhere.
     function canGo(id, x, y) {
       const lay = last && last.layout;
-      const t = lay && lay.targets && lay.targets[id];
-      if (!Array.isArray(t) || Object.keys(lay.cells).length < 2) return true;
-      return t.includes(x + ',' + y);
+      const targets = lay && lay.targets && lay.targets[id];
+      if (!Array.isArray(targets) || Object.keys(lay.cells).length < 2) return true;
+      return targets.includes(x + ',' + y);
     }
 
     function move(id, x, y) {
       api.setLayoutCell(id, x, y).then((ok) => {
-        if (ok === false) layoutHint.set('That did not move: a device goes next to another one, side by side.');
+        if (ok === false) layoutHint.set(tr('mesh_multi.did_not_move', null, 'That did not move: a device goes next to another one, side by side.'));
       });
     }
 
@@ -78,14 +79,17 @@ UI.tab({
     // device, greyed: the mouse and keyboard here get to neither (docs/mesh.md, "Chains").
     function tile(id, info, reach) {
       const red = reach === 'blocked' && info.via;
-      const state = info.self ? 'This computer' : red ? 'Not paired here' : reach === 'behind' ? 'Out of reach'
-        : info.connected ? 'Connected' : 'Not connected';
-      const why = red ? ': not connected to this computer, so the pointer stops before it'
-        : reach === 'behind' ? ': the pointer gets there only past a device it can\'t reach from here' : '';
+      const state = info.self ? tr('general.this_computer', null, 'This computer') : red ? tr('meshl_multi.not_paired_here', null, 'Not paired here')
+        : reach === 'behind' ? tr('meshl_multi.out_of_reach', null, 'Out of reach')
+          : info.connected ? tr('sidebar.connected', null, 'Connected') : tr('sidebar.not_connected', null, 'Not connected');
+      const params = { name: info.name, state };
+      const title = red ? tr('meshl_multi.name_state_blocked', params, '{name} — {state}: not connected to this computer, so the pointer stops before it')
+        : reach === 'behind' ? tr('meshl_multi.name_state_behind', params, '{name} — {state}: the pointer gets there only past a device it can\'t reach from here')
+          : tr('meshl_multi.name_state', params, '{name} — {state}');
       return UI.el('button', {
         class: 'lay-tile' + (info.self ? ' here' : '') + (info.connected || info.self || red ? '' : ' off') + (red ? ' blocked' : '')
           + (reach === 'behind' ? ' behind' : '') + (picked === id ? ' picked' : ''),
-        attrs: { type: 'button', title: info.name + ' — ' + state + why },
+        attrs: { type: 'button', title },
         onclick: () => onTile(id),
       }, [
         UI.osIcon(info.os),
@@ -99,7 +103,7 @@ UI.tab({
       return UI.el('button', {
         class: 'lay-place' + (ok ? ' target' : ''),
         disabled: !!picked && !ok,
-        attrs: { type: 'button', 'aria-label': ok ? 'Move here' : 'Empty place' },
+        attrs: { type: 'button', 'aria-label': ok ? tr('mesh_multi.move_here', null, 'Move here') : tr('mesh_multi.empty_place', null, 'Empty place') },
         onclick: () => onPlace(x, y),
       });
     }
@@ -108,7 +112,7 @@ UI.tab({
       const lay = s && s.layout;
       if (!lay || !lay.grid || !s.device) return;
       if (picked && !lay.cells[picked]) picked = null; // a device that is gone cannot be moved
-      const people = new Map([[s.device.id, { name: s.device.name || 'This computer', os: 'linux', connected: true, self: true }]]);
+      const people = new Map([[s.device.id, { name: s.device.name || tr('general.this_computer', null, 'This computer'), os: 'linux', connected: true, self: true }]]);
       for (const d of s.peers || []) {
         if (d && d.id) people.set(d.id, { name: d.name || d.id.slice(0, 8), os: d.os, connected: !!d.connected, self: false, via: d.state === 'via' });
       }
@@ -126,26 +130,35 @@ UI.tab({
       gridEl.replaceChildren(...cells);
       const reach = lay.reach || {};
       const red = Object.keys(reach).filter((id) => reach[id] === 'blocked' && (people.get(id) || {}).via);
-      const them = red.length > 1 ? 'them' : 'it';
-      reachNote.set(red.length ? red.map((id) => people.get(id).name).join(', ') + (red.length > 1 ? ' aren\'t' : ' isn\'t')
-        + ' connected to this computer, so the pointer stops before ' + them
-        + (Object.values(reach).includes('behind') ? ' and doesn\'t get to the devices past ' + them : '')
-        + '. Pair ' + them + ' with this computer' + ((s.mesh || {}).autoJoin === true ? '' : ', or turn on Join every device automatically') + '.' : '');
+      const many = red.length > 1;
+      const behind = Object.values(reach).includes('behind');
+      const joinOn = (s.mesh || {}).autoJoin === true;
+      const names = { names: red.map((id) => people.get(id).name).join(', ') };
+      // Two sentences: why the pointer stops, then what to do about it.
+      const why = many
+        ? (behind ? tr('meshl_multi.blocked_many_behind', names, '{names} aren\'t connected to this computer, so the pointer stops before them and doesn\'t get to the devices past them.')
+          : tr('meshl_multi.blocked_many', names, '{names} aren\'t connected to this computer, so the pointer stops before them.'))
+        : (behind ? tr('meshl_multi.blocked_one_behind', names, '{names} isn\'t connected to this computer, so the pointer stops before it and doesn\'t get to the devices past it.')
+          : tr('meshl_multi.blocked_one', names, '{names} isn\'t connected to this computer, so the pointer stops before it.'));
+      const fix = many
+        ? (joinOn ? tr('meshl_multi.pair_them', null, 'Pair them with this computer.') : tr('meshl_multi.pair_them_or_join', null, 'Pair them with this computer, or turn on Join every device automatically.'))
+        : (joinOn ? tr('meshl_multi.pair_it', null, 'Pair it with this computer.') : tr('meshl_multi.pair_it_or_join', null, 'Pair it with this computer, or turn on Join every device automatically.'));
+      reachNote.set(red.length ? why + ' ' + fix : '');
       layoutHint.set(picked
-        ? 'Now click a lit place next to another device to move it there, or another device to swap places.'
-        : 'Click a device, then a place next to another device to move it there, or another device to swap places. Devices sit side by side, with no empty space between them.');
+        ? tr('meshl_multi.now_click_lit_place', null, 'Now click a lit place next to another device to move it there, or another device to swap places.')
+        : tr('meshl_multi.click_device_then_place', null, 'Click a device, then a place next to another device to move it there, or another device to swap places. Devices sit side by side, with no empty space between them.'));
     }
 
-    const joinSw = UI.switch((v) => api.setMesh({ autoJoin: v }), { label: 'Join every device automatically' });
-    const joinRow = UI.row('Join every device automatically', '', [joinSw]);
+    const joinSw = UI.switch((v) => api.setMesh({ autoJoin: v }), { label: tr('mesh_multi.join_auto', null, 'Join every device automatically') });
+    const joinRow = UI.row(tr('mesh_multi.join_auto', null, 'Join every device automatically'), '', [joinSw]);
 
     body.append(
-      UI.card('Mesh mode', [
-        UI.row('Use several devices at once', 'On. DuoDesk restarts when you turn it on or off', [turnOff]),
-        UI.row('Computers', 'Connect to this one over the same network only, not Bluetooth. Phones over Wi-Fi, a USB cable or Bluetooth, as before', []),
+      UI.card(tr('mesh_multi.mesh_mode', null, 'Mesh mode'), [
+        UI.row(tr('mesh_multi.use_several_devices', null, 'Use several devices at once'), tr('mesh_multi.restart_hint', null, 'On. DuoDesk restarts when you turn it on or off'), [turnOff]),
+        UI.row(tr('meshl_multi.computers', null, 'Computers'), tr('meshl_multi.connect_same_network_only', null, 'Connect to this one over the same network only, not Bluetooth. Phones over Wi-Fi, a USB cable or Bluetooth, as before'), []),
       ]),
-      UI.card('Layout', [gridEl, reachNote, layoutHint], { cls: 'keep-on' }),
-      UI.card('Joining', [joinRow]),
+      UI.card(tr('mesh_multi.layout', null, 'Layout'), [gridEl, reachNote, layoutHint], { cls: 'keep-on' }),
+      UI.card(tr('mesh_multi.joining', null, 'Joining'), [joinRow]),
     );
 
     return (s) => {
@@ -153,8 +166,8 @@ UI.tab({
       drawLayout(s);
       const jn = (s.mesh || {}).autoJoin === true;
       joinSw.set(jn);
-      joinRow.setHint(jn ? 'Pair with one device and the rest connect to this one by themselves. Devices you pair with can introduce others, without a pairing code'
-        : 'Off: this computer neither introduces devices to each other nor accepts an introduction. Pair each device yourself');
+      joinRow.setHint(jn ? tr('meshl_multi.join_on_hint', null, 'Pair with one device and the rest connect to this one by themselves. Devices you pair with can introduce others, without a pairing code')
+        : tr('meshl_multi.join_off_hint', null, 'Off: this computer neither introduces devices to each other nor accepts an introduction. Pair each device yourself'));
     };
   },
 });

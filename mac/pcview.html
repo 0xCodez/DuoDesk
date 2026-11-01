@@ -35,16 +35,20 @@
 <body>
   <video id="video" autoplay playsinline disablepictureinpicture></video>
   <canvas id="fg"></canvas>
-  <div id="overlay">Connecting to the PC…</div>
+  <div id="overlay" data-i18n="pcview.connecting_to_pc">Connecting to the PC…</div>
   <div id="bar" class="hidden">
-    <button id="b-extend" title="Use this window as an extra screen of the other computer">Extend</button>
-    <button id="b-mirror" title="Show the other computer’s main screen">Mirror</button>
+    <button id="b-extend" data-i18n="monitor.extend" data-i18n-title="monitor.extend_title" title="Use this window as an extra screen of the other computer">Extend</button>
+    <button id="b-mirror" data-i18n="monitor.mirror" data-i18n-title="monitor.mirror_title" title="Show the other computer’s main screen">Mirror</button>
     <span class="sep"></span>
-    <button id="b-fg" title="Frame generation: fills in late or dropped frames">Frame generation</button>
-    <button id="b-full" title="Full screen (Ctrl ⌘ F)">Full screen</button>
+    <button id="b-fg" data-i18n="monitor.fg" data-i18n-title="monitor.fg_title" title="Frame generation: fills in late or dropped frames">Frame generation</button>
+    <button id="b-full" data-i18n="monitor.fullscreen" data-i18n-title="monitor.fullscreen_mac" title="Full screen (Ctrl ⌘ F)">Full screen</button>
     <span class="sep"></span>
-    <button id="b-stop" title="Stop sharing on the other computer">Stop</button>
+    <button id="b-stop" data-i18n="monitor.stop" data-i18n-title="monitor.stop_title" title="Stop sharing on the other computer">Stop</button>
   </div>
+  <script src="../shared/locales/en.js"></script>
+  <script src="../shared/locales/pt-BR.js"></script>
+  <script src="../shared/i18n.js"></script>
+  <script src="../shared/i18n-dom.js"></script>
   <script src="../shared/protocol.js"></script>
   <script src="../shared/framegen.js"></script>
   <script src="pcview-renderer.js"></script>

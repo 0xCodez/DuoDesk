@@ -18,6 +18,8 @@ const { globalShortcut } = require('electron');
 const { EventEmitter } = require('events');
 const P = require('../shared/protocol.js');
 const pastefiles = require('../shared/pastefiles.js');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const DESKTOP = path.join(os.homedir(), 'Desktop');
@@ -112,7 +114,8 @@ class FileClip extends EventEmitter {
           bad.push(acc);
         }
       }
-      if (bad.length) this.error = `Couldn’t use ${bad.join(' and ')}. Another app may have it.`;
+      if (bad.length === 1) this.error = tr('mac_fclip.couldnt_use_one', { keys: bad[0] }, `Couldn’t use ${bad[0]}. Another app may have it.`);
+      else if (bad.length) this.error = tr('mac_fclip.couldnt_use_two', { first: bad[0], second: bad[1] }, `Couldn’t use ${bad.join(' and ')}. Another app may have it.`);
     }
     this.emit('change');
   }

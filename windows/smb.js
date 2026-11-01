@@ -9,6 +9,7 @@ const { execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { t: tr } = require('../shared/i18n.js');
 const P = require('../shared/protocol.js');
 const { script, scriptElevated } = require('./ps');
 
@@ -66,7 +67,7 @@ class Smb {
       return this.onChange();
     }
     const folder = this.cfg.shareFolder || path.join(os.homedir(), 'MacShare');
-    try { fs.mkdirSync(folder, { recursive: true }); } catch (e) { return this._msg('Can’t create ' + folder + ': ' + e.message); }
+    try { fs.mkdirSync(folder, { recursive: true }); } catch (e) { return this._msg(tr('win_smb.cant_create', { folder, error: e.message }, 'Can’t create ' + folder + ': ' + e.message)); }
     await this.checkShare();
     if (this._creds() && this.sharePath && this.sharePath.toLowerCase() === folder.toLowerCase()) {
       this.cfg.shareOn = true;
@@ -91,8 +92,8 @@ class Smb {
   // One elevated script: account, folder permission, share, firewall (File and Printer Sharing, Private).
   async share(folder) {
     if (this.busy) return;
-    if (!folder || !fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) return this._msg('Pick a folder first');
-    if (!safeStorage.isEncryptionAvailable()) return this._msg('Windows can’t protect the password here (DPAPI unavailable)');
+    if (!folder || !fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) return this._msg(tr('win_smb.pick_folder', null, 'Pick a folder first'));
+    if (!safeStorage.isEncryptionAvailable()) return this._msg(tr('win_smb.no_dpapi', null, 'Windows can’t protect the password here (DPAPI unavailable)'));
     const password = 'Ms-' + crypto.randomBytes(18).toString('base64').replace(/[+/=]/g, 'x') + '!7a';
     const dir = app.getPath('userData');
     const pwFile = path.join(dir, 'smb-pw.tmp');
@@ -102,7 +103,7 @@ class Smb {
     this._busy('setup');
     try {
       await scriptElevated('smb-share', { PwFile: pwFile, User: USER, Share: SHARE, Folder: folder, Group: FPS_GROUP, Result: result });
-      const r = fs.existsSync(result) ? fs.readFileSync(result, 'utf8').trim() : 'error: the setup didn’t finish';
+      const r = fs.existsSync(result) ? fs.readFileSync(result, 'utf8').trim() : 'error: ' + tr('win_vcam.setup_unfinished', null, 'the setup didn’t finish');
       if (r !== 'ok') throw new Error(r.replace(/^error: /, ''));
       fs.writeFileSync(this.credFile, safeStorage.encryptString(JSON.stringify({ user: USER, password })));
       this.cfg.shareOn = true;
@@ -111,7 +112,7 @@ class Smb {
       this.message = '';
       this._offer();
     } catch (e) {
-      this.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined' : 'Sharing failed: ' + e.message;
+      this.message = /cancel/i.test(e.message) ? tr('vdd.admin_declined', null, 'The administrator prompt was declined') : tr('win_smb.sharing_failed', { error: e.message }, 'Sharing failed: ' + e.message);
     } finally {
       try { fs.unlinkSync(pwFile); } catch (_) { /* removed by the script */ }
       try { fs.unlinkSync(result); } catch (_) { /* none */ }
@@ -128,7 +129,7 @@ class Smb {
       await scriptElevated('smb-unshare', { Share: SHARE, User: USER });
       this.message = '';
     } catch (e) {
-      this.message = /cancel/i.test(e.message) ? 'Cancelled. The folder is still shared.' : e.message;
+      this.message = /cancel/i.test(e.message) ? tr('win_smb.cancelled_still_shared', null, 'Cancelled. The folder is still shared.') : e.message;
     }
     try { fs.unlinkSync(this.credFile); } catch (_) { /* none */ }
     this.cfg.shareOn = false;
@@ -177,7 +178,7 @@ class Smb {
       this._state(m.share, true);
     } catch (e) {
       this.drive = '';
-      this.mountMessage = 'Couldn’t connect {name}’s folder: ' + e.message;
+      this.mountMessage = tr('win_smb.couldnt_connect_folder', { error: e.message }, 'Couldn’t connect {name}’s folder: ' + e.message);
       this._state(m.share, false, e.message);
     }
     this._busy('');
