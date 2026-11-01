@@ -101,23 +101,23 @@ X11 e Wayland · pastas compartilhadas via Samba · o aplicativo móvel página 
 
 **🍎 macOS**<br><sub>13 Ventura ou superior</sub>
 
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0-arm64.dmg"><img src="https://img.shields.io/badge/Apple_Silicon-.dmg-000000?style=for-the-badge" alt="macOS, Apple Silicon"></a>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.6.0/DuoDesk-2.6.0-arm64.dmg"><img src="https://img.shields.io/badge/Apple_Silicon-.dmg-000000?style=for-the-badge" alt="macOS, Apple Silicon"></a>
 
 </td>
 <td width="25%" align="center" valign="top">
 
 **🪟 Windows**<br><sub>10 e 11</sub>
 
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-Setup-2.5.0.exe"><img src="https://img.shields.io/badge/x64-Instalador-0078d4?style=for-the-badge" alt="Windows, x64"></a><br>
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-Setup-2.5.0-arm64.exe"><img src="https://img.shields.io/badge/ARM64-Instalador-005a9e?style=for-the-badge" alt="Windows em ARM"></a>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.6.0/DuoDesk-Setup-2.6.0.exe"><img src="https://img.shields.io/badge/x64-Instalador-0078d4?style=for-the-badge" alt="Windows, x64"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.6.0/DuoDesk-Setup-2.6.0-arm64.exe"><img src="https://img.shields.io/badge/ARM64-Instalador-005a9e?style=for-the-badge" alt="Windows em ARM"></a>
 
 </td>
 <td width="25%" align="center" valign="top">
 
 **🐧 Linux**<br><sub>X11 e Wayland, x86_64</sub>
 
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0-amd64.deb"><img src="https://img.shields.io/badge/Debian_·_Ubuntu-.deb-d70a53?style=for-the-badge" alt="Linux, .deb"></a><br>
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0-x86_64.AppImage"><img src="https://img.shields.io/badge/Qualquer_distro-AppImage-f0a30a?style=for-the-badge" alt="Linux, AppImage"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.6.0/DuoDesk-2.6.0-amd64.deb"><img src="https://img.shields.io/badge/Debian_·_Ubuntu-.deb-d70a53?style=for-the-badge" alt="Linux, .deb"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.6.0/DuoDesk-2.6.0-x86_64.AppImage"><img src="https://img.shields.io/badge/Qualquer_distro-AppImage-f0a30a?style=for-the-badge" alt="Linux, AppImage"></a><br>
 <a href="https://github.com/0xCodez/DuoDesk/releases"><img src="https://img.shields.io/badge/Arch-pkg.tar.zst-1793d1?style=for-the-badge" alt="Linux, pacote Arch"></a><br>
 <sub>NixOS: <code>nix run github:0xCodez/DuoDesk</code> (<a href="#nixos--nix-flakes">saiba mais</a>)</sub>
 
@@ -126,8 +126,8 @@ X11 e Wayland · pastas compartilhadas via Samba · o aplicativo móvel página 
 
 **🤖 Android**<br><sub>10 ou superior, telefones e tablets</sub>
 
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0.apk"><img src="https://img.shields.io/badge/App_Telefone-.apk-3ddc84?style=for-the-badge" alt="Aplicativo Android"></a><br>
-<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0-full.apk"><img src="https://img.shields.io/badge/App_Completo-.apk-1b8a4c?style=for-the-badge" alt="Aplicativo Android completo"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.6.0/DuoDesk-2.6.0.apk"><img src="https://img.shields.io/badge/App_Telefone-.apk-3ddc84?style=for-the-badge" alt="Aplicativo Android"></a><br>
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.6.0/DuoDesk-2.6.0-full.apk"><img src="https://img.shields.io/badge/App_Completo-.apk-1b8a4c?style=for-the-badge" alt="Aplicativo Android completo"></a><br>
 <sub>O app completo adiciona notificações, mensagens SMS e Acessibilidade; o computador pode instalá-lo para você via depuração sem fio</sub>
 
 </td>
