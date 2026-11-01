@@ -18,6 +18,9 @@
   if (!P) return;
   const UI = window.UI || {};
   const G = P.get;
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
+  // Does `text` start the way the message `key` reads in the current language ({placeholders} match anything)?
+  const reads = (text, key, en) => new RegExp('^' + String(tr(key, null, en)).split(/\{\w+\}/).map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')).test(String(text || ''));
 
   const safe = (fn, d) => { try { const v = fn(); return v === undefined ? d : v; } catch (e) { return d; } };
   const hubOn = (t, fn) => {
@@ -26,12 +29,12 @@
   };
   const ready = (s, w) => safe(() => !!UI.hubReady(s, w), false);
   const onBle = (s) => safe(() => !!UI.onBle(s), false);
-  const phoneName = (s) => safe(() => (s && s.hub && s.hub.name) || (G.phone(s) || {}).name || UI.phoneName(s), '') || 'your phone';
+  const phoneName = (s) => safe(() => (s && s.hub && s.hub.name) || (G.phone(s) || {}).name || UI.phoneName(s), '') || tr('hub.your_phone', null, 'your phone');
   const clock = (ts) => (ts ? safe(() => UI.clock(ts), '') : '');
   const duration = (sec) => safe(() => UI.duration(sec), '0:00');
   const names = (s) => {
     const p = safe(() => UI.peer(s), null) || {};
-    return { name: p.name || G.peerName(s) || 'the other device', me: p.me || G.myName(s) || 'this computer' };
+    return { name: p.name || G.peerName(s) || tr('start.the_other_device', null, 'the other device'), me: p.me || G.myName(s) || tr('pfx_phone_media.this_computer', null, 'this computer') };
   };
   const initial = (n) => { const t = String(n || '').trim(); return /^[+\d]/.test(t) || !t ? '#' : t.charAt(0).toUpperCase(); };
   const glyph = (d, cls) => P.svgRoot('0 0 24 24', 'pg-ico' + (cls ? ' ' + cls : ''), [P.svg('path', { d })]);
@@ -56,10 +59,10 @@
     return 'wait';
   }
   const STATE_CAP = {
-    off: () => 'Off',
-    nopeer: (ph) => 'Connect ' + ph,
-    perm: (ph) => 'Waiting for permission on ' + ph,
-    wait: (ph) => 'Waiting for ' + ph + '…',
+    off: () => tr('general.off', null, 'Off'),
+    nopeer: (ph) => tr('pfx_phone_media.connect_phone', { phone: ph }, 'Connect {phone}'),
+    perm: (ph) => tr('pfx_phone_media.waiting_permission', { phone: ph }, 'Waiting for permission on {phone}'),
+    wait: (ph) => tr('pfx_phone_media.waiting_for', { phone: ph }, 'Waiting for {phone}…'),
   };
   // The strip every page here starts from: .pg-hdr.pm-hdr.pm-<id>[data-st] inside .page-body (hides with it).
   const hero = (ctx, id) => ctx.hdr({ cls: 'pm-hdr pm-' + id + ' pg-hero--' + id });
@@ -115,10 +118,10 @@
 
     function snippet(t, typing) {
       if (!H) return;
-      const name = t ? t.name || (t.addrs || []).join(', ') || 'Unknown' : '';
+      const name = t ? t.name || (t.addrs || []).join(', ') || tr('general.unknown', null, 'Unknown') : '';
       const body = t ? t.snippet || '' : '';
       const set = () => {
-        C.text(H.snName, name || 'No conversations yet');
+        C.text(H.snName, name || tr('pfx_phone_media.no_conversations', null, 'No conversations yet'));
         C.text(H.snText, t ? body || '…' : '');
         C.cls(H.snip, 'typing', false);
       };
@@ -137,7 +140,7 @@
       if (st === 'ready') C.count(H.num, unread, { ms: 420 });
       else { H.num._pgVal = null; C.text(H.num, '–'); }
       C.cls(H.hdr, 'has-unread', st === 'ready' && unread > 0);
-      C.text(H.cap, 'Unread · ' + phoneName(s));
+      C.text(H.cap, tr('pfx_phone_media.unread_phone', { phone: phoneName(s) }, 'Unread · {phone}'));
       C.text(H.when, newest && newest.at ? clock(newest.at) : '');
     }
 
@@ -151,9 +154,9 @@
         for (const c of Array.isArray(s.chats) ? s.chats : []) { const a = appOf(c && c.app); if (a) n[a] = (n[a] || 0) + 1; }
         for (const h of safe(() => s.notifs.history, []) || []) { const a = appOf(h && h.app); if (a) n[a] = (n[a] || 0) + 1; }
         const list = Object.entries(n).sort((a, b) => b[1] - a[1]).slice(0, 3);
-        parts = list.length ? list.map(([a, k]) => (APP_NAME[a] || a) + ' ' + k) : ['Chat apps on'];
+        parts = list.length ? list.map(([a, k]) => (APP_NAME[a] || a) + ' ' + k) : [tr('pfx_phone_media.chat_apps_on', null, 'Chat apps on')];
       }
-      if (ro) parts.unshift('Read-only');
+      if (ro) parts.unshift(tr('pfx_phone_media.read_only', null, 'Read-only'));
       C.text(H.meta, join(parts));
     }
 
@@ -162,7 +165,7 @@
         C = ctx;
         const hdr = hero(ctx, 'messages');
         const num = ctx.el('span', 'pm-big pg-num', '–');
-        const cap = ctx.el('span', 'pm-k', 'Unread');
+        const cap = ctx.el('span', 'pm-k');
         const track = ctx.el('div', 'pm-track', [ctx.el('span', 'pm-line')]);
         const lane = ctx.el('div', 'pm-motif pm-lane', [
           ctx.el('span', 'pm-node ph', [P.icon('phone')]),
@@ -220,7 +223,8 @@
       if (!C || !C.active() || !H) return;
       fly(msg.out ? 'out' : 'in', false);
       const t = (threads || []).find((x) => x.id === m.thread);
-      snippet({ name: (t && t.name) || msg.fromName || msg.from || (t && (t.addrs || []).join(', ')) || '', snippet: (msg.out ? 'You: ' : '') + (msg.body || (msg.parts ? 'Picture' : '')) }, true);
+      const said = msg.body || (msg.parts ? tr('clipboard.picture', null, 'Picture') : '');
+      snippet({ name: (t && t.name) || msg.fromName || msg.from || (t && (t.addrs || []).join(', ')) || '', snippet: msg.out ? tr('pfx_phone_media.you_said', { text: said }, 'You: {text}') : said }, true);
       C.text(H.when, clock(msg.at || Date.now()));
       C.forget('snip');
       // the open thread got it: its last bubble rises in (the page rendered it before this runs)
@@ -277,7 +281,7 @@
       }
       const week = (log || []).filter((c) => by.has(new Date(c && c.at).toDateString()));
       const missedToday = (by.get(today.toDateString()) || []).filter((c) => c.type === 'missed').length;
-      C.text(H.weekCap, log ? join([week.length + ' this week', missedToday ? missedToday + ' missed today' : '']) : 'This week');
+      C.text(H.weekCap, log ? join([tr('pfx_phone_media.n_this_week', { n: week.length }, '{n} this week'), missedToday ? tr('pfx_phone_media.n_missed_today', { n: missedToday }, '{n} missed today') : '']) : tr('pfx_phone_media.this_week', null, 'This week'));
       C.cls(H.week, 'empty', !log || !log.length);
     }
 
@@ -339,7 +343,7 @@
         if (H.now) { ctx.cls(H.now, 'pg-ringing', st === 'ringing'); ctx.cls(H.now, 'pg-live', st === 'offhook'); }
 
         // the centre of the ring: the caller while ringing / talking, the handset otherwise
-        const who = c ? c.name || c.number || 'Unknown number' : '';
+        const who = c ? c.name || c.number || tr('calls.unknown_number', null, 'Unknown number') : '';
         if (ctx.changed('av', c ? [who, c.photo || ''] : null)) {
           let a = null;
           if (c) { a = safe(() => UI.avatar(who, c.photo), null) || ctx.el('span', 'hub-avatar', initial(who)); a.classList.add('pm-face'); }
@@ -348,35 +352,35 @@
         ctx.cls(H.sonar, 'face', !!c);
 
         const last = (log || [])[0];
-        const lastLine = last ? 'Last · ' + (last.name || last.number || 'Unknown') + ' · ' + clock(last.at) : '';
+        const lastLine = last ? tr('pfx_phone_media.last_call', { name: last.name || last.number || tr('general.unknown', null, 'Unknown'), time: clock(last.at) }, 'Last · {name} · {time}') : '';
         const a = h.audio;
         const bt = !!(h.connected && a && a.state === 'ready');
         if (st === 'ringing') {
           stopTick();
           ctx.text(H.big, who);
-          ctx.text(H.cap, 'Calling · ' + ph);
-          ctx.text(H.line, c.name && c.number ? c.number : 'Answer or decline below');
+          ctx.text(H.cap, tr('pfx_phone_media.calling_phone', { phone: ph }, 'Calling · {phone}'));
+          ctx.text(H.line, c.name && c.number ? c.number : tr('pfx_phone_media.answer_or_decline', null, 'Answer or decline below'));
         } else if (st === 'offhook') {
-          ctx.text(H.cap, join([c.dir === 'out' ? 'Outgoing' : 'On call', who]));
-          ctx.text(H.line, h.muted ? 'Muted' : bt ? (a.here ? 'Sound on this computer' : 'Sound on ' + ph) : '');
+          ctx.text(H.cap, join([c.dir === 'out' ? tr('pfx_phone_media.outgoing', null, 'Outgoing') : tr('pfx_phone_media.on_call', null, 'On call'), who]));
+          ctx.text(H.line, h.muted ? tr('pfx_phone_media.muted', null, 'Muted') : bt ? (a.here ? tr('pfx_phone_media.sound_here', null, 'Sound on this computer') : tr('pfx_phone_media.sound_on_phone', { phone: ph }, 'Sound on {phone}')) : '');
           startTick();
         } else {
           stopTick();
           if (st === 'ended' || st === 'missed') {
             const dsec = e.since ? (e.at - e.since) / 1000 : null;
-            ctx.text(H.big, st === 'missed' ? 'Missed' : dsec != null ? duration(dsec) : 'Ended');
-            ctx.text(H.cap, st === 'missed' ? join([e.name || e.number || 'Unknown', clock(e.at)]) : 'Call ended');
+            ctx.text(H.big, st === 'missed' ? tr('calls.type_missed', null, 'Missed') : dsec != null ? duration(dsec) : tr('pfx_phone_media.ended', null, 'Ended'));
+            ctx.text(H.cap, st === 'missed' ? join([e.name || e.number || tr('general.unknown', null, 'Unknown'), clock(e.at)]) : tr('pfx_phone_media.call_ended', null, 'Call ended'));
             ctx.text(H.line, lastLine);
             if (endT) endT();
             endT = ctx.after(Math.max(200, 6000 - (Date.now() - e.at)), () => { endT = null; ctx.refresh(); });
           } else if (st === 'idle') {
-            ctx.text(H.big, 'Ready');
-            ctx.text(H.cap, 'Calls ring here · ' + ph);
-            ctx.text(H.line, lastLine || 'No recent calls');
+            ctx.text(H.big, tr('terminal.ready', null, 'Ready'));
+            ctx.text(H.cap, tr('pfx_phone_media.calls_ring_here', { phone: ph }, 'Calls ring here · {phone}'));
+            ctx.text(H.line, lastLine || tr('pfx_phone_media.no_recent_calls', null, 'No recent calls'));
           } else {
-            ctx.text(H.big, st === 'off' ? 'Off' : st === 'nopeer' ? 'No phone' : 'Waiting');
+            ctx.text(H.big, st === 'off' ? tr('general.off', null, 'Off') : st === 'nopeer' ? tr('pfx_phone_media.no_phone', null, 'No phone') : tr('pfx_phone_media.waiting', null, 'Waiting'));
             ctx.text(H.cap, STATE_CAP[st](ph));
-            ctx.text(H.line, st === 'off' ? 'Turn on Calls at the top' : lastLine);
+            ctx.text(H.line, st === 'off' ? tr('pfx_phone_media.turn_on_calls_top', null, 'Turn on Calls at the top') : lastLine);
           }
         }
         paintWeek();
@@ -458,7 +462,7 @@
         const status = page.querySelector('.hub-media-status');
         let was = false;
         ctx.observe(status, { characterData: true, childList: true, subtree: true }, () => {
-          const now = /^Saving/.test((status.textContent || '').trim());
+          const now = reads((status.textContent || '').trim(), 'media.saving_to', 'Saving {count} to {me}’s {folder}…');
           if (now && !was && ctx.active()) {
             const pics = [...H.track.querySelectorAll('.pm-frame img[src]')].slice(0, 3);
             [...H.drops.children].forEach((d, i) => { ctx.css(d, 'background-image', pics[i] ? 'url("' + pics[i].getAttribute('src') + '")' : null); });
@@ -474,18 +478,19 @@
         const st = (base === 'ready' || base === 'wait') && onBle(s) ? 'ble' : base;
         ctx.attr(H.hdr, 'data-st', st);
         const ph = phoneName(s);
-        const label = kind === 'videos' ? 'Videos' : kind === 'all' ? 'Items' : kind.charAt(0).toUpperCase() + kind.slice(1);
+        const kindName = { videos: tr('media.kind_videos', null, 'videos'), photos: tr('media.kind_photos', null, 'photos'), screenshots: tr('media.kind_screenshots', null, 'screenshots') }[kind] || kind;
+        const label = kind === 'videos' ? tr('media.filter_videos', null, 'Videos') : kind === 'all' ? tr('pfx_phone_media.items', null, 'Items') : kind === 'photos' ? tr('media.filter_photos', null, 'Photos') : kind === 'screenshots' ? tr('media.filter_screenshots', null, 'Screenshots') : kind.charAt(0).toUpperCase() + kind.slice(1);
         const has = st === 'ready' && listed;
         if (has) ctx.text(H.big, items.length + (more ? '+' : ''));
-        else ctx.text(H.big, st === 'ble' ? 'Wi-Fi only' : st === 'ready' ? '–' : { off: 'Off', nopeer: 'No phone', perm: 'Allow', wait: 'Waiting' }[st] || '–');
+        else ctx.text(H.big, st === 'ble' ? tr('hub.wifi_only', null, 'Wi-Fi only') : st === 'ready' ? '–' : { off: tr('general.off', null, 'Off'), nopeer: tr('pfx_phone_media.no_phone', null, 'No phone'), perm: tr('pair.allow', null, 'Allow'), wait: tr('pfx_phone_media.waiting', null, 'Waiting') }[st] || '–');
         ctx.cls(H.big, 'word', !has);
         const v = items.filter((x) => x.video).length;
         const partial = safe(() => s.hub.perm.media.perm, '') === 'partial';
         if (has) {
-          ctx.text(H.cap, join([label, kind === 'all' && v ? v + (more ? '+' : '') + ' videos' : '']));
-          ctx.text(H.meta, join([items[0] ? 'Newest ' + clock(items[0].at) : (kind === 'all' ? 'No photos or videos' : 'No ' + kind), partial ? 'Only chosen photos' : '']));
+          ctx.text(H.cap, join([label, kind === 'all' && v ? tr('pfx_phone_media.n_videos', { n: v + (more ? '+' : '') }, '{n} videos') : '']));
+          ctx.text(H.meta, join([items[0] ? tr('pfx_phone_media.newest_time', { time: clock(items[0].at) }, 'Newest {time}') : (kind === 'all' ? tr('media.no_photos_videos', null, 'No photos or videos') : tr('media.no_items_kind', { kind: kindName }, 'No {kind}')), partial ? tr('pfx_phone_media.only_chosen_photos', null, 'Only chosen photos') : '']));
         } else {
-          ctx.text(H.cap, st === 'ble' ? 'Photos need Wi-Fi or USB' : st === 'ready' ? 'Loading ' + ph + '…' : STATE_CAP[st] ? STATE_CAP[st](ph) : '');
+          ctx.text(H.cap, st === 'ble' ? tr('pfx_phone_media.photos_need_wifi_usb', null, 'Photos need Wi-Fi or USB') : st === 'ready' ? tr('pfx_phone_media.loading_phone', { phone: ph }, 'Loading {phone}…') : STATE_CAP[st] ? STATE_CAP[st](ph) : '');
           ctx.text(H.meta, '');
         }
         paintStrip();
@@ -532,9 +537,9 @@
       const from = ctx.el('span', 'pm-end peer');
       const mute = ctx.el('span', 'pm-mute', [glyph(SPK_OFF)]);
       const label = ctx.el('span', 'pm-lst');
-      const dir = ctx.el('span', 'pm-k pm-ldir', cls === 'rx' ? 'In' : 'Out');
+      const dir = ctx.el('span', 'pm-k pm-ldir');
       const el = ctx.el('div', 'pm-alane pg-lane ' + cls, [dir, from, ctx.el('div', 'pm-lt', [bars, ctx.el('span', 'pm-flatline')]), mute, label]);
-      return { el, from, label, bars, mute };
+      return { el, from, label, bars, mute, dir };
     }
 
     P.register('audio', {
@@ -576,18 +581,20 @@
         ctx.cls(H.tx.el, 'acc', tx === 'live' && rx !== 'live');
         ctx.attr(H.hdr, 'data-st', nopeer && !btPlay ? 'nopeer' : rx === 'live' || tx === 'live' ? 'live' : 'idle');
         const rxText = {
-          off: nopeer ? 'Connect a device' : 'Off',
-          ble: 'Wi-Fi only',
-          live: btPlay && !a.receiving ? 'Playing over Bluetooth' : 'From ' + n.name,
-          wait: phoneTxt && G.isPhone(s) ? (/^Tap|^Asking/.test(phoneTxt) ? phoneTxt.replace(/ \(.*$/, '') : 'Waiting for ' + n.name) : linkOk ? 'Turned off on ' + n.name : 'Waiting for ' + n.name,
+          off: nopeer ? tr('pfx_phone_media.connect_a_device', null, 'Connect a device') : tr('general.off', null, 'Off'),
+          ble: tr('hub.wifi_only', null, 'Wi-Fi only'),
+          live: btPlay && !a.receiving ? tr('pfx_phone_media.playing_bluetooth', null, 'Playing over Bluetooth') : tr('pfx_phone_media.from_name', { name: n.name }, 'From {name}'),
+          wait: phoneTxt && G.isPhone(s) ? (reads(phoneTxt, 'hub.sound_tap_start', 'Tap Start on {phone} (its notification, or Sound in DuoDesk there)') || reads(phoneTxt, 'hub.sound_asking', 'Asking {phone}…') ? phoneTxt.replace(/ \(.*$/, '') : tr('pfx_phone_media.waiting_for_name', { name: n.name }, 'Waiting for {name}')) : linkOk ? tr('pfx_phone_media.turned_off_on', { name: n.name }, 'Turned off on {name}') : tr('pfx_phone_media.waiting_for_name', { name: n.name }, 'Waiting for {name}'),
         }[rx];
         const txText = {
-          off: nopeer ? '' : 'Off',
-          ble: 'Wi-Fi only',
-          err: a.error || 'Error',
-          live: 'To ' + n.name,
-          wait: !linkOk ? 'Waiting for ' + n.name : a.macAccepts === false ? 'Turned off on ' + n.name : 'Connecting…',
+          off: nopeer ? '' : tr('general.off', null, 'Off'),
+          ble: tr('hub.wifi_only', null, 'Wi-Fi only'),
+          err: a.error || tr('pfx_phone_media.error', null, 'Error'),
+          live: tr('pfx_phone_media.to_name', { name: n.name }, 'To {name}'),
+          wait: !linkOk ? tr('pfx_phone_media.waiting_for_name', { name: n.name }, 'Waiting for {name}') : a.macAccepts === false ? tr('pfx_phone_media.turned_off_on', { name: n.name }, 'Turned off on {name}') : tr('hub.connecting_dots', null, 'Connecting…'),
         }[tx];
+        ctx.text(H.rx.dir, tr('pfx_phone_media.lane_in', null, 'In'));
+        ctx.text(H.tx.dir, tr('pfx_phone_media.lane_out', null, 'Out'));
         ctx.text(H.rx.label, rxText);
         ctx.text(H.tx.label, txText);
         const os = G.peerOs(s) || 'mac';
@@ -722,7 +729,7 @@
         safe(() => UI.api && typeof UI.api.onCamPreview === 'function' && UI.api.onCamPreview(() => { frames++; }));
         ctx.every(1000, () => {
           fps = frames; frames = 0;
-          if (H.hdr.dataset.st === 'live') ctx.text(H.live.lastElementChild, fps ? 'Live · ' + fps + ' fps' : 'Live');
+          if (H.hdr.dataset.st === 'live') ctx.text(H.live.lastElementChild, fps ? tr('pfx_phone_media.live_fps', { n: fps }, 'Live · {n} fps') : tr('display.live', null, 'Live'));
         }, { paused: true });
       },
       enter(page, ctx) {
@@ -747,22 +754,22 @@
         goRot(num(v.rotate) || 0);
         // the page's own words about the picture (its overlay), else ours
         const overlay = H.said && !H.said.hidden ? (H.said.textContent || '').trim() : '';
-        ctx.text(H.big, { off: 'Off', nopeer: 'No device', idle: overlay ? 'Waiting' : 'Ready', starting: 'Starting', live: 'Live', err: 'Stopped' }[st]);
-        ctx.text(H.cap, st === 'nopeer' ? 'Connect a device to use its camera' : who + '’s camera');
+        ctx.text(H.big, { off: tr('general.off', null, 'Off'), nopeer: tr('pfx_phone_media.no_device', null, 'No device'), idle: overlay ? tr('pfx_phone_media.waiting', null, 'Waiting') : tr('terminal.ready', null, 'Ready'), starting: tr('pfx_phone_media.starting', null, 'Starting'), live: tr('display.live', null, 'Live'), err: tr('terminal.stopped', null, 'Stopped') }[st]);
+        ctx.text(H.cap, st === 'nopeer' ? tr('pfx_phone_media.connect_to_use_camera', null, 'Connect a device to use its camera') : tr('camera.our_camera', { me: who }, '{me}’s camera'));
         const isLive = on && !!v.picture && st === 'live';
         ctx.cls(H.live, 'on', isLive);
-        if (isLive && ctx.changed('livefps', fps == null)) ctx.text(H.live.lastElementChild, fps ? 'Live · ' + fps + ' fps' : 'Live');
-        const vs = v.on ? (v.live ? 'Virtual camera live' : v.ready ? 'Virtual camera ready' : '') : '';
-        const rotTxt = isLive && num(v.rotate) ? 'Turned ' + num(v.rotate) + '°' : '';
-        const face = phone && w ? ((w.facing || 'back') === 'front' ? 'Front' : 'Back') : '';
-        const win = on && (phone ? w && w.shown : c.viewShown) ? 'Window open' : '';
+        if (isLive && ctx.changed('livefps', fps == null)) ctx.text(H.live.lastElementChild, fps ? tr('pfx_phone_media.live_fps', { n: fps }, 'Live · {n} fps') : tr('display.live', null, 'Live'));
+        const vs = v.on ? (v.live ? tr('pfx_phone_media.vcam_live', null, 'Virtual camera live') : v.ready ? tr('pfx_phone_media.vcam_ready', null, 'Virtual camera ready') : '') : '';
+        const rotTxt = isLive && num(v.rotate) ? tr('pfx_phone_media.turned_deg', { n: num(v.rotate) }, 'Turned {n}°') : '';
+        const face = phone && w ? ((w.facing || 'back') === 'front' ? tr('camera.front', null, 'Front') : tr('camera.back', null, 'Back')) : '';
+        const win = on && (phone ? w && w.shown : c.viewShown) ? tr('pfx_phone_media.window_open', null, 'Window open') : '';
         ctx.text(H.line, st !== 'live' ? overlay : '');
         ctx.text(H.meta, join([face, rotTxt, vs, win]));
         // privacy first: this computer's camera running on the other one
         const sending = !!c.sending;
         ctx.cls(H.rec, 'on', sending);
         ctx.cls(H.hdr, 'pg-rec-on', sending);
-        if (sending) ctx.text(H.rec.lastElementChild, (c.mesh && c.sendingTo ? c.sendingTo + (c.sendingTo.includes(',') ? ' are' : ' is') : n.name + ' is') + ' viewing ' + n.me + '’s camera');
+        if (sending) ctx.text(H.rec.lastElementChild, c.mesh && c.sendingTo && c.sendingTo.includes(',') ? tr('pfx_phone_media.names_viewing_camera', { names: c.sendingTo, me: n.me }, '{names} are viewing {me}’s camera') : tr('pfx_phone_media.name_viewing_camera', { name: c.mesh && c.sendingTo ? c.sendingTo : n.name, me: n.me }, '{name} is viewing {me}’s camera'));
         // the page's cards
         if (H.box) {
           ctx.cls(H.box, 'pg-live', isLive);

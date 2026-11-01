@@ -8,30 +8,35 @@
 
 UI.qrPairCard = () => {
   const { el, api } = UI;
+  const tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
   if (!api.qrPair || !window.Qr) return null;
   let open = false;
   let url = '';
   let until = 0;
-  const showBtn = UI.button('Show QR Code', () => { open = !open; refresh(); }, 'small');
-  const row = UI.row('Pair a phone with a QR code', 'Scan it with the phone’s camera, or with Scan QR code in DuoDesk on the phone', [showBtn]);
-  const img = el('div', { class: 'qr-img', attrs: { role: 'img', 'aria-label': 'Pairing QR code' } });
+  const showBtn = UI.button(tr('qrpair.show', null, 'Show QR Code'), () => { open = !open; refresh(); }, 'small');
+  const row = UI.row(tr('qrpair.title', null, 'Pair a phone with a QR code'), tr('qrpair.hint', null, 'Scan it with the phone’s camera, or with Scan QR code in DuoDesk on the phone'), [showBtn]);
+  const img = el('div', { class: 'qr-img', attrs: { role: 'img', 'aria-label': tr('qrpair.aria_code', null, 'Pairing QR code') } });
   const note = el('div', { class: 'hint' });
   const box = el('div', { class: 'qr-box' }, [img, el('div', { class: 'qr-text' }, [
-    el('strong', { text: 'Scan with your phone' }),
-    el('ol', {}, ['Open the camera, or DuoDesk › Scan QR code.', 'Point it at this code and open the link.', 'Click Allow here when it asks.'].map((t) => el('li', { text: t }))),
+    el('strong', { text: tr('qrpair.scan_heading', null, 'Scan with your phone') }),
+    el('ol', {}, [
+      tr('qrpair.step1', null, 'Open the camera, or DuoDesk › Scan QR code.'),
+      tr('qrpair.step2', null, 'Point it at this code and open the link.'),
+      tr('qrpair.step3', null, 'Click Allow here when it asks.')
+    ].map((t) => el('li', { text: t }))),
     note,
   ])]);
   box.hidden = true;
   const card = UI.card('', [row, box]);
 
   async function refresh() {
-    showBtn.textContent = open ? 'Hide' : 'Show QR Code';
+    showBtn.textContent = open ? tr('qrpair.hide', null, 'Hide') : tr('qrpair.show', null, 'Show QR Code');
     box.hidden = !open;
     if (!open) return;
     const v = await api.qrPair();
     if (!v || !v.url) {
       img.replaceChildren();
-      note.textContent = (v && v.why) || 'Not ready yet';
+      note.textContent = (v && v.why) || tr('qrpair.not_ready', null, 'Not ready yet');
       return;
     }
     if (v.url !== url) {
@@ -41,7 +46,7 @@ UI.qrPairCard = () => {
       img.replaceChildren(c);
     }
     until = v.until || 0;
-    note.textContent = 'A new code comes every 10 minutes. Only someone who sees this screen can use it.';
+    note.textContent = tr('qrpair.note', null, 'A new code comes every 10 minutes. Only someone who sees this screen can use it.');
   }
   // A code that ran out is drawn again while it's shown.
   setInterval(() => { if (open && until && Date.now() > until) refresh(); }, 15000);

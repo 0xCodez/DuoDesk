@@ -25,6 +25,11 @@
   const api = UI.api || window.macshare || {};
   const html = document.documentElement;
   const SVG_NS = 'http://www.w3.org/2000/svg';
+  const tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
+  // A page's name as the sidebar shows it (the shells translate it by id: nav.<id>). The assistant below still
+  // understands the English names (SYN, the tabs' own titles): only what it shows is translated.
+  const titleOf = (def) => tr('nav.' + def.id, null, def.id === 'general' ? tr('nav.settings', null, def.title) : def.title);
+  const PHONE_WORD = () => tr('nav.phone', null, 'Phone');
 
   // ---------- small helpers ----------
   function h(tag, cls, kids, props) {
@@ -101,27 +106,33 @@
   // Sidebar: group labels, "this desk"
   // ======================================================================
   const GROUP_NAME = {
-    messages: 'Phone', calls: 'Phone', media: 'Phone', papps: 'Phone',
-    mirror: 'Display', 'mac-pc': 'Display', 'pc-mac': 'Display', receive: 'Display', share: 'Display', display: 'Display', apps: 'Display',
-    cursor: 'Input', keyboard: 'Input', remote: 'Input',
-    clipboard: 'Sharing', notifications: 'Sharing', files: 'Sharing', pfiles: 'Sharing', mount: 'Sharing',
-    audio: 'Media', camera: 'Media', rezume: 'Media', terminal: 'Media',
+    messages: 'phone', calls: 'phone', media: 'phone', papps: 'phone',
+    mirror: 'display', 'mac-pc': 'display', 'pc-mac': 'display', receive: 'display', share: 'display', display: 'display', apps: 'display',
+    cursor: 'input', keyboard: 'input', remote: 'input',
+    clipboard: 'sharing', notifications: 'sharing', files: 'sharing', pfiles: 'sharing', mount: 'sharing',
+    audio: 'media', camera: 'media', rezume: 'media', terminal: 'media',
   };
+  // The group's label in the current language (built when used: the language is set after the scripts load).
+  const groupLabel = (g) => ({
+    phone: tr('nav.phone', null, 'Phone'), display: tr('display.display', null, 'Display'), input: tr('aurora.group_input', null, 'Input'),
+    sharing: tr('aurora.group_sharing', null, 'Sharing'), media: tr('aurora.group_media', null, 'Media'),
+  })[g] || '';
   const idOf = (btn) => ((btn && btn.getAttribute('aria-controls')) || '').replace(/^page-/, '');
   // Two sections called "Apps" (the phone's and the other computer's): the phone's says so.
-  const RELABEL = { papps: ['Apps', 'Phone apps'] };
+  const relabel = () => ({ papps: [tr('nav.papps', null, 'Apps'), tr('mirror.phone_apps_heading', null, 'Phone apps')] });
   function labelGroups() {
-    for (const [id, [from, to]] of Object.entries(RELABEL)) {
+    for (const [id, [from, to]] of Object.entries(relabel())) {
       const l = nav.querySelector('[aria-controls="page-' + id + '"] .label');
       if (l && l.textContent === from) l.textContent = to;
     }
+    const more = tr('aurora.group_more', null, 'More');
     for (const li of nav.children) {
-      if (li.classList.contains('sep')) { if (li.dataset.auLabel !== 'More') li.dataset.auLabel = 'More'; continue; }
+      if (li.classList.contains('sep')) { if (li.dataset.auLabel !== more) li.dataset.auLabel = more; continue; }
       if (!li.classList.contains('gap')) continue;
       let name = '';
       for (let n = li.nextElementSibling; n && !n.classList.contains('gap') && !n.classList.contains('sep'); n = n.nextElementSibling) {
         const id = idOf(n.querySelector('.nav-item'));
-        if (GROUP_NAME[id]) { name = GROUP_NAME[id]; break; }
+        if (GROUP_NAME[id]) { name = groupLabel(GROUP_NAME[id]); break; }
       }
       if (name && li.dataset.auLabel !== name) li.dataset.auLabel = name;
     }
@@ -139,13 +150,13 @@
   }
   // The devices above the sections get a group label like the sections (mesh lists computers too).
   const phonesEl = $('phones');
-  if (phonesEl) phonesEl.dataset.auLabel = $('side-scroll') ? 'Devices' : 'Phones';
+  if (phonesEl) phonesEl.dataset.auLabel = $('side-scroll') ? tr('aurora.group_devices', null, 'Devices') : tr('aurora.group_phones', null, 'Phones');
   const sideCol = document.querySelector('#side-scroll, .au-scroll');
   if (sideCol) sideCol.classList.add('au-col');
 
   const meName = h('b');
   const meSub = h('small');
-  const meCard = h('div', 'au-me', [h('span', 'au-av', [h('span')]), h('div', 'au-me-t', [meName, meSub])], { attrs: { 'aria-label': 'This computer' } });
+  const meCard = h('div', 'au-me', [h('span', 'au-av', [h('span')]), h('div', 'au-me-t', [meName, meSub])], { attrs: { 'aria-label': tr('aurora.this_computer', null, 'This computer') } });
   sidebar.append(meCard);
 
   // ======================================================================
@@ -158,8 +169,8 @@
   const routeIc = h('span');
   const routeTxt = h('span');
   const routePill = h('span', 'au-pill au-route', [routeIc, routeTxt]);
-  const secPill = h('span', 'au-pill au-sec', [icon('lock'), h('span', null, null, { text: 'encrypted' })], { title: 'TLS with a pinned certificate, on every route' });
-  const kbd = h('button', 'au-kbd', null, { text: MOD + ' K', title: 'Ask DuoDesk (' + MOD + '+K)', type: 'button' });
+  const secPill = h('span', 'au-pill au-sec', [icon('lock'), h('span', null, null, { text: tr('aurora.encrypted', null, 'encrypted') })], { title: tr('aurora.encrypted_title', null, 'TLS with a pinned certificate, on every route') });
+  const kbd = h('button', 'au-kbd', null, { text: MOD + ' K', title: tr('aurora.ask_kbd_title', { mod: MOD }, 'Ask DuoDesk (' + MOD + '+K)'), type: 'button' });
   const topbar = h('div', 'au-topbar', [crumb, h('span', 'au-sp'), peerPill, routePill, secPill, kbd]);
   content.prepend(topbar);
   content.addEventListener('scroll', () => topbar.classList.toggle('scrolled', content.scrollTop > 4), { passive: true });
@@ -191,7 +202,7 @@
   function devicesOf(s) {
     const list = [];
     const ph = (s && s.phone) || {};
-    const myName = (s.device && s.device.name) || s.macName || safe(() => UI.peer(s).me, '') || 'This computer';
+    const myName = (s.device && s.device.name) || s.macName || safe(() => UI.peer(s).me, '') || tr('aurora.this_computer', null, 'This computer');
     list.push({ kind: 'me', key: 'me', name: myName, os: OS, live: true });
     const M = window.SidebarModel;
     if (Array.isArray(s.peers) && M && typeof M.buildTiles === 'function') {
@@ -220,7 +231,7 @@
     if (Array.isArray(s.peers)) {
       for (const p of s.peers) {
         if (!p || p.os === 'android' || p.state === 'via') continue;
-        list.push({ kind: 'pc', key: 'pc:' + p.id, id: p.id, name: p.name || 'Computer', os: p.os || 'win', live: !!(p.connected || p.state === 'connected'), wait: p.state === 'connecting', rtt: p.rtt, selected: !!p.selected, mesh: true });
+        list.push({ kind: 'pc', key: 'pc:' + p.id, id: p.id, name: p.name || tr('aurora.computer', null, 'Computer'), os: p.os || 'win', live: !!(p.connected || p.state === 'connected'), wait: p.state === 'connecting', rtt: p.rtt, selected: !!p.selected, mesh: true });
       }
     } else if (s.link) {
       const st = s.link.state;
@@ -228,9 +239,9 @@
       const name = (s.peer && s.peer.name) || s.link.macName || (s.paired && s.paired.macName) || '';
       const phone = isPhoneSession(s);
       if (!phone && (name || st === 'connecting' || st === 'reconnecting' || pairing)) {
-        list.push({ kind: 'pc', key: 'pc', name: name || (pairing && pairing.macName) || 'The other computer', os: (s.peer && s.peer.os) || (s.paired && s.paired.os) || 'mac', live: st === 'connected', wait: st === 'connecting' || st === 'reconnecting' || !!pairing, rtt: s.link.rtt, paired: !!s.paired });
+        list.push({ kind: 'pc', key: 'pc', name: name || (pairing && pairing.macName) || tr('aurora.other_computer', null, 'The other computer'), os: (s.peer && s.peer.os) || (s.paired && s.paired.os) || 'mac', live: st === 'connected', wait: st === 'connecting' || st === 'reconnecting' || !!pairing, rtt: s.link.rtt, paired: !!s.paired });
       }
-      if (phone && st === 'connected') list.push({ kind: 'phone', key: 'phone:session', name: name || 'Phone', live: true, rtt: s.link.rtt, battery: ph.info && ph.info.battery, charging: ph.info && ph.info.charging });
+      if (phone && st === 'connected') list.push({ kind: 'phone', key: 'phone:session', name: name || PHONE_WORD(), live: true, rtt: s.link.rtt, battery: ph.info && ph.info.battery, charging: ph.info && ph.info.charging });
     } else if (s.client || s.paired || (s.guest && s.guest.hosts)) {
       // Mac: the session's client, else the most recent pairing either way (UI.peer merges s.paired and
       // s.guest.hosts by lastSeen; paired entries carry no os).
@@ -240,20 +251,20 @@
       const pr = safe(() => UI.peer(s), null);
       const g = s.guest || {};
       const wait = !c && (!!notFailed(s.pairing) || !!notFailed(g.pairing) || /connecting/.test((g.status && g.status.state) || ''));
-      if (c && c.os === 'android') list.push({ kind: 'phone', key: 'phone:session', name: c.name || 'Phone', live: true, rtt: c.rttMs, battery: ph.info && ph.info.battery, charging: ph.info && ph.info.charging });
+      if (c && c.os === 'android') list.push({ kind: 'phone', key: 'phone:session', name: c.name || PHONE_WORD(), live: true, rtt: c.rttMs, battery: ph.info && ph.info.battery, charging: ph.info && ph.info.charging });
       else if (c || paired.length || hosts.length || wait) {
-        const name = (c && c.name) || (pr && pr.name && pr.name !== 'the other computer' ? pr.name : '') || 'The other computer';
+        const name = (c && c.name) || (pr && pr.name && pr.name !== 'the other computer' ? pr.name : '') || tr('aurora.other_computer', null, 'The other computer');
         list.push({ kind: 'pc', key: 'pc', name, os: (c && c.os) || (pr && pr.os) || 'win', live: !!c, wait, rtt: c && c.rttMs, paired: !!(paired.length || hosts.length) });
       }
     }
     const nearby = Array.isArray(ph.nearby) ? ph.nearby.slice() : Array.isArray(ph.phones) ? ph.phones.slice() : [];
     // The connected phone even when the nearby list doesn't carry it.
-    if (ph.connected && ph.connected.id && !nearby.some((d) => d && d.id === ph.connected.id)) nearby.unshift({ id: ph.connected.id, name: ph.connected.name || (ph.info && ph.info.name) || 'Phone', connected: true });
+    if (ph.connected && ph.connected.id && !nearby.some((d) => d && d.id === ph.connected.id)) nearby.unshift({ id: ph.connected.id, name: ph.connected.name || (ph.info && ph.info.name) || PHONE_WORD(), connected: true });
     for (const d of nearby) {
       if (!d || list.some((x) => x.kind === 'phone' && (x.name === d.name || (x.id && x.id === d.id)))) continue;
       const on = !!(d.connected || (ph.connected && ph.connected.id === d.id));
       list.push(Object.assign({
-        kind: 'phone', key: 'ph:' + d.id, id: d.id, name: d.name || 'Phone', live: on,
+        kind: 'phone', key: 'ph:' + d.id, id: d.id, name: d.name || PHONE_WORD(), live: on,
         wait: !!(ph.connecting && ph.connecting.id === d.id), usb: !!(d.usb || (on && ph.connected && ph.connected.usb)),
       }, phoneNums(ph, d.id, on)));
     }
@@ -274,18 +285,23 @@
   // The shells' "limited" rule (renderPage): macOnly pages are off and locked with a peer that can't do them.
   function limitedOf(def, s) {
     if (!def.macOnly || !s || !s.peer) return '';
-    if (def.macOnly === 'linux') return s.peer.os === 'linux' ? 'not with Linux yet' : '';
+    if (def.macOnly === 'linux') return s.peer.os === 'linux' ? 'linux' : '';
     const l = safe(() => UI.peer(s).limited, '');
-    return l ? 'not with this device' : '';
+    return l ? 'device' : '';
   }
+  // Why a switch can't be used now: a code (limitedOf, featState), its words here.
+  const whyText = (why) => ({
+    linux: tr('aurora.why_linux', null, 'not with Linux yet'), device: tr('aurora.why_device', null, 'not with this device'),
+    now: tr('aurora.why_now', null, 'not available now'), peer: tr('aurora.why_peer', null, 'needs a connected device'),
+  })[why] || '';
   function featState(def, s) {
     const lim = limitedOf(def, s);
     if (lim) return { on: false, dis: true, why: lim };
     const on = !!safe(() => def.master.get(s), false);
     const dd = def.master.disabled;
     let dis = !!safe(() => (typeof dd === 'function' ? dd(s) : dd), false);
-    let why = dis ? 'not available now' : '';
-    if (!dis && document.body.classList.contains('no-peer') && !FREE().includes(def.id)) { dis = true; why = 'needs a connected device'; }
+    let why = dis ? 'now' : '';
+    if (!dis && document.body.classList.contains('no-peer') && !FREE().includes(def.id)) { dis = true; why = 'peer'; }
     return { on, dis, why };
   }
 
@@ -323,10 +339,10 @@
   // Home dashboard
   // ======================================================================
   const greet = h('small');
-  const hello = h('div', 'au-hello', [greet, h('h1', null, ['What should your ', h('span', null, null, { text: 'desks' }), ' do?'])]);
+  const hello = h('div', 'au-hello', [greet, h('h1', null, [tr('aurora.hello_prefix', null, 'What should your '), h('span', null, null, { text: tr('aurora.hello_desks', null, 'desks') }), tr('aurora.hello_suffix', null, ' do?')])]);
   const devsEl = h('div', 'au-devs');
   const subEl = h('div', 'au-sub');
-  const home = h('section', 'au-home', [hello, devsEl, subEl], { attrs: { 'aria-label': 'Home' } });
+  const home = h('section', 'au-home', [hello, devsEl, subEl], { attrs: { 'aria-label': tr('aurora.home_aria', null, 'Home') } });
   let hostPage = null;
   let cardsKey = '';
   let cardRefs = [];
@@ -354,7 +370,7 @@
     // What follows the cards: the open device's own page (Overview), or Connection's pairing and nearby list.
     const btn = nav.querySelector('[aria-controls="page-' + id + '"] .label');
     const live = id === 'overview' && last ? liveOne(devicesOf(last)) : null;
-    subEl.textContent = live ? 'More on ' + live.name : btn ? btn.textContent : id;
+    subEl.textContent = live ? tr('aurora.more_on_dev', { name: live.name }, 'More on ' + live.name) : btn ? btn.textContent : id;
   }
 
   function flash(card) {
@@ -407,7 +423,7 @@
       const card = h('div', 'au-dev', [h('div', 'au-ring', [h('i')], { attrs: { 'aria-hidden': 'true' } }), h('div', 'au-glow'), head, num, row]);
       card.dataset.dev = dev.key;
       const fts = feats.map((def, i) => {
-        const b = h('button', 'au-ft', [safe(() => UI.icon(def.icon || def.id), null)], { type: 'button', attrs: { 'aria-label': def.title } });
+        const b = h('button', 'au-ft', [safe(() => UI.icon(def.icon || def.id), null)], { type: 'button', attrs: { 'aria-label': titleOf(def) } });
         b.style.setProperty('--c', COLORS[i % COLORS.length]);
         b.onclick = () => {
           const s = UI.state || last;
@@ -421,7 +437,7 @@
         return { def, b };
       });
       const lks = (links || []).map((def, i) => {
-        const b = h('button', 'au-ft au-lk', [safe(() => UI.icon(def.icon || def.id), null)], { type: 'button', attrs: { 'aria-label': 'Open ' + def.title } });
+        const b = h('button', 'au-ft au-lk', [safe(() => UI.icon(def.icon || def.id), null)], { type: 'button', attrs: { 'aria-label': tr('aurora.open_def_title', { title: titleOf(def) }, 'Open ' + titleOf(def)) } });
         b.style.setProperty('--c', COLORS[(fts.length + i) % COLORS.length]);
         b.onclick = () => {
           const s = UI.state || last;
@@ -444,15 +460,15 @@
     if (cards.length < 2) { // nothing paired yet: the way to add one
       const acts = [];
       if (canQr()) {
-        const qr = h('button', 'btn small primary', null, { text: 'Pair a phone', type: 'button' });
-        qr.onclick = () => run('Pair a phone with a QR code');
+        const qr = h('button', 'btn small primary', null, { text: tr('aurora.pair_phone', null, 'Pair a phone'), type: 'button' });
+        qr.onclick = () => run('Pair a phone with a QR code', tr('aurora.chip_pair_qr', null, 'Pair a phone with a QR code'));
         acts.push(qr);
       }
-      const find = h('button', 'btn small' + (acts.length ? '' : ' primary'), null, { text: 'Find nearby', type: 'button' });
-      find.onclick = () => run('Refresh nearby devices');
+      const find = h('button', 'btn small' + (acts.length ? '' : ' primary'), null, { text: tr('aurora.find_nearby', null, 'Find nearby'), type: 'button' });
+      find.onclick = () => run('Refresh nearby devices', tr('aurora.chip_refresh', null, 'Refresh nearby devices'));
       acts.push(find);
       els.push(h('div', 'au-dev au-add', [
-        h('div', 'au-h', [h('span', 'au-ic', [icon('plus')]), h('div', 'au-n', [h('b', null, null, { text: 'Add a device' }), h('small', null, null, { text: 'Another computer or a phone' })])]),
+        h('div', 'au-h', [h('span', 'au-ic', [icon('plus')]), h('div', 'au-n', [h('b', null, null, { text: tr('aurora.add_device', null, 'Add a device') }), h('small', null, null, { text: tr('aurora.add_device_sub', null, 'Another computer or a phone') })])]),
         h('div', 'au-acts', acts),
       ]));
     }
@@ -476,47 +492,48 @@
       for (const f of r.fts) {
         const fs = featState(f.def, s);
         if (fs.on) onCount++;
-        const tip = f.def.title + ' · ' + (fs.on ? 'on' : 'off') + (fs.dis ? ' · ' + fs.why : '');
+        const tip = [titleOf(f.def), fs.on ? tr('aurora.state_on', null, 'on') : tr('aurora.state_off', null, 'off'), fs.dis ? whyText(fs.why) : ''].filter(Boolean).join(' · ');
         f.b.classList.toggle('on', fs.on);
         f.b.classList.toggle('dis', fs.dis);
         f.b.dataset.tip = tip;
         f.b.setAttribute('aria-pressed', fs.on ? 'true' : 'false');
         f.b.setAttribute('aria-disabled', fs.dis ? 'true' : 'false');
-        f.b.setAttribute('aria-description', tip + (fs.dis ? ' (opens its page)' : ''));
+        f.b.setAttribute('aria-description', fs.dis ? tr('aurora.tip_opens_page', { tip }, tip + ' (opens its page)') : tip);
       }
       const tgt = isTarget(d, s);
       for (const f of r.lks) {
         const ok = tgt && visible(f.def, s);
         f.b.classList.toggle('dis', !ok);
-        const tip = ok ? 'Open ' + f.def.title : f.def.title + ' · ' + (d.live ? 'select ' + d.name + ' first' : 'connect ' + d.name + ' first');
+        const lt = titleOf(f.def);
+        const tip = ok ? tr('aurora.open_def_title', { title: lt }, 'Open ' + lt) : d.live ? tr('aurora.tip_select_first', { title: lt, name: d.name }, lt + ' · select ' + d.name + ' first') : tr('aurora.tip_connect_first', { title: lt, name: d.name }, lt + ' · connect ' + d.name + ' first');
         f.b.dataset.tip = tip;
         f.b.setAttribute('aria-description', tip);
       }
-      r.head.title = d.kind === 'me' ? '' : d.live ? (tgt ? 'Open ' + d.name : 'Select ' + d.name) : d.action === 'none' || d.kind === 'pc' ? 'Open Connection' : 'Connect to ' + d.name;
+      r.head.title = d.kind === 'me' ? '' : d.live ? (tgt ? tr('aurora.head_open', { name: d.name }, 'Open ' + d.name) : tr('aurora.head_select', { name: d.name }, 'Select ' + d.name)) : d.action === 'none' || d.kind === 'pc' ? tr('aurora.head_open_connection', null, 'Open Connection') : tr('aurora.head_connect', { name: d.name }, 'Connect to ' + d.name);
       const via = d.usb ? 'USB' : viaOf(s);
       if (d.kind === 'me') {
-        r.sub.textContent = 'this desk · ' + OS_NAME[OS];
+        r.sub.textContent = tr('aurora.this_desk', { os: OS_NAME[OS] }, 'this desk · ' + OS_NAME[OS]);
         const screens = safe(() => (s.pcScreen && s.pcScreen.monitors && s.pcScreen.monitors.length) || (Array.isArray(s.displays) && s.displays.length)
           || (s.sharing && Array.isArray(s.sharing.displays) && s.sharing.displays.filter((x) => x && !x.virtual).length) || 0, 0);
-        if (screens) setNum(r.num, screens, screens === 1 ? 'screen' : 'screens');
-        else setNum(r.num, onCount, 'on');
+        if (screens) setNum(r.num, screens, screens === 1 ? tr('aurora.unit_screen_one', null, 'screen') : tr('aurora.unit_screen_other', null, 'screens'));
+        else setNum(r.num, onCount, tr('aurora.unit_on', null, 'on'));
       } else if (d.kind === 'pc') {
-        r.sub.textContent = d.live ? (OS_NAME[d.os] || 'Computer') + ' · ' + via : d.wait ? 'Connecting…' : 'Paired · offline';
+        r.sub.textContent = d.live ? (OS_NAME[d.os] || tr('aurora.computer', null, 'Computer')) + ' · ' + via : d.wait ? tr('sidebar.connecting', null, 'Connecting…') : tr('aurora.paired_offline', null, 'Paired · offline');
         if (d.live && d.rtt != null) setNum(r.num, d.rtt, 'ms');
-        else setNum(r.num, d.live ? 'Live' : '—', d.live ? '' : d.wait ? 'connecting' : 'offline');
+        else setNum(r.num, d.live ? tr('display.live', null, 'Live') : '—', d.live ? '' : d.wait ? tr('aurora.unit_connecting', null, 'connecting') : tr('aurora.unit_offline', null, 'offline'));
       } else {
-        r.sub.textContent = d.live ? via + (d.rtt != null ? ' · ' + d.rtt + ' ms' : '') : d.wait ? 'Connecting…' : 'Nearby · click to connect';
-        if (d.live && d.battery != null) setNum(r.num, d.battery, '% battery' + (d.charging ? ' ⚡' : ''));
+        r.sub.textContent = d.live ? via + (d.rtt != null ? ' · ' + d.rtt + ' ms' : '') : d.wait ? tr('sidebar.connecting', null, 'Connecting…') : tr('aurora.nearby_click', null, 'Nearby · click to connect');
+        if (d.live && d.battery != null) setNum(r.num, d.battery, tr('aurora.unit_battery', null, '% battery') + (d.charging ? ' ⚡' : ''));
         else if (d.live && d.rtt != null) setNum(r.num, d.rtt, 'ms');
-        else setNum(r.num, '—', d.wait ? 'connecting' : 'nearby');
+        else setNum(r.num, '—', d.wait ? tr('aurora.unit_connecting', null, 'connecting') : tr('aurora.unit_nearby', null, 'nearby'));
       }
-      if (r.empty) r.empty.textContent = d.live ? (tgt ? 'Everything is on its own pages' : 'Select it to use its features') : d.kind === 'phone' ? 'Connect it to use its features' : 'Connect to use its features';
+      if (r.empty) r.empty.textContent = d.live ? (tgt ? tr('aurora.empty_own_pages', null, 'Everything is on its own pages') : tr('aurora.empty_select', null, 'Select it to use its features')) : d.kind === 'phone' ? tr('aurora.empty_connect_it', null, 'Connect it to use its features') : tr('aurora.empty_connect', null, 'Connect to use its features');
     }
   }
 
   function renderHome(s) {
     const hr = new Date().getHours();
-    greet.textContent = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+    greet.textContent = hr < 5 ? tr('aurora.greet_night', null, 'Good night') : hr < 12 ? tr('aurora.greet_morning', null, 'Good morning') : hr < 18 ? tr('aurora.greet_afternoon', null, 'Good afternoon') : tr('aurora.greet_evening', null, 'Good evening');
     placeHome();
     const cards = assign(s, devicesOf(s));
     const key = JSON.stringify(cards.map((c) => [c.dev.key, c.dev.kind, c.dev.name, c.dev.os, c.feats.map((d) => d.id), c.links.map((d) => d.id)]));
@@ -544,12 +561,12 @@
       const cls = dot ? dot.className : '';
       peerDot.className = 'au-dot' + (/\bbad\b/.test(cls) ? ' bad' : /\b(warn|good)\b/.test(cls) ? ' warn' : '');
       const t = $('peer-text');
-      peerTxt.textContent = (t && t.textContent) || 'Not paired';
+      peerTxt.textContent = (t && t.textContent) || tr('sidebar.not_paired', null, 'Not paired');
     }
     routePill.hidden = !live;
     secPill.hidden = !live;
     meName.textContent = devs[0].name;
-    meSub.textContent = 'this desk · ' + OS_NAME[OS];
+    meSub.textContent = tr('aurora.this_desk', { os: OS_NAME[OS] }, 'this desk · ' + OS_NAME[OS]);
     meCard.title = s.version ? 'DuoDesk ' + s.version : '';
   }
   let lastActive = null;
@@ -563,7 +580,7 @@
     // The section's own name (the first one hosts Home: same name as in the sidebar), "Set up" over setup.
     const setup = isSetup();
     html.classList.toggle('au-setup', setup);
-    const key = setup ? 'Set up' : title || 'DuoDesk';
+    const key = setup ? tr('general.set_up', null, 'Set up') : title || 'DuoDesk';
     if (crumb._k !== key) {
       crumb._k = key;
       crumb.replaceChildren(h('span', null, null, { text: 'DuoDesk' }), h('i', null, null, { text: '/' }), h('b', null, null, { text: key }));
@@ -583,22 +600,22 @@
   // ======================================================================
   // Command bar
   // ======================================================================
-  const inp = h('input', 'au-inp', null, { type: 'text', placeholder: 'Ask DuoDesk anything…', spellcheck: false, autocomplete: 'off', attrs: { 'aria-label': 'Ask DuoDesk', enterkeyhint: 'send' } });
-  const attach = h('button', 'au-cb', [icon('plus')], { type: 'button', title: 'Send files…', attrs: { 'aria-label': 'Send files' } });
-  const agentName = h('span', null, null, { text: 'All devices' });
-  const agent = h('button', 'au-agent', [agentName, icon('chev')], { type: 'button', title: 'Which device', attrs: { 'aria-haspopup': 'menu' } });
-  const send = h('button', 'au-cb send', [icon('up')], { type: 'button', title: 'Send (Enter)', attrs: { 'aria-label': 'Send' } });
+  const inp = h('input', 'au-inp', null, { type: 'text', placeholder: tr('aurora.ask_placeholder', null, 'Ask DuoDesk anything…'), spellcheck: false, autocomplete: 'off', attrs: { 'aria-label': tr('aurora.ask_aria', null, 'Ask DuoDesk'), enterkeyhint: 'send' } });
+  const attach = h('button', 'au-cb', [icon('plus')], { type: 'button', title: tr('aurora.send_files_title', null, 'Send files…'), attrs: { 'aria-label': tr('aurora.send_files', null, 'Send files') } });
+  const agentName = h('span', null, null, { text: tr('aurora.all_devices', null, 'All devices') });
+  const agent = h('button', 'au-agent', [agentName, icon('chev')], { type: 'button', title: tr('aurora.which_device', null, 'Which device'), attrs: { 'aria-haspopup': 'menu' } });
+  const send = h('button', 'au-cb send', [icon('up')], { type: 'button', title: tr('aurora.send_title', null, 'Send (Enter)'), attrs: { 'aria-label': tr('aurora.send_aria', null, 'Send') } });
   const idle = h('div', 'au-layer au-idle', [inp, h('div', 'au-row', [attach, h('span', 'au-sp'), agent, send])]);
   const tx = h('div', 'au-tx', null, { attrs: { 'aria-live': 'polite' } });
   const res = h('div', 'au-res', null, { attrs: { role: 'list', 'aria-live': 'polite' } });
-  const agent2Name = h('span', null, null, { text: 'All devices' });
-  const agent2 = h('button', 'au-agent', [agent2Name, icon('chev')], { type: 'button', title: 'Which device', attrs: { 'aria-haspopup': 'menu' } });
-  const again = h('button', 'au-cb', [icon('plus')], { type: 'button', title: 'Ask something else (' + MOD + '+K)', attrs: { 'aria-label': 'Ask something else' } });
-  const close = h('button', 'au-cb', [icon('x')], { type: 'button', title: 'Close (Esc)', attrs: { 'aria-label': 'Close' } });
+  const agent2Name = h('span', null, null, { text: tr('aurora.all_devices', null, 'All devices') });
+  const agent2 = h('button', 'au-agent', [agent2Name, icon('chev')], { type: 'button', title: tr('aurora.which_device', null, 'Which device'), attrs: { 'aria-haspopup': 'menu' } });
+  const again = h('button', 'au-cb', [icon('plus')], { type: 'button', title: tr('aurora.ask_something_else', { mod: MOD }, 'Ask something else (' + MOD + '+K)'), attrs: { 'aria-label': tr('aurora.ask_something_else_aria', null, 'Ask something else') } });
+  const close = h('button', 'au-cb', [icon('x')], { type: 'button', title: tr('aurora.close_esc', null, 'Close (Esc)'), attrs: { 'aria-label': tr('aurora.close_aria', null, 'Close') } });
   const exp = h('div', 'au-layer au-exp off', [tx, res, h('div', 'au-row', [agent2, h('span', 'au-sp'), again, close])]);
   const cmd = h('div', 'au-cmd', [h('div', 'au-aur', [h('i'), h('i')], { attrs: { 'aria-hidden': 'true' } }), idle, exp]);
   const sugs = h('div', 'au-sugs');
-  const dock = h('div', 'au-dock', [sugs, h('div', 'au-halo-w', [h('div', 'au-halo')], { attrs: { 'aria-hidden': 'true' } }), cmd], { attrs: { role: 'search', 'aria-label': 'Ask DuoDesk' } });
+  const dock = h('div', 'au-dock', [sugs, h('div', 'au-halo-w', [h('div', 'au-halo')], { attrs: { 'aria-hidden': 'true' } }), cmd], { attrs: { role: 'search', 'aria-label': tr('aurora.ask_aria', null, 'Ask DuoDesk') } });
   content.append(dock);
 
   let state = 'idle';
@@ -632,7 +649,7 @@
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); inp.blur(); }
   });
   send.onclick = submit;
-  attach.onclick = () => run('Send files');
+  attach.onclick = () => run('Send files', tr('aurora.send_files', null, 'Send files'));
   close.onclick = collapse;
   again.onclick = () => { collapse(); inp.focus(); };
 
@@ -683,26 +700,28 @@
   }
 
   // Suggestion chips above the bar: from what this window can really do right now.
+  // Each chip: what it says (translated) and the English request it runs (the only one the assistant understands).
   function suggestions(s) {
     const out = [];
     if (!s) return out;
+    const chip = (cmd, label) => out.push({ cmd, label });
     const linked = linkedOf(s);
     if (!linked) {
-      if (canQr()) out.push('Pair a phone with a QR code');
-      out.push('Refresh nearby devices');
+      if (canQr()) chip('Pair a phone with a QR code', tr('aurora.chip_pair_qr', null, 'Pair a phone with a QR code'));
+      chip('Refresh nearby devices', tr('aurora.chip_refresh', null, 'Refresh nearby devices'));
       const pc = devicesOf(s).find((d) => d.kind === 'pc' && !d.live);
-      if (pc) out.push('Reconnect to ' + pc.name);
-      out.push('Open General settings');
+      if (pc) chip('Reconnect to ' + pc.name, tr('aurora.chip_reconnect', { name: pc.name }, 'Reconnect to ' + pc.name));
+      chip('Open General settings', tr('aurora.chip_open_general', null, 'Open General settings'));
       return out.slice(0, 4);
     }
     for (const def of masterDefs()) {
       if (!visible(def, s)) continue;
       const fs = featState(def, s);
-      if (!fs.on && !fs.dis) out.push('Turn on ' + def.title.toLowerCase());
+      if (!fs.on && !fs.dis) chip('Turn on ' + def.title.toLowerCase(), tr('aurora.chip_turn_on', { name: titleOf(def).toLowerCase() }, 'Turn on ' + titleOf(def).toLowerCase()));
       if (out.length >= 2) break;
     }
-    if (s.files ? s.files.dropToMac !== false : true) out.push('Send files');
-    out.push('Open clipboard');
+    if (s.files ? s.files.dropToMac !== false : true) chip('Send files', tr('aurora.send_files', null, 'Send files'));
+    chip('Open clipboard', tr('aurora.chip_open_clipboard', null, 'Open clipboard'));
     return out.slice(0, 4);
   }
   let sugKey = '';
@@ -712,13 +731,13 @@
     dock.classList.toggle('chips', !!show);
     sugs.inert = !show;
     const list = suggestions(UI.state || last);
-    const key = list.join('|');
+    const key = list.map((c) => c.label).join('|');
     if (key === sugKey) return;
     sugKey = key;
-    sugs.replaceChildren(...list.map((t) => {
-      const b = h('button', 'au-sug', null, { text: t, type: 'button' });
+    sugs.replaceChildren(...list.map((c) => {
+      const b = h('button', 'au-sug', null, { text: c.label, type: 'button' });
       b.addEventListener('mousedown', (e) => e.preventDefault()); // keep the input's focus (and the chips)
-      b.onclick = () => { inp.value = ''; run(t); };
+      b.onclick = () => { inp.value = ''; run(c.cmd, c.label); };
       return b;
     }));
   }
@@ -738,7 +757,7 @@
     menuOpener = btn;
     const s = UI.state || last;
     const devs = s ? devicesOf(s) : [];
-    const items = [{ key: 'all', name: 'All devices', kind: '' }].concat(devs.map((d) => ({ key: d.key, name: d.kind === 'me' ? d.name + ' (this desk)' : d.name, kind: d.kind === 'me' ? '' : d.kind === 'phone' ? 'phone' : d.live ? 'live' : 'offline' })));
+    const items = [{ key: 'all', name: tr('aurora.all_devices', null, 'All devices'), kind: '' }].concat(devs.map((d) => ({ key: d.key, name: d.kind === 'me' ? tr('aurora.menu_this_desk', { name: d.name }, d.name + ' (this desk)') : d.name, kind: d.kind === 'me' ? '' : d.kind === 'phone' ? tr('aurora.menu_phone', null, 'phone') : d.live ? tr('aurora.menu_live', null, 'live') : tr('aurora.menu_offline', null, 'offline') })));
     menu = h('div', 'au-menu', items.map((it) => {
       const b = h('button', it.key === target ? 'sel' : '', [h('span', null, null, { text: it.name }), it.kind ? h('small', null, null, { text: it.kind }) : null], { type: 'button', attrs: { role: 'menuitem' } });
       b.onclick = (e) => { e.stopPropagation(); target = it.key; setTargetLabel(); closeMenu(); inp.focus(); };
@@ -760,7 +779,7 @@
   function setTargetLabel() {
     const d = targetDev();
     if (!d) target = 'all';
-    const t = d ? d.name : 'All devices';
+    const t = d ? d.name : tr('aurora.all_devices', null, 'All devices');
     agentName.textContent = t;
     agent2Name.textContent = t;
   }
@@ -899,7 +918,7 @@
       let v = off ? false : on ? true : open ? null : verb;
       const best = bestPage(raw, s, prefer);
       if (!best || best.score < 3) {
-        if (/\b(connect|pair)\b/.test(t)) { steps.push(stepOpen(s, UI.tabs.find((d) => d.id === 'connection'), 'Opening Connection to pick a device')); continue; }
+        if (/\b(connect|pair)\b/.test(t)) { steps.push(stepOpen(s, UI.tabs.find((d) => d.id === 'connection'), tr('aurora.step_opening_connection', null, 'Opening Connection to pick a device'))); continue; }
         steps.push(stepHint());
         continue;
       }
@@ -907,7 +926,7 @@
       if (open && !off && !/\b(turn|switch)\b/.test(t)) v = null;
       verb = v;
       if (v !== null && def.master) steps.push(stepToggle(def, v, s));
-      else if (v !== null) steps.push(stepOpen(s, def, def.title + ' has no switch: opening it'));
+      else if (v !== null) steps.push(stepOpen(s, def, tr('aurora.no_switch_opening', { title: titleOf(def) }, titleOf(def) + ' has no switch: opening it')));
       else steps.push(stepOpen(s, def));
     }
     if (!steps.length) steps.push(stepHint());
@@ -924,121 +943,131 @@
     return null;
   }
 
+  // The examples are the English requests the assistant understands: only the words around them are translated.
   function stepHint() {
-    return { hint: true, label: 'Try “turn on clipboard”, “open mouse”, “connect 192.168.1.20”, “refresh” or “pair a phone”.' };
+    return { hint: true, label: tr('aurora.hint_try', null, 'Try “turn on clipboard”, “open mouse”, “connect 192.168.1.20”, “refresh” or “pair a phone”.') };
   }
   function stepOpen(s, def, label) {
     return {
-      label: label || 'Opening ' + def.title,
+      label: label || tr('aurora.step_opening', { title: titleOf(def) }, 'Opening ' + titleOf(def)),
       run: () => {
-        if (s && !visible(def, s)) return { no: def.title + ' isn’t available with this device' };
+        if (s && !visible(def, s)) return { no: tr('aurora.unavailable_device', { title: titleOf(def) }, titleOf(def) + ' isn’t available with this device') };
         UI.go(def.id);
-        return { ok: label || def.title + ' is open' };
+        return { ok: label || tr('aurora.is_open', { title: titleOf(def) }, titleOf(def) + ' is open') };
       },
     };
   }
   function stepToggle(def, v, s) {
     return {
-      label: (v ? 'Turning on ' : 'Turning off ') + def.title,
+      label: v ? tr('aurora.step_turning_on', { title: titleOf(def) }, 'Turning on ' + titleOf(def)) : tr('aurora.step_turning_off', { title: titleOf(def) }, 'Turning off ' + titleOf(def)),
       run: async () => {
         const cur = UI.state || s;
-        if (!visible(def, cur)) return { no: def.title + ' isn’t available with this device' };
+        const title = titleOf(def);
+        if (!visible(def, cur)) return { no: tr('aurora.unavailable_device', { title }, title + ' isn’t available with this device') };
         const fs = featState(def, cur);
-        if (fs.on === v) return { info: def.title + ' was already ' + (v ? 'on' : 'off') };
-        if (fs.dis) { UI.go(def.id); return { no: def.title + ' ' + fs.why + ': opened it' }; }
+        if (fs.on === v) return { info: v ? tr('aurora.was_already_on', { title }, title + ' was already on') : tr('aurora.was_already_off', { title }, title + ' was already off') };
+        if (fs.dis) {
+          UI.go(def.id);
+          return { no: { linux: tr('aurora.opened_linux', { title }, title + ' not with Linux yet: opened it'), device: tr('aurora.opened_device', { title }, title + ' not with this device: opened it'), now: tr('aurora.opened_now', { title }, title + ' not available now: opened it'), peer: tr('aurora.opened_peer', { title }, title + ' needs a connected device: opened it') }[fs.why] };
+        }
         await Promise.race([Promise.resolve(def.master.set(v)), wait(3000)]);
-        const card = devsEl.querySelector('.au-ft[aria-label="' + def.title.replace(/"/g, '') + '"]');
+        const card = devsEl.querySelector('.au-ft[aria-label="' + title.replace(/"/g, '') + '"]');
         if (card) flash(card.closest('.au-dev'));
-        return { ok: def.title + (v ? ' is on' : ' is off') };
+        return { ok: v ? tr('aurora.is_on', { title }, title + ' is on') : tr('aurora.is_off', { title }, title + ' is off') };
       },
     };
   }
   function stepConnect(addr) {
     return {
-      label: 'Connecting to ' + addr,
+      label: tr('aurora.step_connecting_to', { name: addr }, 'Connecting to ' + addr),
       run: async () => {
         UI.go('connection');
         let err = '';
-        const attempt = (p) => Promise.race([Promise.resolve(p).then((r) => { if (r && typeof r.error === 'string') err = r.error; }, (e) => { err = (e && e.message) || 'That didn’t work'; }), wait(4000)]);
+        const attempt = (p) => Promise.race([Promise.resolve(p).then((r) => { if (r && typeof r.error === 'string') err = r.error; }, (e) => { err = (e && e.message) || tr('aurora.didnt_work', null, 'That didn’t work'); }), wait(4000)]);
         if (typeof api.connectAddress === 'function') await attempt(api.connectAddress(addr));
         else if (typeof api.pairWith === 'function') await attempt(api.pairWith(addr));
         else if (typeof api.pair === 'function') await attempt(api.pair(addr));
-        else return { no: 'Connecting by address isn’t available here' };
+        else return { no: tr('aurora.no_connect_by_address', null, 'Connecting by address isn’t available here') };
         await wait(250);
         const p = (UI.state || {}).pairing;
-        if (p && p.phase === 'failed') return { no: p.error || 'Couldn’t reach ' + addr };
+        if (p && p.phase === 'failed') return { no: p.error || tr('aurora.couldnt_reach', { addr }, 'Couldn’t reach ' + addr) };
         if (err) return { no: err };
-        return { ok: 'Asked ' + addr + ' to connect: follow it on Connection' };
+        return { ok: tr('aurora.asked_to_connect', { addr }, 'Asked ' + addr + ' to connect: follow it on Connection') };
       },
     };
   }
   function stepRefresh() {
     return {
-      label: 'Looking for devices nearby',
+      label: tr('aurora.step_looking', null, 'Looking for devices nearby'),
       run: async () => {
         UI.go('connection');
         const f = api.refreshFound || api.refreshDiscovery;
-        if (typeof f !== 'function') return { no: 'Refresh isn’t available here' };
+        if (typeof f !== 'function') return { no: tr('aurora.no_refresh', null, 'Refresh isn’t available here') };
         await Promise.race([Promise.resolve(f()).catch(() => {}), wait(2500)]);
-        return { ok: 'Refreshed the nearby list' };
+        return { ok: tr('aurora.refreshed', null, 'Refreshed the nearby list') };
       },
     };
   }
   function stepPairPhone() {
     return {
-      label: 'Showing the pairing QR code',
+      label: tr('aurora.step_showing_qr', null, 'Showing the pairing QR code'),
       run: async () => {
-        if (!canQr()) { UI.go('connection'); return { info: 'Pair phones from Connection › Nearby' }; }
+        if (!canQr()) { UI.go('connection'); return { info: tr('aurora.pair_from_nearby', null, 'Pair phones from Connection › Nearby') }; }
         UI.go('connection');
         await wait(120);
         const page = $('page-connection');
-        const btn = page && [...page.querySelectorAll('button')].find((b) => /qr code/i.test(b.textContent) && !b.disabled && b.offsetParent);
-        if (!btn) return { info: 'Pair a phone from Connection (the QR card shows while no phone is connected)' };
+        // The QR card's button, whatever the language: its words are the ones the card shows (qrpair.show / qrpair.hide).
+        const showTxt = tr('qrpair.show', null, 'Show QR Code');
+        const hideTxt = tr('qrpair.hide', null, 'Hide');
+        const btn = page && [...page.querySelectorAll('button')].find((b) => (b.textContent.trim() === showTxt || b.textContent.trim() === hideTxt || /qr code/i.test(b.textContent)) && !b.disabled && b.offsetParent);
+        if (!btn) return { info: tr('aurora.pair_from_connection', null, 'Pair a phone from Connection (the QR card shows while no phone is connected)') };
         btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        if (!/hide/i.test(btn.textContent)) btn.click();
-        return { ok: 'Scan the code with the phone’s camera' };
+        if (btn.textContent.trim() !== hideTxt && !/hide/i.test(btn.textContent)) btn.click();
+        return { ok: tr('aurora.scan_code', null, 'Scan the code with the phone’s camera') };
       },
     };
   }
   function stepDisconnect(s) {
     return {
-      label: 'Disconnecting',
+      label: tr('aurora.step_disconnecting', null, 'Disconnecting'),
       run: () => {
-        if (!linkedOf(UI.state || s)) return { info: 'Nothing is connected' };
+        if (!linkedOf(UI.state || s)) return { info: tr('aurora.nothing_connected', null, 'Nothing is connected') };
         if (isPhoneSession(s) || (s.phone && s.phone.connected && !(s.link && s.link.state === 'connected'))) call(s.phone && s.phone.connected ? 'disconnectPhone' : 'disconnect');
         else call('disconnect');
-        return { ok: 'Disconnected' };
+        return { ok: tr('overview.disconnected', null, 'Disconnected') };
       },
     };
   }
   function stepSendFiles(s) {
     return {
-      label: 'Choosing files to send',
+      label: tr('aurora.step_choosing_files', null, 'Choosing files to send'),
       run: () => {
-        if (!linkedOf(UI.state || s)) return { no: 'Connect a device first to send files' };
-        if (typeof api.chooseSendFiles !== 'function') { UI.go('files'); return { info: 'Drop files on the Overview to send them' }; }
+        if (!linkedOf(UI.state || s)) return { no: tr('aurora.connect_first_send', null, 'Connect a device first to send files') };
+        if (typeof api.chooseSendFiles !== 'function') { UI.go('files'); return { info: tr('aurora.drop_on_overview', null, 'Drop files on the Overview to send them') }; }
         api.chooseSendFiles();
-        return { ok: 'Pick the files in the window that opened' };
+        return { ok: tr('aurora.pick_files', null, 'Pick the files in the window that opened') };
       },
     };
   }
   function stepConnectDevice(d, s) {
-    if (!d) return { label: 'Reconnecting', run: () => { if (typeof api.connectAgain === 'function') { api.connectAgain(); return { ok: 'Reconnecting to the paired computer' }; } UI.go('connection'); return { info: 'Pick a device on Connection' }; } };
+    if (!d) return { label: tr('aurora.step_reconnecting', null, 'Reconnecting'), run: () => { if (typeof api.connectAgain === 'function') { api.connectAgain(); return { ok: tr('aurora.reconnecting_paired', null, 'Reconnecting to the paired computer') }; } UI.go('connection'); return { info: tr('aurora.pick_on_connection', null, 'Pick a device on Connection') }; } };
+    const connecting = tr('aurora.step_connecting_to', { name: d.name }, 'Connecting to ' + d.name);
     return {
-      label: 'Connecting to ' + d.name,
+      label: connecting,
       run: () => {
-        if (d.live && d.mesh && !d.selected) { openDevice(d); return { ok: 'Switched to ' + d.name }; }
-        if (d.live) { UI.go('overview'); return { info: d.name + ' is already connected' }; }
-        if (d.kind === 'phone' && d.id && typeof api.connectPhone === 'function') { api.connectPhone(d.id); return { ok: 'Connecting to ' + d.name }; }
-        if (d.mesh && d.kind === 'pc') { UI.go('connection'); return { info: d.name + ' isn’t connected: it joins by itself once it’s on, or from Connection' }; }
-        if (d.kind === 'pc' && typeof api.connectAgain === 'function') { api.connectAgain(); return { ok: 'Connecting to ' + d.name }; }
+        if (d.live && d.mesh && !d.selected) { openDevice(d); return { ok: tr('aurora.switched_to', { name: d.name }, 'Switched to ' + d.name) }; }
+        if (d.live) { UI.go('overview'); return { info: tr('aurora.already_connected', { name: d.name }, d.name + ' is already connected') }; }
+        if (d.kind === 'phone' && d.id && typeof api.connectPhone === 'function') { api.connectPhone(d.id); return { ok: connecting }; }
+        if (d.mesh && d.kind === 'pc') { UI.go('connection'); return { info: tr('aurora.joins_by_itself', { name: d.name }, d.name + ' isn’t connected: it joins by itself once it’s on, or from Connection') }; }
+        if (d.kind === 'pc' && typeof api.connectAgain === 'function') { api.connectAgain(); return { ok: connecting }; }
         UI.go('connection');
-        return { info: 'Connect ' + d.name + ' from Connection' };
+        return { info: tr('aurora.connect_from_connection', { name: d.name }, 'Connect ' + d.name + ' from Connection') };
       },
     };
   }
 
-  async function run(text) {
+  // text: the request (English: the only one understood); shown: what the bar echoes (a chip's own words).
+  async function run(text, shown) {
     const id = ++runId;
     closeMenu();
     inp.blur();
@@ -1046,7 +1075,7 @@
     tx.replaceChildren();
     res.replaceChildren();
     sizeCard();
-    const ws = text.split(/\s+/).filter(Boolean);
+    const ws = (shown || text).split(/\s+/).filter(Boolean);
     const step = Math.max(45, Math.min(140, 1500 / ws.length));
     for (const w of ws) {
       if (id !== runId) return;
@@ -1075,7 +1104,7 @@
       res.append(h('div', null, [mark, label], { attrs: { role: 'listitem' } }));
       sizeCard();
       let r;
-      try { r = await st.run(); } catch (e) { r = { no: (e && e.message) || 'That didn’t work' }; }
+      try { r = await st.run(); } catch (e) { r = { no: (e && e.message) || tr('aurora.didnt_work', null, 'That didn’t work') }; }
       await wait(420);
       if (id !== runId) return;
       r = r || { ok: st.label };

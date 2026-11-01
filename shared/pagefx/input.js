@@ -23,6 +23,7 @@
   const UI = window.UI || {};
   const G = FX.get;
   const KG = window.KvmGeom || null;
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
 
   const safe = (fn, d) => { try { const v = fn(); return v === undefined || v === null ? d : v; } catch (e) { return d; } };
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
@@ -32,8 +33,8 @@
   // Names as the pages say them (UI.peer), with the core's getters as the fallback (Mac, mesh).
   function names(s) {
     const p = safe(() => UI.peer(s), null) || {};
-    const me = p.me || G.myName(s) || 'This computer';
-    const name = p.name || G.peerName(s) || 'the other computer';
+    const me = p.me || G.myName(s) || tr('general.this_computer', null, 'This computer');
+    const name = p.name || G.peerName(s) || tr('kit.the_other_computer', null, 'the other computer');
     return { me, name, Name: p.Name || capFirst(name), os: p.os || G.peerOs(s) || 'win' };
   }
   const noPeer = (s) => document.body.classList.contains('no-peer') || !G.linked(s);
@@ -247,12 +248,12 @@
         c.css(v.h, '--pd-membrane', f1(1.5 + (res / 400) * 4) + 'px');
         c.cls(v.h, 'has-res', res > 0);
         // Status line, the big numeral (pointer speed), the mono caption.
-        const where = { home: 'On ' + nm.me, driving: 'On ' + nm.name, driven: nm.Name + ' is using ' + nm.me };
-        c.text(v.status, nop ? 'Not connected' : st === 'paused' ? 'Paused · over Bluetooth' : st === 'off' ? 'Sharing off' : (ks.locked ? 'Edges locked · ' : '') + where[mode]);
+        const where = { home: tr('pfx_input.on_name', { name: nm.me }, 'On {name}'), driving: tr('pfx_input.on_name', { name: nm.name }, 'On {name}'), driven: tr('pfx_input.is_using', { Name: nm.Name, me: nm.me }, '{Name} is using {me}') };
+        c.text(v.status, nop ? tr('overview.not_connected', null, 'Not connected') : st === 'paused' ? tr('pfx_input.paused_bluetooth', null, 'Paused · over Bluetooth') : st === 'off' ? tr('pfx_input.sharing_off', null, 'Sharing off') : ks.locked ? tr('pfx_input.edges_locked', { where: where[mode] }, 'Edges locked · {where}') : where[mode]);
         c.attr(v.statusDot, 'data-on', !nop && (st === 'home' || st === 'driving' || st === 'driven' || st === 'locked') ? '1' : null);
         c.text(v.big, (num(k.speed) || 1).toFixed(2) + '×');
         const rt = pcRtt(s);
-        c.text(v.cap, ['speed', res ? 'edge ' + res + ' px' : 'no edge', rt != null ? Math.round(rt) + ' ms' : null].filter(Boolean).join(' · '));
+        c.text(v.cap, [tr('pfx_input.speed', null, 'speed'), res ? tr('pfx_input.edge_px', { n: res }, 'edge {n} px') : tr('pfx_input.no_edge', null, 'no edge'), rt != null ? Math.round(rt) + ' ms' : null].filter(Boolean).join(' · '));
 
         // In the page: the crossing map's contact line takes the page accent (class only; it re-renders).
         const mapEl = page.querySelector('.kvm-map');
@@ -316,10 +317,10 @@
         const mode = modeOf(ks);
         const toPeer = mode === 'driving';
         c.attr(v.h, 'data-dest', toPeer ? 'peer' : 'me');
-        c.text(v.big, nop ? 'Not connected' : toPeer ? nm.name : nm.me);
-        c.text(v.cap, nop ? 'keyboard stays here' : st === 'off' ? 'keyboard off' : st === 'cut' ? 'sharing paused'
-          : mode === 'driven' ? 'typing from ' + nm.name : toPeer ? 'keys go to' : 'typing here');
-        c.text(v.hint, k.mouse ? 'follows the pointer' : 'double-tap ' + hk + (k.hotkeySwitch ? ' to switch' : ''));
+        c.text(v.big, nop ? tr('overview.not_connected', null, 'Not connected') : toPeer ? nm.name : nm.me);
+        c.text(v.cap, nop ? tr('pfx_input.keyboard_stays_here', null, 'keyboard stays here') : st === 'off' ? tr('pfx_input.keyboard_off', null, 'keyboard off') : st === 'cut' ? tr('pfx_input.sharing_paused', null, 'sharing paused')
+          : mode === 'driven' ? tr('pfx_input.typing_from', { name: nm.name }, 'typing from {name}') : toPeer ? tr('pfx_input.keys_go_to', null, 'keys go to') : tr('pfx_input.typing_here', null, 'typing here'));
+        c.text(v.hint, k.mouse ? tr('pfx_input.follows_pointer', null, 'follows the pointer') : k.hotkeySwitch ? tr('pfx_input.double_tap_switch', { key: hk }, 'double-tap {key} to switch') : tr('pfx_input.double_tap', { key: hk }, 'double-tap {key}'));
 
         // In the page: the hotkey select reads as a keycap (font and bevel only).
         const sel = page.querySelector('.card.keep-on select');
@@ -389,15 +390,15 @@
         if (lastSt === 'using' && st !== 'using') { c.attr(v.h, 'data-fade', '1'); c.after(600, () => c.attr(v.h, 'data-fade', null)); }
         else if (st === 'using') c.attr(v.h, 'data-fade', null);
         lastSt = st;
-        const big = { off: 'Off', blocked: 'Unavailable', using: 'In use', open: 'Open', ready: 'Ready' }[st];
-        c.text(v.big, pad.busy ? 'Setting up…' : live ? 'Gamepad' : big);
-        c.text(v.cap, !s.remote ? 'not available here' : live ? nm.name + ' as a controller'
-          : st === 'ready' ? 'open remote on ' + nm.name : nm.name + ' as a remote');
+        const big = { off: tr('general.off', null, 'Off'), blocked: tr('pfx_input.unavailable', null, 'Unavailable'), using: tr('meshm_overview.in_use', null, 'In use'), open: tr('files.open', null, 'Open'), ready: tr('terminal.ready', null, 'Ready') }[st];
+        c.text(v.big, pad.busy ? tr('files.setting_up', null, 'Setting up…') : live ? tr('remote.gamepad_card', null, 'Gamepad') : big);
+        c.text(v.cap, !s.remote ? tr('pfx_input.not_available_here', null, 'not available here') : live ? tr('pfx_input.as_controller', { name: nm.name }, '{name} as a controller')
+          : st === 'ready' ? tr('pfx_input.open_remote_on', { name: nm.name }, 'open remote on {name}') : tr('pfx_input.as_remote', { name: nm.name }, '{name} as a remote'));
         c.text(v.warn, r.allow && r.why ? clip(r.why, 60) : '');
         v.warn.hidden = !(r.allow && r.why);
-        c.text(v.pad, pad.busy ? clip(pad.busy, 28) : pad.supported === false ? 'gamepad · not here' : !pad.on ? 'gamepad · off' : live ? 'gamepad · live' : 'gamepad · ready');
+        c.text(v.pad, pad.busy ? clip(pad.busy, 28) : pad.supported === false ? tr('pfx_input.gamepad_not_here', null, 'gamepad · not here') : !pad.on ? tr('pfx_input.gamepad_off', null, 'gamepad · off') : live ? tr('pfx_input.gamepad_live', null, 'gamepad · live') : tr('pfx_input.gamepad_ready', null, 'gamepad · ready'));
         c.attr(v.pad, 'data-on', live ? '1' : null);
-        c.text(v.padName, clip(pad.name || 'Controller', 15));
+        c.text(v.padName, clip(pad.name || tr('pfx_input.controller', null, 'Controller'), 15));
 
         // In the page: the Now row gets one live dot; the gamepad card dims where there's no gamepad.
         const wraps = page.querySelectorAll(':scope > .page-body > .card-wrap');
@@ -475,22 +476,22 @@
         c.text(v.title, clip(nm.me, 24) + ' — ' + clip(nm.name, 24));
         const rt = pcRtt(s);
         c.text(v.rtt, rt != null ? Math.round(rt) + ' ms' : '');
-        c.text(v.outHead, 'to ' + clip(nm.name, 24));
-        c.text(v.inHead, 'from ' + clip(nm.name, 24));
+        c.text(v.outHead, tr('pfx_input.to_name', { name: clip(nm.name, 24) }, 'to {name}'));
+        c.text(v.inHead, tr('pfx_input.from_name', { name: clip(nm.name, 24) }, 'from {name}'));
         const comment = (txt, cls) => [c.el('div', 'pd-line pd-comment ' + (cls || ''), [span(c, null, txt), span(c, 'pd-caret')])];
         // Here → there: typed again only when what it says changes (not on every push).
         if (c.changed('out', [st, t.status, t.user, nm.name, t.command, t.message])) {
           let lines;
-          if (st === 'nopeer') lines = comment('# no connection');
-          else if (st === 'ble') lines = comment('# needs Wi-Fi', 'warn');
-          else if (t.status === 'off' || !t.enabled) lines = comment('# off');
+          if (st === 'nopeer') lines = comment(tr('pfx_input.hash_no_connection', null, '# no connection'));
+          else if (st === 'ble') lines = comment(tr('pfx_input.hash_needs_wifi', null, '# needs Wi-Fi'), 'warn');
+          else if (t.status === 'off' || !t.enabled) lines = comment(tr('pfx_input.hash_off', null, '# off'));
           else {
             const R = {
-              ready: [span(c, null, 'connected as '), span(c, 'pd-strong', (t.user || 'you') + '@' + clip(nm.name, 20))],
-              waiting: [span(c, null, 'asking ' + clip(nm.name, 22)), span(c, 'pd-ell', [c.el('i', null, '.'), c.el('i', null, '.'), c.el('i', null, '.')])],
-              no_mac: [span(c, 'pd-dim', 'waiting for ' + clip(nm.name, 22))],
+              ready: [span(c, null, tr('pfx_input.connected_as', null, 'connected as') + ' '), span(c, 'pd-strong', (t.user || tr('pfx_input.you', null, 'you')) + '@' + clip(nm.name, 20))],
+              waiting: [span(c, null, tr('pfx_input.asking_name', { name: clip(nm.name, 22) }, 'asking {name}')), span(c, 'pd-ell', [c.el('i', null, '.'), c.el('i', null, '.'), c.el('i', null, '.')])],
+              no_mac: [span(c, 'pd-dim', tr('pfx_input.waiting_for_name', { name: clip(nm.name, 22) }, 'waiting for {name}'))],
             };
-            const reply = R[t.status] || [span(c, 'pd-bad', '✗ ' + msgShort(t.message || (t.status === 'unavailable' ? 'not available on ' + nm.name : 'problem')))];
+            const reply = R[t.status] || [span(c, 'pd-bad', '✗ ' + msgShort(t.message || (t.status === 'unavailable' ? tr('pfx_input.not_available_on', { name: nm.name }, 'not available on {name}') : tr('pfx_input.problem', null, 'problem'))))];
             lines = typed(c, t.command, reply, true);
           }
           v.out.replaceChildren(...lines);
@@ -498,16 +499,16 @@
         // There → here: the SSH server.
         if (c.changed('in', [st, t.allowIn, t.service, t.busy, t.peerCan, nm.name, t.srvMsg])) {
           let lines;
-          if (st === 'nopeer') lines = comment('# no connection');
-          else if (st === 'ble') lines = comment('# needs Wi-Fi', 'warn');
-          else if (!t.allowIn) lines = comment('# off');
+          if (st === 'nopeer') lines = comment(tr('pfx_input.hash_no_connection', null, '# no connection'));
+          else if (st === 'ble') lines = comment(tr('pfx_input.hash_needs_wifi', null, '# needs Wi-Fi'), 'warn');
+          else if (!t.allowIn) lines = comment(tr('pfx_input.hash_off', null, '# off'));
           else {
-            const reply = t.busy ? [span(c, 'pd-dim', 'setting up…')]
-              : t.service === 'running' ? [span(c, 'pd-strong', 'listening :22')]
-                : t.service === 'missing' ? [span(c, 'pd-bad', '✗ not installed')]
-                  : t.service === 'stopped' ? [span(c, 'pd-bad', '✗ stopped')] : [span(c, 'pd-dim', msgShort(t.srvMsg, 30) || 'checking…')];
+            const reply = t.busy ? [span(c, 'pd-dim', tr('pfx_input.setting_up', null, 'setting up…'))]
+              : t.service === 'running' ? [span(c, 'pd-strong', tr('pfx_input.listening', null, 'listening :22'))]
+                : t.service === 'missing' ? [span(c, 'pd-bad', tr('pfx_input.x_not_installed', null, '✗ not installed'))]
+                  : t.service === 'stopped' ? [span(c, 'pd-bad', tr('pfx_input.x_stopped', null, '✗ stopped'))] : [span(c, 'pd-dim', msgShort(t.srvMsg, 30) || tr('pfx_input.checking', null, 'checking…'))];
             lines = typed(c, 'sshd', reply, false);
-            if (t.peerCan) lines.push(c.el('div', 'pd-line pd-reply pd-late', [span(c, 'pd-dim', '↳ '), span(c, null, clip(nm.name, 22) + ' can connect')], { css: { '--n': 4 } }));
+            if (t.peerCan) lines.push(c.el('div', 'pd-line pd-reply pd-late', [span(c, 'pd-dim', '↳ '), span(c, null, tr('pfx_input.can_connect', { name: clip(nm.name, 22) }, '{name} can connect'))], { css: { '--n': 4 } }));
           }
           v.in.replaceChildren(...lines);
         }
@@ -554,7 +555,7 @@
         v.spark = c.el('i', 'pd-rz-spark');
         v.meLab = c.el('span', 'pd-rz-lab me');
         v.peerLab = c.el('span', 'pd-rz-lab peer');
-        v.badge = c.el('span', 'pd-rz-badge', 'update');
+        v.badge = c.el('span', 'pd-rz-badge');
         const L = lead(c, 'center');
         v.big = L.big; v.cap = L.cap;
         const stage = c.el('div', 'pd-rz-stage', [svg, v.spark, v.chip, v.meLab, v.peerLab, v.badge, L.box]);
@@ -580,10 +581,11 @@
         c.text(v.meLab, clip(nm.me, 16));
         c.text(v.peerLab, clip(nm.name, 16));
         v.badge.hidden = st !== 'missing';
+        c.text(v.badge, tr('pfx_input.badge_update', null, 'update'));
         // The chip: incoming (rides in and rests near here), going out (rides away), waiting, or the
         // last thing here (resting on this side, dim).
         const lastItem = !inc && !out && !z.waiting && (st === 'ready') ? z.last : null;
-        const item = inc || out || (z.waiting ? { title: 'Getting ' + z.waiting + '…' } : null) || lastItem;
+        const item = inc || out || (z.waiting ? { title: tr('pfx_input.getting_what', { what: z.waiting }, 'Getting {what}…') } : null) || lastItem;
         v.chip.hidden = !item;
         const pos = inc ? 'in' : out ? 'out' : z.waiting ? 'wait' : 'last';
         c.attr(v.chip, 'data-pos', item ? pos : null);
@@ -593,19 +595,19 @@
           const kind = kindOf(item);
           c.attr(v.chip, 'data-kind', kind);
           if (c.changed('glyph', kind)) c.attr(v.glyph, 'd', GLYPH[kind]);
-          c.text(v.ttl, clip(item.title || item.name || item.appName || 'Untitled', 26));
+          c.text(v.ttl, clip(item.title || item.name || item.appName || tr('pfx_input.untitled', null, 'Untitled'), 26));
           if (c.changed('chip', [pos, item.id || item.title]) && (pos === 'in' || pos === 'out')) c.pop(v.chip, 'pd-arrive', 1400);
         }
-        const sub = inc ? (kindOf(inc) === 'web' ? hostOf(inc.url) || inc.appName || 'page' : kindOf(inc) === 'doc' ? inc.appName || 'document' : inc.appName || inc.app || 'app') : '';
+        const sub = inc ? (kindOf(inc) === 'web' ? hostOf(inc.url) || inc.appName || tr('pfx_input.page', null, 'page') : kindOf(inc) === 'doc' ? inc.appName || tr('pfx_input.document', null, 'document') : inc.appName || inc.app || tr('pfx_input.app', null, 'app')) : '';
         const words = {
-          nopeer: ['Not connected', 'connect a computer or phone'],
-          off: ['ReZume is off', 'turn it on to carry on elsewhere'],
-          missing: ['Update ' + clip(nm.name, 20), 'no rezume there yet'],
-          peeroff: ['Off on ' + clip(nm.name, 20), 'turn it on there too'],
-          offer: ['From ' + clip(nm.name, 22), sub],
-          sending: ['Offered', 'to ' + clip(nm.name, 30)],
-          waiting: ['Getting it…', 'from ' + clip(nm.name, 22)],
-          ready: ['Ready', z.last ? 'ready to send' : 'nothing handed over yet'],
+          nopeer: [tr('overview.not_connected', null, 'Not connected'), tr('pfx_input.connect_pc_or_phone', null, 'connect a computer or phone')],
+          off: [tr('pfx_input.rezume_off', null, 'ReZume is off'), tr('pfx_input.turn_on_carry_on', null, 'turn it on to carry on elsewhere')],
+          missing: [tr('pfx_input.update_name', { name: clip(nm.name, 20) }, 'Update {name}'), tr('pfx_input.no_rezume_there', null, 'no rezume there yet')],
+          peeroff: [tr('pfx_input.off_on_name', { name: clip(nm.name, 20) }, 'Off on {name}'), tr('pfx_input.turn_on_there_too', null, 'turn it on there too')],
+          offer: [tr('pfx_input.from_name_cap', { name: clip(nm.name, 22) }, 'From {name}'), sub],
+          sending: [tr('pfx_input.offered', null, 'Offered'), tr('pfx_input.to_name', { name: clip(nm.name, 30) }, 'to {name}')],
+          waiting: [tr('pfx_input.getting_it', null, 'Getting it…'), tr('pfx_input.from_name', { name: clip(nm.name, 22) }, 'from {name}')],
+          ready: [tr('terminal.ready', null, 'Ready'), z.last ? tr('pfx_input.ready_to_send', null, 'ready to send') : tr('pfx_input.nothing_handed_over', null, 'nothing handed over yet')],
         }[st];
         c.text(v.big, words[0]);
         c.text(v.cap, words[1]);

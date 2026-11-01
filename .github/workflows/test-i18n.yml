@@ -1,0 +1,32 @@
+name: i18n tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'shared/i18n*.js'
+      - 'shared/locales/**'
+      - 'shared/test/**'
+      - 'windows/**'
+      - 'linux/**'
+      - 'mac/**'
+      - 'android/app/src/main/res/**'
+      - 'website/locales/**'
+
+jobs:
+  i18n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node shared/test/i18n.js
+      - run: node shared/test/i18n-coverage.js
+      - run: node shared/test/i18n-glossary.js
+      - run: node shared/test/i18n-scope.js
+      - run: node shared/test/ui-load.js
+      - run: node shared/test/packaging.js
+      - run: node shared/test/sidebar-model.js
+      - run: node shared/test/traymenu.js

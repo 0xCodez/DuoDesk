@@ -25,6 +25,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const P = require('./protocol.js');
+const { t: tr } = require('./i18n.js');
 
 const T = P.T;
 const POLL_MS = 1500;
@@ -85,7 +86,7 @@ class ReZume extends EventEmitter {
     link.on(T.RZ_OFFER, (m) => this._offer(m || {}));
     link.on(T.RZ_CLEAR, (m) => m && this.incoming && m.id === this.incoming.id && this._drop());
     link.on(T.RZ_TAKE, (m) => m && this._taken(String(m.id || '')));
-    link.on(T.RZ_DONE, (m) => m && this.waiting && m.id === this.waiting.id && !m.ok && this._failed(str(m.why, 200) || 'It couldn’t be sent'));
+    link.on(T.RZ_DONE, (m) => m && this.waiting && m.id === this.waiting.id && !m.ok && this._failed(str(m.why, 200) || tr('sh_rezume.couldnt_be_sent', null, 'It couldn’t be sent')));
   }
 
   get enabled() {
@@ -234,7 +235,7 @@ class ReZume extends EventEmitter {
       } catch (_) { /* through the session below */ }
     }
     if (!pp || !pp.on || !(a.kind === 'web' ? pp.web : pp.docs)) {
-      this.message = !pp ? '{name} has no ReZume yet: update DuoDesk there' : 'ReZume is off on {name}';
+      this.message = !pp ? tr('sh_rezume.peer_no_rezume', null, '{name} has no ReZume yet: update DuoDesk there') : tr('sh_rezume.rezume_off_on_peer', null, 'ReZume is off on {name}');
       this.emit('change');
       return false;
     }
@@ -297,7 +298,7 @@ class ReZume extends EventEmitter {
     const o = { id, kind, title: str(m.title, 300), app: str(m.app, 300), appName: str(m.appName, 100), icon: imgUrl(m.icon), at: Date.now() };
     if (kind === 'web' && !(o.url = httpUrl(m.url))) return;
     if (kind === 'doc') {
-      o.name = path.basename(str(m.name, 255)) || 'Document';
+      o.name = path.basename(str(m.name, 255)) || tr('rezume.document', null, 'Document');
       o.size = Number(m.size) >= 0 ? Number(m.size) : 0;
     }
     if (kind === 'app' && !/^[\w.]{1,200}$/.test(o.app)) return;
@@ -353,7 +354,7 @@ class ReZume extends EventEmitter {
       this.emit('opened', { title: o.title, how: 'web' });
     } else if (o.kind === 'app') {
       if (!this._canMirror()) {
-        this.message = 'Phone apps open here once wireless debugging is on (Phone page)';
+        this.message = tr('sh_rezume.apps_need_adb', null, 'Phone apps open here once wireless debugging is on (Phone page)');
         this.emit('change');
         return false;
       }
@@ -363,8 +364,8 @@ class ReZume extends EventEmitter {
       this.waiting = { id: o.id, title: o.name, until: Date.now() + DOC_WAIT_MS };
       this.expectFile('rz-' + o.id);
       this.link.send({ t: T.RZ_TAKE, id: o.id });
-      this.message = 'Getting ' + o.name + '…';
-      setTimeout(() => this.waiting && this.waiting.id === o.id && this._failed('It didn’t come'), DOC_WAIT_MS);
+      this.message = tr('rezume.getting_waiting', { item: o.name }, 'Getting ' + o.name + '…');
+      setTimeout(() => this.waiting && this.waiting.id === o.id && this._failed(tr('sh_rezume.didnt_come', null, 'It didn’t come')), DOC_WAIT_MS);
     }
     this.emit('change');
     return true;
@@ -377,7 +378,7 @@ class ReZume extends EventEmitter {
     this.waiting = null;
     const p = b.placed && b.placed[0];
     if (!b.ok || !p) {
-      this._failed(w.title + ' didn’t arrive');
+      this._failed(tr('sh_rezume.didnt_arrive', { title: w.title }, w.title + ' didn’t arrive'));
       return true;
     }
     this.message = '';

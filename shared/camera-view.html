@@ -23,11 +23,15 @@
 </head>
 <body>
   <video id="video" autoplay playsinline muted></video>
-  <div id="status">Asking for the camera…</div>
+  <div id="status" data-i18n="camview.asking">Asking for the camera…</div>
   <div id="tools">
-    <button id="again" hidden>Try again</button>
-    <button id="mirror" title="Show it as in a mirror">Mirror</button>
+    <button id="again" hidden data-i18n="hub.try_again">Try again</button>
+    <button id="mirror" title="Show it as in a mirror" data-i18n="monitor.mirror" data-i18n-title="camview.mirror_title">Mirror</button>
   </div>
+  <script src="locales/en.js"></script>
+  <script src="locales/pt-BR.js"></script>
+  <script src="i18n.js"></script>
+  <script src="i18n-dom.js"></script>
   <script src="vcam-feed.js"></script>
   <script src="camera-view.js"></script>
 </body>

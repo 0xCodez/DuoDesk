@@ -6,12 +6,14 @@
 // UI.phoneAudioCard() → {el, update(state)}: the Audio tab's phone rows, that switch and Play phone
 // sound here (Bluetooth) (state.btAudio from shared/btaudio.js; null where it can't be: the Mac).
 'use strict';
+{ // block scope: a top-level const tr would clash with the other scripts' own
+  const tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
 
 // General › Media controls on the Phone page: the same setting as the Audio tab's, there with or without a
 // phone connected. UI.mediaControlsRow() → {el, update(state)}.
 UI.mediaControlsRow = () => {
-  const sw = UI.switch((v) => UI.api.setAudio({ phoneMedia: v }), { label: 'Media controls on the Phone page' });
-  const row = UI.row('Media controls on the Phone page', '', [sw]);
+  const sw = UI.switch((v) => UI.api.setAudio({ phoneMedia: v }), { label: tr('nowplaying.media_controls_sw', null, 'Media controls on the Phone page') });
+  const row = UI.row(tr('nowplaying.media_controls_sw', null, 'Media controls on the Phone page'), '', [sw]);
   return {
     el: row,
     update(s) {
@@ -19,20 +21,20 @@ UI.mediaControlsRow = () => {
       sw.set(on);
       const m = s.phoneMedia;
       row.setHint(on && m && m.why === 'listener'
-        ? 'Needs the full DuoDesk app on the phone, with its notification access on'
-        : 'What plays on a connected phone, with Play, Pause, Next and Previous, on the Phone page while it plays');
+        ? tr('nowplaying.needs_full_app', null, 'Needs the full DuoDesk app on the phone, with its notification access on')
+        : tr('nowplaying.media_controls_hint', null, 'What plays on a connected phone, with Play, Pause, Next and Previous, on the Phone page while it plays'));
     },
   };
 };
 
 UI.phoneAudioCard = () => {
   const { el, api } = UI;
-  const bt = UI.switch((v) => api.setAudio({ phoneBt: v }), { label: 'Play phone sound here (Bluetooth)' });
-  const btRow = UI.row('Play phone sound here (Bluetooth)', '', [bt]);
+  const bt = UI.switch((v) => api.setAudio({ phoneBt: v }), { label: tr('nowplaying.play_sound_bt', null, 'Play phone sound here (Bluetooth)') });
+  const btRow = UI.row(tr('nowplaying.play_sound_bt', null, 'Play phone sound here (Bluetooth)'), '', [bt]);
   const pick = UI.select([], (id) => api.phoneBtPick(id));
-  const pickRow = UI.row('The phone', 'Paired with this computer over Bluetooth', [pick]);
-  const media = UI.switch((v) => api.setAudio({ phoneMedia: v }), { label: 'Media controls on the Phone page' });
-  const mediaRow = UI.row('Media controls on the Phone page', '', [media]);
+  const pickRow = UI.row(tr('nowplaying.the_phone', null, 'The phone'), tr('nowplaying.paired_bt', null, 'Paired with this computer over Bluetooth'), [pick]);
+  const media = UI.switch((v) => api.setAudio({ phoneMedia: v }), { label: tr('nowplaying.media_controls_sw', null, 'Media controls on the Phone page') });
+  const mediaRow = UI.row(tr('nowplaying.media_controls_sw', null, 'Media controls on the Phone page'), '', [media]);
   const card = UI.card('{name}', [btRow, pickRow, mediaRow]);
   return {
     el: card,
@@ -43,20 +45,20 @@ UI.phoneAudioCard = () => {
       const b = s.btAudio;
       bt.set(!!(b ? b.on : false));
       bt.disable(!b);
-      btRow.setHint(!b ? 'This computer can’t take a phone’s sound over Bluetooth (macOS has no Bluetooth speaker mode)'
+      btRow.setHint(!b ? tr('nowplaying.mac_no_speaker', null, 'This computer can’t take a phone’s sound over Bluetooth (macOS has no Bluetooth speaker mode)')
         : b.on && b.text ? b.text
-          : 'This computer as {name}’s Bluetooth speaker: its music, videos and every other sound play here. Pair them in Bluetooth settings first');
+          : tr('nowplaying.speaker_desc', null, 'This computer as {name}’s Bluetooth speaker: its music, videos and every other sound play here. Pair them in Bluetooth settings first'));
       const choose = !!(b && b.on && b.devices && b.devices.length && (b.state === 'choose' || b.state === 'playing'));
       pickRow.hidden = !choose;
       if (choose) {
-        pick.options([{ value: '', label: 'Choose…' }, ...b.devices.map((d) => ({ value: d.id, label: d.name }))]);
+        pick.options([{ value: '', label: tr('general.choose', null, 'Choose…') }, ...b.devices.map((d) => ({ value: d.id, label: d.name }))]);
         pick.set(b.state === 'choose' ? '' : b.device);
       }
       media.set(a.phoneMedia !== false);
       const m = s.phoneMedia;
       mediaRow.setHint(m && m.why === 'listener' && a.phoneMedia !== false
-        ? 'Needs the full DuoDesk app on {name}, with its notification access on'
-        : 'What plays on {name}, with Play, Pause, Next and Previous, on the Phone page while it plays');
+        ? tr('nowplaying.needs_full_name', null, 'Needs the full DuoDesk app on {name}, with its notification access on')
+        : tr('nowplaying.what_plays_name', null, 'What plays on {name}, with Play, Pause, Next and Previous, on the Phone page while it plays'));
     },
   };
 };
@@ -79,9 +81,9 @@ UI.nowPlaying = () => {
   const art = el('div', { class: 'np-art' });
   const title = el('div', { class: 'np-title' });
   const sub = el('div', { class: 'np-sub' });
-  const prev = ctl('prev', '<path d="M5 4.5v11 M15.5 4.5v11L7 10z"/>', 'Previous');
-  const play = ctl('toggle', PLAY, 'Play');
-  const next = ctl('next', '<path d="M15 4.5v11 M4.5 4.5v11L13 10z"/>', 'Next');
+  const prev = ctl('prev', '<path d="M5 4.5v11 M15.5 4.5v11L7 10z"/>', tr('nowplaying.previous', null, 'Previous'));
+  const play = ctl('toggle', PLAY, tr('nowplaying.play', null, 'Play'));
+  const next = ctl('next', '<path d="M15 4.5v11 M4.5 4.5v11L13 10z"/>', tr('nowplaying.next', null, 'Next'));
   const bar = el('div', { class: 'np-bar' }, [el('div', { class: 'np-fill' })]);
   const time = el('div', { class: 'np-time' });
   const box = el('div', { class: 'np', hidden: true }, [
@@ -129,7 +131,7 @@ UI.nowPlaying = () => {
       title.textContent = now.title;
       sub.textContent = [now.artist, now.appName].filter(Boolean).join(' · ');
       play.replaceChildren(svg(now.playing ? PAUSE : PLAY));
-      play.title = now.playing ? 'Pause' : 'Play';
+      play.title = now.playing ? tr('nowplaying.pause', null, 'Pause') : tr('nowplaying.play', null, 'Play');
       play.setAttribute('aria-label', play.title);
       prev.disabled = !now.prev;
       next.disabled = !now.next;
@@ -138,3 +140,4 @@ UI.nowPlaying = () => {
     },
   };
 };
+}

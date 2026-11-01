@@ -9,6 +9,7 @@
 (function (root) {
   'use strict';
 
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
   const G = root.KvmGeom;
   const NS = 'http://www.w3.org/2000/svg';
   const PLACEHOLDER = [{ id: '?', x: 0, y: 0, w: 1600, h: 1000 }];
@@ -40,8 +41,6 @@
     const hint = div('kvm-map-hint');
     const identify = document.createElement('button');
     identify.className = 'btn small kvm-map-identify';
-    identify.textContent = 'Identify';
-    identify.title = 'Show each monitor’s number on it, on both computers';
     identify.onclick = () => opts.onIdentify();
     foot.append(hint, identify);
     el.append(legend, foot);
@@ -154,15 +153,23 @@
     // d: {mine, theirs, side, along, me, them}. along null: centred.
     function update(d) {
       const side = d.side || 'right';
-      data = { mine: d.mine || [], theirs: d.theirs || [], side, along: 0, me: d.me || 'This computer', them: d.them || 'The other computer' };
+      identify.textContent = tr('sh_kvm_map_ui.identify', null, 'Identify');
+      identify.title = tr('sh_kvm_map_ui.identify_title', null, 'Show each monitor’s number on it, on both computers');
+      data = { mine: d.mine || [], theirs: d.theirs || [], side, along: 0, me: d.me || tr('general.this_computer', null, 'This computer'), them: d.them || tr('overview.other_computer', null, 'The other computer') };
       const { mine, theirs } = lists();
       data.along = typeof d.along === 'number' ? d.along : G.centred(mine, theirs, side);
       meKey.textContent = data.me;
       themKey.textContent = data.them;
       hint.textContent = data.theirs.length
-        ? `Drag ${data.them} to where it is on your desk. The pointer crosses only where the screens touch (highlighted).`
-        : `Drag ${data.them} to the side it is on. Its screens show here once it’s connected (with an up-to-date DuoDesk).`;
-      box.setAttribute('aria-label', `${data.them} is ${{ left: 'to the left of', right: 'to the right of', top: 'above', bottom: 'below' }[side]} ${data.me}`);
+        ? tr('sh_kvm_map_ui.drag_to_desk_position', { them: data.them }, 'Drag {them} to where it is on your desk. The pointer crosses only where the screens touch (highlighted).')
+        : tr('sh_kvm_map_ui.drag_to_side', { them: data.them }, 'Drag {them} to the side it is on. Its screens show here once it’s connected (with an up-to-date DuoDesk).');
+      const place = {
+        left: () => tr('sh_kvm_map_ui.is_left_of', { them: data.them, me: data.me }, '{them} is to the left of {me}'),
+        right: () => tr('sh_kvm_map_ui.is_right_of', { them: data.them, me: data.me }, '{them} is to the right of {me}'),
+        top: () => tr('sh_kvm_map_ui.is_above', { them: data.them, me: data.me }, '{them} is above {me}'),
+        bottom: () => tr('sh_kvm_map_ui.is_below', { them: data.them, me: data.me }, '{them} is below {me}'),
+      };
+      box.setAttribute('aria-label', place[side]());
       identify.hidden = !data.mine.length;
       if (!drag) render(side, data.along);
     }

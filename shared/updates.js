@@ -10,6 +10,10 @@
 //   notify(title, body, onClick) once per new version; open() shows the download in the browser.
 'use strict';
 
+let i18nModule = null;
+try { i18nModule = require('./i18n.js'); } catch (_) { if (typeof DuoDeskI18n !== 'undefined') i18nModule = DuoDeskI18n; }
+const tr = (k, p, d) => (i18nModule ? i18nModule.t(k, p, d) : (d || k));
+
 const REPO = '0xCodez/DuoDesk';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
 const RELEASES = `https://github.com/${REPO}/releases`;
@@ -277,8 +281,8 @@ class Updates {
         this.save();
         if (!skipped) {
           this.notify(
-            `DuoDesk ${latest} is available`,
-            manual ? 'Click to view update details.' : `You have ${this.current}. Click to view update details and release notes.`,
+            tr('updates.notif_available_title', { version: latest }, `DuoDesk ${latest} is available`),
+            manual ? tr('updates.notif_manual_body', null, 'Click to view update details.') : tr('updates.notif_available_body', { current: this.current }, `You have ${this.current}. Click to view update details and release notes.`),
             () => this.onShowModal(),
           );
         }
@@ -286,7 +290,7 @@ class Updates {
     } catch (e) {
       this._set({
         checking: false,
-        error: manual ? (e && e.message) || 'Couldn’t reach GitHub' : '',
+        error: manual ? (e && e.message) || tr('updates.could_not_reach_github', null, 'Couldn’t reach GitHub') : '',
         checkedAt: this.status.checkedAt,
         promptUpdate: false,
       });

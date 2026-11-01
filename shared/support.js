@@ -23,6 +23,7 @@
 'use strict';
 
 const os = require('os');
+const { t: tr } = require('./i18n.js'); // t() is a local name in places here
 
 const API = 'https://beyond-media.ai/api/tips';
 const ORIGIN = 'https://beyond-media.ai';
@@ -119,7 +120,7 @@ function shape(j, avatar) {
   const max = num(c.max) != null && c.max >= min ? c.max : 1000;
   const presets = (Array.isArray(c.presets) ? c.presets : []).filter((p) => num(p) != null && p >= min && p <= max).slice(0, 6);
   const supporters = (Array.isArray(j && j.supporters) ? j.supporters : []).slice(0, 12).map((s) => ({
-    name: str(s && s.name, 60) || 'Someone',
+    name: str(s && s.name, 60) || tr('sh_support.someone', null, 'Someone'),
     amount: num(s && s.amount) != null ? s.amount / minor((s && s.currency) || currency) : null,
     currency: /^[a-z]{3}$/i.test((s && s.currency) || '') ? s.currency.toLowerCase() : currency,
     monthly: !!(s && s.monthly),
@@ -153,16 +154,16 @@ async function profile(opts) {
   inflight = (async () => {
     try {
       const j = await doFetch(API + '?creator=' + encodeURIComponent(CREATOR), { headers: { Accept: 'application/json' } }, async (r) => {
-        if (!r.ok) throw new Error(r.status === 404 ? 'This tip jar isn’t available' : 'The tip service answered ' + r.status);
+        if (!r.ok) throw new Error(r.status === 404 ? tr('sh_support.tip_unavailable', null, 'This tip jar isn’t available') : tr('sh_support.service_answered', { status: r.status }, 'The tip service answered ' + r.status));
         try { return await r.json(); } catch { return null; } // a captive portal's HTML page, say
       });
-      if (!j || typeof j !== 'object' || !j.creator || typeof j.creator !== 'object') throw new Error('The tip service sent something unexpected');
+      if (!j || typeof j !== 'object' || !j.creator || typeof j.creator !== 'object') throw new Error(tr('sh_support.service_unexpected', null, 'The tip service sent something unexpected'));
       const value = shape(j, await avatarData(j.creator.avatar));
       cache = { at: Date.now(), value };
       return Object.assign({ ok: true }, value);
     } catch (e) {
       const offline = e && (e.name === 'AbortError' || /fetch failed|ENOTFOUND|ECONN|ETIMEDOUT|ERR_INTERNET|ERR_NAME|network/i.test(String(e.message || e)));
-      const error = offline ? 'Can’t reach beyond-media.ai. Check your connection.' : String((e && e.message) || e);
+      const error = offline ? tr('sh_support.cant_reach', null, 'Can’t reach beyond-media.ai. Check your connection.') : String((e && e.message) || e);
       return cache ? Object.assign({ ok: false, error, offline, stale: true }, cache.value) : { ok: false, error, offline };
     } finally { inflight = null; }
   })();
@@ -173,9 +174,9 @@ async function profile(opts) {
 function checkTip(o) {
   const p = (cache && cache.value.profile) || { min: 1, max: 1000 };
   const amount = num(o && o.amount);
-  if (amount == null) return { error: 'Enter an amount' };
+  if (amount == null) return { error: tr('sh_support.enter_amount', null, 'Enter an amount') };
   const a = Math.round(amount * 100) / 100;
-  if (a < p.min || a > p.max) return { error: 'Enter an amount between ' + p.min + ' and ' + p.max };
+  if (a < p.min || a > p.max) return { error: tr('sh_support.amount_between', { min: p.min, max: p.max }, 'Enter an amount between ' + p.min + ' and ' + p.max) };
   return { amount: a, monthly: !!(o && o.monthly), name: str(o && o.name, 60), message: str(o && o.message, 280) };
 }
 
@@ -183,7 +184,7 @@ let lastTip = 0;
 async function createTip(o) {
   const t = checkTip(o);
   if (t.error) return { ok: false, error: t.error };
-  if (Date.now() - lastTip < 2500) return { ok: false, error: 'One moment…' };
+  if (Date.now() - lastTip < 2500) return { ok: false, error: tr('sh_support.one_moment', null, 'One moment…') };
   lastTip = Date.now();
   try {
     const { r, j } = await doFetch(API, {
@@ -191,20 +192,20 @@ async function createTip(o) {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ creator: CREATOR, amount: t.amount, name: t.name, message: t.message, monthly: t.monthly, returnUrl: RETURN_URL }),
     }, async (res) => { let body = null; try { body = await res.json(); } catch {} return { r: res, j: body }; });
-    if (!r.ok) return { ok: false, error: str(j && j.error, 200) || 'The tip service answered ' + r.status };
+    if (!r.ok) return { ok: false, error: str(j && j.error, 200) || tr('sh_support.service_answered', { status: r.status }, 'The tip service answered ' + r.status) };
     const url = safeUrl(j && j.url, 'checkout');
-    if (!url) return { ok: false, error: 'The tip service sent a link DuoDesk won’t open' };
+    if (!url) return { ok: false, error: tr('sh_support.link_wont_open', null, 'The tip service sent a link DuoDesk won’t open') };
     return { ok: true, url };
   } catch (e) {
     lastTip = 0;
-    return { ok: false, error: e && e.name === 'AbortError' ? 'The tip service took too long. Try again.' : 'Can’t reach beyond-media.ai. Check your connection.' };
+    return { ok: false, error: e && e.name === 'AbortError' ? tr('sh_support.took_too_long', null, 'The tip service took too long. Try again.') : tr('sh_support.cant_reach', null, 'Can’t reach beyond-media.ai. Check your connection.') };
   }
 }
 
 async function startTip(o) {
   const r = await createTip(o);
   if (!r.ok) return r;
-  try { await openExternal(r.url); } catch { return { ok: false, error: 'Couldn’t open the browser' }; }
+  try { await openExternal(r.url); } catch { return { ok: false, error: tr('sh_support.cant_open_browser', null, 'Couldn’t open the browser') }; }
   return { ok: true, opened: new URL(r.url).hostname }; // the page only learns where it went, not the link
 }
 
@@ -232,8 +233,8 @@ function checkFeedback(o) {
   const kind = Object.hasOwn(KINDS, o && o.kind) ? o.kind : 'idea';
   const message = str(o && o.message, MAX_MESSAGE);
   const email = str(o && o.email, 200);
-  if (email && !/^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/.test(email)) return { error: 'That reply email doesn’t look right' };
-  if (!message && kind !== 'love') return { error: 'Write a few words first' };
+  if (email && !/^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/.test(email)) return { error: tr('sh_support.bad_email', null, 'That reply email doesn’t look right') };
+  if (!message && kind !== 'love') return { error: tr('sh_support.write_first', null, 'Write a few words first') };
   return { kind, message, email, includeInfo: !!(o && o.includeInfo) };
 }
 
@@ -277,15 +278,15 @@ async function feedback(o) {
     const q = new URLSearchParams({ title, body: gb.slice(0, ISSUE_MAX) });
     if (f.kind === 'bug') q.set('labels', 'bug'); else if (f.kind === 'idea') q.set('labels', 'enhancement');
     const url = safeUrl(ISSUES + '?' + q.toString(), 'github');
-    if (!url) return { ok: false, error: 'Couldn’t make the GitHub link' };
-    try { await openExternal(url); } catch { return { ok: false, error: 'Couldn’t open the browser' }; }
+    if (!url) return { ok: false, error: tr('sh_support.github_link_failed', null, 'Couldn’t make the GitHub link') };
+    try { await openExternal(url); } catch { return { ok: false, error: tr('sh_support.cant_open_browser', null, 'Couldn’t open the browser') }; }
     return { ok: true, via };
   }
   const m = mailto(subject, body);
   const url = safeUrl(m.href, 'mail');
-  if (!url) return { ok: false, error: 'Couldn’t make the email' };
+  if (!url) return { ok: false, error: tr('sh_support.email_failed', null, 'Couldn’t make the email') };
   if (m.truncated) copy(`To: ${CONTACT}\nSubject: ${subject}\n\n${body}`); // the whole message, to paste over the cut one
-  try { await openExternal(url); } catch { return { ok: false, error: 'No mail app answered. Use Copy and send it to ' + CONTACT + '.', noMail: true }; }
+  try { await openExternal(url); } catch { return { ok: false, error: tr('sh_support.no_mail_app', { contact: CONTACT }, 'No mail app answered. Use Copy and send it to ' + CONTACT + '.'), noMail: true }; }
   return { ok: true, via, truncated: m.truncated, copied: m.truncated };
 }
 
@@ -295,7 +296,7 @@ function ipc(ipcMain) {
   if (registered || !ipcMain) return;
   registered = true;
   const handle = (name, fn) => ipcMain.handle(name, async (_e, arg) => {
-    try { return await fn(arg && typeof arg === 'object' ? arg : {}); } catch (e) { console.error('support ' + name + ':', e); return { ok: false, error: 'Something went wrong' }; }
+    try { return await fn(arg && typeof arg === 'object' ? arg : {}); } catch (e) { console.error('support ' + name + ':', e); return { ok: false, error: tr('sh_support.went_wrong', null, 'Something went wrong') }; }
   });
   handle('support:info', () => Object.assign({ contact: CONTACT, issues: 'github.com/0xCodez/DuoDesk/issues' }, info()));
   handle('support:profile', (o) => profile({ force: !!o.force }));

@@ -14,6 +14,7 @@
 'use strict';
 
 (() => {
+  const tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
   let cur = null; // the last state, for the switch at the top
   let facing = 'back'; // a phone's camera to start with
 
@@ -37,13 +38,13 @@
     const c = s.camera || {};
     if (isPhone(s)) {
       const ph = s.phone || {};
-      if (!ph.connected) return 'Not connected';
-      if (!ph.bridge || ph.bridge.state !== 'ready') return 'Needs wireless debugging: set it up on the Phone page';
+      if (!ph.connected) return tr('camera.not_connected', null, 'Not connected');
+      if (!ph.bridge || ph.bridge.state !== 'ready') return tr('camera.needs_adb', null, 'Needs wireless debugging: set it up on the Phone page');
       return '';
     }
-    if (!c.connected) return 'Not connected';
-    if (c.ble) return 'Through Bluetooth a camera can’t go across: connect over Wi-Fi or a cable';
-    if (!c.peerShares && !c.viewing) return c.mesh ? 'Turn on sharing in {name}’s Camera tab first' : 'Turn on “Let {me} see this camera” on {name} first'; // Multi-device: either app may be there
+    if (!c.connected) return tr('camera.not_connected', null, 'Not connected');
+    if (c.ble) return tr('camera.bt_blocked', null, 'Through Bluetooth a camera can’t go across: connect over Wi-Fi or a cable');
+    if (!c.peerShares && !c.viewing) return c.mesh ? tr('camera.mesh_turn_on', null, 'Turn on sharing in {name}’s Camera tab first') : tr('camera.peer_turn_on', null, 'Turn on “Let {me} see this camera” on {name} first'); // Multi-device: either app may be there
     return '';
   }
 
@@ -61,7 +62,7 @@
     title: 'Camera',
     icon: 'camera',
     color: 'linear-gradient(#bf5af2, #8944ab)',
-    desc: 'The other device’s camera here, and as a camera other apps can pick.',
+    desc: tr('camera.tab_desc', null, 'The other device’s camera here, and as a camera other apps can pick.'),
     badge: (s) => (s.camera && s.camera.sending ? 'warn' : running(s) ? 'on' : ''),
     devName: (s) => (other(s) ? s.camera.peerName : ''), // Multi-device: the page's device tag
     master: {
@@ -77,7 +78,7 @@
       Object.assign(img.style, { width: '100%', height: '100%', objectFit: 'contain', display: 'block' });
       const said = el('div');
       Object.assign(said.style, { position: 'absolute', inset: '0', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '0 24px', color: '#a1a1a6' });
-      const box = el('div', { title: 'Open it in a window' }, [img, said]);
+      const box = el('div', { title: tr('camera.open_in_window', null, 'Open it in a window') }, [img, said]);
       Object.assign(box.style, { position: 'relative', aspectRatio: '16 / 9', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', margin: '12px' });
       box.onclick = () => cur && running(cur) && start(true, true);
       let url = '';
@@ -90,37 +91,37 @@
         });
       }
 
-      const facingSeg = UI.segmented([{ value: 'back', label: 'Back' }, { value: 'front', label: 'Front' }], (v) => {
+      const facingSeg = UI.segmented([{ value: 'back', label: tr('camera.back', null, 'Back') }, { value: 'front', label: tr('camera.front', null, 'Front') }], (v) => {
         facing = v;
         facingSeg.set(v);
         if (cur && running(cur)) api.phoneCamera(true, { facing: v }); // switches in the same window
       });
       facingSeg.set(facing);
-      const rotate = UI.button('Rotate', () => cam({ do: 'rotate' }));
-      rotate.title = 'A quarter turn clockwise: here, in its window and in the virtual camera';
-      const windowBtn = UI.button('Window', () => start(true, true));
-      windowBtn.title = 'Open it in a window';
-      const startBtn = UI.button('Start', () => cur && start(!running(cur)));
-      const controls = UI.row('{name}’s camera', '', [startBtn, facingSeg, rotate, windowBtn]);
+      const rotate = UI.button(tr('camera.rotate', null, 'Rotate'), () => cam({ do: 'rotate' }));
+      rotate.title = tr('camera.rotate_title', null, 'A quarter turn clockwise: here, in its window and in the virtual camera');
+      const windowBtn = UI.button(tr('camera.window', null, 'Window'), () => start(true, true));
+      windowBtn.title = tr('camera.open_in_window', null, 'Open it in a window');
+      const startBtn = UI.button(tr('camera.start', null, 'Start'), () => cur && start(!running(cur)));
+      const controls = UI.row(tr('camera.peer_camera', null, '{name}’s camera'), '', [startBtn, facingSeg, rotate, windowBtn]);
       const picCard = UI.card('', [box, controls]);
 
       // Virtual camera: the picture also goes to a camera other apps can pick.
-      const virtual = UI.switch((v) => cam({ do: 'virtual', on: v }), { label: 'Virtual camera' });
-      const vRemove = UI.button('Remove', () => cam({ do: 'vcamRemove' }));
-      const vRow = UI.row('Virtual camera', '', [vRemove, virtual]);
+      const virtual = UI.switch((v) => cam({ do: 'virtual', on: v }), { label: tr('camera.virtual_title', null, 'Virtual camera') });
+      const vRemove = UI.button(tr('camera.remove', null, 'Remove'), () => cam({ do: 'vcamRemove' }));
+      const vRow = UI.row(tr('camera.virtual_title', null, 'Virtual camera'), '', [vRemove, virtual]);
       // Which camera it feeds, where there's a choice (the Mac: DuoDesk Camera or OBS Virtual Camera).
       const vTarget = UI.select([], (t) => cam({ do: 'vcamTarget', target: t }));
-      const vTargetRow = UI.row('Send to', 'The camera other apps pick', [vTarget]);
-      const vCard = UI.card('Virtual camera', [vTargetRow, vRow]);
+      const vTargetRow = UI.row(tr('camera.send_to', null, 'Send to'), tr('camera.camera_apps_pick', null, 'The camera other apps pick'), [vTarget]);
+      const vCard = UI.card(tr('camera.virtual_title', null, 'Virtual camera'), [vTargetRow, vRow]);
 
       // This computer's camera there.
-      const share = UI.switch((v) => cam({ do: 'share', on: v }), { label: 'Share this camera' });
-      const shareRow = UI.row('Let {name} see this camera', '', [share]);
-      const device = UI.select([{ value: '', label: 'The default camera' }], (v) => cam({ do: 'device', id: v }));
-      const deviceRow = UI.row('Camera', 'Which of {me}’s cameras it shows', [device]);
-      const stop = UI.button('Stop', () => cam({ do: 'stop' }), 'danger');
-      const liveRow = UI.row('{name} is viewing it now', 'The camera is on while it’s running there', [stop]);
-      const ourCard = UI.card('{me}’s camera', [shareRow, deviceRow, liveRow]);
+      const share = UI.switch((v) => cam({ do: 'share', on: v }), { label: tr('camera.share_sw_label', null, 'Share this camera') });
+      const shareRow = UI.row(tr('camera.share_row_title', null, 'Let {name} see this camera'), '', [share]);
+      const device = UI.select([{ value: '', label: tr('camera.default_camera', null, 'The default camera') }], (v) => cam({ do: 'device', id: v }));
+      const deviceRow = UI.row(tr('nav.camera', null, 'Camera'), tr('camera.device_row_hint', null, 'Which of {me}’s cameras it shows'), [device]);
+      const stop = UI.button(tr('camera.stop', null, 'Stop'), () => cam({ do: 'stop' }), 'danger');
+      const liveRow = UI.row(tr('camera.viewing_now', null, '{name} is viewing it now'), tr('camera.camera_on_while_running', null, 'The camera is on while it’s running there'), [stop]);
+      const ourCard = UI.card(tr('camera.our_camera', null, '{me}’s camera'), [shareRow, deviceRow, liveRow]);
 
       const note = UI.note('info', '');
       body.append(picCard, vCard, ourCard, note);
@@ -143,13 +144,13 @@
         // The picture, or what it's waiting for.
         const why = blocked(s);
         let text = '';
-        if (!c.on) text = 'Off: turn on Camera at the top';
-        else if (!on) text = fill(s, why || 'Press Start to run {name}’s camera here');
-        else if (phone && w && w.error) text = `It stopped: ${w.error}`;
-        else if (!phone && c.viewStatus === 'refused') text = fill(s, mesh ? 'Turn on sharing in {name}’s Camera tab' : 'Turn on “Let {me} see this camera” on {name}');
-        else if (!phone && c.viewStatus === 'failed') text = `It didn’t start: ${c.viewError || 'unknown'}`;
-        else if (!phone && c.viewStatus === 'ended') text = fill(s, '{name} stopped its camera');
-        else if (!v.picture) text = phone ? 'Starting the phone’s camera…' : fill(s, 'Asking {name} for its camera…');
+        if (!c.on) text = tr('camera.off_top', null, 'Off: turn on Camera at the top');
+        else if (!on) text = fill(s, why || tr('camera.press_start', null, 'Press Start to run {name}’s camera here'));
+        else if (phone && w && w.error) text = tr('camera.it_stopped', { error: w.error }, `It stopped: ${w.error}`);
+        else if (!phone && c.viewStatus === 'refused') text = fill(s, mesh ? tr('camera.mesh_turn_on', null, 'Turn on sharing in {name}’s Camera tab first') : tr('camera.peer_turn_on', null, 'Turn on “Let {me} see this camera” on {name} first'));
+        else if (!phone && c.viewStatus === 'failed') text = tr('camera.it_didnt_start', { error: c.viewError || tr('camera.error_unknown', null, 'unknown') }, `It didn’t start: ${c.viewError || 'unknown'}`);
+        else if (!phone && c.viewStatus === 'ended') text = fill(s, tr('camera.peer_stopped', null, '{name} stopped its camera'));
+        else if (!v.picture) text = phone ? tr('camera.starting_phone', null, 'Starting the phone’s camera…') : fill(s, tr('camera.asking_peer', null, 'Asking {name} for its camera…'));
         said.textContent = text;
         said.hidden = !text;
         img.hidden = !on || !!text;
@@ -158,15 +159,15 @@
           url = '';
           img.removeAttribute('src');
         }
-        startBtn.textContent = on ? 'Stop' : 'Start';
+        startBtn.textContent = on ? tr('camera.stop', null, 'Stop') : tr('camera.start', null, 'Start');
         startBtn.disabled = !c.on || (!on && !!why);
         startBtn.title = !on && why ? fill(s, why) : '';
-        controls.label.textContent = fill(s, '{name}’s camera'); // Multi-device: whose runs here
+        controls.label.textContent = fill(s, tr('camera.peer_camera', null, '{name}’s camera')); // Multi-device: whose runs here
         facingSeg.el.hidden = !phone;
         rotate.disabled = !on;
         windowBtn.disabled = !on;
-        windowBtn.textContent = (phone ? w && w.shown : c.viewShown) ? 'Window ✓' : 'Window';
-        controls.setHint(on ? `Turned ${v.rotate || 0}°. Click the picture or Window for a window of its own` : '');
+        windowBtn.textContent = (phone ? w && w.shown : c.viewShown) ? tr('camera.window_checked', null, 'Window ✓') : tr('camera.window', null, 'Window');
+        controls.setHint(on ? tr('camera.turned_hint', { rotate: v.rotate || 0 }, `Turned ${v.rotate || 0}°. Click the picture or Window for a window of its own`) : '');
 
         // Virtual camera.
         virtual.set(!!v.on);
@@ -178,26 +179,26 @@
           vTarget.set(v.target || v.targets[0].value);
           vTarget.el.disabled = !!v.busy;
         }
-        vRow.setHint(!v.checked ? 'Checking…'
+        vRow.setHint(!v.checked ? tr('general.checking', null, 'Checking…')
           : v.supported === false ? v.message
-            : v.busy === 'install' ? (v.message || 'Installing…')
-              : v.busy === 'remove' ? 'Removing…'
-                : v.ready && v.live ? `Sharing now: in Zoom, Teams, the browser…, choose only ${vName} as the camera`
-                  : v.ready ? `Ready: the camera running here goes to ${vName}. Choose only that one in the app you call from`
-                    : v.on ? (v.message || 'Not installed')
-                      : v.message || `Off: the picture stays in DuoDesk. On: it’s also ${vName}, a camera other apps can pick`);
+            : v.busy === 'install' ? (v.message || tr('general.installing', null, 'Installing…'))
+              : v.busy === 'remove' ? tr('files.removing', null, 'Removing…')
+                : v.ready && v.live ? tr('camera.sharing_now', { name: vName }, `Sharing now: in Zoom, Teams, the browser…, choose only ${vName} as the camera`)
+                  : v.ready ? tr('camera.ready_hint', { name: vName }, `Ready: the camera running here goes to ${vName}. Choose only that one in the app you call from`)
+                    : v.on ? (v.message || tr('general.not_installed', null, 'Not installed'))
+                      : v.message || tr('camera.off_hint', { name: vName }, `Off: the picture stays in DuoDesk. On: it’s also ${vName}, a camera other apps can pick`));
 
         // This computer's own camera (not with a phone).
         ourCard.hidden = phone;
         if (!phone) {
           share.set(!!c.share);
-          shareRow.label.textContent = mesh ? 'Let your other devices see this camera' : UI.fill('Let {name} see this camera');
-          shareRow.setHint(c.shareError || (c.share ? (mesh ? 'Your other computers can run it there. A popup says so here when one does' : '{name} can run it there. A popup says so here when it does') : 'Off: nobody sees it'));
-          device.options([{ value: '', label: 'The default camera' }, ...(c.devices || []).map((d) => ({ value: d.id, label: d.label }))]);
+          shareRow.label.textContent = mesh ? tr('camera.mesh_share_all', null, 'Let your other devices see this camera') : UI.fill(tr('camera.share_row_title', null, 'Let {name} see this camera'));
+          shareRow.setHint(c.shareError || (c.share ? (mesh ? tr('camera.mesh_share_hint', null, 'Your other computers can run it there. A popup says so here when one does') : tr('camera.peer_share_hint', null, '{name} can run it there. A popup says so here when it does')) : tr('camera.nobody_sees_it', null, 'Off: nobody sees it')));
+          device.options([{ value: '', label: tr('camera.default_camera', null, 'The default camera') }, ...(c.devices || []).map((d) => ({ value: d.id, label: d.label }))]);
           device.set(c.device || '');
           deviceRow.hidden = !c.share;
           liveRow.hidden = !c.sending;
-          liveRow.label.textContent = mesh && c.sendingTo ? `${c.sendingTo} ${c.sendingTo.includes(',') ? 'are' : 'is'} viewing it now` : UI.fill('{name} is viewing it now');
+          liveRow.label.textContent = mesh && c.sendingTo ? tr(c.sendingTo.includes(',') ? 'camera.sending_to_other' : 'camera.sending_to_one', { names: c.sendingTo }, `${c.sendingTo} ${c.sendingTo.includes(',') ? 'are' : 'is'} viewing it now`) : UI.fill(tr('camera.viewing_now', null, '{name} is viewing it now'));
           if (c.share && !listed) {
             listed = true;
             cam({ do: 'devices' });
@@ -205,8 +206,8 @@
         }
 
         note.set(v.ready
-          ? `Apps here see it as ${vName}: pick that one, not {me}’s own camera.` + (phone ? '' : ' The picture goes straight between the two computers.')
-          : 'Turn on Virtual camera to use it as a real camera in other apps (Zoom, Teams, the browser…).' + (phone ? '' : ' The picture goes straight between the two computers.'));
+          ? tr('camera.apps_see_it', { name: vName, extra: phone ? '' : tr('camera.straight_hint', null, ' The picture goes straight between the two computers.') }, `Apps here see it as ${vName}: pick that one, not {me}’s own camera.` + (phone ? '' : ' The picture goes straight between the two computers.'))
+          : tr('camera.turn_on_vcam_hint', { extra: phone ? '' : tr('camera.straight_hint', null, ' The picture goes straight between the two computers.') }, 'Turn on Virtual camera to use it as a real camera in other apps (Zoom, Teams, the browser…).' + (phone ? '' : ' The picture goes straight between the two computers.')));
       };
     },
   });

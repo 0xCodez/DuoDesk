@@ -4,12 +4,17 @@
 // (shared/vcam-feed.js); Camera › Window shows it. Camera › Rotate turns it here too.
 'use strict';
 
+// camera-view.html loads shared/i18n.js (window.t); the fallback only fills the English default.
+function tr(k, p, d) {
+  if (typeof window.t === 'function') return window.t(k, p, d);
+  return String(d !== undefined ? d : k).replace(/\{(\w+)\}/g, (m, n) => (p && p[n] != null ? p[n] : m));
+}
 const api = window.cam;
 const video = document.getElementById('video');
 const status = document.getElementById('status');
 const again = document.getElementById('again');
 const mirror = document.getElementById('mirror');
-const name = new URLSearchParams(location.search).get('name') || 'the other computer';
+const name = new URLSearchParams(location.search).get('name') || tr('kit.the_other_computer', null, 'the other computer');
 const feed = window.CamOut ? window.CamOut() : null;
 let pc = null;
 let pending = [];
@@ -73,7 +78,7 @@ async function offer(sdp) {
   me.onconnectionstatechange = () => {
     if (pc !== me) return;
     if (me.connectionState === 'connected') { say(''); api.send({ t: 'live' }); }
-    else if (me.connectionState === 'failed') say(`The picture can’t get through from ${name}: are both on the same network?`, true);
+    else if (me.connectionState === 'failed') say(tr('sh_camera_view.picture_cant_get_through', { name }, 'The picture can’t get through from {name}: are both on the same network?'), true);
   };
   try {
     await me.setRemoteDescription({ type: 'offer', sdp });
@@ -82,7 +87,7 @@ async function offer(sdp) {
     for (const c of pending.splice(0)) await me.addIceCandidate(c).catch(() => {});
     pending = null;
   } catch (e) {
-    say('The camera didn’t start: ' + e.message, true);
+    say(tr('camshare.camera_didnt_start', { error: e.message }, 'The camera didn’t start: {error}'), true);
   }
 }
 
@@ -96,10 +101,10 @@ api.on((m) => {
     reset();
   } else if (m.t === 'status') {
     const n = m.name || name;
-    if (m.status === 'starting') say(`Asking ${n} for its camera…`);
-    else if (m.status === 'refused') { reset(); say(`${n} doesn’t share its camera: turn on Camera › “Let this computer see the camera” there.`, true); }
-    else if (m.status === 'failed') { reset(); say(`${n}’s camera didn’t start: ${m.error || 'unknown'}`, true); }
-    else if (m.status === 'ended') { reset(); say(`${n} stopped its camera.`, true); }
+    if (m.status === 'starting') say(tr('camera.asking_peer', { name: n }, 'Asking {name} for its camera…'));
+    else if (m.status === 'refused') { reset(); say(tr('sh_camera_view.doesnt_share_camera', { name: n }, '{name} doesn’t share its camera: turn on Camera › “Let this computer see the camera” there.'), true); }
+    else if (m.status === 'failed') { reset(); say(tr('sh_camera_view.peer_camera_didnt_start', { name: n, error: m.error || tr('sh_camera_view.unknown_error', null, 'unknown') }, '{name}’s camera didn’t start: {error}'), true); }
+    else if (m.status === 'ended') { reset(); say(tr('sh_camera_view.peer_stopped_camera', { name: n }, '{name} stopped its camera.'), true); }
   }
 });
 again.onclick = () => api.send({ t: 'again' });

@@ -10,6 +10,8 @@
 'use strict';
 
 const crypto = require('crypto');
+const i18n = require('./i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('./protocol.js');
 
 const T = P.T;
@@ -265,7 +267,9 @@ class ClipImages {
     // As the clipboard holds it now (it may re-encode it): never sent back.
     this.sig.received = sigOf(await this._read()) || sigOf(img);
     this.o.remember('in', this._item({ png: pic.png, w: pic.w || img.getSize().width, h: pic.h || img.getSize().height }, img, pic.shot));
-    this.o.popup('driven', `${pic.shot ? 'Screenshot' : 'Picture'} from ${this.o.peerName()} copied: paste it with ${this.o.pasteKeys || 'Ctrl+V'}`);
+    const kind = pic.shot ? tr('clipimage.kind_screenshot', null, 'Screenshot') : tr('clipimage.kind_picture', null, 'Picture');
+    const keys = this.o.pasteKeys || 'Ctrl+V';
+    this.o.popup('driven', tr('clipimage.copied_paste_with', { kind, name: this.o.peerName(), keys }, `${pic.shot ? 'Screenshot' : 'Picture'} from ${this.o.peerName()} copied: paste it with ${this.o.pasteKeys || 'Ctrl+V'}`));
     this.o.onChange();
   }
 

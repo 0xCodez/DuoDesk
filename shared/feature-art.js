@@ -16,6 +16,7 @@
 //   FeatureArt.create(id, { color, keep, onDismiss }) -> { el, set(show) }; color: the tab's (a CSS gradient),
 //     keep: Dismiss is remembered
 (function () {
+  const tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
   const FREE = ['overview', 'multi', 'general', 'about', 'feedback', 'tip', 'phone', 'calls', 'messages', 'media', 'pfiles'];
 
   // Nothing connected: a switch of a feature can't be turned on or off (it shows dimmed, styled from
@@ -180,7 +181,7 @@
         + '<path class="fa-lines wide" d="M172 86h56M172 104h56M172 122h40M172 140h50M172 158h30"/>'
         + '<rect class="fa-dev" x="174" y="32" width="52" height="22" rx="7"/><circle class="fa-scr" cx="200" cy="37" r="4"/>'
         + `<g opacity="0">${doc(1)}${along(4, '68,152;68,152;200,118;200,118;332,152;332,152', '0;0.1;0.35;0.55;0.8;1')}${fade(4, '0;1;1;0;0', '0;0.08;0.82;0.9;1')}</g>`
-        + pill(68, 'Copy', '0;1;1;0;0', '0;0.06;0.3;0.36;1') + pill(332, 'Paste', '0;0;1;1;0', '0;0.78;0.84;0.97;1');
+        + pill(68, tr('general.copy', null, 'Copy'), '0;1;1;0;0', '0;0.06;0.3;0.36;1') + pill(332, tr('files.paste', null, 'Paste'), '0;0;1;1;0', '0;0.78;0.84;0.97;1');
     },
     // At a desk: the bell rings, the phone lights up, notifications slide onto the screen.
     notifications: (id) => {
@@ -278,7 +279,7 @@
       [...cmd].forEach((ch, i) => {
         out += `<text class="fa-mono" x="${92 + i * 9}" y="86" opacity="0">${ch === ' ' ? '&#160;' : ch}${from(6, (0.05 + i * 0.035).toFixed(3))}</text>`;
       });
-      out += `<text class="fa-mono dim" x="76" y="112" opacity="0">Connected to the other computer${from(6, '0.55')}</text>`
+      out += `<text class="fa-mono dim" x="76" y="112" opacity="0">${tr('feature_art.connected_other', null, 'Connected to the other computer')}${from(6, '0.55')}</text>`
         + `<text class="fa-mono dim" x="76" y="138" opacity="0">~ $${from(6, '0.66')}</text>`;
       const xs = ['92', ...[...cmd].map((_, i) => 101 + i * 9), '112'];
       const ys = ['74', ...[...cmd].map(() => 74), '126'];
@@ -399,28 +400,29 @@
   };
 
   // The feature's name and what it does, the same for every device.
-  const TEXT = {
-    cursor: ['Cursor sharing', 'Push the pointer past the edge of the screen and it carries on onto the other device. One mouse or trackpad for both.'],
-    keyboard: ['Keyboard sharing', 'This keyboard types on whichever device the pointer is on, shortcuts included.'],
-    clipboard: ['Clipboard sync', 'Copy something on one device and paste it on the other. It goes across by itself.'],
-    notifications: ['Notification sync', 'Notifications from the other device show up on this one, and the other way round.'],
-    audio: ['Sound sharing', 'Play one device’s sound on the other’s speakers or headphones.'],
-    apps: ['App sharing', 'Open an app of the other device: it runs there and shows up here in a window of its own.'],
-    share: ['Second screen', 'This screen becomes a second screen for the other device: move windows across onto it.'],
-    receive: ['Remote screen', 'The other device’s screen in a window here, to see it and use it from here.'],
-    'mac-pc': ['Remote screen', 'The other device’s screen in a window here, to see it and use it from here.'],
-    'pc-mac': ['Screen sharing', 'This screen in a window on the other device, to show it or use it from there.'],
-    files: ['File sharing', 'Drag files across the screen edge, take in files sent your way, or share a folder.'],
-    terminal: ['Remote terminal', 'Open a terminal on the other computer from this one. No passwords needed.'],
-    mount: ['Phone drive', 'The phone’s storage as a drive here, to open and copy its files like any other folder.'],
-    calls: ['Phone calls', 'Answer and make your phone’s calls on this computer, and talk through it.'],
-    messages: ['Text messages', 'Read and send your phone’s texts here.'],
-    media: ['Phone photos', 'See your phone’s photos and videos and copy them here.'],
-    pfiles: ['Phone files', 'Browse the phone’s storage and copy files to and from it, no cable needed.'],
-    camera: ['Camera sharing', 'The other device’s camera here: see its picture, or pick it as a camera in any app.'],
-    remote: ['Phone as a remote', 'Use the phone as this computer’s touchpad, keyboard or gamepad.'],
-    rezume: ['ReZume', 'Like Handoff on Apple devices: go on here with the page, document or phone app you were using on the other device, and the other way round.'],
-  };
+  // Built when a picture is made, not at load: the language is set after the scripts load.
+  const TEXT = () => ({
+    cursor: [tr('feature_art.cursor_title', null, 'Cursor sharing'), tr('feature_art.cursor_desc', null, 'Push the pointer past the edge of the screen and it carries on onto the other device. One mouse or trackpad for both.')],
+    keyboard: [tr('feature_art.keyboard_title', null, 'Keyboard sharing'), tr('feature_art.keyboard_desc', null, 'This keyboard types on whichever device the pointer is on, shortcuts included.')],
+    clipboard: [tr('feature_art.clipboard_title', null, 'Clipboard sync'), tr('feature_art.clipboard_desc', null, 'Copy something on one device and paste it on the other. It goes across by itself.')],
+    notifications: [tr('feature_art.notifications_title', null, 'Notification sync'), tr('feature_art.notifications_desc', null, 'Notifications from the other device show up on this one, and the other way round.')],
+    audio: [tr('feature_art.audio_title', null, 'Sound sharing'), tr('feature_art.audio_desc', null, 'Play one device’s sound on the other’s speakers or headphones.')],
+    apps: [tr('feature_art.apps_title', null, 'App sharing'), tr('feature_art.apps_desc', null, 'Open an app of the other device: it runs there and shows up here in a window of its own.')],
+    share: [tr('feature_art.share_title', null, 'Second screen'), tr('feature_art.share_desc', null, 'This screen becomes a second screen for the other device: move windows across onto it.')],
+    receive: [tr('feature_art.receive_title', null, 'Remote screen'), tr('feature_art.receive_desc', null, 'The other device’s screen in a window here, to see it and use it from here.')],
+    'mac-pc': [tr('feature_art.receive_title', null, 'Remote screen'), tr('feature_art.receive_desc', null, 'The other device’s screen in a window here, to see it and use it from here.')],
+    'pc-mac': [tr('feature_art.pc_mac_title', null, 'Screen sharing'), tr('feature_art.pc_mac_desc', null, 'This screen in a window on the other device, to show it or use it from there.')],
+    files: [tr('feature_art.files_title', null, 'File sharing'), tr('feature_art.files_desc', null, 'Drag files across the screen edge, take in files sent your way, or share a folder.')],
+    terminal: [tr('feature_art.terminal_title', null, 'Remote terminal'), tr('feature_art.terminal_desc', null, 'Open a terminal on the other computer from this one. No passwords needed.')],
+    mount: [tr('feature_art.mount_title', null, 'Phone drive'), tr('feature_art.mount_desc', null, 'The phone’s storage as a drive here, to open and copy its files like any other folder.')],
+    calls: [tr('feature_art.calls_title', null, 'Phone calls'), tr('feature_art.calls_desc', null, 'Answer and make your phone’s calls on this computer, and talk through it.')],
+    messages: [tr('feature_art.messages_title', null, 'Text messages'), tr('feature_art.messages_desc', null, 'Read and send your phone’s texts here.')],
+    media: [tr('feature_art.media_title', null, 'Phone photos'), tr('feature_art.media_desc', null, 'See your phone’s photos and videos and copy them here.')],
+    pfiles: [tr('feature_art.pfiles_title', null, 'Phone files'), tr('feature_art.pfiles_desc', null, 'Browse the phone’s storage and copy files to and from it, no cable needed.')],
+    camera: [tr('feature_art.camera_title', null, 'Camera sharing'), tr('feature_art.camera_desc', null, 'The other device’s camera here: see its picture, or pick it as a camera in any app.')],
+    remote: [tr('feature_art.remote_title', null, 'Phone as a remote'), tr('feature_art.remote_desc', null, 'Use the phone as this computer’s touchpad, keyboard or gamepad.')],
+    rezume: ['ReZume', tr('feature_art.rezume_desc', null, 'Like Handoff on Apple devices: go on here with the page, document or phone app you were using on the other device, and the other way round.')],
+  });
 
   const has = (id) => id in SCENE;
 
@@ -489,15 +491,15 @@
       pic.setAttribute('aria-hidden', 'true');
       paint(pic, id);
       drawn.push({ id, pic });
-      const [head, text] = TEXT[id];
+      const [head, text] = TEXT()[id];
       const h = document.createElement('h2');
       h.textContent = head;
       const p = document.createElement('p');
       p.textContent = text;
       const ok = document.createElement('button');
       ok.className = 'btn';
-      ok.textContent = 'Dismiss';
-      ok.title = 'Show the settings';
+      ok.textContent = tr('rezume.dismiss', null, 'Dismiss');
+      ok.title = tr('feature_art.show_settings', null, 'Show the settings');
       ok.onclick = () => {
         gone = true;
         if (keep) dismiss(id);

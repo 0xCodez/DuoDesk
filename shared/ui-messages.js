@@ -3,6 +3,7 @@
 // its texts and pictures, and a box to answer (the phone sends it). New messages come as they
 // arrive while Messages is on; their alerts are the phone's own notifications (Notifications).
 'use strict';
+var tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
 
 UI.tab({
   id: 'messages',
@@ -11,7 +12,7 @@ UI.tab({
   title: 'Messages',
   icon: 'message',
   color: 'linear-gradient(#64d2ff, #0a84ff)',
-  desc: 'Read and send your phone’s texts here.',
+  desc: tr('messages.desc', null, 'Read and send your phone’s texts here.'),
   hidden: (s) => !UI.isPhone(s), // only while a phone is connected
   master: { get: (s) => !!(s.hub && s.hub.messages), set: (v) => UI.api.hub({ do: 'set', what: 'messages', on: v }) },
   badge: (s) => (s.hub && s.hub.messages ? (s.hub.unread ? String(s.hub.unread) : 'on') : ''),
@@ -19,25 +20,25 @@ UI.tab({
     const { el, api } = UI;
     const top = UI.hubTop('messages');
     const list = el('div', { class: 'hub-threads' });
-    const newBtn = UI.button('New message', () => openNew(), 'small');
+    const newBtn = UI.button(tr('messages.new_message', null, 'New message'), () => openNew(), 'small');
     const head = el('div', { class: 'hub-conv-head' });
     const scroll = el('div', { class: 'hub-conv-scroll' });
-    const more = UI.button('Earlier messages', () => loadThread(openId, true), 'small');
+    const more = UI.button(tr('messages.earlier_messages', null, 'Earlier messages'), () => loadThread(openId, true), 'small');
     const bubbles = el('div', { class: 'hub-bubbles' });
     scroll.append(more, bubbles);
-    const to = el('input', { type: 'text', class: 'hub-input hub-to', placeholder: 'To: a number', spellcheck: false, attrs: { 'aria-label': 'To' } });
-    const box = el('textarea', { class: 'hub-compose', rows: 1, placeholder: 'Text message', attrs: { 'aria-label': 'Message' } });
-    const send = UI.button('Send', () => sendNow(), 'primary');
-    const groupNote = el('div', { class: 'hint hub-group-note', text: 'Answer group conversations on the phone.' });
+    const to = el('input', { type: 'text', class: 'hub-input hub-to', placeholder: tr('messages.to_placeholder', null, 'To: a number'), spellcheck: false, attrs: { 'aria-label': tr('messages.to_aria', null, 'To') } });
+    const box = el('textarea', { class: 'hub-compose', rows: 1, placeholder: tr('messages.text_message_placeholder', null, 'Text message'), attrs: { 'aria-label': tr('messages.message_aria', null, 'Message') } });
+    const send = UI.button(tr('messages.send', null, 'Send'), () => sendNow(), 'primary');
+    const groupNote = el('div', { class: 'hint hub-group-note', text: tr('messages.group_note', null, 'Answer group conversations on the phone.') });
     const compose = el('div', { class: 'hub-compose-row' }, [box, send]);
     const conv = el('div', { class: 'hub-conv' }, [head, scroll, groupNote, compose]);
-    const empty = el('div', { class: 'hub-empty hub-conv-empty', text: 'Choose a conversation' });
+    const empty = el('div', { class: 'hub-empty hub-conv-empty', text: tr('messages.choose_conversation', null, 'Choose a conversation') });
     const layout = el('div', { class: 'card hub-msgs' }, [el('div', { class: 'hub-side' }, [el('div', { class: 'hub-side-head' }, [newBtn]), list]), conv, empty]);
     // ---- chat apps in one inbox (the switch here, settings.ui.chats): pills on top ----
     // Texts are the phone's SMS and MMS (above); the chat apps are their conversations as the phone
     // sends them (s.chats: shared/chats.js), kept here, or with an older phone their notifications
     // (Notifications on). Answered with their own Reply (notif.reply). All: everything.
-    const CHAT = [['all', 'All'], ['texts', 'Texts'], ['whatsapp', 'WhatsApp'], ['instagram', 'Instagram'], ['telegram', 'Telegram'], ['messenger', 'Messenger'], ['signal', 'Signal']];
+    const CHAT = [['all', tr('messages.chat_all', null, 'All')], ['texts', tr('messages.chat_texts', null, 'Texts')], ['whatsapp', 'WhatsApp'], ['instagram', 'Instagram'], ['telegram', 'Telegram'], ['messenger', 'Messenger'], ['signal', 'Signal']];
     const OPTIONAL = ['messenger', 'signal']; // their pill only once one of their chats is here
     const appOf = (pkg) => (/^com\.whatsapp/.test(pkg) ? 'whatsapp' : /^(?:org\.telegram|org\.thunderdog\.challegram)/.test(pkg) ? 'telegram' : /^com\.instagram/.test(pkg) ? 'instagram'
       : pkg === 'com.facebook.orca' ? 'messenger' : pkg === 'org.thoughtcrime.securesms' ? 'signal'
@@ -51,8 +52,8 @@ UI.tab({
       pills.append(b);
       return [id, b];
     });
-    const chatsSw = UI.switch((v) => api.setChats && api.setChats(v), { label: 'Chat apps in Messages' });
-    const chatsRow = UI.row('Chat apps in Messages', 'WhatsApp, Instagram, Telegram and Messenger next to your texts. Reply from here.', [chatsSw]);
+    const chatsSw = UI.switch((v) => api.setChats && api.setChats(v), { label: tr('messages.chats_sw_label', null, 'Chat apps in Messages') });
+    const chatsRow = UI.row(tr('messages.chats_sw_label', null, 'Chat apps in Messages'), tr('messages.chats_row_desc', null, 'WhatsApp, Instagram, Telegram and Messenger next to your texts. Reply from here.'), [chatsSw]);
     const chatsCard = UI.card('', [chatsRow]);
     chatsCard.hidden = !api.setChats;
     const chatList = el('div', { class: 'hub-threads' });
@@ -60,13 +61,13 @@ UI.tab({
     const chatScroll = el('div', { class: 'hub-conv-scroll' });
     const chatBubbles = el('div', { class: 'hub-bubbles' });
     chatScroll.append(chatBubbles);
-    const chatBox = el('textarea', { class: 'hub-compose', rows: 1, placeholder: 'Reply', attrs: { 'aria-label': 'Reply' } });
-    const chatSend = UI.button('Send', () => chatReply(), 'primary');
+    const chatBox = el('textarea', { class: 'hub-compose', rows: 1, placeholder: tr('messages.reply_placeholder', null, 'Reply'), attrs: { 'aria-label': tr('messages.reply_aria', null, 'Reply') } });
+    const chatSend = UI.button(tr('messages.send', null, 'Send'), () => chatReply(), 'primary');
     chatBox.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatReply(); } });
     const chatNote = el('div', { class: 'hint hub-group-note' });
     const chatCompose = el('div', { class: 'hub-compose-row' }, [chatBox, chatSend]);
     const chatConv = el('div', { class: 'hub-conv' }, [chatHead, chatScroll, chatNote, chatCompose]);
-    const chatEmpty = el('div', { class: 'hub-empty hub-conv-empty', text: 'Choose a conversation' });
+    const chatEmpty = el('div', { class: 'hub-empty hub-conv-empty', text: tr('messages.choose_conversation', null, 'Choose a conversation') });
     const chatLayout = el('div', { class: 'card hub-msgs' }, [el('div', { class: 'hub-side' }, [chatList]), chatConv, chatEmpty]);
     let chatOpen = ''; // app|title
     let chatKey = '';
@@ -133,22 +134,22 @@ UI.tab({
       const snippet = (t) => {
         if (!t.msgs) return t.items[0].body || '';
         const m = t.msgs[t.msgs.length - 1];
-        return m ? (m.me ? 'You: ' : t.group && m.from ? m.from + ': ' : '') + m.text : '';
+        return m ? (m.me ? tr('messages.you_prefix', null, 'You: ') : t.group && m.from ? m.from + ': ' : '') + m.text : '';
       };
       const rows = shown.map((t) => ({ at: t.at, el: threadRow(t.name, t.at, (APP_NAME[t.app] || '') + ' · ' + snippet(t), t.key === chatOpen, () => { chatOpen = t.key; paintChats(UI.state); }) }));
       if (pill === 'all') {
         for (const t of threads) {
-          rows.push({ at: t.at || 0, el: threadRow(t.name || (t.addrs || []).join(', '), t.at, 'Text · ' + (t.snippet || ''), false, () => { pill = 'texts'; paintChats(UI.state); layout.hidden = false; openThread(t.id); }) });
+          rows.push({ at: t.at || 0, el: threadRow(t.name || (t.addrs || []).join(', '), t.at, tr('messages.text_prefix', null, 'Text · ') + (t.snippet || ''), false, () => { pill = 'texts'; paintChats(UI.state); layout.hidden = false; openThread(t.id); }) });
         }
       }
       rows.sort((a, b) => b.at - a.at);
       chatList.replaceChildren(...rows.map((r) => r.el));
-      if (!rows.length) chatList.append(el('div', { class: 'hub-empty', text: !synced(s) && !(s.notifs || {}).receive ? 'Turn on Notifications to see chats here' : 'No chats yet. They show here as messages arrive.' }));
+      if (!rows.length) chatList.append(el('div', { class: 'hub-empty', text: !synced(s) && !(s.notifs || {}).receive ? tr('messages.turn_on_notifs_hint', null, 'Turn on Notifications to see chats here') : tr('messages.no_chats_yet', null, 'No chats yet. They show here as messages arrive.') }));
       const t = shown.find((x) => x.key === chatOpen);
       chatConv.hidden = !t;
       chatEmpty.hidden = !!t;
       if (!t) return;
-      chatHead.replaceChildren(UI.avatar(t.name), el('div', {}, [el('div', { class: 'hub-conv-name', text: t.name }), el('div', { class: 'hint', text: (APP_NAME[t.app] || '') + (t.group ? ' · Group' : '') })]));
+      chatHead.replaceChildren(UI.avatar(t.name), el('div', {}, [el('div', { class: 'hub-conv-name', text: t.name }), el('div', { class: 'hint', text: (APP_NAME[t.app] || '') + (t.group ? tr('messages.group_suffix', null, ' · Group') : '') })]));
       const msgs = [];
       let lastDay = '';
       for (const m of t.msgs || []) {
@@ -168,7 +169,7 @@ UI.tab({
       const canReply = (t.msgs ? t.reply : t.items.some((h) => h.reply)) && !!api.notifReply;
       chatCompose.hidden = !canReply;
       chatNote.hidden = canReply;
-      chatNote.textContent = t.msgs ? 'Reply here once the phone shows this chat’s notification again.' : 'Answer this one on the phone: its notification has no Reply.';
+      chatNote.textContent = t.msgs ? tr('messages.chat_note_msgs', null, 'Reply here once the phone shows this chat’s notification again.') : tr('messages.chat_note_notif', null, 'Answer this one on the phone: its notification has no Reply.');
     }
 
     body.append(top.el, chatsCard, pills, layout, chatLayout);
@@ -196,7 +197,7 @@ UI.tab({
         b.onclick = () => openThread(t.id);
         return b;
       }));
-      if (!threads.length) list.append(el('div', { class: 'hub-empty', text: 'No conversations' }));
+      if (!threads.length) list.append(el('div', { class: 'hub-empty', text: tr('messages.no_conversations', null, 'No conversations') }));
     }
 
     function renderConv() {
@@ -228,7 +229,7 @@ UI.tab({
           group && !m.out && (m.fromName || m.from) ? el('div', { class: 'hub-from', text: m.fromName || m.from }) : null,
           ...pics,
           m.body ? el('div', { class: 'hub-text', text: m.body }) : null,
-          m.status ? el('div', { class: 'hub-status', text: m.status === 'sending' ? 'Sending…' : m.status === 'failed' ? `Not sent${m.error ? `: ${m.error}` : ''}` : '' }) : null,
+          m.status ? el('div', { class: 'hub-status', text: m.status === 'sending' ? tr('messages.status_sending', null, 'Sending…') : m.status === 'failed' ? (m.error ? tr('messages.status_not_sent_err', { error: m.error }, `Not sent: ${m.error}`) : tr('messages.status_not_sent', null, 'Not sent')) : '' }) : null,
         ]));
       }
       bubbles.replaceChildren(...nodes);
@@ -379,7 +380,7 @@ UI.tab({
       const canSend = !(s.hub.perm.messages.missing || []).includes('send');
       send.disabled = !canSend;
       box.disabled = !canSend;
-      box.placeholder = canSend ? 'Text message' : 'Allow sending on the phone to answer here';
+      box.placeholder = canSend ? tr('messages.text_message_placeholder', null, 'Text message') : tr('messages.allow_sending_hint', null, 'Allow sending on the phone to answer here');
     };
   },
 });

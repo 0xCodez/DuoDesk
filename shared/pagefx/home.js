@@ -19,12 +19,17 @@
   const FX = window.PageFX;
   if (!FX) return;
   const G = FX.get;
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
   const arr = (v) => (Array.isArray(v) ? v : []);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const titleOf = (wrap) => { const t = wrap && wrap.querySelector(':scope > .card-title > span:first-child'); return t ? t.textContent.trim() : ''; };
-  const wrapByTitle = (body, re) => (body ? [...body.querySelectorAll('.card-wrap')].find((w) => re.test(titleOf(w))) : null) || null;
-  const rowByLabel = (root, re) => (root ? [...root.querySelectorAll('.row')].find((r) => { const l = r.querySelector(':scope > .text > .label'); return l && re.test(l.textContent.trim()); }) : null) || null;
+  // The page is in the user's language: a title / label counts when the English pattern hits or when it is the
+  // page's own translated text (key + English default), a control by its aria-label the same way.
+  const sameT = (text, key, en) => !!key && String(text || '').trim().toLowerCase() === String(tr(key, null, en)).toLowerCase();
+  const wrapByTitle = (body, re, key, en) => (body ? [...body.querySelectorAll('.card-wrap')].find((w) => re.test(titleOf(w)) || sameT(titleOf(w), key, en)) : null) || null;
+  const rowByLabel = (root, re, key, en) => (root ? [...root.querySelectorAll('.row')].find((r) => { const l = r.querySelector(':scope > .text > .label'); return l && (re.test(l.textContent.trim()) || sameT(l.textContent, key, en)); }) : null) || null;
+  const byAria = (root, sel, key, en) => (root ? [...root.querySelectorAll(sel)].find((i) => { const a = i.getAttribute('aria-label'); return a === en || a === tr(key, null, en); }) : null) || null;
   const hexLum = (hex) => {
     const m = String(hex || '').match(/^#([0-9a-f]{3}|[0-9a-f]{6})/i);
     if (!m) return 0;
@@ -74,17 +79,18 @@
       if (V && V.h === h) return V;
       h.replaceChildren();
       // round trip: the figure
+      const rttK = el('span');
       const viaT = el('span');
       const rttN = el('span');
       const rttFig = el('div', 'pg-fig', [rttN, el('small', null, 'ms')]);
-      const rtt = col(ctx, 'pg-v-rtt', [el('div', 'pg-kick', [el('span', null, 'Round trip · '), viaT]), rttFig]);
+      const rtt = col(ctx, 'pg-v-rtt', [el('div', 'pg-kick', [rttK, viaT]), rttFig]);
       // the heartbeat: a grey hairline, one accent pulse that walks it and rests
       const trace = svg('path', { class: 'pg-v-trace', d: beatPath(600), pathLength: '1' });
       const base = svg('path', { class: 'pg-v-base', d: beatPath(600), pathLength: '1' });
       const beatSvg = svgRoot('0 0 600 40', 'pg-v-svg', [base, trace], { preserveAspectRatio: 'xMidYMid meet' });
       const pulse = el('div', 'pg-v-pulse', [beatSvg]);
       // battery: figure + hairline meter
-      const battK = el('div', 'pg-kick', 'Battery');
+      const battK = el('div', 'pg-kick');
       const battN = el('span');
       const meter = el('div', 'pg-meter', [el('i')]);
       const batt = col(ctx, 'pg-v-batt', [battK, el('div', 'pg-fig pg-v-small', [battN, el('small', null, '%')]), meter]);
@@ -99,16 +105,16 @@
       h.append(rtt, pulse, vr1, batt, vr2, now);
       [rtt, pulse, batt, now].forEach((e, i) => { e.classList.add('pg-stagger'); ctx.css(e, '--i', i); });
       try { new ResizeObserver((es) => { const r = es[0] && es[0].contentRect; if (r && r.width) fitBeat(ctx, r.width); }).observe(pulse); } catch (e) { /* stays 600 wide */ }
-      V = { h, viaT, rttN, rtt, pulse, svg: beatSvg, base, trace, beatW: 0, battK, battN, meter, batt, vr1, vr2, nowK, nowEq, nowT, nowSub, now };
+      V = { h, rttK, viaT, rttN, rtt, pulse, svg: beatSvg, base, trace, beatW: 0, battK, battN, meter, batt, vr1, vr2, nowK, nowEq, nowT, nowSub, now };
       return V;
     }
     function tagCards(page) {
       const two = page.querySelector('.dv-two');
       if (two && !two._pgTagged) {
-        const map = [[/notification/i, 'notifs'], [/clipboard/i, 'clip'], [/most used|apps/i, 'apps'], [/send files|files/i, 'drop']];
+        const map = [[/notification/i, 'notifs', 'device.latest_notifications', 'Latest notifications'], [/clipboard/i, 'clip', 'device.clipboard', 'Clipboard'], [/most used|apps/i, 'apps', 'device.most_used', 'Most used'], [/send files|files/i, 'drop', 'device.send_files', 'Send files']];
         let n = 0;
         for (const w of two.querySelectorAll('.card-wrap')) {
-          const hit = map.find(([re]) => re.test(titleOf(w)));
+          const hit = map.find(([re, , key, en]) => re.test(titleOf(w)) || sameT(titleOf(w), key, en));
           if (hit && !w.dataset.pg) { w.dataset.pg = hit[1]; n++; }
         }
         if (n) two._pgTagged = true;
@@ -165,18 +171,18 @@
       const x = p.x;
       ctx.cls(V.nowEq, 'pg-gone', p.k !== 'm');
       ctx.cls(V.nowEq, 'paused', p.k === 'm' && !x.playing);
-      const peer = G.peerName(s) || 'the other device';
+      const peer = G.peerName(s) || tr('start.the_other_device', null, 'the other device');
       if (p.k === 'm') {
-        ctx.text(V.nowK, x.playing ? 'Now playing' : 'Paused');
+        ctx.text(V.nowK, x.playing ? tr('general.now_playing', null, 'Now playing') : tr('pfx_home.paused', null, 'Paused'));
         ctx.text(V.nowT, x.title);
         ctx.text(V.nowSub, x.artist || x.appName || '');
       } else if (p.k === 'n') {
-        ctx.text(V.nowK, 'Notification');
-        ctx.text(V.nowT, x.title || x.appName || x.app || 'Notification');
+        ctx.text(V.nowK, tr('notifs.notification', null, 'Notification'));
+        ctx.text(V.nowT, x.title || x.appName || x.app || tr('notifs.notification', null, 'Notification'));
         ctx.text(V.nowSub, [x.appName || x.app, G.ago(x.at)].filter(Boolean).join(' · '));
       } else {
-        ctx.text(V.nowK, 'Clipboard');
-        ctx.text(V.nowT, x.image ? (x.dir === 'out' ? 'Picture sent' : 'Picture received') : (x.dir === 'out' ? 'Copied to ' : 'Copied from ') + peer);
+        ctx.text(V.nowK, tr('clipboard.title', null, 'Clipboard'));
+        ctx.text(V.nowT, x.image ? (x.dir === 'out' ? tr('pfx_home.picture_sent', null, 'Picture sent') : tr('pfx_home.picture_received', null, 'Picture received')) : (x.dir === 'out' ? tr('pfx_home.copied_to', { name: peer }, 'Copied to {name}') : tr('pfx_home.copied_from', { name: peer }, 'Copied from {name}')));
         ctx.text(V.nowSub, G.ago(x.at));
       }
       ctx.attr(V.now, 'data-k', p.k);
@@ -201,6 +207,7 @@
         if (!on) { primed = false; return; }
         // round trip and the beat: a slower link walks the line more slowly (3.5–7 s, then rests)
         const rtt = G.rtt(s);
+        ctx.text(V.rttK, tr('kit.round_trip', null, 'Round trip') + ' · ');
         ctx.text(V.viaT, G.via(s));
         ctx.cls(V.h, 'no-rtt', rtt == null);
         ctx.count(V.rttN, rtt);
@@ -215,7 +222,7 @@
           ctx.css(V.meter, '--v', (lvl / 100).toFixed(3));
           ctx.cls(V.batt, 'low', lvl <= 20 && !b.charging);
           ctx.cls(V.batt, 'charging', !!b.charging);
-          ctx.text(V.battK, b.charging ? 'Charging' : 'Battery');
+          ctx.text(V.battK, b.charging ? tr('device.charging', null, 'Charging') : tr('pfx_home.battery', null, 'Battery'));
         }
         // now
         const p = pickNow(s);
@@ -252,12 +259,13 @@
       if (!h) return null;
       if (R && R.h === h) return R;
       h.replaceChildren();
+      const deskK = el('div', 'pg-kick');
       const name = el('div', 'pg-fig pg-rd-name');
       const addr = el('div', 'pg-rd-addr pg-mono');
       const dot = el('span', 'pg-dot');
       const cap = el('span', 'pg-rd-cap');
       const code = el('span', 'pg-rd-code pg-mono');
-      const info = col(ctx, 'pg-rd-info pg-stagger', [el('div', 'pg-kick', 'This desk'), name, addr, el('div', 'pg-row pg-rd-status', [dot, cap, code])]);
+      const info = col(ctx, 'pg-rd-info pg-stagger', [deskK, name, addr, el('div', 'pg-row pg-rd-status', [dot, cap, code])]);
       const beams = svg('g', { class: 'pg-rd-beams' });
       const grid = [36, 60, 84].map((r, i) => svg('ellipse', { class: 'pg-rd-grid', cx: '0', cy: '0', rx: String(r * RX), ry: String(r * RY), pathLength: '1', data: { i, r } }));
       const plot = svg('svg', { class: 'pg-rd-plot', width: '1', height: '1', 'aria-hidden': 'true', focusable: 'false' }, [...grid, beams]);
@@ -266,7 +274,7 @@
       const layer = el('div', 'pg-rd-blips');
       const field = el('div', 'pg-rd-field pg-stagger', [ring, plot, me, layer], { css: { '--i': 1 } });
       h.append(info, field);
-      R = { h, name, addr, dot, cap, code, beams, me, layer, field, grid, ring, blips: new Map(), beam: null };
+      R = { h, deskK, name, addr, dot, cap, code, beams, me, layer, field, grid, ring, blips: new Map(), beam: null };
       const fit = (w, hgt) => {
         const rx = Math.round(clamp((w / 2 - 36) / 84, 1.3, 2.3) * 20) / 20;
         const ry = Math.round(clamp((hgt / 2 - 21) / 84, 0.3, 0.5) * 100) / 100;
@@ -309,9 +317,9 @@
       if (after && !after.dataset.pg && after.matches('.card-wrap')) after.dataset.pg = 'adb';
       for (const c of kids) {
         if (c.dataset.pg) continue;
-        if (c.querySelector('.value.addr, input[aria-label="Address"]')) c.dataset.pg = 'addr';
-        else if (/found|nearby/i.test(titleOf(c))) c.dataset.pg = 'found';
-        else if (/paired/i.test(titleOf(c))) c.dataset.pg = 'paired';
+        if (c.querySelector('.value.addr') || byAria(c, 'input', 'overview.address_aria', 'Address')) c.dataset.pg = 'addr';
+        else if (/found|nearby/i.test(titleOf(c)) || sameT(titleOf(c), 'overview.found_nearby', 'Found nearby')) c.dataset.pg = 'found';
+        else if (/paired/i.test(titleOf(c)) || sameT(titleOf(c), 'overview.paired', 'Paired')) c.dataset.pg = 'paired';
         else if (c.querySelector('.qr-box')) c.dataset.pg = 'qr';
       }
       if (!body.querySelector('[data-pg="found"]') && kids[1] && !kids[1].dataset.pg) kids[1].dataset.pg = 'found';
@@ -361,18 +369,19 @@
         const fw = s.firewall || {};
         const blocked = disc.on === false || (fw.ok === false && !fw.checking);
         // the typographic column
+        ctx.text(R.deskK, tr('pfx_home.this_desk', null, 'This desk'));
         ctx.text(R.name, G.myName(s));
         const addrs = arr(s.addresses);
-        ctx.text(R.addr, addrs[0] || s.address || 'No network');
+        ctx.text(R.addr, addrs[0] || s.address || tr('overview.no_network', null, 'No network'));
         const pairing = s.pairing && s.pairing.role !== 'host' ? s.pairing : null;
         let st = 'off';
         let capT;
-        if (blocked) { st = 'bad'; capT = 'Can’t look on this network'; }
-        else if (linkState === 'identity_changed') { st = 'bad'; capT = 'Identity changed: pair again'; }
-        else if (connected) { st = 'on'; capT = 'Linked with ' + (G.peerName(s) || 'a device'); }
-        else if (pairing) { st = pairing.phase === 'failed' ? 'bad' : 'busy'; capT = pairing.phase === 'code' ? 'Same code on both?' : pairing.phase === 'failed' ? 'Pairing didn’t finish' : 'Pairing…'; }
-        else if (found.length) { capT = found.length + (found.length === 1 ? ' device nearby' : ' devices nearby'); }
-        else { st = 'busy'; capT = 'Looking…'; }
+        if (blocked) { st = 'bad'; capT = tr('pfx_home.cant_look_network', null, 'Can’t look on this network'); }
+        else if (linkState === 'identity_changed') { st = 'bad'; capT = tr('pfx_home.identity_changed', null, 'Identity changed: pair again'); }
+        else if (connected) { st = 'on'; capT = G.peerName(s) ? tr('pfx_home.linked_with', { name: G.peerName(s) }, 'Linked with {name}') : tr('pfx_home.linked_with_device', null, 'Linked with a device'); }
+        else if (pairing) { st = pairing.phase === 'failed' ? 'bad' : 'busy'; capT = pairing.phase === 'code' ? tr('pfx_home.same_code', null, 'Same code on both?') : pairing.phase === 'failed' ? tr('pfx_home.pairing_failed', null, 'Pairing didn’t finish') : tr('overview.pairing', null, 'Pairing…'); }
+        else if (found.length) { capT = found.length === 1 ? tr('pfx_home.devices_nearby_one', { n: found.length }, '{n} device nearby') : tr('pfx_home.devices_nearby_other', { n: found.length }, '{n} devices nearby'); }
+        else { st = 'busy'; capT = tr('overview.looking', null, 'Looking…'); }
         ctx.attr(R.dot, 'data-st', st);
         ctx.text(R.cap, capT);
         // the pairing code, large and mono, read-only ("Codes match" stays in the row)
@@ -404,7 +413,7 @@
           const dy = Math.round(r * RY * Math.sin(a));
           ctx.css(b.node, { '--dx': dx + 'px', '--dy': dy + 'px' });
           ctx.cls(b.node, 'above', dy < 0);
-          ctx.text(b.nm, dev.name || 'Device');
+          ctx.text(b.nm, dev.name || tr('pfx_home.device', null, 'Device'));
           ctx.attr(b.node, 'title', dev.name || null);
           const live = dev.live || (liveId && dev.id === liveId);
           const target = !!pairing && (pairing.id ? pairing.id === dev.id : !!(pairing.address && pairing.address === dev.address));
@@ -453,7 +462,7 @@
       const big = el('span');
       const capT = el('span', 'pg-cs-cap');
       const sub = el('div', 'pg-cs-sub');
-      const kick = el('div', 'pg-kick', 'Mesh preview');
+      const kick = el('div', 'pg-kick');
       const info = col(ctx, 'pg-cs-info pg-stagger', [kick, el('div', 'pg-row pg-cs-line', [el('div', 'pg-fig', [big]), capT]), sub]);
       const links = svg('g', { class: 'pg-cs-links' });
       const pulse = svg('line', { class: 'pg-cs-pulse' });
@@ -491,8 +500,8 @@
       for (const p of arr(s.paired)) if (p) add(p.id, p.name || p.macName, p.os || (isClient(p) && cl.os), isClient(p));
       for (const g of arr(s.guests)) if (g) add(g.id, g.name || g.macName, g.os, g.id && g.id === peerId);
       for (const p of arr(s.peers)) if (p) add(p.id, p.name, p.os, p.connected || p.state === 'connected');
-      for (const d of arr(G.get(s, 'phone.nearby'))) if (d) add(d.id, d.name || 'Phone', 'android', d.id && d.id === phoneId);
-      if (G.get(s, 'phone.connected')) add(phoneId, G.get(s, 'phone.connected.name', 'Phone'), 'android', true);
+      for (const d of arr(G.get(s, 'phone.nearby'))) if (d) add(d.id, d.name || tr('nav.phone', null, 'Phone'), 'android', d.id && d.id === phoneId);
+      if (G.get(s, 'phone.connected')) add(phoneId, G.get(s, 'phone.connected.name', tr('nav.phone', null, 'Phone')), 'android', true);
       for (const d of arr(s.found)) if (d) add(d.id, d.name, d.os, d.id && d.id === peerId);
       if (cl && !out.some((d) => d.live && d.os !== 'android')) add(cl.id, cl.name, cl.os, true);
       if (peerId && s.peer && !out.some((d) => d.live && d.os !== 'android')) add(peerId, s.peer.name, s.peer.os, true);
@@ -596,11 +605,11 @@
         const mesh = Array.isArray(s.peers);
         const live = devs.filter((d) => d.live).length;
         ctx.count(M.big, n, { ms: 600 });
-        ctx.text(M.kick, mesh ? 'Mesh' : 'Mesh preview');
-        ctx.text(M.capT, mesh ? (n === 1 ? 'device in the mesh' : 'devices in the mesh') : n === 1 ? 'device could join' : 'devices could join');
-        ctx.text(M.sub, M.restarting ? (mesh ? 'Restarting…' : 'Restarting into mesh mode…')
-          : mesh ? (n ? live + ' connected now' : 'Pair devices first; they show up here')
-          : n ? 'One clipboard and one set of notifications for all of them' : 'Pair devices first; they show up here');
+        ctx.text(M.kick, mesh ? tr('pfx_home.mesh', null, 'Mesh') : tr('pfx_home.mesh_preview', null, 'Mesh preview'));
+        ctx.text(M.capT, mesh ? (n === 1 ? tr('pfx_home.device_in_mesh', null, 'device in the mesh') : tr('pfx_home.devices_in_mesh', null, 'devices in the mesh')) : n === 1 ? tr('pfx_home.device_could_join', null, 'device could join') : tr('pfx_home.devices_could_join', null, 'devices could join'));
+        ctx.text(M.sub, M.restarting ? (mesh ? tr('multi.restarting', null, 'Restarting…') : tr('pfx_home.restarting_mesh', null, 'Restarting into mesh mode…'))
+          : mesh ? (n ? (live === 1 ? tr('pfx_home.connected_now_one', { n: live }, '{n} connected now') : tr('pfx_home.connected_now_other', { n: live }, '{n} connected now')) : tr('pfx_home.pair_first', null, 'Pair devices first; they show up here'))
+          : n ? tr('pfx_home.one_clipboard_all', null, 'One clipboard and one set of notifications for all of them') : tr('pfx_home.pair_first', null, 'Pair devices first; they show up here'));
         ctx.cls(M.h, 'empty', !n);
       },
       leave() { if (!M) return; if (M.walking) M.walking(); M.walking = null; FX.css(M.pulse, 'opacity', 0); },
@@ -613,42 +622,46 @@
   (function general() {
     let Gx = null;
     const LAMPS = [
-      ['fw', 'Firewall', (s) => { const f = s.firewall; if (!f) return null; return f.checking ? ['busy', 'Checking…'] : f.ok ? ['good', 'OK'] : f.ok === false ? ['bad', 'Needs a fix'] : ['busy', 'Unknown']; }],
-      ['helper', 'Helper', (s) => { const k = s.kvmState; if (!k || !('helper' in k)) return null; const h = k.helper; return !h ? ['good', 'Running'] : h === 'starting' ? ['busy', 'Starting…'] : ['bad', 'Not running']; }],
-      ['bt', 'Bluetooth', (s) => { const n = s.net; if (!n || !('radio' in n)) return null; const r = n.radio; return r === 'off' ? ['bad', 'Off'] : r === 'unsupported' ? ['bad', 'No LE'] : r ? ['good', 'On'] : ['off', 'Unknown']; }],
-      ['vdd', 'Display driver', (s) => { const v = s.pcScreen && s.pcScreen.vdd; if (!v) return null; return !v.checked ? ['busy', 'Checking…'] : v.busy ? ['busy', v.busy === 'remove' ? 'Removing…' : 'Installing…'] : v.installed ? ['good', 'Installed'] : ['bad', 'Not installed']; }],
-      ['start', 'Startup', (s) => (typeof s.startup !== 'boolean' ? null : s.startup ? ['good', 'On'] : ['off', 'Off'])],
+      ['fw', () => tr('general.firewall', null, 'Firewall'), (s) => { const f = s.firewall; if (!f) return null; return f.checking ? ['busy', tr('general.checking', null, 'Checking…')] : f.ok ? ['good', tr('general.ok', null, 'OK')] : f.ok === false ? ['bad', tr('general.needs_a_fix', null, 'Needs a fix')] : ['busy', tr('general.unknown', null, 'Unknown')]; }],
+      ['helper', () => tr('pfx_home.lamp_helper', null, 'Helper'), (s) => { const k = s.kvmState; if (!k || !('helper' in k)) return null; const h = k.helper; return !h ? ['good', tr('general.running', null, 'Running')] : h === 'starting' ? ['busy', tr('general.starting', null, 'Starting…')] : ['bad', tr('general.not_running', null, 'Not running')]; }],
+      ['bt', () => tr('connections.bt', null, 'Bluetooth'), (s) => { const n = s.net; if (!n || !('radio' in n)) return null; const r = n.radio; return r === 'off' ? ['bad', tr('general.off', null, 'Off')] : r === 'unsupported' ? ['bad', tr('pfx_home.no_le', null, 'No LE')] : r ? ['good', tr('general.on', null, 'On')] : ['off', tr('general.unknown', null, 'Unknown')]; }],
+      ['vdd', () => tr('pfx_home.lamp_display_driver', null, 'Display driver'), (s) => { const v = s.pcScreen && s.pcScreen.vdd; if (!v) return null; return !v.checked ? ['busy', tr('general.checking', null, 'Checking…')] : v.busy ? ['busy', v.busy === 'remove' ? tr('pfx_home.removing', null, 'Removing…') : tr('general.installing', null, 'Installing…')] : v.installed ? ['good', tr('general.installed', null, 'Installed')] : ['bad', tr('general.not_installed', null, 'Not installed')]; }],
+      ['start', () => tr('general.startup', null, 'Startup'), (s) => (typeof s.startup !== 'boolean' ? null : s.startup ? ['good', tr('general.on', null, 'On')] : ['off', tr('general.off', null, 'Off')])],
     ];
     function rowFor(page, k) {
       const body = page.querySelector(':scope > .page-body');
       if (!body) return null;
       const near = (sel) => { const e = body.querySelector(sel); return e ? e.closest('.row') : null; };
       switch (k) {
-        case 'fw': return rowByLabel(body, /^firewall$/i) || [...body.querySelectorAll('.row .btn')].map((b) => /check again/i.test(b.textContent) && b.closest('.row')).find(Boolean) || null;
-        case 'helper': return rowByLabel(body, /helper/i);
-        case 'bt': return near('input.switch[aria-label="Bluetooth with phones"]') || rowByLabel(body, /^bluetooth/i);
-        case 'vdd': return rowByLabel(body, /display driver/i);
-        case 'start': return near('input.switch[aria-label^="Start with"]') || near('input.switch[aria-label*="login" i]') || rowByLabel(body, /^start (with|at)/i);
+        case 'fw': return rowByLabel(body, /^firewall$/i, 'general.firewall', 'Firewall') || [...body.querySelectorAll('.row .btn')].map((b) => (/check again/i.test(b.textContent) || sameT(b.textContent, 'general.check_again', 'Check again')) && b.closest('.row')).find(Boolean) || null;
+        case 'helper': return rowByLabel(body, /helper/i, 'general.mouse_and_keyboard_helper', 'Mouse and keyboard helper');
+        case 'bt': { const sw = byAria(body, 'input.switch', 'overview.ble_phones', 'Bluetooth with phones'); return (sw && sw.closest('.row')) || rowByLabel(body, /^bluetooth/i, 'overview.ble_phones', 'Bluetooth with phones'); }
+        case 'vdd': return rowByLabel(body, /display driver/i, 'general.virtual_display_driver', 'Virtual display driver');
+        case 'start': {
+          const sw = [...body.querySelectorAll('input.switch')].find((i) => { const a = i.getAttribute('aria-label') || ''; return /^Start with|login/i.test(a) || sameT(a, 'general.start_with_windows', 'Start with Windows') || sameT(a, 'general.open_at_login', 'Open at login'); });
+          return (sw && sw.closest('.row')) || rowByLabel(body, /^start (with|at)/i, 'general.start_with_windows', 'Start with Windows') || rowByLabel(body, /^start (with|at)/i, 'general.open_at_login', 'Open at login');
+        }
         default: return null;
       }
     }
     function build(ctx) {
       const { el } = ctx;
-      const h = ctx.hdr({ cls: 'pg-gauges', interactive: true, label: 'Status of this computer' });
+      const h = ctx.hdr({ cls: 'pg-gauges', interactive: true, label: tr('pfx_home.status_of_computer', null, 'Status of this computer') });
       if (!h) return null;
       if (Gx && Gx.h === h) return Gx;
       h.replaceChildren();
       const lamps = LAMPS.map(([k, label], i) => {
+        const lbl = el('span', null, label());
         const dot = el('span', 'pg-dot');
         const val = el('span', 'pg-g-val pg-mono');
-        const btn = el('button', 'pg-lamp pg-stagger', [el('span', 'pg-g-lbl', [dot, el('span', null, label)]), val], { data: { k }, css: { '--i': i + 1 } });
+        const btn = el('button', 'pg-lamp pg-stagger', [el('span', 'pg-g-lbl', [dot, lbl]), val], { data: { k }, css: { '--i': i + 1 } });
         btn.addEventListener('click', () => {
           const row = rowFor(ctx.page, k);
           if (!row) return;
           try { row.scrollIntoView({ block: 'center', behavior: FX.reduced() ? 'auto' : 'smooth' }); } catch (e) { row.scrollIntoView(); }
           ctx.pop(row, 'pg-flash', 1400);
         });
-        return { k, label, btn, dot, val };
+        return { k, label, btn, dot, val, lbl };
       });
       const sumT = el('div', 'pg-fig pg-g-sumt');
       const sumSub = el('div', 'pg-kick pg-g-sumsub');
@@ -658,14 +671,14 @@
       return Gx;
     }
     function ensureMap(page) {
-      const sw = page.querySelector('input.switch[aria-label="Quick actions"]');
-      const wrap = (sw && sw.closest('.card-wrap')) || wrapByTitle(page, /^overview$/i);
+      const sw = byAria(page, 'input.switch', 'general.quick_actions', 'Quick actions');
+      const wrap = (sw && sw.closest('.card-wrap')) || wrapByTitle(page, /^overview$/i, 'nav.overview', 'Overview');
       if (!wrap) return null;
       let map = wrap.querySelector(':scope > .pg-ovmap');
       if (!map) {
         const blk = (k) => FX.el('i', null, null, { data: { k } });
         const frame = FX.el('div', 'pg-ovmap-frame', ['hero', 'media', 'qs', 'notifs', 'clipboard', 'apps', 'files'].map(blk));
-        const txt = FX.el('div', 'pg-ovmap-txt', [FX.el('span', 'pg-ovmap-n pg-mono'), FX.el('span', 'pg-ovmap-sub', 'What the Overview shows. Each part is drawn while it’s on.')]);
+        const txt = FX.el('div', 'pg-ovmap-txt', [FX.el('span', 'pg-ovmap-n pg-mono'), FX.el('span', 'pg-ovmap-sub')]);
         map = FX.el('div', 'pg-ovmap', [frame, txt], { 'aria-hidden': 'true' });
         const card = wrap.querySelector(':scope > .card');
         wrap.insertBefore(map, card || null);
@@ -682,6 +695,7 @@
       },
       update(s, page, ctx) {
         if (!build(ctx)) return;
+        ctx.attr(Gx.h, 'aria-label', tr('pfx_home.status_of_computer', null, 'Status of this computer'));
         let bad = 0;
         let shown = 0;
         let busy = 0;
@@ -696,11 +710,13 @@
           ctx.attr(l.btn, 'data-st', st);
           ctx.attr(l.dot, 'data-st', st === 'good' ? 'good' : st === 'busy' ? 'busy' : st === 'bad' ? 'bad' : 'off');
           ctx.text(l.val, txt);
-          ctx.attr(l.btn, 'aria-label', l.label + ': ' + txt + (l.btn.disabled ? '' : '. Go to the setting'));
+          const name = l.label();
+          ctx.text(l.lbl, name);
+          ctx.attr(l.btn, 'aria-label', l.btn.disabled ? tr('pfx_home.lamp_aria', { label: name, value: txt }, '{label}: {value}') : tr('pfx_home.lamp_aria_go', { label: name, value: txt }, '{label}: {value}. Go to the setting'));
         });
         ctx.attr(Gx.sum, 'data-st', bad ? 'bad' : busy ? 'busy' : 'good');
-        ctx.text(Gx.sumT, bad ? bad + (bad === 1 ? ' needs a fix' : ' need a fix') : busy ? 'Checking…' : 'All good');
-        ctx.text(Gx.sumSub, shown + ' checks · ' + G.myName(s));
+        ctx.text(Gx.sumT, bad ? (bad === 1 ? tr('pfx_home.needs_fix_one', { n: bad }, '{n} needs a fix') : tr('pfx_home.needs_fix_other', { n: bad }, '{n} need a fix')) : busy ? tr('general.checking', null, 'Checking…') : tr('pfx_home.all_good', null, 'All good'));
+        ctx.text(Gx.sumSub, tr('pfx_home.checks_line', { n: shown, name: G.myName(s) }, '{n} checks · {name}'));
         // the Overview mini-map
         const map = ensureMap(page);
         if (map) {
@@ -714,7 +730,8 @@
             ctx.cls(b, 'on', on);
             if (ctx.changed('ov:' + k, on) && was !== on) ctx.pop(b, 'pg-ov-flip', 600);
           }
-          ctx.text(map.querySelector('.pg-ovmap-n'), onN + ' of 6 on');
+          ctx.text(map.querySelector('.pg-ovmap-n'), tr('pfx_home.n_of_6_on', { n: onN }, '{n} of 6 on'));
+          ctx.text(map.querySelector('.pg-ovmap-sub'), tr('pfx_home.ovmap_sub', null, 'What the Overview shows. Each part is drawn while it’s on.'));
         }
       },
     });
@@ -777,8 +794,8 @@
     }
     function cores(page, ctx, s) {
       const n = clamp(num(G.get(s, 'about.pc.cores')) || 0, 0, 32);
-      const wrap = wrapByTitle(page.querySelector(':scope > .page-body'), /this computer/i);
-      const row = (wrap && (rowByLabel(wrap, /processor|cpu|chip/i) || wrap.querySelectorAll('.card > .row')[3])) || null;
+      const wrap = wrapByTitle(page.querySelector(':scope > .page-body'), /this computer/i, 'general.this_computer', 'This computer');
+      const row = (wrap && (rowByLabel(wrap, /processor|cpu|chip/i, 'about.processor', 'Processor') || wrap.querySelectorAll('.card > .row')[3])) || null;
       if (!row || row.hidden) return;
       const controls = row.querySelector(':scope > .controls');
       if (!controls) return;
@@ -811,10 +828,15 @@
         const skipped = avail && !!(u.skipped || (u.skippedVersion && u.skippedVersion === u.latest));
         let st = '';
         let msg = '';
-        if (u && u.checking) { st = 'busy'; msg = 'Checking for updates…'; }
-        else if (avail) { st = skipped ? 'off' : 'on'; msg = (u.latest || 'A new version') + (skipped ? ' skipped' : ' available'); }
-        else if (u && u.error) { st = 'off'; msg = 'Couldn’t check for updates'; }
-        else if (u && u.checkedAt) { st = ''; msg = 'Up to date'; }
+        if (u && u.checking) { st = 'busy'; msg = tr('pfx_home.checking_updates', null, 'Checking for updates…'); }
+        else if (avail) {
+          st = skipped ? 'off' : 'on';
+          const v = { version: u.latest };
+          msg = u.latest ? (skipped ? tr('pfx_home.version_skipped', v, '{version} skipped') : tr('pfx_home.version_available', v, '{version} available'))
+            : skipped ? tr('pfx_home.new_version_skipped', null, 'A new version skipped') : tr('pfx_home.new_version_available', null, 'A new version available');
+        }
+        else if (u && u.error) { st = 'off'; msg = tr('pfx_home.couldnt_check_updates', null, 'Couldn’t check for updates'); }
+        else if (u && u.checkedAt) { st = ''; msg = tr('about.up_to_date', null, 'Up to date'); }
         ctx.text(A.chipT, [archShort, msg].filter(Boolean).join(' · '));
         ctx.attr(A.chip, 'data-st', st || null);
         ctx.cls(A.chip, 'pg-gone', !archShort && !msg);
