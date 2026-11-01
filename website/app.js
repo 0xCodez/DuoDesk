@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     const resize = () => {
-      const vw = innerWidth, vh = innerHeight;
+      const vw = innerWidth || 1, vh = innerHeight || 1; // a window with no size yet (hidden, embedded) must not give NaN to the canvas
       W = vw < 700 ? 120 : 200;
       H = Math.max(60, Math.round(W * vh / vw));
       cv.width = W; cv.height = H;
@@ -178,10 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ================= download: point at the visitor's system ================= */
   const OS = {
-    win: { label: 'Download for Windows', icon: '#os-win' },
-    mac: { label: 'Download for macOS', icon: '#os-mac' },
-    linux: { label: 'Download for Linux', icon: '#os-linux' },
-    android: { label: 'Download for Android', icon: '#os-android' },
+    win: { labelEn: 'Download for Windows', labelPt: 'Baixar para Windows', icon: '#os-win' },
+    mac: { labelEn: 'Download for macOS', labelPt: 'Baixar para macOS', icon: '#os-mac' },
+    linux: { labelEn: 'Download for Linux', labelPt: 'Baixar para Linux', icon: '#os-linux' },
+    android: { labelEn: 'Download for Android', labelPt: 'Baixar para Android', icon: '#os-android' },
   };
   const detectOS = () => {
     const ua = navigator.userAgent || '';
@@ -195,10 +195,138 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   const os = detectOS();
   if (os) {
-    $('#dl-main-label').textContent = OS[os].label;
+    $('#dl-main-label').textContent = OS[os].labelEn;
     $('#dl-main').setAttribute('href', '/api/download?os=' + os); // straight to the file for this system
     $('#dl-main-icon use').setAttribute('href', OS[os].icon);
     $$(`[data-os="${os}"]`).forEach((el) => el.classList.add('mine'));
+  }
+
+  /* ================= localization (i18n) ================= */
+  const getNestedProp = (obj, path) => {
+    if (!obj || !path) return null;
+    if (obj[path] !== undefined) return obj[path];
+    return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined ? acc[part] : null), obj);
+  };
+
+  const getInitialLang = () => {
+    try {
+      const saved = localStorage.getItem('duodesk_web_lang');
+      if (saved === 'pt-BR' || saved === 'en') return saved;
+      if (navigator.language && navigator.language.toLowerCase().startsWith('pt')) return 'pt-BR';
+    } catch (e) {}
+    return 'en';
+  };
+
+  let currentLang = 'en';
+  let ptDict = null;
+
+  async function loadPtDict() {
+    if (ptDict) return ptDict;
+    try {
+      const res = await fetch('locales/pt-BR.json');
+      if (res.ok) {
+        ptDict = await res.json();
+        return ptDict;
+      }
+    } catch (e) {
+      /* fetch failed (e.g. file:// protocol): the page stays in English */
+    }
+    return ptDict;
+  }
+
+  async function applyLanguage(lang) {
+    if (lang === 'pt-BR') {
+      const dict = await loadPtDict();
+      if (!dict) { document.documentElement.classList.remove('i18n-pending'); return; }
+      currentLang = 'pt-BR';
+      document.documentElement.lang = 'pt-BR';
+
+      $$('[data-i18n]').forEach((el) => {
+        if (el._enText === undefined) el._enText = el.textContent;
+        const val = getNestedProp(dict, el.dataset.i18n);
+        if (val) el.textContent = val;
+      });
+
+      $$('[data-i18n-html]').forEach((el) => {
+        if (el._enHtml === undefined) el._enHtml = el.innerHTML;
+        const val = getNestedProp(dict, el.dataset.i18nHtml);
+        if (val) el.innerHTML = val;
+      });
+
+      $$('[data-i18n-aria]').forEach((el) => {
+        if (el._enAria === undefined) el._enAria = el.getAttribute('aria-label') || '';
+        const val = getNestedProp(dict, el.dataset.i18nAria);
+        if (val) el.setAttribute('aria-label', val);
+      });
+
+      if (dict.page) {
+        if (dict.page.title) document.title = dict.page.title;
+        const metaDesc = $('meta[name="description"]');
+        if (metaDesc && dict.page.description) metaDesc.setAttribute('content', dict.page.description);
+      }
+
+      const mainLabel = $('#dl-main-label');
+      if (mainLabel) {
+        mainLabel.textContent = (os && OS[os]) ? OS[os].labelPt : (dict.hero && dict.hero.download ? dict.hero.download : 'Baixar DuoDesk');
+      }
+    } else {
+      currentLang = 'en';
+      document.documentElement.lang = 'en';
+
+      $$('[data-i18n]').forEach((el) => {
+        if (el._enText !== undefined) el.textContent = el._enText;
+      });
+
+      $$('[data-i18n-html]').forEach((el) => {
+        if (el._enHtml !== undefined) el.innerHTML = el._enHtml;
+      });
+
+      $$('[data-i18n-aria]').forEach((el) => {
+        if (el._enAria !== undefined) el.setAttribute('aria-label', el._enAria);
+      });
+
+      document.title = 'DuoDesk: one desk for all your devices';
+      const metaDesc = $('meta[name="description"]');
+      if (metaDesc) {
+        metaDesc.setAttribute('content', 'All your computers and your phone, working as one desk. One mouse and keyboard, second screens, apps in windows, clipboard, files, calls, texts and cameras across Mac, Windows, Linux and Android. Free, open source, no account, no cloud.');
+      }
+
+      const mainLabel = $('#dl-main-label');
+      if (mainLabel) {
+        mainLabel.textContent = (os && OS[os]) ? OS[os].labelEn : 'Download DuoDesk';
+      }
+    }
+
+    const connPanel = $('#conn');
+    const activeLk = connPanel && $('.lk.on', connPanel);
+    if (activeLk && $('#conn-name')) {
+      const b = $('b', activeLk);
+      if (b) $('#conn-name').textContent = b.textContent;
+    }
+
+    const toggle = $('#lang-toggle');
+    if (toggle) {
+      $$('.lang-opt', toggle).forEach((opt) => {
+        opt.classList.toggle('active', opt.dataset.lang === currentLang);
+      });
+      toggle.setAttribute('aria-label', currentLang === 'pt-BR' ? 'Alternar para inglês / Switch to English' : 'Mudar para português / Switch to Portuguese');
+    }
+
+    try {
+      localStorage.setItem('duodesk_web_lang', currentLang);
+    } catch (e) {}
+    document.documentElement.classList.remove('i18n-pending');
+  }
+
+  const langToggle = $('#lang-toggle');
+  if (langToggle) {
+    langToggle.addEventListener('click', () => {
+      applyLanguage(currentLang === 'pt-BR' ? 'en' : 'pt-BR');
+    });
+  }
+
+  if (getInitialLang() === 'pt-BR') {
+    applyLanguage('pt-BR');
   }
 
   /* ================= live app preview: the command bar ================= */

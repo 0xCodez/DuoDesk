@@ -1,4 +1,8 @@
 <p align="center">
+  🌐 <b>Idiomas / Languages:</b> <a href="README.md">English</a> · <a href="README.pt-BR.md">Português (Brasil)</a>
+</p>
+
+<p align="center">
   <img src=".github/assets/icon.png" width="112" alt="DuoDesk icon">
 </p>
 
