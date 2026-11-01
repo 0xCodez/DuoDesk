@@ -11,6 +11,7 @@
 const P = window.MacShareProtocol;
 const T = P.T;
 const api = window.pcview;
+const tr = (k, p, d) => (window.DuoDeskI18n ? window.DuoDeskI18n.t(k, p, d) : (d || k));
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 
@@ -120,7 +121,7 @@ async function onOffer(m) {
   const my = (pc = new RTCPeerConnection({ iceServers: [] }));
   const queue = (pending = []);
   const ms = new MediaStream();
-  setOverlay('Connecting…');
+  setOverlay(tr('pcview.connecting', null, 'Connecting…'));
 
   my.ontrack = (e) => {
     receivers.push(e.receiver);
@@ -134,8 +135,8 @@ async function onOffer(m) {
     if (my !== pc) return;
     const st = my.connectionState;
     report(st === 'connected' ? 'live' : st);
-    if (st === 'failed') setOverlay('Reconnecting…');
-    else if (st === 'disconnected') setOverlay('Reconnecting…');
+    if (st === 'failed') setOverlay(tr('pcview.reconnecting', null, 'Reconnecting…'));
+    else if (st === 'disconnected') setOverlay(tr('pcview.reconnecting', null, 'Reconnecting…'));
   };
 
   try {
@@ -155,7 +156,7 @@ async function onOffer(m) {
     statsTimer = setInterval(() => stats(my).catch(() => {}), 1000);
   } catch (e) {
     if (my === pc) {
-      setOverlay('Could not show the screen: ' + e.message);
+      setOverlay(tr('pcview.could_not_show', { error: e.message }, 'Could not show the screen: ' + e.message));
       report('failed');
     }
   }

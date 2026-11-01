@@ -9,6 +9,8 @@
 'use strict';
 
 const { BrowserWindow, Notification, nativeImage } = require('electron');
+const i18n = require('./i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const what = (o) => (o.kind === 'web' ? hostOf(o.url) : o.kind === 'doc' ? o.name : o.appName || 'App');
@@ -42,7 +44,7 @@ class ReZumeShelf {
     const title = o.title || what(o);
     if (c.notify && Notification.isSupported()) {
       if (this.note) this.note.close(); // the last one only: every tab there would leave one here
-      this.note = new Notification({ title: 'Continue from ' + from, body: title + (what(o) && what(o) !== title ? '\n' + what(o) : ''), icon: this._icon(o), silent: true });
+      this.note = new Notification({ title: tr('rezume.continue_from', { name: from }, 'Continue from ' + from), body: title + (what(o) && what(o) !== title ? '\n' + what(o) : ''), icon: this._icon(o), silent: true });
       this.note.on('click', () => this.rezume.incoming && this.rezume.incoming.id === o.id && this.rezume.take());
       this.note.show();
     }
@@ -54,7 +56,7 @@ class ReZumeShelf {
     const take = () => { if (this.rezume.incoming && this.rezume.incoming.id === o.id) this.rezume.take(); this._hide(); };
     const dismiss = () => { this.rezume.dismiss(o.id); this._hide(); };
     if (this.dock) return void this.dock.show(o, take, dismiss);
-    const label = 'Continue ' + title + ' from ' + from;
+    const label = tr('rezume.continue_title_from', { title, from }, 'Continue ' + title + ' from ' + from);
     if (this.win && !this.win.isDestroyed()) this.win.destroy();
     const icon = this._icon(o);
     const win = new BrowserWindow({
@@ -65,10 +67,11 @@ class ReZumeShelf {
     this.win = win;
     if (process.platform === 'win32' && this.appId) win.setAppDetails({ appId: this.appId, relaunchDisplayName: 'ReZume' }); // its own button, not in TwinDesk's group
     const img = o.icon ? `<img src="${esc(o.icon)}">` : '';
+    const fromLine = tr('rezume.from_name_what', { from: esc(from), what: esc(what(o)) }, 'From ' + esc(from) + ' · ' + esc(what(o)));
     win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!doctype html><meta charset="utf-8"><title>${esc(label)}</title>
 <style>body{margin:0;font:13px system-ui,sans-serif;background:#1f1f22;color:#eee;display:flex;align-items:center;gap:12px;padding:16px;height:78px;box-sizing:border-box}
 img{width:44px;height:44px;border-radius:10px}b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:270px}span{opacity:.7}</style>
-${img}<div><b>${esc(title)}</b><span>From ${esc(from)} · ${esc(what(o))}</span></div>`));
+${img}<div><b>${esc(title)}</b><span>${fromLine}</span></div>`));
     win.once('ready-to-show', () => !win.isDestroyed() && win.minimize()); // on the taskbar, not in front
     win.on('restore', () => { win.hide(); setImmediate(take); }); // its button clicked (not destroyed inside its own event)
     win.on('close', (e) => { // closed from the taskbar: dismissed

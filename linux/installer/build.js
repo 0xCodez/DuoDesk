@@ -19,7 +19,7 @@ const pkg = require(path.join(LIN, 'package.json'));
 const electronVersion = require(path.join(LIN, 'node_modules', 'electron', 'package.json')).version;
 
 const SKIP = new Set(['node_modules', 'dist', 'installer', 'test', 'package-lock.json']); // tests (mesh/test) stay out of the package
-const SHARED_DIRS = ['fonts', 'art', 'pagefx']; // shared/ subfolders the pages load at run time
+const SHARED_DIRS = ['fonts', 'art', 'pagefx', 'locales']; // shared/ subfolders the pages load at run time
 
 function copy(from, to, filter = () => true) {
   const st = fs.statSync(from);

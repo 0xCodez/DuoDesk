@@ -17,19 +17,20 @@ UI.tab({
   badge: (s) => (s.notifs && (s.notifs.send || s.notifs.receive) ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
-    const sendSw = UI.switch((v) => api.setNotifs({ send: v }), { label: 'Send notifications' });
-    const sendRow = UI.row('Show {me}’s notifications on {name}', '', [sendSw]);
-    const hideSw = UI.switch((v) => api.setNotifs({ hideText: v }), { label: 'Hide message text' });
-    const hideRow = UI.row('Hide message text', 'Only the app and the title', [hideSw]);
-    const fdaBtn = UI.button('Allow', () => api.allowFullDisk(), 'small primary');
-    const fdaRow = UI.row('Allow Full Disk Access', 'Click +, or drag DuoDesk into the list', [fdaBtn]);
-    const recvSw = UI.switch((v) => api.setNotifs({ receive: v }), { label: 'Show notifications here' });
-    const recvRow = UI.row('Show {name}’s notifications on {me}', '', [recvSw]);
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
+    const sendSw = UI.switch((v) => api.setNotifs({ send: v }), { label: t('notifs.send_notifications', null, 'Send notifications') });
+    const sendRow = UI.row(t('notifs.show_mes_notifications_on', null, 'Show {me}’s notifications on {name}'), '', [sendSw]);
+    const hideSw = UI.switch((v) => api.setNotifs({ hideText: v }), { label: t('notifs.hide_message_text', null, 'Hide message text') });
+    const hideRow = UI.row(t('notifs.hide_message_text', null, 'Hide message text'), t('notifs.only_the_app_and_the', null, 'Only the app and the title'), [hideSw]);
+    const fdaBtn = UI.button(t('pair.allow', null, 'Allow'), () => api.allowFullDisk(), 'small primary');
+    const fdaRow = UI.row(t('notifs.allow_full_disk_access', null, 'Allow Full Disk Access'), t('notifs.click_or_drag_duodesk_into', null, 'Click +, or drag DuoDesk into the list'), [fdaBtn]);
+    const recvSw = UI.switch((v) => api.setNotifs({ receive: v }), { label: t('notifs.show_notifications_here', null, 'Show notifications here') });
+    const recvRow = UI.row(t('notifs.show_names_notifications_on', null, 'Show {name}’s notifications on {me}'), '', [recvSw]);
     const apps = el('div');
 
     body.append(
       UI.pair(UI.dir('m2w', [sendRow, fdaRow, hideRow]), UI.dir('w2m', [recvRow])),
-      UI.card('Apps', [apps]),
+      UI.card(t('nav.apps', null, 'Apps'), [apps]),
     );
 
     let key = '';
@@ -41,9 +42,9 @@ UI.tab({
       hideSw.set(n.hideText);
       recvSw.set(n.receive);
       fdaRow.hidden = n.access !== 'noAccess';
-      sendRow.setHint(!n.send ? '' : n.access === 'noAccess' ? 'Needs Full Disk Access'
-        : !s.client ? 'Also switches it on the other computer' : n.sent ? `${n.sent} sent` : 'As native notifications there');
-      recvRow.setHint(n.receive && n.shown ? `${n.shown} shown` : 'As native notifications, from DuoDesk');
+      sendRow.setHint(!n.send ? '' : n.access === 'noAccess' ? t('notifs.needs_full_disk_access', null, 'Needs Full Disk Access')
+        : !s.client ? t('notifs.also_switches_it_on_the', null, 'Also switches it on the other computer') : n.sent ? t('notifs.count_sent', { count: n.sent }, '{count} sent') : t('notifs.as_native_notifications_there', null, 'As native notifications there'));
+      recvRow.setHint(n.receive && n.shown ? t('notifs.count_shown', { count: n.shown }, '{count} shown') : t('notifs.as_native_notifications_from_duodesk', null, 'As native notifications, from DuoDesk'));
       void p;
 
       const k = JSON.stringify([n.apps.map((a) => a.app), n.muted]);
@@ -51,11 +52,11 @@ UI.tab({
       key = k;
       apps.replaceChildren(...(n.apps.length
         ? n.apps.map((a) => {
-          const sw = UI.switch((v) => api.muteNotifApp({ app: a.app, muted: !v }), { label: `Send ${a.appName}` });
+          const sw = UI.switch((v) => api.muteNotifApp({ app: a.app, muted: !v }), { label: t('notifs.send_app', { app: a.appName }, 'Send {app}') });
           sw.set(!(n.muted || []).includes(a.app));
           return UI.row(a.appName, '', [sw]);
         })
-        : [UI.row('No notifications yet', 'Apps show up here after their first notification')]));
+        : [UI.row(t('notifs.no_notifications_yet', null, 'No notifications yet'), t('notifs.apps_show_up_here_after_mac', null, 'Apps show up here after their first notification'))]));
     };
   },
 });

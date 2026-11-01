@@ -6,6 +6,7 @@
 const T = window.MacShareProtocol.T;
 const api = window.sound;
 const player = document.getElementById('play');
+const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d);
 
 let recv = null; // {pc, session, pending}
 let send = null; // {pc, session, stream, pending}
@@ -53,7 +54,7 @@ async function onOffer(m) {
     await pc.setLocalDescription(await pc.createAnswer());
     if (recv === me) api.send({ t: T.AUDIO_ANSWER, dir: 'm2w', session: m.session, sdp: pc.localDescription.sdp });
   } catch (e) {
-    error = 'Mac sound: ' + e.message;
+    error = t('win_sound_renderer.mac_sound', { error: e.message }, 'Mac sound: ' + e.message);
     report();
   }
 }
@@ -79,7 +80,7 @@ async function startSend(session, ice) {
     stream.getVideoTracks().forEach((t) => t.stop());
     const track = stream.getAudioTracks()[0];
     if (send !== me) return stream.getTracks().forEach((t) => t.stop());
-    if (!track) throw new Error('Windows gave no system sound');
+    if (!track) throw new Error(t('win_sound_renderer.no_system_sound', null, 'Windows gave no system sound'));
     me.stream = stream;
     const pc = (me.pc = new RTCPeerConnection(ice || { iceServers: [] }));
     pc.addTransceiver(track, { direction: 'sendonly' });
@@ -89,7 +90,7 @@ async function startSend(session, ice) {
     api.send({ t: T.AUDIO_OFFER, dir: 'w2m', session, sdp: pc.localDescription.sdp });
     error = '';
   } catch (e) {
-    error = 'Sending this PC’s sound: ' + e.message;
+    error = t('win_sound_renderer.sending_pc_sound', { error: e.message }, 'Sending this PC’s sound: ' + e.message);
   }
   report();
 }
@@ -102,7 +103,7 @@ async function onAnswer(m) {
     for (const c of me.pending.splice(0)) await me.pc.addIceCandidate(c).catch(() => {});
     me.pending = null;
   } catch (e) {
-    error = 'Sending this PC’s sound: ' + e.message;
+    error = t('win_sound_renderer.sending_pc_sound', { error: e.message }, 'Sending this PC’s sound: ' + e.message);
     report();
   }
 }

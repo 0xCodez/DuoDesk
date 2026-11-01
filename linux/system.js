@@ -6,6 +6,8 @@
 'use strict';
 
 const { execFile } = require('child_process');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const fs = require('fs');
 const P = require('../shared/protocol.js');
 
@@ -34,17 +36,17 @@ function session() {
 async function checkFirewall(fixed) {
   const ufw = await run('systemctl', ['is-active', 'ufw']);
   if (ufw.out === 'active') {
-    return fixed ? { ok: true, tool: 'ufw', message: 'ufw lets DuoDesk in' }
-      : { ok: false, tool: 'ufw', message: 'ufw is on and may block DuoDesk.' };
+    return fixed ? { ok: true, tool: 'ufw', message: tr('firewall.ufw_allows', null, 'ufw lets DuoDesk in') }
+      : { ok: false, tool: 'ufw', message: tr('firewall.ufw_blocks', null, 'ufw is on and may block DuoDesk.') };
   }
   const fwd = await run('firewall-cmd', ['--state']);
   if (fwd.out === 'running') {
     const tcp = await run('firewall-cmd', ['--query-port=' + PORTS.tcp + '/tcp']);
     const udp = await run('firewall-cmd', ['--query-port=' + PORTS.udp + '/udp']);
     const ok = tcp.out === 'yes' && udp.out === 'yes';
-    return { ok, tool: 'firewalld', message: ok ? 'firewalld lets DuoDesk in' : 'firewalld blocks DuoDesk.' };
+    return { ok, tool: 'firewalld', message: ok ? tr('firewall.firewalld_allows', null, 'firewalld lets DuoDesk in') : tr('firewall.firewalld_blocks', null, 'firewalld blocks DuoDesk.') };
   }
-  return { ok: true, tool: '', message: 'No firewall is on' };
+  return { ok: true, tool: '', message: tr('firewall.no_firewall', null, 'No firewall is on') };
 }
 
 // Also mDNS (5353/udp): adb finds a phone's wireless debugging with it (phone-bridge.js).

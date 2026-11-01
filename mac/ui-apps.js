@@ -14,16 +14,17 @@ UI.tab({
   badge: (s) => ((s.apps && s.apps.offer) || (s.papps && s.papps.on) ? 'on' : ''),
   build(body) {
     const { api, el } = UI;
-    const offerSw = UI.switch((v) => api.setApps({ offer: v }), { label: 'Share apps' });
-    const offerRow = UI.row('Open {me}’s apps on {name}', '', [offerSw]);
-    const usage = UI.row('Open there now', '');
-    const pcSw = UI.switch((v) => api.setPcApps({ on: v }), { label: 'Show apps here' });
-    const pcRow = UI.row('Open {name}’s apps on {me}', '', [pcSw]);
-    const pcUsage = UI.row('Open here now', '');
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
+    const offerSw = UI.switch((v) => api.setApps({ offer: v }), { label: t('apps.share_apps', null, 'Share apps') });
+    const offerRow = UI.row(t('apps.open_mes_apps_on', null, 'Open {me}’s apps on {name}'), '', [offerSw]);
+    const usage = UI.row(t('apps.open_there_now', null, 'Open there now'), '');
+    const pcSw = UI.switch((v) => api.setPcApps({ on: v }), { label: t('apps.show_apps_here', null, 'Show apps here') });
+    const pcRow = UI.row(t('apps.open_names_apps_on', null, 'Open {name}’s apps on {me}'), '', [pcSw]);
+    const pcUsage = UI.row(t('apps.open_here_now', null, 'Open here now'), '');
     const grid = el('div', { class: 'app-grid' });
-    const refresh = UI.button('Refresh', () => api.listPcApps(), 'small');
-    const filter = el('input', { class: 'app-filter', type: 'search', placeholder: 'Search apps' });
-    const gridCard = UI.card('{Name}’s apps', [el('div', { class: 'app-tools' }, [filter, refresh]), grid], { cls: 'keep-on' });
+    const refresh = UI.button(t('overview.refresh', null, 'Refresh'), () => api.listPcApps(), 'small');
+    const filter = el('input', { class: 'app-filter', type: 'search', placeholder: t('phone.search_apps', null, 'Search apps') });
+    const gridCard = UI.card(t('apps.names_apps', null, '{Name}’s apps'), [el('div', { class: 'app-tools' }, [filter, refresh]), grid], { cls: 'keep-on' });
     let lastKey = '';
     let last = null;
     filter.oninput = () => { lastKey = ''; if (last) draw(last); };
@@ -37,20 +38,21 @@ UI.tab({
       const open = new Set(p.windows.map((w) => w.id));
       grid.replaceChildren(...apps.map((a) => {
         const st = p.launch[a.id];
-        const b = el('button', { class: `app-tile${open.has(a.id) ? ' running' : ''}`, title: st && st !== 'ok' ? `Couldn’t open: ${st}` : `Open ${a.name} on ${UI.peer(UI.state).name}` }, [
+        const b = el('button', { class: `app-tile${open.has(a.id) ? ' running' : ''}`, title: st && st !== 'ok' ? t('apps.couldnt_open', { error: st }, 'Couldn’t open: {error}') : UI.fill(t('apps.open_app_on', { app: a.name }, 'Open {app} on {name}')) }, [
           UI.appIcon(a.icon),
           el('span', { class: 'app-name', text: a.name }),
-          el('span', { class: 'app-state', text: open.has(a.id) ? 'Open' : st === '' ? 'Opening…' : st && st !== 'ok' ? 'Failed' : '' }),
+          el('span', { class: 'app-state', text: open.has(a.id) ? t('files.open', null, 'Open') : st === '' ? t('apps.opening', null, 'Opening…') : st && st !== 'ok' ? t('apps.failed', null, 'Failed') : '' }),
         ]);
         b.onclick = () => api.openPcApp(a.id);
         // Pin: keep it in the Dock (and Launchpad), like a Mac app.
-        const pin = el('span', { class: 'app-pin', title: `Add ${a.name} to the Dock`, attrs: { role: 'button', 'aria-label': `Add ${a.name} to the Dock` } }, [UI.icon('pin')]);
+        const addToDock = t('apps.add_to_the_dock', { app: a.name }, 'Add {app} to the Dock');
+        const pin = el('span', { class: 'app-pin', title: addToDock, attrs: { role: 'button', 'aria-label': addToDock } }, [UI.icon('pin')]);
         pin.onclick = (e) => { e.stopPropagation(); api.keepPcAppInDock(a.id); };
         b.append(pin);
         b.oncontextmenu = (e) => { e.preventDefault(); api.keepPcAppInDock(a.id); };
         return b;
       }));
-      if (!apps.length) grid.append(el('div', { class: 'app-empty', text: p.listing ? `Loading ${UI.peer(UI.state).name}’s apps…` : q ? 'No app matches' : 'No apps yet. Press Refresh.' }));
+      if (!apps.length) grid.append(el('div', { class: 'app-empty', text: p.listing ? UI.fill(t('apps.loading_names_apps', null, 'Loading {name}’s apps…')) : q ? t('apps.no_app_matches', null, 'No app matches') : t('apps.no_apps_yet_press_refresh', null, 'No apps yet. Press Refresh.') }));
     }
     const rezume = UI.rezumeCard ? UI.rezumeCard() : { el: UI.el('div', { hidden: true }), update() {} }; // the other computer's ReZume (shared/ui-rezume.js; not in Multi-device)
     body.append(
@@ -70,17 +72,17 @@ UI.tab({
       if (!a) return;
       offerSw.set(a.offer);
       offerRow.setHint(!a.offer ? ''
-        : !s.sharing || !s.sharing.on ? 'Screen sharing turns on while an app is open'
-          : !s.permissions.accessibility ? 'Needs Accessibility (General)' : '');
+        : !s.sharing || !s.sharing.on ? t('apps.screen_sharing_turns_on_while', null, 'Screen sharing turns on while an app is open')
+          : !s.permissions.accessibility ? t('apps.needs_accessibility_general', null, 'Needs Accessibility (General)') : '');
       const p = s.papps;
       if (p) {
         pcSw.set(p.on);
-        pcRow.setHint(p.on && !s.client ? `Waiting for ${UI.peer(s).name}` : '');
-        pcUsage.setHint(p.windows.length ? `${p.windows.length} window${p.windows.length > 1 ? 's' : ''}` : 'Nothing open');
+        pcRow.setHint(p.on && !s.client ? t('apps.waiting_for_name', null, 'Waiting for {name}') : '');
+        pcUsage.setHint(p.windows.length ? (p.windows.length === 1 ? t('apps.windows_one', { count: p.windows.length }, '{count} window') : t('apps.windows_other', { count: p.windows.length }, '{count} windows')) : t('apps.nothing_open', null, 'Nothing open'));
         gridCard.hidden = !p.on || !s.client;
         draw(p);
       }
-      usage.setHint(a.launched.length ? `${a.launched.length} app${a.launched.length > 1 ? 's' : ''}` : 'Nothing open');
+      usage.setHint(a.launched.length ? (a.launched.length === 1 ? t('apps.apps_one', { count: a.launched.length }, '{count} app') : t('apps.apps_other', { count: a.launched.length }, '{count} apps')) : t('apps.nothing_open', null, 'Nothing open'));
     };
   },
 });

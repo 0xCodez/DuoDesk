@@ -11,6 +11,8 @@ const { app } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const ARG = '--send-files';
 const HOME = os.homedir();
@@ -66,7 +68,7 @@ class SendTo {
     const name = peer ? String(peer).replace(/[/\\\x00-\x1f]/g, '_').replace(/^\.+/, '').slice(0, 80) : '';
     if (name === this.name) return;
     this.name = name;
-    const label = 'Send to ' + name + ' (DuoDesk)';
+    const label = tr('lin_sendto.send_to_menu', { name }, 'Send to ' + name + ' (DuoDesk)');
     const exec = launcher().map(desk).join(' ') + ' ' + ARG + ' %F';
     try {
       // Scripts menus: the file name is the label.
@@ -127,9 +129,10 @@ class SendTo {
     const paths = list.slice(at + 1).filter((a) => typeof a === 'string' && !a.startsWith('--') && path.isAbsolute(a)
       && !skip.has(path.resolve(a)) && fs.existsSync(a)).slice(0, 1000);
     if (!paths.length) return true;
+    const who = this.peerName() || tr('main.the_other_computer', null, 'the other computer');
     if (this.link.status.state !== 'connected') {
       this.pending = { paths, until: Date.now() + 30000 }; // sent once the link is up
-      this.popup('away', 'Not connected yet', 'Sending once ' + (this.peerName() || 'the other computer') + ' is connected');
+      this.popup('away', tr('sendto.not_connected_yet', null, 'Not connected yet'), tr('sendto.sending_once_connected', { name: who }, 'Sending once ' + who + ' is connected'));
       return true;
     }
     this._send(paths);
@@ -138,10 +141,14 @@ class SendTo {
 
   _send(paths) {
     const r = this.fileDrop.sendBatch(paths, 'send');
-    const who = this.peerName() || 'the other computer';
-    if (!r) return this.popup('away', 'Nothing to send', 'Couldn’t read ' + (paths.length === 1 ? path.basename(paths[0]) : 'those items'));
+    const who = this.peerName() || tr('main.the_other_computer', null, 'the other computer');
+    if (!r) {
+      const itemDesc = paths.length === 1 ? path.basename(paths[0]) : tr('sendto.those_items', null, 'those items');
+      return this.popup('away', tr('sendto.nothing_to_send', null, 'Nothing to send'), tr('sendto.couldnt_read_item', { name: itemDesc }, 'Couldn’t read ' + itemDesc));
+    }
     const n = r.items.length;
-    this.popup('away', 'Sending ' + (n === 1 ? r.name : n + ' items') + ' to ' + who);
+    const itemsDesc = n === 1 ? r.name : tr('sendto.n_items_other', { count: n }, n + ' items');
+    this.popup('away', tr('sendto.sending_n_items_to', { items: itemsDesc, who }, 'Sending ' + itemsDesc + ' to ' + who));
   }
 }
 

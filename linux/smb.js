@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const P = require('../shared/protocol.js');
+const { t: tr } = require('../shared/i18n.js');
 
 const T = P.T;
 const SHARE = 'MacShare';
@@ -123,10 +124,10 @@ class Smb {
   // One script as root: Samba, the account and its password, the share, the firewall.
   async share(folder) {
     if (this.busy) return;
-    if (!folder || !fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) return this._msg('Pick a folder first');
-    if (/[\n\r]/.test(folder)) return this._msg('That folder’s name can’t be shared');
+    if (!folder || !fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) return this._msg(tr('lin_smb.pick_folder', null, 'Pick a folder first'));
+    if (/[\n\r]/.test(folder)) return this._msg(tr('lin_smb.folder_name_cant', null, 'That folder’s name can’t be shared'));
     const me = os.userInfo().username;
-    if (!/^[a-z_][a-z0-9_.-]*\$?$/i.test(me)) return this._msg('Unexpected user name');
+    if (!/^[a-z_][a-z0-9_.-]*\$?$/i.test(me)) return this._msg(tr('lin_smb.unexpected_user', null, 'Unexpected user name'));
     const password = 'Ms-' + crypto.randomBytes(18).toString('base64').replace(/[+/=]/g, 'x') + '!7a';
     const pwFile = path.join(app.getPath('userData'), 'smb-pw.tmp');
     fs.writeFileSync(pwFile, password, { mode: 0o600 });
@@ -164,7 +165,7 @@ for s in smbd smb; do if systemctl cat $s >/dev/null 2>&1; then systemctl enable
       await this.checkShare();
       this._offer();
     } catch (e) {
-      this.message = e.code === 126 ? 'The password prompt was closed' : 'Sharing failed: ' + e.message;
+      this.message = e.code === 126 ? tr('lin_smb.password_closed', null, 'The password prompt was closed') : tr('lin_smb.sharing_failed', { error: e.message }, 'Sharing failed: ' + e.message);
     } finally {
       try { fs.unlinkSync(pwFile); } catch (_) { /* removed by the script */ }
       this._busy('');
@@ -186,7 +187,7 @@ smbcontrol all reload-config 2>/dev/null || true
 `], { timeout: 120000 });
       this.message = '';
     } catch (e) {
-      this.message = e.code === 126 ? 'Cancelled. The folder is still shared.' : e.message;
+      this.message = e.code === 126 ? tr('lin_smb.cancelled_still_shared', null, 'Cancelled. The folder is still shared.') : e.message;
     }
     try { fs.unlinkSync(this.credFile); } catch (_) { /* none */ }
     this.cfg.shareOn = false;

@@ -36,6 +36,20 @@
 !macroend
 
 !macro customInstall
+  ; The language picked in the installer (1046 = Português do Brasil) is the app's first language:
+  ; main.js adopts this file once. The installer is per-machine, the file is the user's.
+  SetShellVarContext current
+  CreateDirectory "$APPDATA\MacShare"
+  ${If} $LANGUAGE == 1046
+    FileOpen $0 "$APPDATA\MacShare\install-lang" w
+    FileWrite $0 "pt-BR"
+    FileClose $0
+  ${Else}
+    FileOpen $0 "$APPDATA\MacShare\install-lang" w
+    FileWrite $0 "en"
+    FileClose $0
+  ${EndIf}
+  SetShellVarContext all
   ; Renamed from MacShare: its rules (and its Program Files folder's exe) go.
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare"'
   nsExec::Exec 'netsh advfirewall firewall delete rule name="MacShare (TCP 47800)"'

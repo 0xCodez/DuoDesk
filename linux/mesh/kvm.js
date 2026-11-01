@@ -21,6 +21,8 @@ const { KeyLayout } = require('../../shared/keylayout.js');
 const inputMethods = require('../inputmethod.js');
 const pointerAccel = require('../pointeraccel.js');
 const CL = require('../../shared/cursorlock.js');
+const i18n = require('../../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const K_TYPES = new Set([T.K_MOVE, T.K_DOWN, T.K_UP, T.K_WHEEL, T.K_KEY_DOWN, T.K_KEY_UP]);
@@ -78,10 +80,16 @@ class Kvm {
       console.log('[kvm] kvm.refuse from ' + from + ' (' + m.why + ', mode ' + this.mode + ')');
       if (this.sub && from === this.sub.to && m.route === this.sub.route) return this._relayBack(undefined);
       if (this.mode !== 'driving' || from !== this.partner || m.route !== this.route) return;
-      this._goHome(m.why === P.REFUSE.BUSY ? '{Name} is driving {me}' : m.why === P.REFUSE.NOT_ALLOWED ? "{Name} doesn't accept input from {me}" : '{Name} refused');
+      this._goHome(
+        m.why === P.REFUSE.BUSY
+          ? tr('kvm.partner_driving_me', null, '{Name} is driving {me}')
+          : m.why === P.REFUSE.NOT_ALLOWED
+            ? tr('kvm.not_accept_input', null, "{Name} doesn't accept input from {me}")
+            : tr('kvm.partner_refused', null, '{Name} refused')
+      );
     });
     bus.on(T.KVM_RELEASE, (m, from) => {
-      if (this.mode === 'driven' && from === this.partner && m.route >= this.peerRoute) this._drivenHome('{Name} took its input back', false);
+      if (this.mode === 'driven' && from === this.partner && m.route >= this.peerRoute) this._drivenHome(tr('kvm.took_input_back', null, '{Name} took its input back'), false);
     });
     bus.on(T.KVM_HOME, (m, from) => {
       console.log('[kvm] kvm.home from ' + from + ' (offset ' + m.offset + ', mode ' + this.mode + ')');
@@ -255,7 +263,7 @@ class Kvm {
 
   _onPeerDown(id) {
     if ((this.mode === 'driving' || this.mode === 'driven') && id === this.partner) {
-      this._linkLost('{Name} disconnected');
+      this._linkLost(tr('kvm.partner_disconnected', null, '{Name} disconnected'));
     }
     if (this.locked && !this.hub.bus.connectedIds().length) this.locked = false;
     this.applyConfig();
@@ -489,7 +497,7 @@ class Kvm {
         break;
       case 'captureEnded': // dead-man, or a grab another app holds: input is back here
         console.log('[kvm] capture ended by the helper: ' + (msg.reason || 'stopped'));
-        if (this.mode === 'driving') this._release(msg.reason === 'grab' ? 'Another app is holding the mouse or keyboard' : '');
+        if (this.mode === 'driving') this._release(msg.reason === 'grab' ? tr('kvm.another_app_grab', null, 'Another app is holding the mouse or keyboard') : '');
         break;
     }
   }
@@ -529,7 +537,7 @@ class Kvm {
     this.acceptTimer = setTimeout(() => {
       if (this.mode === 'driving' && this.route === route) {
         console.log('[kvm] no kvm.accept from ' + id + ' within ' + P.KVM_TAKE_TIMEOUT_MS + ' ms: back home');
-        this._goHome('Your Mac didn’t answer');
+        this._goHome(tr('kvm.partner_no_answer', null, 'Your Mac didn’t answer'));
       }
     }, P.KVM_TAKE_TIMEOUT_MS);
   }
@@ -634,7 +642,7 @@ class Kvm {
     }
     if (!this.cfg.beDriven || !this._linkedFor(from) || this._pausedFor(from)) { // cursor sharing off
       this._send(from, { t: T.KVM_REFUSE, route, why: P.REFUSE.NOT_ALLOWED });
-      this._note(this._pausedFor(from) ? '{Name} tried to use {me} over Bluetooth. It’s turned off here.' : '{Name} tried to use {me}. It’s turned off here.');
+      this._note(this._pausedFor(from) ? tr('kvm.tried_use_ble_off', null, '{Name} tried to use {me} over Bluetooth. It’s turned off here.') : tr('kvm.tried_use_off', null, '{Name} tried to use {me}. It’s turned off here.'));
       return;
     }
     // A driver with no bridge of its own to a phone asks us to drive that phone for it (m.via): the input it
@@ -873,7 +881,7 @@ class Kvm {
     if (mode !== 'home') {
       this.silence = setInterval(() => {
         const limit = this._transportOf(this.partner) === 'ble' ? P.KVM_SILENCE_BLE_MS : P.KVM_SILENCE_MS;
-        if (Date.now() - this._lastRx() > limit) this._linkLost('{Name} stopped answering');
+        if (Date.now() - this._lastRx() > limit) this._linkLost(tr('kvm.stopped_answering', null, '{Name} stopped answering'));
       }, 250);
     }
     this.onChange();

@@ -21,6 +21,7 @@
   const UI = window.UI || {};
   const G = FX.get;
   const S = FX.svg;
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
   const safe = (fn, d) => { try { const v = fn(); return v === undefined ? d : v; } catch (e) { return d; } };
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -28,14 +29,15 @@
   const notPhone = (p) => p && p.os !== 'android' ? p : null;
   const pcPeer = (s) => notPhone(s && s.peer) || notPhone(s && s.client) || notPhone(safe(() => G.meshPeer(s), null))
     || (s && Array.isArray(s.paired) ? s.paired[0] : s && s.paired) || null;
-  const whoOf = (s) => (s && s.link && s.link.macName) || (pcPeer(s) && (pcPeer(s).name || pcPeer(s).macName)) || 'the other computer';
+  const whoOf = (s) => (s && s.link && s.link.macName) || (pcPeer(s) && (pcPeer(s).name || pcPeer(s).macName)) || tr('kit.the_other_computer', null, 'the other computer');
   const pcOs = (s) => { const p = pcPeer(s); return (p && p.os) || null; };
   // a computer is connected (Windows / Linux s.link, Mac s.client, mesh s.peers)
   const pcLive = (s) => !!(s && ((s.link && s.link.state === 'connected' && !(s.peer && s.peer.os === 'android'))
     || notPhone(s.client) || (Array.isArray(s.peers) && s.peers.some((p) => p && p.os !== 'android' && (p.connected || p.state === 'connected')))));
   const fmt1 = (v) => (v == null ? '–' : v >= 100 ? String(Math.round(v)) : String(Math.round(v * 10) / 10));
   const r1 = (v) => Math.round(v * 10) / 10;
-  const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+  const nWindows = (n) => (n === 1 ? tr('pfx_screens.n_window_one', { n }, '{n} window') : tr('pfx_screens.n_window_other', { n }, '{n} windows'));
+  const nApps = (n) => (n === 1 ? tr('pfx_screens.n_app_one', { n }, '{n} app') : tr('pfx_screens.n_app_other', { n }, '{n} apps'));
   // fit an aspect (w:h) into maxW × maxH
   const fit = (w, h, maxW, maxH) => { const a = clamp((w || 16) / (h || 10), 0.4, 3.5); let y = maxH, x = y * a; if (x > maxW) { x = maxW; y = x / a; } return [r1(x), r1(y)]; };
 
@@ -45,16 +47,17 @@
     return t ? String(t.dataset.peer || t.textContent || '').trim() : '';
   };
   const wrapsOf = (body) => (body ? [...body.querySelectorAll(':scope > .card-wrap')] : []);
-  const cardBy = (body, title) => wrapsOf(body).find((w) => titleOf(w) === title) || null;
-  const cardStarts = (body, prefix) => wrapsOf(body).find((w) => titleOf(w).startsWith(prefix)) || null;
+  // The card titles are in the user's language: the English one or the page's own translated key.
+  const cardBy = (body, key, en) => wrapsOf(body).find((w) => { const t = titleOf(w); return t === en || t === tr(key, null, en); }) || null;
+  const cardStarts = (body, key, en) => wrapsOf(body).find((w) => { const t = titleOf(w); return t.startsWith(en.split('{')[0]) || t.startsWith(String(tr(key, null, en)).split('{')[0]); }) || null;
   const role = (e, name) => { if (e && !e.hasAttribute('data-pg-role')) e.setAttribute('data-pg-role', name); return e; };
-  // The Details card's Status row gets a quiet dot (data-pg-st on the row; never its text).
+  // The Details card's Status row gets a quiet dot (data-pg-st on the row; never its text). good / warn come
+  // from the header's own state, not from the row's words (they are in the user's language).
   function statusDot(ctx, wrap, good, warn) {
     const row = wrap && wrap.querySelector(':scope > .card > .row');
     const v = row && row.querySelector('.value');
     if (!v) return;
-    const t = v.textContent || '';
-    ctx.attr(row, 'data-pg-st', good.test(t) ? 'good' : warn.test(t) ? 'warn' : 'off');
+    ctx.attr(row, 'data-pg-st', good ? 'good' : warn ? 'warn' : 'off');
     ctx.attr(row, 'data-pg-status', '');
   }
 
@@ -149,7 +152,7 @@
       const body = ctx.body;
       if (!body) return;
       role(wrapsOf(body).find((w) => w.querySelector(':scope > .card.keep-on')), 'main');
-      role(cardBy(body, 'Details'), 'details');
+      role(cardBy(body, 'kit.details', 'Details'), 'details');
       const E = ctx.el;
       const h = ctx.hdr({ cls: 'sx rx' });
       const r = { h, buf: [] };
@@ -200,16 +203,16 @@
       // text
       const mp = safe(() => G.meshPeer(s), null);
       const rtt = num(G.get(s, 'link.rtt')) ?? num(G.get(s, 'client.rttMs')) ?? num(mp && mp.rtt);
-      ctx.text(t.kick, st === 'nopeer' ? 'Receive screen' : 'From ' + who);
-      if (st === 'live') setFig(ctx, t, num(x && x.fps) != null ? x.fps : 'Live', num(x && x.fps) != null ? 'fps' : '');
-      else setFig(ctx, t, st === 'nopeer' ? 'Waiting' : st === 'paused' ? 'Paused' : st === 'ready' ? 'Ready' : 'Off', '');
+      ctx.text(t.kick, st === 'nopeer' ? tr('nav.receive', null, 'Receive screen') : tr('pfx_screens.from_who', { name: who }, 'From {name}'));
+      if (st === 'live') setFig(ctx, t, num(x && x.fps) != null ? x.fps : tr('display.live', null, 'Live'), num(x && x.fps) != null ? 'fps' : '');
+      else setFig(ctx, t, st === 'nopeer' ? tr('pfx_screens.waiting', null, 'Waiting') : st === 'paused' ? tr('pfx_home.paused', null, 'Paused') : st === 'ready' ? tr('terminal.ready', null, 'Ready') : tr('general.off', null, 'Off'), '');
       const res = x && num(x.width) ? x.width + ' × ' + x.height : m.w && m.h ? m.w + ' × ' + m.h : '';
-      ctx.text(t.cap, st === 'nopeer' ? 'Waiting for ' + who
-        : st === 'live' ? [m.mode === 'extend' ? 'Extra screen' : 'Main screen', res, m.watching ? '' : 'window closed'].filter(Boolean).join(' · ')
-          : st === 'paused' ? 'Nobody is watching it' : st === 'ready' ? 'Open starts sharing on ' + who : 'Turn on sharing on ' + who);
+      ctx.text(t.cap, st === 'nopeer' ? tr('share.waiting_for_name', { name: who }, 'Waiting for {name}')
+        : st === 'live' ? [m.mode === 'extend' ? tr('pfx_screens.extra_screen', null, 'Extra screen') : tr('pfx_screens.main_screen', null, 'Main screen'), res, m.watching ? '' : tr('pfx_screens.window_closed', null, 'window closed')].filter(Boolean).join(' · ')
+          : st === 'paused' ? tr('pfx_screens.nobody_watching', null, 'Nobody is watching it') : st === 'ready' ? tr('pfx_screens.open_starts_sharing', { name: who }, 'Open starts sharing on {name}') : tr('pfx_screens.turn_on_sharing', { name: who }, 'Turn on sharing on {name}'));
       ctx.text(t.meta, st === 'live' && x
-        ? [x.codec ? String(x.codec).toUpperCase() : '', num(x.mbps) != null ? fmt1(x.mbps) + ' Mbps' : '', num(x.delayMs) != null ? x.delayMs + ' ms delay' : '',
-          !m.input ? 'view only' : '', m.mute ? 'muted' : '', m.framegen ? '+FG' : ''].filter(Boolean).join('  ·  ')
+        ? [x.codec ? String(x.codec).toUpperCase() : '', num(x.mbps) != null ? fmt1(x.mbps) + ' Mbps' : '', num(x.delayMs) != null ? tr('pfx_screens.ms_delay', { n: x.delayMs }, '{n} ms delay') : '',
+          !m.input ? tr('pfx_screens.view_only', null, 'view only') : '', m.mute ? tr('pfx_screens.muted', null, 'muted') : '', m.framegen ? '+FG' : ''].filter(Boolean).join('  ·  ')
         : st === 'nopeer' ? '' : [G.via(s), rtt != null ? rtt + ' ms' : ''].filter(Boolean).join('  ·  '));
       // delay sparkline: one sample per new stats tuple; cleared when the stream stops
       if (!x) { if (r.buf.length) { r.buf = []; ctx.forget('rxs'); } }
@@ -224,7 +227,7 @@
         ctx.attr(r.spDot, 'cx', p.last[0].toFixed(1));
         ctx.attr(r.spDot, 'cy', p.last[1].toFixed(1));
       }
-      statusDot(ctx, page.querySelector('[data-pg-role=details]'), /^Live/, /^Paused/);
+      statusDot(ctx, page.querySelector('[data-pg-role=details]'), st === 'live', st === 'paused');
     },
   });
 
@@ -276,11 +279,11 @@
       if (!body) return;
       const E = ctx.el;
       role(body.querySelector(':scope > .note.warn'), 'missing');
-      role(cardBy(body, 'Screen'), 'screen');
-      const pic = role(cardBy(body, 'Picture'), 'picture');
-      role(cardBy(body, 'Sound and control'), 'sound');
-      role(cardBy(body, 'Remote'), 'remote');
-      role(cardBy(body, 'Details'), 'details');
+      role(cardBy(body, 'share.screen', 'Screen'), 'screen');
+      const pic = role(cardBy(body, 'clipboard.picture', 'Picture'), 'picture');
+      role(cardBy(body, 'share.sound_and_control', 'Sound and control'), 'sound');
+      role(cardBy(body, 'nav.remote', 'Remote'), 'remote');
+      role(cardBy(body, 'kit.details', 'Details'), 'details');
       const untitled = wrapsOf(body).filter((w) => !w.querySelector(':scope > .card-title'));
       if (untitled.length) role(untitled[untitled.length - 1], 'driver');
       const h = ctx.hdr({ cls: 'sx tx' });
@@ -355,15 +358,15 @@
       const cyc = mbps != null ? clamp(8 - 4 * (mbps / cap), 4, 8) : 6;
       if (ctx.changed('cyc', Math.round(cyc * 2))) ctx.css(h, '--sx-cycle', cyc.toFixed(1) + 's');
       // text
-      ctx.text(t.kick, ext ? 'Extra screen · Extend' : m.mode === 'mirror' ? (m.monName || 'This screen') + ' · Mirror' : 'Share screen');
-      if (st === 'live' && mbps != null) setFig(ctx, t, mbps, m.cap ? 'of ' + m.cap + ' Mbps' : 'Mbps');
-      else setFig(ctx, t, { off: 'Off', busy: 'Starting', live: 'Live', nopeer: 'Waiting', armed: 'Ready', connecting: 'Connecting' }[st], '');
-      ctx.text(t.cap, m.error && st !== 'live' ? m.error : st === 'live' ? 'On ' + who : st === 'busy' ? 'Adding the virtual display…'
-        : st === 'nopeer' ? 'Waiting for ' + who : st === 'armed' ? 'Starts when ' + who + ' opens it' : st === 'connecting' ? 'Connecting to ' + who : '');
+      ctx.text(t.kick, ext ? tr('pfx_screens.extra_screen_extend', null, 'Extra screen · Extend') : m.mode === 'mirror' ? tr('pfx_screens.screen_mirror', { name: m.monName || tr('pfx_screens.this_screen', null, 'This screen') }, '{name} · Mirror') : tr('nav.share', null, 'Share screen'));
+      if (st === 'live' && mbps != null) setFig(ctx, t, mbps, m.cap ? tr('pfx_screens.of_cap_mbps', { n: m.cap }, 'of {n} Mbps') : 'Mbps');
+      else setFig(ctx, t, { off: tr('general.off', null, 'Off'), busy: tr('pfx_screens.starting', null, 'Starting'), live: tr('display.live', null, 'Live'), nopeer: tr('pfx_screens.waiting', null, 'Waiting'), armed: tr('terminal.ready', null, 'Ready'), connecting: tr('pfx_screens.connecting', null, 'Connecting') }[st], '');
+      ctx.text(t.cap, m.error && st !== 'live' ? m.error : st === 'live' ? tr('share.on_name', { name: who }, 'On {name}') : st === 'busy' ? tr('pfx_screens.adding_virtual_display', null, 'Adding the virtual display…')
+        : st === 'nopeer' ? tr('share.waiting_for_name', { name: who }, 'Waiting for {name}') : st === 'armed' ? tr('pfx_screens.starts_when_opens', { name: who }, 'Starts when {name} opens it') : st === 'connecting' ? tr('pfx_screens.connecting_to', { name: who }, 'Connecting to {name}') : '');
       const impl = x ? ((x.encoder != null && typeof x.hw === 'boolean' ? (x.hw ? 'HW ' : 'SW ') : '') + String(x.codec || '').toUpperCase()).trim() : '';
       ctx.text(t.meta, st === 'live' && x
-        ? [num(x.fps) != null ? x.fps + ' fps' : '', impl, (num(x.rttMs) ?? num(G.get(s, 'client.rttMs'))) != null ? (num(x.rttMs) ?? num(G.get(s, 'client.rttMs'))) + ' ms' : '', m.sound ? 'sound' : ''].filter(Boolean).join('  ·  ')
-        : st === 'off' || st === 'nopeer' ? '' : [m.input ? 'input from ' + who : 'view only', m.sound ? 'sound' : '', m.remote ? 'remote start' : ''].filter(Boolean).join('  ·  '));
+        ? [num(x.fps) != null ? x.fps + ' fps' : '', impl, (num(x.rttMs) ?? num(G.get(s, 'client.rttMs'))) != null ? (num(x.rttMs) ?? num(G.get(s, 'client.rttMs'))) + ' ms' : '', m.sound ? tr('pfx_screens.sound', null, 'sound') : ''].filter(Boolean).join('  ·  ')
+        : st === 'off' || st === 'nopeer' ? '' : [m.input ? tr('pfx_screens.input_from', { name: who }, 'input from {name}') : tr('pfx_screens.view_only', null, 'view only'), m.sound ? tr('pfx_screens.sound', null, 'sound') : '', m.remote ? tr('pfx_screens.remote_start', null, 'remote start') : ''].filter(Boolean).join('  ·  '));
       // the gauge in the Picture card
       if (r.gauge) {
         const tgt = x && num(x.targetMbps) ? clamp(x.targetMbps / cap, 0, 1) : null;
@@ -371,12 +374,12 @@
         if (x && mbps != null) {
           ctx.css(r.gauge, { '--fill': clamp(mbps / cap, 0, 1).toFixed(3), '--target': tgt != null ? tgt.toFixed(3) : null });
           ctx.attr(r.gauge, 'data-tick', tgt != null ? '' : null);
-          ctx.text(r.gLbl, fmt1(mbps) + ' of ' + cap + ' Mbps' + (num(x.targetMbps) ? '  ·  network ' + x.targetMbps : ''));
+          ctx.text(r.gLbl, num(x.targetMbps) ? tr('pfx_screens.gauge_network', { n: fmt1(mbps), cap, net: x.targetMbps }, '{n} of {cap} Mbps  ·  network {net}') : tr('pfx_screens.gauge', { n: fmt1(mbps), cap }, '{n} of {cap} Mbps'));
         }
       }
       const drv = page.querySelector('[data-pg-role=driver]');
       ctx.attr(drv, 'data-quiet', m.vdd && m.vdd.installed && !m.vdd.busy ? '' : null);
-      statusDot(ctx, page.querySelector('[data-pg-role=details]'), /^(On |Live)/, /^(Ready|Connecting|Starting|Waiting)/);
+      statusDot(ctx, page.querySelector('[data-pg-role=details]'), st === 'live', st === 'armed' || st === 'connecting' || st === 'busy' || st === 'nopeer');
     },
   });
 
@@ -449,15 +452,15 @@
       ctx.attr(h, 'data-open', m.open > 0 ? '' : null);
       const who = whoOf(s);
       // left: the apps over there
-      ctx.text(r.L.kick, 'On ' + who);
-      if (st === 'ready') setFig(ctx, r.L, m.list.length, m.list.length === 1 ? 'app' : 'apps');
-      else setFig(ctx, r.L, st === 'nopeer' ? 'Waiting' : st === 'loading' ? 'Loading' : 'No apps', '');
-      ctx.text(r.L.cap, st === 'nopeer' ? 'Waiting for ' + who : !m.inOn ? 'Opening them here is off' : 'Each opens in its own window here');
+      ctx.text(r.L.kick, tr('share.on_name', { name: who }, 'On {name}'));
+      if (st === 'ready') setFig(ctx, r.L, m.list.length, m.list.length === 1 ? tr('pfx_screens.unit_app', null, 'app') : tr('pfx_screens.unit_apps', null, 'apps'));
+      else setFig(ctx, r.L, st === 'nopeer' ? tr('pfx_screens.waiting', null, 'Waiting') : st === 'loading' ? tr('pfx_screens.loading', null, 'Loading') : tr('pfx_screens.no_apps', null, 'No apps'), '');
+      ctx.text(r.L.cap, st === 'nopeer' ? tr('share.waiting_for_name', { name: who }, 'Waiting for {name}') : !m.inOn ? tr('pfx_screens.opening_here_off', null, 'Opening them here is off') : tr('pfx_screens.each_opens_here', null, 'Each opens in its own window here'));
       ctx.text(r.L.meta, '');
       // right: windows open here, and what goes the other way
-      ctx.text(r.R.kick, 'Open here');
+      ctx.text(r.R.kick, tr('pfx_screens.open_here', null, 'Open here'));
       setFig(ctx, r.R, st === 'nopeer' ? '–' : m.open, '');
-      ctx.text(r.R.cap, st === 'nopeer' ? '' : !m.outOn ? 'Sharing yours is off' : m.ret ? 'Off on ' + who : m.streaming ? plural(m.streaming, 'window', 'windows') + ' on ' + who : 'Yours can open there');
+      ctx.text(r.R.cap, st === 'nopeer' ? '' : !m.outOn ? tr('pfx_screens.sharing_yours_off', null, 'Sharing yours is off') : m.ret ? tr('pfx_input.off_on_name', { name: who }, 'Off on {name}') : m.streaming ? tr('pfx_screens.windows_on_name', { windows: nWindows(m.streaming), name: who }, '{windows} on {name}') : tr('pfx_screens.yours_can_open', null, 'Yours can open there'));
       ctx.text(r.R.meta, '');
       // the direction cards count what's open
       const cards = page.querySelectorAll(':scope > .page-body > .dir-pair > .dir-card');
@@ -466,7 +469,7 @@
       // the search count
       if (r.count && r.grid) {
         const q = r.filter && r.filter.value.trim();
-        ctx.text(r.count, !m.list.length ? '' : q ? r.grid.children.length + ' of ' + m.list.length : m.list.length + ' apps');
+        ctx.text(r.count, !m.list.length ? '' : q ? tr('pfx_screens.shown_of_total', { shown: r.grid.children.length, total: m.list.length }, '{shown} of {total}') : nApps(m.list.length));
       }
     },
   });
@@ -484,8 +487,8 @@
       if (!body) return;
       const E = ctx.el;
       role(wrapsOf(body).find((w) => w.querySelector('.btn.primary:not(.small)')), 'show');
-      role(cardStarts(body, 'Open on '), 'wins');
-      const opts = role(cardBy(body, 'Phone windows'), 'opts');
+      role(cardStarts(body, 'mirror.open_on_here', 'Open on {here}'), 'wins');
+      const opts = role(cardBy(body, 'mirror.phone_windows', 'Phone windows'), 'opts');
       const q = opts && [...opts.querySelectorAll('select')].find((x) => x.querySelector('option[value="24"]'));
       const r = { h: ctx.hdr({ cls: 'sx mi' }), quality: q && q.closest('.row') };
       if (r.quality) r.quality.setAttribute('data-pg-quality', '');
@@ -566,17 +569,17 @@
       }
       // text
       const p = G.phone(s) || {};
-      const name = (ph.connected && ph.connected.name) || p.name || 'Phone';
+      const name = (ph.connected && ph.connected.name) || p.name || tr('nav.phone', null, 'Phone');
       const rtt = num(ph.connected && ph.connected.rttMs) ?? p.rtt;
       const via = br.via || (p.usb ? 'usb' : 'wifi');
       ctx.text(t.kick, [name, /usb/i.test(via) ? 'USB' : 'Wi-Fi', rtt != null ? rtt + ' ms' : ''].filter(Boolean).join(' · '));
-      if (st === 'casting') setFig(ctx, t, wins.length, wins.length === 1 ? 'window' : 'windows');
-      else setFig(ctx, t, st === 'idle' ? 'Ready' : st === 'connecting' ? 'Connecting' : 'Not set up', '');
-      ctx.text(t.cap, st === 'nobridge' ? 'Wireless debugging, once, on Connection' : st === 'connecting' ? br.message || 'Connecting to the phone…'
-        : st === 'idle' ? 'Show Phone Screen opens it here'
-          : wins.length === 1 ? (wins[0].kind === 'screen' ? 'The phone’s screen, open here' : wins[0].kind === 'camera' ? 'The phone’s camera, open here' : (wins[0].title || 'An app') + ', open here')
-            : 'Open on ' + G.myName(s));
-      ctx.text(t.meta, [lvl != null ? lvl + '%' + (info.charging ? ' charging' : '') : '', (num(set.bitrateMbps) || 8) + ' Mb/s', set.sound ? (br.sound && br.sound.on ? 'sound on' : 'sound') : ''].filter(Boolean).join('  ·  '));
+      if (st === 'casting') setFig(ctx, t, wins.length, wins.length === 1 ? tr('pfx_screens.unit_window', null, 'window') : tr('pfx_screens.unit_windows', null, 'windows'));
+      else setFig(ctx, t, st === 'idle' ? tr('terminal.ready', null, 'Ready') : st === 'connecting' ? tr('pfx_screens.connecting', null, 'Connecting') : tr('device.not_set_up', null, 'Not set up'), '');
+      ctx.text(t.cap, st === 'nobridge' ? tr('pfx_screens.wireless_debugging_once', null, 'Wireless debugging, once, on Connection') : st === 'connecting' ? br.message || tr('pfx_screens.connecting_to_phone', null, 'Connecting to the phone…')
+        : st === 'idle' ? tr('pfx_screens.show_phone_screen_opens', null, 'Show Phone Screen opens it here')
+          : wins.length === 1 ? (wins[0].kind === 'screen' ? tr('pfx_screens.phone_screen_open_here', null, 'The phone’s screen, open here') : wins[0].kind === 'camera' ? tr('pfx_screens.phone_camera_open_here', null, 'The phone’s camera, open here') : tr('pfx_screens.app_open_here', { app: wins[0].title || tr('pfx_screens.an_app', null, 'An app') }, '{app}, open here'))
+            : tr('mirror.open_on_here', { here: G.myName(s) }, 'Open on {here}'));
+      ctx.text(t.meta, [lvl != null ? (info.charging ? tr('pfx_screens.pct_charging', { n: lvl }, '{n}% charging') : lvl + '%') : '', (num(set.bitrateMbps) || 8) + ' Mb/s', set.sound ? (br.sound && br.sound.on ? tr('pfx_screens.sound_on', null, 'sound on') : tr('pfx_screens.sound', null, 'sound')) : ''].filter(Boolean).join('  ·  '));
       // page inserts
       if (r.quality) ctx.attr(r.quality, 'data-q', String(num(set.bitrateMbps) || 8));
       const list = page.querySelector('[data-pg-role=wins] > .card > div');
@@ -634,9 +637,9 @@
       // centre: the count (or "shown of total" while searching)
       if (term && apps.length) {
         const shown = apps.filter((a) => String(a.name || '').toLowerCase().includes(term)).length;
-        setFig(ctx, r.t, shown, 'of ' + apps.length);
-      } else if (apps.length) setFig(ctx, r.t, apps.length, 'apps');
-      else setFig(ctx, r.t, st === 'loading' ? 'Loading' : '–', '');
+        setFig(ctx, r.t, shown, tr('pfx_screens.unit_of_n', { n: apps.length }, 'of {n}'));
+      } else if (apps.length) setFig(ctx, r.t, apps.length, tr('pfx_screens.unit_apps', null, 'apps'));
+      else setFig(ctx, r.t, st === 'loading' ? tr('pfx_screens.loading', null, 'Loading') : '–', '');
       // apps open in windows here, matched to the drawer by package
       const wins = (Array.isArray(br.windows) ? br.windows : []).filter((w) => w && w.kind === 'app');
       const openApps = [];
@@ -645,12 +648,12 @@
       if (r.grid) for (const tile of r.grid.children) { const sp = tile.querySelector('span'); ctx.cls(tile, 'pg-open', !!sp && names.has(sp.textContent)); }
       // sides
       const p = G.phone(s) || {};
-      const name = p.name || (ph.connected && ph.connected.name) || 'Phone';
-      ctx.text(r.L.kick, 'App drawer');
-      ctx.text(r.L.cap, ready ? 'Each opens in its own window' : br.state === 'connecting' ? 'Connecting…' : 'Needs wireless debugging');
+      const name = p.name || (ph.connected && ph.connected.name) || tr('nav.phone', null, 'Phone');
+      ctx.text(r.L.kick, tr('pfx_screens.app_drawer', null, 'App drawer'));
+      ctx.text(r.L.cap, ready ? tr('pfx_screens.each_opens_own_window', null, 'Each opens in its own window') : br.state === 'connecting' ? tr('hub.connecting_dots', null, 'Connecting…') : tr('pfx_screens.needs_wireless_debugging', null, 'Needs wireless debugging'));
       ctx.text(r.L.meta, name);
-      ctx.text(r.Rt.kick, 'In windows');
-      ctx.text(r.Rt.cap, wins.length ? openApps.slice(0, 2).map((a) => a.name).join(', ') + (wins.length > 2 ? ' +' + (wins.length - 2) : '') || plural(wins.length, 'app', 'apps') : 'None open');
+      ctx.text(r.Rt.kick, tr('pfx_screens.in_windows', null, 'In windows'));
+      ctx.text(r.Rt.cap, wins.length ? openApps.slice(0, 2).map((a) => a.name).join(', ') + (wins.length > 2 ? ' +' + (wins.length - 2) : '') || nApps(wins.length) : tr('apps.none_open', null, 'None open'));
       ctx.text(r.Rt.meta, ready ? (/usb/i.test(br.via || '') ? 'USB' : 'Wi-Fi') : '');
       ctx.attr(r.Rt.el, 'data-n', String(wins.length));
     },

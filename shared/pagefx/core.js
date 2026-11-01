@@ -18,6 +18,7 @@
 (() => {
   if (window.PageFX) return;
   const UI = window.UI || {};
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
   const api = UI.api || window.macshare || {};
   const html = document.documentElement;
   const pagesEl = document.getElementById('pages');
@@ -77,7 +78,7 @@
     const session = isPhone(s);
     if (!c && !session) return null;
     const info = ph.info || {};
-    const name = (c && c.name) || (session && ((s.peer && s.peer.name) || (s.client && s.client.name) || s.link && s.link.macName)) || safe(() => UI.phoneName(s), '') || 'Phone';
+    const name = (c && c.name) || (session && ((s.peer && s.peer.name) || (s.client && s.client.name) || s.link && s.link.macName)) || safe(() => UI.phoneName(s), '') || tr('nav.phone', null, 'Phone');
     const rtt = num(c && (c.rttMs != null ? c.rttMs : c.rtt)) ?? (session ? num(get(s, 'link.rtt')) ?? num(get(s, 'client.rttMs')) : null);
     return {
       id: (c && c.id) || null, name, usb: !!(c && c.usb), rtt, session,
@@ -121,7 +122,7 @@
     return (s.peer && s.peer.os) || (s.client && s.client.os) || (mp && mp.os)
       || (s.paired && !Array.isArray(s.paired) && s.paired.os) || (p0 && p0.os) || null;
   }
-  const myName = (s) => (s && ((s.device && s.device.name) || s.macName)) || safe(() => UI.peer(s).me, '') || 'This computer';
+  const myName = (s) => (s && ((s.device && s.device.name) || s.macName)) || safe(() => UI.peer(s).me, '') || tr('general.this_computer', null, 'This computer');
   // Round trip in ms of the link the pages are about; null when not linked or unknown.
   function rtt(s) {
     if (!linked(s)) return null;
@@ -161,7 +162,7 @@
     if (!s) return out;
     const add = (d) => { if (d && d.name && !out.some((x) => (d.id && x.id === d.id) || (x.kind === d.kind && x.name === d.name))) out.push(d); };
     const ps = meshPeers(s);
-    if (ps) for (const p of ps) add({ id: p.id, name: p.name || 'Computer', os: p.os || 'win', kind: 'pc', live: peerLive(p), wait: p.state === 'connecting', rtt: num(p.rtt), selected: !!p.selected, paired: true });
+    if (ps) for (const p of ps) add({ id: p.id, name: p.name || tr('aurora.computer', null, 'Computer'), os: p.os || 'win', kind: 'pc', live: peerLive(p), wait: p.state === 'connecting', rtt: num(p.rtt), selected: !!p.selected, paired: true });
     if (s.link) {
       const st = s.link.state;
       const pr = s.paired && !Array.isArray(s.paired) ? s.paired : null;
@@ -182,7 +183,7 @@
     for (const d of list) {
       if (!d) continue;
       const on = !!(d.connected || d.state === 'connected' || (ph.connected && ph.connected.id === d.id));
-      add({ id: d.id || null, name: d.name || 'Phone', os: 'android', kind: 'phone', live: on, wait: !!(ph.connecting && ph.connecting.id === d.id), rtt: on && pc ? pc.rtt : null, selected: on, paired: true, usb: !!(d.usb || (on && pc && pc.usb)) });
+      add({ id: d.id || null, name: d.name || tr('nav.phone', null, 'Phone'), os: 'android', kind: 'phone', live: on, wait: !!(ph.connecting && ph.connecting.id === d.id), rtt: on && pc ? pc.rtt : null, selected: on, paired: true, usb: !!(d.usb || (on && pc && pc.usb)) });
     }
     if (pc && pc.session) add({ id: pc.id, name: pc.name, os: 'android', kind: 'phone', live: true, wait: false, rtt: pc.rtt, selected: true, paired: true, usb: pc.usb });
     return out;

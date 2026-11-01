@@ -10,6 +10,8 @@ const { app, BrowserWindow, nativeImage, screen: displays } = require('electron'
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 
 const T = P.T;
@@ -36,7 +38,8 @@ class Apps {
     });
     this.link.on(T.APP_LAUNCHED, (m) => {
       const a = this.list.find((x) => x.id === m.id);
-      this.message = m.ok ? '' : 'Couldn’t open ' + (a ? a.name : m.id) + (m.why ? ': ' + m.why : '');
+      const who = a ? a.name : m.id;
+      this.message = m.ok ? '' : m.why ? tr('lin_apps.couldnt_open_why', { name: who, why: m.why }, 'Couldn’t open ' + who + ': ' + m.why) : tr('lin_apps.couldnt_open', { name: who }, 'Couldn’t open ' + who);
       if (!m.ok) this._opened(m.id);
       this.onChange();
     });
@@ -63,8 +66,8 @@ class Apps {
     this.message = '';
     if (!this.link.send({ t: T.APP_LAUNCH, id })) return;
     const a = this.list.find((x) => x.id === id);
-    const name = a ? a.name : this._shortcutName(id) || 'the app';
-    this.popup('away', 'Opening ' + name + ' on ' + this.peerName() + '…');
+    const name = a ? a.name : this._shortcutName(id) || tr('apps.the_app', null, 'the app');
+    this.popup('away', tr('apps.opening_on_peer', { name, peer: this.peerName() }, 'Opening ' + name + ' on ' + this.peerName() + '…'));
     if (!this.windows.some((w) => w.id === id)) this._placeholder(id, name, a);
     this.onChange();
   }
@@ -72,12 +75,13 @@ class Apps {
   // The app's taskbar button right away, busy until its first window arrives.
   _placeholder(id, name, a) {
     if (this.opening.has(id)) return;
+    const opening = tr('lin_apps.opening', { name }, 'Opening ' + name + '…');
     const win = new BrowserWindow({
-      width: 320, height: 120, show: false, title: 'Opening ' + name + '…', fullscreenable: false, backgroundColor: '#1e1e1f',
+      width: 320, height: 120, show: false, title: opening, fullscreenable: false, backgroundColor: '#1e1e1f',
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
     win.setMenu(null);
-    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<body style="margin:0;font:13px system-ui,Ubuntu,Cantarell,sans-serif;color:#aaa;background:#1e1e1f;display:grid;place-items:center;height:100vh">Opening ' + name.replace(/[<&]/g, '') + '…</body>'));
+    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<body style="margin:0;font:13px system-ui,Ubuntu,Cantarell,sans-serif;color:#aaa;background:#1e1e1f;display:grid;place-items:center;height:100vh">' + opening.replace(/[<&]/g, '') + '</body>'));
     this._details(win, id, a);
     win.setProgressBar(2, { mode: 'indeterminate' });
     win.minimize(); // only its taskbar button shows
@@ -142,12 +146,12 @@ class Apps {
         'Terminal=false', 'Categories=Network;RemoteAccess;', 'X-TwinDesk-Name=' + clean(a.name), '',
       ].join('\n'));
     } catch (e) {
-      this.message = 'Couldn’t add ' + a.name + ' to the app menu: ' + e.message;
+      this.message = tr('lin_apps.couldnt_add_menu', { name: a.name, error: e.message }, 'Couldn’t add ' + a.name + ' to the app menu: ' + e.message);
       this.onChange();
       return false;
     }
     if (tell) {
-      this.message = a.name + ' is in the app menu now (as "' + a.name + '"). Pin it to the dock from there.';
+      this.message = tr('lin_apps.in_app_menu', { name: a.name }, a.name + ' is in the app menu now (as "' + a.name + '"). Pin it to the dock from there.');
       this.onChange();
     }
     return true;

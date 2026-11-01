@@ -15,6 +15,8 @@
 'use strict';
 
 const path = require('path');
+const i18n = require('./i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('./protocol.js');
 
 const T = P.T;
@@ -114,7 +116,7 @@ class CamShare {
     this._toSender({ t: 'start', deviceId: this.cfg().device || '' }, true);
     this.sender.status = 'starting';
     this.link.send({ t: T.CAM_STATE, status: 'starting' });
-    this.popup('driven', `${this.peerName()} is viewing this computer’s camera`);
+    this.popup('driven', tr('camshare.peer_viewing_camera', { name: this.peerName() }, `${this.peerName()} is viewing this computer’s camera`));
     this.onChange();
   }
 
@@ -149,7 +151,7 @@ class CamShare {
     } else if (m.t === 'status') {
       s.status = m.status === 'live' ? 'live' : m.status === 'failed' ? '' : s.status;
       this.link.send({ t: T.CAM_STATE, status: String(m.status || ''), error: String(m.error || '').slice(0, 200) });
-      if (m.status === 'failed') this.popup('home', `The camera didn’t start: ${String(m.error || '').slice(0, 120)}`);
+      if (m.status === 'failed') this.popup('home', tr('camshare.camera_didnt_start', { error: String(m.error || '').slice(0, 120) }, `The camera didn’t start: ${String(m.error || '').slice(0, 120)}`));
       this.onChange();
     }
   }
@@ -179,7 +181,7 @@ class CamShare {
   // Closing that window only hides it: the camera stops with the switch.
   view(show = false) {
     if (this.cfg().on === false) return; // Camera's switch is off
-    if (!this.link.connected()) return this.popup('home', 'Not connected');
+    if (!this.link.connected()) return this.popup('home', tr('main.not_connected', null, 'Not connected'));
     const old = this.viewer;
     if (old && !old.win.isDestroyed()) {
       if (show) {

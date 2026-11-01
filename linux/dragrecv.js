@@ -11,6 +11,8 @@ const { app } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 const fm = require('./fm');
 const { receivedDir } = require('../shared/received.js');
@@ -85,7 +87,7 @@ class DragRecv {
     const tops = [...new Set([...files.keys(), ...dirs].map((r) => r.split('/')[0]))];
     const name = tops.length > 1 ? tops.length + ' items' : tops[0];
     this.cur = { drag: m.drag, tmp, files, byId: new Map(), dirs, count: tops.length, name, state: 'dragging', dest: '', tops: new Map(), placed: [], shown: false };
-    if (this.popup) this.popup('driven', 'Drop ' + name + ' on a folder or the desktop');
+    if (this.popup) this.popup('driven', tr('dragrecv.drop_on_folder_or_desktop', { name }, 'Drop ' + name + ' on a folder or the desktop'));
     this.onChange();
   }
 
@@ -225,7 +227,7 @@ class DragRecv {
       if (f.id && f.state !== 'placed' && f.state !== 'failed') this.link.send({ t: T.FILE_DONE, id: f.id, ok: false, error: result });
     }
     if (result === 'dropped' && !c.shown && c.placed.length) fm.showItems(c.placed);
-    this.last = { ok: result === 'dropped', text: result === 'dropped' ? c.name + ' dropped in ' + (where === 'Desktop' ? 'Desktop' : path.basename(where) || where) : c.name + ': ' + result, at: Date.now() };
+    this.last = { ok: result === 'dropped', text: result === 'dropped' ? tr('lin_dragrecv.dropped_in', { file: c.name, where: where === 'Desktop' ? tr('lin_dragrecv.desktop', null, 'Desktop') : path.basename(where) || where }, c.name + ' dropped in ' + (where === 'Desktop' ? 'Desktop' : path.basename(where) || where)) : c.name + ': ' + result, at: Date.now() };
     fs.rm(c.tmp, { recursive: true, force: true }, () => {});
     this.onChange();
   }

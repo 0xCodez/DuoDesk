@@ -12,6 +12,8 @@ const CL = require('../shared/cursorlock.js');
 const pointerAccel = require('./pointeraccel.js');
 
 const { KvmMap } = require('../shared/kvm-map.js');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const K_TYPES = new Set([T.K_MOVE, T.K_DOWN, T.K_UP, T.K_WHEEL, T.K_KEY_DOWN, T.K_KEY_UP]);
@@ -88,10 +90,16 @@ class Kvm {
     });
     link.on(T.KVM_REFUSE, (m) => {
       if (this.mode !== 'driving' || m.route !== this.route) return;
-      this._goHome(m.why === P.REFUSE.BUSY ? '{Name} is driving {me}' : m.why === P.REFUSE.NOT_ALLOWED ? "{Name} doesn't accept input from {me}" : '{Name} refused');
+      this._goHome(
+        m.why === P.REFUSE.BUSY
+          ? tr('kvm.partner_driving_me', null, '{Name} is driving {me}')
+          : m.why === P.REFUSE.NOT_ALLOWED
+            ? tr('kvm.not_accept_input', null, "{Name} doesn't accept input from {me}")
+            : tr('kvm.partner_refused', null, '{Name} refused')
+      );
     });
     link.on(T.KVM_RELEASE, (m) => {
-      if (this.mode === 'driven' && m.route >= this.peerRoute) this._drivenHome('{Name} took its input back', false);
+      if (this.mode === 'driven' && m.route >= this.peerRoute) this._drivenHome(tr('kvm.took_input_back', null, '{Name} took its input back'), false);
     });
     link.on(T.KVM_HOME, (m) => {
       if (this.mode !== 'driving' || m.route !== this.route) return;
@@ -418,7 +426,7 @@ class Kvm {
         }
         break;
       case 'captureEnded': // dead-man, or a grab another app holds: input is back here
-        if (this.mode === 'driving') this._release(msg.reason === 'grab' ? 'Another app is holding the mouse or keyboard' : '');
+        if (this.mode === 'driving') this._release(msg.reason === 'grab' ? tr('kvm.another_app_grab', null, 'Another app is holding the mouse or keyboard') : '');
         break;
     }
   }
@@ -433,7 +441,7 @@ class Kvm {
     this._clearAccept();
     const route = this.route;
     this.acceptTimer = setTimeout(() => {
-      if (this.mode === 'driving' && this.route === route) this._goHome('Your Mac didn’t answer');
+      if (this.mode === 'driving' && this.route === route) this._goHome(tr('kvm.partner_no_answer', null, 'Your Mac didn’t answer'));
     }, P.KVM_TAKE_TIMEOUT_MS);
   }
 

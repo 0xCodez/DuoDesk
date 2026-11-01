@@ -11,6 +11,7 @@ const { app } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { t: tr } = require('../shared/i18n.js');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
@@ -233,8 +234,10 @@ class DragRecv {
       this.link.send({ t: T.FILES_DONE, batch: c.batch, ok: all, where: c.where, files: ok });
       if (this.onPasted) this.onPasted({ kind: 'paste', files: ok, count: c.files.size, ok: all });
     }
-    const label = c.count > 1 ? c.count + ' items' : c.name;
-    this.last = { ok: result === 'dropped', text: result === 'dropped' ? label + ' dropped' + (where ? ' in ' + where : '') : label + ': ' + result, at: Date.now() };
+    const label = c.count > 1 ? tr('files.n_items', { count: c.count }, c.count + ' items') : c.name;
+    const text = result === 'dropped' ? (where ? tr('win_dragrecv.dropped_in', { label, where }, label + ' dropped in ' + where) : tr('win_dragrecv.dropped', { label }, label + ' dropped'))
+      : result === 'cancelled' ? tr('win_dragrecv.cancelled', { label }, label + ': cancelled') : tr('win_dragrecv.failed', { label }, label + ': ' + result);
+    this.last = { ok: result === 'dropped', text, at: Date.now() };
     setTimeout(() => fs.rm(c.dir, { recursive: true, force: true }, () => {}), 2000); // the target has read it
     this.onChange();
   }

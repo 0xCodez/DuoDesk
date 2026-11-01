@@ -8,6 +8,7 @@
 const P = window.MacShareProtocol;
 const T = P.T;
 const api = window.appview;
+const tr = (k, p, d) => (window.DuoDeskI18n ? window.DuoDeskI18n.t(k, p, d) : (d || k));
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 
@@ -40,7 +41,7 @@ async function onOffer(m) {
   const my = (pc = new RTCPeerConnection({ iceServers: [] }));
   const queue = (pending = []);
   const ms = new MediaStream();
-  setOverlay('Connecting…');
+  setOverlay(tr('appview.connecting', null, 'Connecting…'));
 
   my.ontrack = (e) => {
     const r = e.receiver;
@@ -52,7 +53,7 @@ async function onOffer(m) {
   };
   my.onicecandidate = (e) => e.candidate && my === pc && api.send({ t: T.RTC2_ICE, session: m.session, candidate: e.candidate.toJSON() });
   my.onconnectionstatechange = () => {
-    if (my === pc && (my.connectionState === 'failed' || my.connectionState === 'disconnected')) setOverlay('Reconnecting…');
+    if (my === pc && (my.connectionState === 'failed' || my.connectionState === 'disconnected')) setOverlay(tr('appview.reconnecting', null, 'Reconnecting…'));
   };
 
   try {
@@ -70,7 +71,7 @@ async function onOffer(m) {
     for (const c of queue) await my.addIceCandidate(c).catch(() => {});
     if (my === pc) pending = null;
   } catch (e) {
-    if (my === pc) setOverlay('Could not show the window: ' + e.message);
+    if (my === pc) setOverlay(tr('appview.could_not_show', { error: e.message }, 'Could not show the window: ' + e.message));
   }
 }
 

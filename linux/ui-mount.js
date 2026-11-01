@@ -17,17 +17,18 @@ UI.tab({
   badge: (s) => (s.mount && s.mount.mounted ? 'on' : ''),
   build(body) {
     const { api } = UI;
-    const mountBtn = UI.button('Mount', () => api.phoneMount(), 'small primary');
-    const showBtn = UI.button('Show', () => api.phoneMount(), 'small');
-    const unmountBtn = UI.button('Unmount', () => api.phoneUnmount(), 'small');
-    const driveRow = UI.row('Show the phone in the file manager', '', [mountBtn, showBtn, unmountBtn]);
-    const offRow = UI.row('Off', 'Switch it on to mount the phone');
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
+    const mountBtn = UI.button(t('nav.mount', null, 'Mount'), () => api.phoneMount(), 'small primary');
+    const showBtn = UI.button(t('mount.show', null, 'Show'), () => api.phoneMount(), 'small');
+    const unmountBtn = UI.button(t('mount.unmount', null, 'Unmount'), () => api.phoneUnmount(), 'small');
+    const driveRow = UI.row(t('mount.show_the_phone_in_the', null, 'Show the phone in the file manager'), '', [mountBtn, showBtn, unmountBtn]);
+    const offRow = UI.row(t('clipboard.off', null, 'Off'), t('mount.switch_it_on_to_mount', null, 'Switch it on to mount the phone'));
     // Mount is ADB: with the phone's debugging off it can't, and says so (Phone Files needs none).
     const adbText = UI.el('div', { class: 'hub-top-text' });
     const adbNote = UI.el('div', { class: 'note warn hub-top', hidden: true }, [UI.el('div', { class: 'hub-top-body' }, [adbText]),
-      UI.el('div', { class: 'hub-top-actions' }, [UI.button('Wireless Debugging', () => UI.go('connection'), 'small'), UI.button('Phone Files', () => UI.go('pfiles'), 'small primary')])]);
+      UI.el('div', { class: 'hub-top-actions' }, [UI.button(t('cursor.wireless_debugging', null, 'Wireless Debugging'), () => UI.go('connection'), 'small'), UI.button(t('mount.phone_files', null, 'Phone Files'), () => UI.go('pfiles'), 'small primary')])]);
     body.append(adbNote);
-    body.append(UI.card('Drive', [offRow, driveRow]));
+    body.append(UI.card(t('mount.drive', null, 'Drive'), [offRow, driveRow]));
 
     return (s) => {
       const d = s.mount || {};
@@ -36,17 +37,17 @@ UI.tab({
       const adbOff = !!ph.connected && !ph.connected.usb && !d.mounted && (adb.wifi === false || (ph.bridge && ph.bridge.state === 'waitingWifi'));
       adbNote.hidden = !d.on || !adbOff;
       adbText.textContent = adb.devOptions === false
-        ? 'Mount works through ADB, and Developer options are off on the phone. Switch on Developer options and Wireless debugging (Connection), or plug the phone in with USB debugging on. Phone Files works without it.'
-        : 'Mount works through ADB, and wireless debugging is off on the phone. Switch it on (Connection), or plug the phone in with USB debugging on. Phone Files works without it.';
+        ? t('mount.dev_options_off', null, 'Mount works through ADB, and Developer options are off on the phone. Switch on Developer options and Wireless debugging (Connection), or plug the phone in with USB debugging on. Phone Files works without it.')
+        : t('mount.wireless_off', null, 'Mount works through ADB, and wireless debugging is off on the phone. Switch it on (Connection), or plug the phone in with USB debugging on. Phone Files works without it.');
       offRow.hidden = !!d.on;
       driveRow.hidden = !d.on;
       mountBtn.hidden = !!d.mounted;
-      mountBtn.textContent = d.busy === 'mounting' ? 'Mounting…' : 'Mount';
+      mountBtn.textContent = d.busy === 'mounting' ? t('mount.mounting', null, 'Mounting…') : t('nav.mount', null, 'Mount');
       mountBtn.disabled = !!d.busy;
       showBtn.hidden = unmountBtn.hidden = !d.mounted;
       unmountBtn.disabled = !!d.busy;
-      driveRow.setHint(d.message || (d.mounted ? `In the file manager’s sidebar, ${d.via === 'usb' ? 'through the cable' : 'over wireless debugging'}.`
-        : 'Plug the phone in with USB debugging on, or connect it with wireless debugging, then Mount.'));
+      driveRow.setHint(d.message || (d.mounted ? (d.via === 'usb' ? t('mount.sidebar_cable', null, 'In the file manager’s sidebar, through the cable.') : t('mount.sidebar_wireless', null, 'In the file manager’s sidebar, over wireless debugging.'))
+        : t('mount.plug_the_phone_in_with', null, 'Plug the phone in with USB debugging on, or connect it with wireless debugging, then Mount.')));
     };
   },
 });

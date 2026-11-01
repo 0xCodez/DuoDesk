@@ -10,6 +10,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { t: tr } = require('../shared/i18n.js');
 const P = require('../shared/protocol.js');
 
 const T = P.T;
@@ -45,7 +46,7 @@ class FileDrop {
   // paths from the Monitor 2 drop (x/y normalized over the video, or null), or from a drag across
   // the edge (release = true: the Mac places them where its pointer is when the button comes up).
   drop(paths, x, y, release) {
-    if (!this.settings.files.dropToMac) return this._report(null, false, 'Dropping files onto Monitor 2 is off (Files tab)');
+    if (!this.settings.files.dropToMac) return this._report(null, false, tr('win_filedrop.drop_off', null, 'Dropping files onto Monitor 2 is off (Files tab)'));
     const files = [];
     for (const p of paths) {
       try {
@@ -53,7 +54,7 @@ class FileDrop {
         if (st.isFile()) files.push({ path: p, size: st.size });
       } catch (_) { /* gone */ }
     }
-    if (!files.length) return this._report(null, false, 'Only files can be sent (not folders)');
+    if (!files.length) return this._report(null, false, tr('win_filedrop.only_files', null, 'Only files can be sent (not folders)'));
     files.forEach((f, i) => this.queue.push({ ...f, x, y, release: !!release, index: i, count: files.length }));
     this._next();
   }
@@ -91,7 +92,7 @@ class FileDrop {
     this.batches.delete(m.batch);
     this.queue = this.queue.filter((j) => j.batch !== m.batch);
     if (this.onBatchProgress) this.onBatchProgress({ ...b, done: true, ok: !!m.ok });
-    this._report(b.name, !!m.ok, m.ok ? 'Sent' + (typeof m.where === 'string' && m.where ? ' to ' + m.where.slice(0, 300) : '') : 'Not everything arrived');
+    this._report(b.name, !!m.ok, m.ok ? (typeof m.where === 'string' && m.where ? tr('win_filedrop.sent_to', { where: m.where.slice(0, 300) }, 'Sent to ' + m.where.slice(0, 300)) : tr('win_filedrop.sent', null, 'Sent')) : tr('win_filedrop.not_everything', null, 'Not everything arrived'));
   }
 
   // Right after kvm.take: describe everything in `drag.start`, then send the files.
@@ -109,10 +110,10 @@ class FileDrop {
     if (!this.drag || m.drag !== this.drag.drag) return;
     const d = this.drag;
     this.drag = null;
-    if (m.result === 'dropped') this._report(d.name, true, 'Dropped on {name}' + (typeof m.where === 'string' && m.where ? ' in ' + m.where : ''));
+    if (m.result === 'dropped') this._report(d.name, true, typeof m.where === 'string' && m.where ? tr('win_filedrop.dropped_on_in', { where: m.where }, 'Dropped on {name} in ' + m.where) : tr('win_filedrop.dropped_on', null, 'Dropped on {name}'));
     else {
       this._stopDrag(d.drag, false);
-      this._report(d.name, false, m.result === 'failed' ? '{Name} couldn’t take the drag' : 'Drag cancelled');
+      this._report(d.name, false, m.result === 'failed' ? tr('win_filedrop.drag_refused', null, '{Name} couldn’t take the drag') : tr('win_filedrop.drag_cancelled', null, 'Drag cancelled'));
     }
   }
 
@@ -150,8 +151,8 @@ class FileDrop {
 
   async _send(job) {
     const name = path.basename(job.path);
-    if (this.link.status.state !== 'connected') throw new Error('Not connected to {name}');
-    if (job.size > P.FILE_MAX_BYTES) throw new Error('Too big');
+    if (this.link.status.state !== 'connected') throw new Error(tr('win_filedrop.not_connected', null, 'Not connected to {name}'));
+    if (job.size > P.FILE_MAX_BYTES) throw new Error(tr('win_filedrop.too_big', null, 'Too big'));
     const id = crypto.randomBytes(8).toString('hex');
     const cur = { id, name, size: job.size, sent: 0, index: job.index, count: job.count, release: job.release, drag: job.drag, batch: job.batch };
     this.current = cur;
@@ -176,7 +177,7 @@ class FileDrop {
     const c = this.link.current;
     const a = await this._wait(id, [T.FILE_ACCEPT, T.FILE_REFUSE, T.FILE_CANCEL], c && c.transport === 'ble' ? ANSWER_BLE_MS : ANSWER_MS);
     if (a.t !== T.FILE_ACCEPT) {
-      const e = new Error(a.t === T.FILE_REFUSE ? refuseText(a.why) : 'Cancelled');
+      const e = new Error(a.t === T.FILE_REFUSE ? refuseText(a.why) : tr('win_filedrop.cancelled', null, 'Cancelled'));
       e.refused = a.t === T.FILE_REFUSE ? a.why : '';
       throw e;
     }
@@ -185,9 +186,9 @@ class FileDrop {
     this.link.send({ t: T.FILE_END, id, sha256 });
     if (job.drag) return; // the Mac answers file.done when the drop target has it; drag.end says how it went
     const d = await this._wait(id, [T.FILE_DONE, T.FILE_CANCEL], DONE_MS);
-    if (d.t !== T.FILE_DONE || !d.ok) throw new Error(d.error || '{Name} couldn’t save it');
+    if (d.t !== T.FILE_DONE || !d.ok) throw new Error(d.error || tr('win_filedrop.couldnt_save', null, '{Name} couldn’t save it'));
     if (job.batch) return; // listed once, on files.done
-    this._report(name, true, d.path ? 'Saved on {name}: ' + d.path : 'Saved on {name}');
+    this._report(name, true, d.path ? tr('win_filedrop.saved_on_path', { path: d.path }, 'Saved on {name}: ' + d.path) : tr('win_filedrop.saved_on', null, 'Saved on {name}'));
   }
 
   // Fast files: the SHA-256 once it went, or null to send it the old way (an older app, Bluetooth, a
@@ -203,7 +204,7 @@ class FileDrop {
         if (now - shown >= 100) shown = now;
       });
     } catch (e) {
-      if (this.active.get(cur.id) !== cur) throw new Error('Cancelled');
+      if (this.active.get(cur.id) !== cur) throw new Error(tr('win_filedrop.cancelled', null, 'Cancelled'));
       if (!e.early) {
         this.link.send({ t: T.FILE_CANCEL, id: cur.id });
         throw e;
@@ -221,7 +222,7 @@ class FileDrop {
     const stream = fs.createReadStream(job.path, { highWaterMark: P.FILE_CHUNK_BYTES });
     try {
       for await (const chunk of stream) {
-        if (this.active.get(id) !== cur) throw new Error('Cancelled');
+        if (this.active.get(id) !== cur) throw new Error(tr('win_filedrop.cancelled', null, 'Cancelled'));
         while (this.link.bufferedAmount > HIGH_WATER) await sleep(15);
         if (this.link.status.state !== 'connected') throw new Error('{Name} disconnected');
         hash.update(chunk);
@@ -279,12 +280,12 @@ class FileDrop {
       const b = c.batch && this.batches.get(c.batch);
       if (b) {
         this.batches.delete(c.batch);
-        this._report(b.name, false, 'Cancelled');
+        this._report(b.name, false, tr('win_filedrop.cancelled', null, 'Cancelled'));
       }
       if (!c.drag) all = true;
       this.active.delete(c.id); // the chunk loop stops at its next check
       if (this.link.fx) this.link.fx.cancel(c.id);
-      if (w) w.reject(new Error('Cancelled'));
+      if (w) w.reject(new Error(tr('win_filedrop.cancelled', null, 'Cancelled')));
     }
     if (all) this.queue = [];
     this.current = null;
@@ -349,7 +350,11 @@ function plan(paths) {
 }
 
 function refuseText(why) {
-  return { not_allowed: '{Name} doesn’t accept dropped files (its Files tab)', too_big: 'Too big for {name}', busy: '{Name} is busy with another file' }[why] || '{Name} refused it';
+  return {
+    not_allowed: tr('win_filedrop.refuse_not_allowed', null, '{Name} doesn’t accept dropped files (its Files tab)'),
+    too_big: tr('win_filedrop.refuse_too_big', null, 'Too big for {name}'),
+    busy: tr('win_filedrop.refuse_busy', null, '{Name} is busy with another file'),
+  }[why] || tr('win_filedrop.refuse_other', null, '{Name} refused it');
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

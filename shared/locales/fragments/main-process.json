@@ -1,0 +1,286 @@
+{
+  "main.code_copied": {
+    "en": "Code copied",
+    "pt-BR": "Código copiado"
+  },
+  "main.cursor_sharing_on": {
+    "en": "Cursor sharing on",
+    "pt-BR": "Compartilhamento de cursor ativado"
+  },
+  "main.cursor_sharing_off": {
+    "en": "Cursor sharing off",
+    "pt-BR": "Compartilhamento de cursor desativado"
+  },
+  "main.cursor_sharing_off_ble": {
+    "en": "Cursor sharing off over Bluetooth",
+    "pt-BR": "Compartilhamento de cursor desativado via Bluetooth"
+  },
+  "main.turned_on_on": {
+    "en": "Turned on on {name}",
+    "pt-BR": "Ativado em {name}"
+  },
+  "main.turned_off_on": {
+    "en": "Turned off on {name}",
+    "pt-BR": "Desativado em {name}"
+  },
+  "main.with_peer_double_tap_off": {
+    "en": "With {name}. Double-tap {key} to turn it off",
+    "pt-BR": "Com {name}. Toque duplo em {key} para desativar"
+  },
+  "main.double_tap_off": {
+    "en": "Double-tap {key} to turn it off",
+    "pt-BR": "Toque duplo em {key} para desativar"
+  },
+  "main.comes_back_wifi_double_tap_on": {
+    "en": "It comes back on Wi-Fi. Double-tap {key} to turn it on",
+    "pt-BR": "Volta no Wi-Fi. Toque duplo em {key} para ativar"
+  },
+  "main.double_tap_on": {
+    "en": "Double-tap {key} to turn it on",
+    "pt-BR": "Toque duplo em {key} para ativar"
+  },
+  "main.typing_on": {
+    "en": "Typing on {name}",
+    "pt-BR": "Digitando em {name}"
+  },
+  "main.using_peer": {
+    "en": "Using {name}",
+    "pt-BR": "Usando {name}"
+  },
+  "main.peer_is_using_me": {
+    "en": "{name} is using {me}",
+    "pt-BR": "{name} está usando {me}"
+  },
+  "main.back_on_me": {
+    "en": "Back on {me}",
+    "pt-BR": "De volta em {me}"
+  },
+  "main.cursor_locked_on": {
+    "en": "Cursor locked on {where}",
+    "pt-BR": "Cursor travado em {where}"
+  },
+  "main.cursor_unlocked": {
+    "en": "Cursor unlocked",
+    "pt-BR": "Cursor destravado"
+  },
+  "main.sending_to_percent": {
+    "en": "Sending {name} to {peer} · {percent} %",
+    "pt-BR": "Enviando {name} para {peer} · {percent} %"
+  },
+  "main.sending_name": {
+    "en": "Sending {name}",
+    "pt-BR": "Enviando {name}"
+  },
+  "main.files_stopped": {
+    "en": "Files stopped",
+    "pt-BR": "Arquivos interrompidos"
+  },
+  "main.peer_disconnected": {
+    "en": "{name} disconnected",
+    "pt-BR": "{name} desconectou"
+  },
+  "main.received_one_file": {
+    "en": "Received 1 file",
+    "pt-BR": "1 arquivo recebido"
+  },
+  "main.received_n_files": {
+    "en": "Received {count} files",
+    "pt-BR": "{count} arquivos recebidos"
+  },
+  "main.nothing_arrived": {
+    "en": "Nothing arrived",
+    "pt-BR": "Nada recebido"
+  },
+  "main.from_peer": {
+    "en": "From {name}",
+    "pt-BR": "De {name}"
+  },
+  "main.opening_wireless_debugging_ready": {
+    "en": "Opening it when wireless debugging is ready…",
+    "pt-BR": "Abrindo quando a depuração sem fio estiver pronta…"
+  },
+  "main.sent_to_peer_colon": {
+    "en": "Sent to {name}: ",
+    "pt-BR": "Enviado para {name}: "
+  },
+  "main.from_peer_colon": {
+    "en": "From {name}: ",
+    "pt-BR": "De {name}: "
+  },
+  "main.moving_to_wifi": {
+    "en": "Moving to Wi-Fi with {name}…",
+    "pt-BR": "Mudando para Wi-Fi com {name}…"
+  },
+  "main.wifi_didnt_come_up": {
+    "en": "Wi-Fi with {name} didn’t come up",
+    "pt-BR": "O Wi-Fi com {name} não conectou"
+  },
+  "main.opening_phone_ready": {
+    "en": "Opening it when the phone is ready…",
+    "pt-BR": "Abrindo quando o telefone estiver pronto…"
+  },
+  "main.opening_peer_connects": {
+    "en": "Opening it when {name} connects…",
+    "pt-BR": "Abrindo quando {name} conectar…"
+  },
+  "main.not_connected": {
+    "en": "Not connected",
+    "pt-BR": "Não conectado"
+  },
+  "main.open_duodesk_other_first": {
+    "en": "Open DuoDesk on the other computer first",
+    "pt-BR": "Abra o DuoDesk no outro computador primeiro"
+  },
+  "main.sending_item_to_peer_one": {
+    "en": "Sending 1 item to {name}",
+    "pt-BR": "Enviando 1 item para {name}"
+  },
+  "main.sending_item_to_peer_other": {
+    "en": "Sending {count} items to {name}",
+    "pt-BR": "Enviando {count} itens para {name}"
+  },
+  "main.received_file_from_peer_one": {
+    "en": "Received 1 file from {name}",
+    "pt-BR": "1 arquivo recebido de {name}"
+  },
+  "main.received_file_from_peer_other": {
+    "en": "Received {count} files from {name}",
+    "pt-BR": "{count} arquivos recebidos de {name}"
+  },
+  "main.the_other_computer": {
+    "en": "the other computer",
+    "pt-BR": "o outro computador"
+  },
+  "rezume.continue_title_from": {
+    "en": "Continue {title} from {from}",
+    "pt-BR": "Continuar {title} de {from}"
+  },
+  "rezume.from_name_what": {
+    "en": "From {from} · {what}",
+    "pt-BR": "De {from} · {what}"
+  },
+  "apps.opening_on_peer": {
+    "en": "Opening {name} on {peer}…",
+    "pt-BR": "Abrindo {name} em {peer}…"
+  },
+  "apps.the_app": {
+    "en": "the app",
+    "pt-BR": "o aplicativo"
+  },
+  "dragrecv.drop_on_folder_or_desktop": {
+    "en": "Drop {name} on a folder or the desktop",
+    "pt-BR": "Solte {name} em uma pasta ou na área de trabalho"
+  },
+  "pcscreen.choose_virtual_monitor": {
+    "en": "Choose “Virtual remote monitor” to extend onto {name}",
+    "pt-BR": "Escolha “Monitor remoto virtual” para estender em {name}"
+  },
+  "sendto.not_connected_yet": {
+    "en": "Not connected yet",
+    "pt-BR": "Ainda não conectado"
+  },
+  "sendto.sending_once_connected": {
+    "en": "Sending once {name} is connected",
+    "pt-BR": "Enviando assim que {name} conectar"
+  },
+  "sendto.nothing_to_send": {
+    "en": "Nothing to send",
+    "pt-BR": "Nada para enviar"
+  },
+  "sendto.couldnt_read_item": {
+    "en": "Couldn’t read {name}",
+    "pt-BR": "Não foi possível ler {name}"
+  },
+  "sendto.those_items": {
+    "en": "those items",
+    "pt-BR": "esses itens"
+  },
+  "sendto.sending_n_items_to": {
+    "en": "Sending {items} to {who}",
+    "pt-BR": "Enviando {items} para {who}"
+  },
+  "sendto.n_items_other": {
+    "en": "{count} items",
+    "pt-BR": "{count} itens"
+  },
+  "fclip.files_not_there_anymore": {
+    "en": "Those files aren’t there any more",
+    "pt-BR": "Esses arquivos não estão mais lá"
+  },
+  "fclip.paste_with_shortcut": {
+    "en": "{done}: they’re on the clipboard, paste them with {shortcut}",
+    "pt-BR": "{done}: estão na área de transferência, cole com {shortcut}"
+  },
+  "fclip.select_files_explorer": {
+    "en": "Select files in File Explorer first",
+    "pt-BR": "Selecione os arquivos no Explorador de Arquivos primeiro"
+  },
+  "fclip.select_files_file_manager": {
+    "en": "Select files in the file manager first",
+    "pt-BR": "Selecione os arquivos no gerenciador de arquivos primeiro"
+  },
+  "fclip.nothing_to_copy_there": {
+    "en": "Nothing to copy there",
+    "pt-BR": "Nada para copiar lá"
+  },
+  "fclip.copied_items_for_peer_one": {
+    "en": "Copied {name} for {peer}",
+    "pt-BR": "Copiado {name} para {peer}"
+  },
+  "fclip.copied_items_for_peer_other": {
+    "en": "Copied {count} items for {peer}",
+    "pt-BR": "Copiados {count} itens para {peer}"
+  },
+  "fclip.nothing_copied_on_peer": {
+    "en": "Nothing copied on {peer}",
+    "pt-BR": "Nada copiado em {peer}"
+  },
+  "fclip.pasting_files_one": {
+    "en": "Pasting 1 file…",
+    "pt-BR": "Colando 1 arquivo…"
+  },
+  "fclip.pasting_files_other": {
+    "en": "Pasting {count} files…",
+    "pt-BR": "Colando {count} arquivos…"
+  },
+  "explorer.connect_your_phone": {
+    "en": "Connect your phone",
+    "pt-BR": "Conecte seu telefone"
+  },
+  "explorer.then_choose_files": {
+    "en": "Then choose files in Phone Files",
+    "pt-BR": "Depois escolha os arquivos em Arquivos do telefone"
+  },
+  "explorer.capture_needs_it": {
+    "en": "Capture from phone needs it",
+    "pt-BR": "Capturar do telefone precisa disso"
+  },
+  "explorer.take_photos_on_phone": {
+    "en": "Take photos on your phone",
+    "pt-BR": "Tire fotos no seu telefone"
+  },
+  "explorer.they_come_into_folder": {
+    "en": "They come into {folder}",
+    "pt-BR": "Elas entram em {folder}"
+  },
+  "camshare.peer_viewing_camera": {
+    "en": "{name} is viewing this computer’s camera",
+    "pt-BR": "{name} está visualizando a câmera deste computador"
+  },
+  "camshare.camera_didnt_start": {
+    "en": "The camera didn’t start: {error}",
+    "pt-BR": "A câmera não iniciou: {error}"
+  },
+  "clipimage.copied_paste_with": {
+    "en": "{kind} from {name} copied: paste it with {keys}",
+    "pt-BR": "{kind} de {name} copiada: cole com {keys}"
+  },
+  "clipimage.kind_screenshot": {
+    "en": "Screenshot",
+    "pt-BR": "Captura de tela"
+  },
+  "clipimage.kind_picture": {
+    "en": "Picture",
+    "pt-BR": "Imagem"
+  }
+}

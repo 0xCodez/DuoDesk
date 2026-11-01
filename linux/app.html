@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="../shared/pagefx/support.css">
 </head>
 <body>
-  <nav id="sidebar" aria-label="Sections">
+  <nav id="sidebar" aria-label="Sections" data-i18n-aria-label="app.sections">
     <div class="identity">
       <div class="app-mark" aria-hidden="true"></div>
       <div class="who">
@@ -39,7 +39,7 @@
     <section id="banner" class="banner" hidden>
       <div class="banner-text">
         <div><strong id="pair-title">Pairing</strong></div>
-        <div id="pair-code-wrap"><span class="code-label">Code</span> <span id="pair-code" class="code"></span></div>
+        <div id="pair-code-wrap"><span class="code-label" data-i18n="pair.code">Code</span> <span id="pair-code" class="code"></span></div>
         <div id="pair-hint" class="hint"></div>
       </div>
       <div class="banner-actions">
@@ -50,6 +50,10 @@
     <div id="pages"></div>
   </main>
 
+  <script src="../shared/locales/en.js"></script>
+  <script src="../shared/locales/pt-BR.js"></script>
+  <script src="../shared/i18n.js"></script>
+  <script src="../shared/i18n-dom.js"></script>
   <script src="../shared/protocol.js"></script>
   <script src="ui-kit.js"></script>
   <script src="../shared/otp.js"></script>

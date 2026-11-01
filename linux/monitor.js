@@ -5,6 +5,7 @@
 const P = window.MacShareProtocol;
 const T = P.T;
 const api = window.monitor;
+const tr = (k, p, d) => (window.DuoDeskI18n ? window.DuoDeskI18n.t(k, p, d) : (d || k));
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const statsBox = document.getElementById('stats');
@@ -32,7 +33,12 @@ function pace(receiver) {
 // The peer's screen.state: while we wait for its picture, say what is happening.
 api.onRemote((r) => {
   if (pc || !r) return;
-  setOverlay(r.on ? 'Waiting for ' + (streamName || 'the picture') + '…' : r.remote ? 'Starting the screen over there…' : 'Not sharing. Turn on sharing over there.');
+  const target = streamName || tr('monitor.the_picture', null, 'the picture');
+  setOverlay(r.on
+    ? tr('monitor.waiting_for_picture', { target }, 'Waiting for ' + target + '…')
+    : r.remote
+      ? tr('monitor.starting_screen', null, 'Starting the screen over there…')
+      : tr('monitor.turn_on_sharing', null, 'Not sharing. Turn on sharing over there.'));
 });
 api.onPacing((p) => {
   const was = pacing;
@@ -93,7 +99,8 @@ async function onOffer(msg) {
   const my = (pc = new RTCPeerConnection({ iceServers: [] }));
   session = msg.session;
   const queue = (pending = []);
-  setOverlay('Connecting to ' + (streamName || 'the other computer') + '…');
+  const otherName = streamName || tr('monitor.the_other_computer', null, 'the other computer');
+  setOverlay(tr('monitor.connecting_to', { name: otherName }, 'Connecting to ' + otherName + '…'));
 
   my.ontrack = (e) => {
     if (e.track.kind === 'video') pace(e.receiver);
@@ -111,8 +118,8 @@ async function onOffer(msg) {
   };
   my.onconnectionstatechange = () => {
     if (my !== pc) return;
-    if (my.connectionState === 'failed') setOverlay('Reconnecting…');
-    else if (my.connectionState === 'disconnected') setOverlay('The video connection was interrupted…');
+    if (my.connectionState === 'failed') setOverlay(tr('monitor.reconnecting', null, 'Reconnecting…'));
+    else if (my.connectionState === 'disconnected') setOverlay(tr('monitor.interrupted', null, 'The video connection was interrupted…'));
     else if (my.connectionState === 'connected' && video.readyState >= 2) setOverlay('');
   };
 
@@ -126,7 +133,7 @@ async function onOffer(msg) {
     api.send({ t: T.RTC_ANSWER, session: msg.session, sdp: my.localDescription.sdp });
   } catch (err) {
     console.error('[monitor] offer failed', err);
-    if (my === pc) setOverlay('Could not start the video: ' + err.message);
+    if (my === pc) setOverlay(tr('monitor.could_not_start', { error: err.message }, 'Could not start the video: ' + err.message));
   }
 }
 
@@ -261,13 +268,16 @@ if (new URLSearchParams(location.search).get('test') === '1') {
         streamName = msg.name;
         streamAudio = msg.audio === true;
         applyAudio();
-        if (!pc) setOverlay('Waiting for ' + (streamName || 'the other computer') + '…');
+        if (!pc) {
+          const peer = streamName || tr('monitor.the_other_computer', null, 'the other computer');
+          setOverlay(tr('monitor.waiting_for_peer', { name: peer }, 'Waiting for ' + peer + '…'));
+        }
         break;
       case T.RTC_OFFER: onOffer(msg); break;
       case T.RTC_ICE: onIce(msg); break;
       case T.STREAM_STOP:
         closePc();
-        setOverlay('Mac is not sharing');
+        setOverlay(tr('monitor.not_sharing', null, 'Mac is not sharing'));
         break;
     }
   });

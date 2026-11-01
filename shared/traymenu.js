@@ -13,17 +13,19 @@
 //       rezume?: [{label, click}] (Continue …, Send … to: shared/rezume.js)}
 'use strict';
 
+const { t } = require('./i18n.js'); // the main process sets the language (settings.app.lang)
+
 const check = (label, o) => ({ label, type: 'checkbox', checked: !!o.checked, click: (i) => o.set(i.checked) });
 const sep = { type: 'separator' };
 
 function connectTo(m) {
   return {
-    label: 'Connect To',
+    label: t('tray.connect_to', null, 'Connect To'),
     submenu: [
-      ...(m.found.length ? m.found : [{ label: 'Nobody nearby', enabled: false }]),
+      ...(m.found.length ? m.found : [{ label: t('tray.nobody_nearby', null, 'Nobody nearby'), enabled: false }]),
       sep,
-      { label: 'Connect by Address…', click: m.byAddress },
-      { label: 'Look Again', click: m.lookAgain },
+      { label: t('tray.connect_by_address', null, 'Connect by Address…'), click: m.byAddress },
+      { label: t('tray.look_again', null, 'Look Again'), click: m.lookAgain },
     ],
   };
 }
@@ -31,35 +33,35 @@ function connectTo(m) {
 function template(m) {
   const status = { label: m.status, enabled: false };
   if (!m.connected) {
-    return [status, ...(m.again ? [m.again] : []), connectTo(m), sep, { label: 'Open DuoDesk…', click: m.open }, { label: 'Quit DuoDesk', click: m.quit }];
+    return [status, ...(m.again ? [m.again] : []), connectTo(m), sep, { label: t('tray.open_duodesk', null, 'Open DuoDesk…'), click: m.open }, { label: t('tray.quit', null, 'Quit DuoDesk'), click: m.quit }];
   }
   return [
     status,
-    ...(m.home ? [{ label: 'Bring Mouse and Keyboard Back', click: m.home }] : []),
+    ...(m.home ? [{ label: t('tray.bring_back', null, 'Bring Mouse and Keyboard Back'), click: m.home }] : []),
     ...(m.rezume && m.rezume.length ? [...m.rezume, sep] : []),
-    check('Cursor Sharing', m.shared),
+    check(t('tray.cursor_sharing', null, 'Cursor Sharing'), m.shared),
     sep,
     {
-      label: 'Mouse and Keyboard',
+      label: t('tray.mouse_keyboard', null, 'Mouse and Keyboard'),
       submenu: [
-        check('Share Keyboard', m.keyboard),
+        check(t('tray.share_keyboard', null, 'Share Keyboard'), m.keyboard),
         ...(m.lock ? [check(m.lock.label, m.lock)] : []),
         sep,
         check(m.drive.label, m.drive),
         ...(m.driven ? [check(m.driven.label, m.driven)] : []),
         sep,
-        check('Show a Popup When Switching', m.popup),
+        check(t('tray.popup_switching', null, 'Show a Popup When Switching'), m.popup),
       ],
     },
-    { label: 'Screen', submenu: m.screen.map((x) => check(x.label, x)) },
-    { label: 'Clipboard and Sound', submenu: [check('Share Clipboard', m.clipboard), check('Send Sound', m.sound)] },
-    { label: 'Files', submenu: [check('Drag Files Across the Screen Edge', m.drag), check(m.shortcuts.label, m.shortcuts)] },
-    { label: 'Connection', submenu: [...(m.disconnect ? [m.disconnect, sep] : []), connectTo(m)] },
+    { label: t('tray.screen', null, 'Screen'), submenu: m.screen.map((x) => check(x.label, x)) },
+    { label: t('tray.clipboard_sound', null, 'Clipboard and Sound'), submenu: [check(t('tray.share_clipboard', null, 'Share Clipboard'), m.clipboard), check(t('tray.send_sound', null, 'Send Sound'), m.sound)] },
+    { label: t('tray.files', null, 'Files'), submenu: [check(t('tray.drag_files', null, 'Drag Files Across the Screen Edge'), m.drag), check(m.shortcuts.label, m.shortcuts)] },
+    { label: t('tray.connection', null, 'Connection'), submenu: [...(m.disconnect ? [m.disconnect, sep] : []), connectTo(m)] },
     sep,
     ...(m.update ? [m.update] : []),
-    { label: 'Open DuoDesk…', click: m.open },
-    { label: 'Open Log Folder', click: m.log },
-    { label: 'Quit DuoDesk', click: m.quit },
+    { label: t('tray.open_duodesk', null, 'Open DuoDesk…'), click: m.open },
+    { label: t('tray.open_log', null, 'Open Log Folder'), click: m.log },
+    { label: t('tray.quit', null, 'Quit DuoDesk'), click: m.quit },
   ];
 }
 

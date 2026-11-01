@@ -15,6 +15,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { scriptElevated } = require('./ps');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const BIN = path.join(__dirname, '..', 'windows-helper', 'bin');
 const EXE = path.join(BIN, 'twindesk-vcam.exe');
@@ -58,13 +60,13 @@ const driver = {
   name: 'DuoDesk Camera',
 
   async check() {
-    if (Number((os.release().split('.')[2]) || 0) < 22000) return { supported: false, message: 'Needs Windows 11: Windows 10 has no virtual cameras' };
-    if (!fs.existsSync(EXE) || !fs.existsSync(DLL)) return { supported: false, message: 'Not in this build of DuoDesk' };
+    if (Number((os.release().split('.')[2]) || 0) < 22000) return { supported: false, message: tr('win_vcam.needs_win11', null, 'Needs Windows 11: Windows 10 has no virtual cameras') };
+    if (!fs.existsSync(EXE) || !fs.existsSync(DLL)) return { supported: false, message: tr('win_vcam.not_in_build', null, 'Not in this build of DuoDesk') };
     const [reg, st] = await Promise.all([registered(), exe('status')]);
     if (reg && st.camera === true) return { supported: true, installed: true };
     // Only the old "TwinDesk Camera": installed again (renamed) once per start; until then it works as it is.
     if (st.camera !== true && st.legacy === true) {
-      return migrating ? { supported: true, installed: true, message: 'Still named “TwinDesk Camera” here: it’s renamed at the next start' } : { supported: true, installed: false };
+      return migrating ? { supported: true, installed: true, message: tr('win_vcam.still_legacy_name', null, 'Still named “TwinDesk Camera” here: it’s renamed at the next start') } : { supported: true, installed: false };
     }
     return { supported: true, installed: false };
   },
@@ -91,16 +93,16 @@ const driver = {
       try {
         await scriptElevated('vcam-install', { Dll: DLL, Name: dllName(), Log: log }, 120000);
       } catch (e) {
-        throw new Error(/cancel/i.test(e.message) ? 'The administrator prompt was declined' : e.message);
+        throw new Error(/cancel/i.test(e.message) ? tr('vdd.admin_declined', null, 'The administrator prompt was declined') : e.message);
       }
-      const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: the setup didn’t finish';
+      const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: ' + tr('win_vcam.setup_unfinished', null, 'the setup didn’t finish');
       try { fs.unlinkSync(log); } catch {}
       if (r !== 'ok') throw new Error(r.replace(/^error: /, ''));
     }
     const st = await exe('status');
     if (st.camera !== true) {
       const r = await exe('add');
-      if (!r.ok) throw new Error('Windows didn’t add the camera: ' + (r.error || 'unknown'));
+      if (!r.ok) throw new Error(tr('win_vcam.didnt_add', { error: r.error || 'unknown' }, 'Windows didn’t add the camera: ' + (r.error || 'unknown')));
     }
   },
 

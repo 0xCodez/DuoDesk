@@ -13,14 +13,15 @@
 // Their personality headers are shared/pagefx/support.js, fed by the 'duodesk-support' window event.
 // CSP: no innerHTML, no style attributes (classes and the CSSOM only).
 'use strict';
+var tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
 
 (() => {
   const { el } = UI;
   const api = () => UI.api || window.macshare || {};
   const call = (name, arg) => {
     const f = api()[name];
-    if (typeof f !== 'function') return Promise.resolve({ ok: false, error: 'Not available in this build of DuoDesk' });
-    return Promise.resolve().then(() => f(arg)).catch(() => ({ ok: false, error: 'Something went wrong' }));
+    if (typeof f !== 'function') return Promise.resolve({ ok: false, error: tr('support.not_available', null, 'Not available in this build of DuoDesk') });
+    return Promise.resolve().then(() => f(arg)).catch(() => ({ ok: false, error: tr('support.went_wrong', null, 'Something went wrong') }));
   };
   // The headers (pagefx/support.js) read the last snapshot and listen for changes.
   UI.support = { tip: {}, feedback: {} };
@@ -49,9 +50,9 @@
   UI.tab({
     id: 'tip',
     order: 112,
-    title: 'Tip',
-    heading: 'Leave a tip',
-    desc: 'DuoDesk is free and open source. A tip keeps it that way.',
+    title: tr('tip.tab_title', null, 'Tip'),
+    heading: tr('tip.heading', null, 'Leave a tip'),
+    desc: tr('tip.desc', null, 'DuoDesk is free and open source. A tip keeps it that way.'),
     icon: 'tip',
     color: 'linear-gradient(#ff9ec0, #c77dff)',
     bottom: true,
@@ -71,23 +72,23 @@
       const profile = el('div', { class: 'card sp-profile keep-on' }, [avatar, el('div', { class: 'sp-who' }, [who, tagline, bio])]);
 
       // How much
-      const presets = el('div', { class: 'sp-amounts', attrs: { role: 'radiogroup', 'aria-label': 'Amount' } });
-      const custom = el('input', { type: 'number', class: 'sp-custom', min: '1', step: '1', placeholder: 'Other', attrs: { 'aria-label': 'Another amount', inputmode: 'decimal' } });
-      const freq = UI.segmented([{ value: false, label: 'One time' }, { value: true, label: 'Monthly' }], (v) => { monthly = v; freq.set(v); sync(); });
+      const presets = el('div', { class: 'sp-amounts', attrs: { role: 'radiogroup', 'aria-label': tr('tip.amount_aria', null, 'Amount') } });
+      const custom = el('input', { type: 'number', class: 'sp-custom', min: '1', step: '1', placeholder: tr('tip.other_placeholder', null, 'Other'), attrs: { 'aria-label': tr('tip.other_aria', null, 'Another amount'), inputmode: 'decimal' } });
+      const freq = UI.segmented([{ value: false, label: tr('tip.one_time', null, 'One time') }, { value: true, label: tr('tip.monthly', null, 'Monthly') }], (v) => { monthly = v; freq.set(v); sync(); });
       freq.el.classList.add('sp-freq');
       freq.set(false);
-      const nameIn = el('input', { type: 'text', class: 'sp-input', maxLength: 60, placeholder: 'Anonymous', attrs: { autocomplete: 'off' } });
-      const noteIn = el('textarea', { class: 'sp-input sp-note', maxLength: 280, rows: 2, placeholder: 'Say something nice (optional)' });
+      const nameIn = el('input', { type: 'text', class: 'sp-input', maxLength: 60, placeholder: tr('tip.anon_placeholder', null, 'Anonymous'), attrs: { autocomplete: 'off' } });
+      const noteIn = el('textarea', { class: 'sp-input sp-note', maxLength: 280, rows: 2, placeholder: tr('tip.say_something', null, 'Say something nice (optional)') });
       const noteCount = el('span', { class: 'sp-count', text: '0 / 280' });
-      const cta = UI.button('Leave a tip', () => go(), 'primary sp-cta');
+      const cta = UI.button(tr('tip.cta_button', null, 'Leave a tip'), () => go(), 'primary sp-cta');
       const status = el('div', { class: 'sp-status', hidden: true, attrs: { role: 'status', 'aria-live': 'polite' } });
-      const fine = el('div', { class: 'sp-fine', text: 'Opens Stripe Checkout in your browser. Nothing is charged until you pay there.' });
-      const formWrap = UI.card('Your tip', [
+      const fine = el('div', { class: 'sp-fine', text: tr('tip.fine_print', null, 'Opens Stripe Checkout in your browser. Nothing is charged until you pay there.') });
+      const formWrap = UI.card(tr('tip.your_tip', null, 'Your tip'), [
         el('div', { class: 'sp-amount-row' }, [presets, custom]),
-        el('div', { class: 'sp-freq-row' }, [freq.el, el('span', { class: 'sp-freq-hint', text: 'Monthly can be cancelled any time from the receipt Stripe sends.' })]),
+        el('div', { class: 'sp-freq-row' }, [freq.el, el('span', { class: 'sp-freq-hint', text: tr('tip.monthly_hint', null, 'Monthly can be cancelled any time from the receipt Stripe sends.') })]),
         el('div', { class: 'sp-fields' }, [
-          field('Name on the supporters list', nameIn),
-          field('Message', noteIn, noteCount),
+          field(tr('tip.name_field', null, 'Name on the supporters list'), nameIn),
+          field(tr('tip.msg_field', null, 'Message'), noteIn, noteCount),
         ]),
         el('div', { class: 'sp-actions' }, [cta, status]),
         fine,
@@ -96,12 +97,12 @@
       // Who else did
       const supCount = el('span', { class: 'sp-sup-count' });
       const supList = el('ul', { class: 'sp-sup-list' });
-      const supEmpty = el('div', { class: 'sp-sup-empty', text: 'No tips yet. Yours could be the first.' });
-      const supWrap = UI.card('Supporters', [supEmpty, supList], { actions: [supCount], cls: 'sp-sup keep-on' });
+      const supEmpty = el('div', { class: 'sp-sup-empty', text: tr('tip.no_tips_yet', null, 'No tips yet. Yours could be the first.') });
+      const supWrap = UI.card(tr('tip.supporters', null, 'Supporters'), [supEmpty, supList], { actions: [supCount], cls: 'sp-sup keep-on' });
 
       // Offline / error
       const errText = el('span', { class: 'sp-err-text' });
-      const retry = UI.button('Try again', () => load(true), 'small');
+      const retry = UI.button(tr('hub.try_again', null, 'Try again'), () => load(true), 'small');
       const err = el('div', { class: 'note warn sp-err', hidden: true }, [errText, retry]);
       const skeleton = el('div', { class: 'card sp-skeleton keep-on', attrs: { 'aria-hidden': 'true' } }, [el('i'), el('i'), el('i')]);
 
@@ -121,7 +122,7 @@
         }
         custom.classList.toggle('on', !!custom.value);
         const ok = valid(amount);
-        cta.textContent = ok ? `Leave a tip · ${money(amount, cur)}${monthly ? ' / month' : ''}` : `Enter ${money(min(), cur)} – ${money(max(), cur)}`;
+        cta.textContent = ok ? tr('tip.cta_amount', { amount: money(amount, cur), suffix: monthly ? tr('tip.per_month', null, ' / month') : '' }, `Leave a tip · ${money(amount, cur)}${monthly ? ' / month' : ''}`) : tr('tip.enter_range', { min: money(min(), cur), max: money(max(), cur) }, `Enter ${money(min(), cur)} – ${money(max(), cur)}`);
         cta.disabled = busy || !ok || !prof;
         noteCount.textContent = `${noteIn.value.length} / 280`;
         emit('tip', { amount: ok ? amount : null, monthly, currency: cur, label: ok ? money(amount, cur) : '' });
@@ -153,7 +154,7 @@
         custom.max = String(prof.max);
         if (!loaded) amount = prof.presets[1] || prof.presets[0] || prof.min; // the second preset, like the tips page
         // supporters
-        supCount.textContent = r.count ? `${r.count} ${r.count === 1 ? 'supporter' : 'supporters'}${r.monthly ? ` · ${r.monthly} monthly` : ''}` : '';
+        supCount.textContent = r.count ? tr('tip.sup_count', { count: r.count, label: r.count === 1 ? tr('tip.supporter', null, 'supporter') : tr('tip.supporters_label', null, 'supporters'), monthly: r.monthly ? tr('tip.monthly_count', { count: r.monthly }, ` · ${r.monthly} monthly`) : '' }, `${r.count} ${r.count === 1 ? 'supporter' : 'supporters'}${r.monthly ? ` · ${r.monthly} monthly` : ''}`) : '';
         supEmpty.hidden = !!r.supporters.length;
         supList.replaceChildren(...r.supporters.map((s) => el('li', { class: 'sp-sup-item' }, [
           el('span', { class: 'sp-sup-av', text: (s.name || '?').trim().charAt(0).toUpperCase() || '·', attrs: { 'aria-hidden': 'true' } }),
@@ -185,7 +186,7 @@
           const bad = !r || !r.ok;
           err.hidden = !bad;
           if (bad) {
-            errText.textContent = (r && r.error) || 'The tip jar didn’t answer.';
+            errText.textContent = (r && r.error) || tr('tip.err_default', null, 'The tip jar didn’t answer.');
             skeleton.hidden = true;
             emit('tip', { state: r && r.profile ? 'ready' : 'offline' });
           }
@@ -195,15 +196,15 @@
         if (busy || !prof || !valid(amount)) return;
         busy = true;
         sync();
-        setStatus(status, 'Opening Stripe…', 'busy');
+        setStatus(status, tr('tip.opening_stripe', null, 'Opening Stripe…'), 'busy');
         call('supportTip', { amount, monthly, name: nameIn.value, message: noteIn.value }).then((r) => {
           busy = false;
           if (r && r.ok) {
-            setStatus(status, `Opened ${r.opened || 'Stripe'} in your browser. Thank you!`, 'good');
+            setStatus(status, tr('tip.opened_stripe', { opened: r.opened || 'Stripe' }, `Opened ${r.opened || 'Stripe'} in your browser. Thank you!`), 'good');
             emit('tip', { state: 'opened', at: Date.now() });
             setTimeout(() => load(true), 60000); // a paid tip shows up in the list a little later
           } else {
-            setStatus(status, (r && r.error) || 'Couldn’t start the tip', 'bad');
+            setStatus(status, (r && r.error) || tr('tip.couldnt_start', null, 'Couldn’t start the tip'), 'bad');
           }
           sync();
         });
@@ -217,16 +218,16 @@
   // Feedback
   // ===================================================================================================
   const KINDS = [
-    { value: 'bug', label: 'Bug', hint: 'What happened, and what did you expect? Steps to make it happen again help a lot.' },
-    { value: 'idea', label: 'Idea', hint: 'What would make DuoDesk better for you?' },
-    { value: 'love', label: 'Love it', hint: 'What do you like? (You can leave it empty.)' },
+    { value: 'bug', label: tr('feedback.bug', null, 'Bug'), hint: tr('feedback.bug_hint', null, 'What happened, and what did you expect? Steps to make it happen again help a lot.') },
+    { value: 'idea', label: tr('feedback.idea', null, 'Idea'), hint: tr('feedback.idea_hint', null, 'What would make DuoDesk better for you?') },
+    { value: 'love', label: tr('feedback.love', null, 'Love it'), hint: tr('feedback.love_hint', null, 'What do you like? (You can leave it empty.)') },
   ];
   UI.tab({
     id: 'feedback',
     order: 114,
-    title: 'Feedback',
-    heading: 'Send feedback',
-    desc: 'A bug, an idea, or just a hello. It goes straight to the people who make DuoDesk.',
+    title: tr('feedback.tab_title', null, 'Feedback'),
+    heading: tr('feedback.heading', null, 'Send feedback'),
+    desc: tr('feedback.desc', null, 'A bug, an idea, or just a hello. It goes straight to the people who make DuoDesk.'),
     icon: 'feedback',
     color: 'linear-gradient(#8fd3ff, #6f8cff)',
     bottom: true,
@@ -238,29 +239,29 @@
 
       const kindSeg = UI.segmented(KINDS.map(({ value, label }) => ({ value, label })), (v) => { kind = v; kindSeg.set(v); sync(); preview(); });
       kindSeg.el.classList.add('sp-kind');
-      kindSeg.el.setAttribute('aria-label', 'What it is');
-      const msg = el('textarea', { class: 'sp-input sp-msg', maxLength: 5000, rows: 7, attrs: { 'aria-label': 'Your message' } });
+      kindSeg.el.setAttribute('aria-label', tr('feedback.what_it_is', null, 'What it is'));
+      const msg = el('textarea', { class: 'sp-input sp-msg', maxLength: 5000, rows: 7, attrs: { 'aria-label': tr('feedback.your_msg_aria', null, 'Your message') } });
       const msgCount = el('span', { class: 'sp-count', text: '0 / 5000' });
-      const email = el('input', { type: 'email', class: 'sp-input sp-email', maxLength: 200, placeholder: 'you@example.com', attrs: { autocomplete: 'email', 'aria-label': 'Reply email (optional)' } });
-      const infoSw = UI.switch((v) => { sync(); preview(); }, { label: 'Include version and system info' });
+      const email = el('input', { type: 'email', class: 'sp-input sp-email', maxLength: 200, placeholder: 'you@example.com', attrs: { autocomplete: 'email', 'aria-label': tr('feedback.email_aria', null, 'Reply email (optional)') } });
+      const infoSw = UI.switch((v) => { sync(); preview(); }, { label: tr('feedback.info_sw_label', null, 'Include version and system info') });
       infoSw.set(true);
-      const shown = el('pre', { class: 'sp-preview selectable', attrs: { 'aria-label': 'What will be sent' } });
-      const send = UI.button('Send email', () => submit('mail'), 'primary');
-      const gh = UI.button('Report on GitHub', () => submit('github'));
-      const copy = UI.button('Copy', () => submit('copy'), 'small');
+      const shown = el('pre', { class: 'sp-preview selectable', attrs: { 'aria-label': tr('feedback.preview_aria', null, 'What will be sent') } });
+      const send = UI.button(tr('feedback.send_email', null, 'Send email'), () => submit('mail'), 'primary');
+      const gh = UI.button(tr('feedback.report_gh', null, 'Report on GitHub'), () => submit('github'));
+      const copy = UI.button(tr('general.copy', null, 'Copy'), () => submit('copy'), 'small');
       const status = el('div', { class: 'sp-status', hidden: true, attrs: { role: 'status', 'aria-live': 'polite' } });
 
-      const writeCard = UI.card('Your message', [
+      const writeCard = UI.card(tr('feedback.your_msg_card', null, 'Your message'), [
         el('div', { class: 'sp-kind-row' }, [kindSeg.el]),
-        field('Message', msg, msgCount),
-        field('Reply email (optional)', email, el('span', { class: 'sp-field-hint', text: 'Only if you’d like an answer.' })),
+        field(tr('tip.msg_field', null, 'Message'), msg, msgCount),
+        field(tr('feedback.reply_email_field', null, 'Reply email (optional)'), email, el('span', { class: 'sp-field-hint', text: tr('feedback.answer_hint', null, 'Only if you’d like an answer.') })),
       ], { cls: 'sp-form keep-on' });
-      const infoRow = UI.row('Include version and system info', 'Helps us reproduce a bug. This is everything it adds:', [infoSw]);
-      const sendCard = UI.card('Send it', [
+      const infoRow = UI.row(tr('feedback.info_row_title', null, 'Include version and system info'), tr('feedback.info_row_desc', null, 'Helps us reproduce a bug. This is everything it adds:'), [infoSw]);
+      const sendCard = UI.card(tr('feedback.send_it_card', null, 'Send it'), [
         infoRow,
         el('div', { class: 'sp-preview-wrap' }, [shown]),
         el('div', { class: 'sp-actions' }, [send, gh, copy, status]),
-        el('div', { class: 'sp-fine', text: 'Send opens your mail app with everything filled in; nothing leaves until you press Send there. GitHub opens a new public issue in your browser.' }),
+        el('div', { class: 'sp-fine', text: tr('feedback.fine_print', null, 'Send opens your mail app with everything filled in; nothing leaves until you press Send there. GitHub opens a new public issue in your browser.') }),
       ], { cls: 'sp-send keep-on' });
       body.classList.add('sp-page', 'sp-feedback');
       body.append(writeCard, sendCard);
@@ -279,7 +280,7 @@
           call('supportPreview', { kind, message: '', email: email.value, includeInfo: infoSw.el.checked }).then((r) => {
             if (!r || !r.ok) { shown.textContent = ''; return; }
             const tail = String(r.body || '').split('\n—\n')[1];
-            shown.textContent = [`To: ${r.to}`, `Subject: ${r.subject}`, '', tail ? tail : 'Nothing about this computer: only your message' + (email.value.trim() ? ' and your reply address' : '') + '.'].join('\n');
+            shown.textContent = [`To: ${r.to}`, `Subject: ${r.subject}`, '', tail ? tail : email.value.trim() ? tr('sh_ui_support.nothing_about_computer_reply', null, 'Nothing about this computer: only your message and your reply address.') : tr('sh_ui_support.nothing_about_computer', null, 'Nothing about this computer: only your message.')].join('\n');
           });
         }, 120);
       }
@@ -289,18 +290,18 @@
         if (busy) return;
         busy = true;
         sync();
-        setStatus(status, via === 'github' ? 'Opening GitHub…' : via === 'copy' ? '' : 'Opening your mail app…', 'busy');
+        setStatus(status, via === 'github' ? tr('feedback.opening_gh', null, 'Opening GitHub…') : via === 'copy' ? '' : tr('feedback.opening_mail', null, 'Opening your mail app…'), 'busy');
         call('supportFeedback', { kind, message: msg.value, email: email.value, includeInfo: infoSw.el.checked, via }).then((r) => {
           busy = false;
           if (r && r.ok) {
-            const text = via === 'copy' ? 'Copied. Paste it into an email to contact@beyond-media.ai.'
-              : via === 'github' ? 'Opened a new issue on GitHub in your browser.'
-                : r.truncated ? 'Opened your mail app. The message was long, so it was shortened there; the whole text is on your clipboard.'
-                  : 'Opened your mail app. Press Send there. Thank you!';
+            const text = via === 'copy' ? tr('feedback.copied', null, 'Copied. Paste it into an email to contact@beyond-media.ai.')
+              : via === 'github' ? tr('feedback.opened_gh', null, 'Opened a new issue on GitHub in your browser.')
+                : r.truncated ? tr('feedback.opened_mail_trunc', null, 'Opened your mail app. The message was long, so it was shortened there; the whole text is on your clipboard.')
+                  : tr('feedback.opened_mail', null, 'Opened your mail app. Press Send there. Thank you!');
             setStatus(status, text, 'good');
             emit('feedback', { state: via === 'copy' ? 'copied' : 'sent', at: Date.now() });
           } else {
-            setStatus(status, (r && r.error) || 'Couldn’t open it', 'bad');
+            setStatus(status, (r && r.error) || tr('feedback.couldnt_open', null, 'Couldn’t open it'), 'bad');
           }
           sync();
         });

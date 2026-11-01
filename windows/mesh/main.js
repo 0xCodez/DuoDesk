@@ -4,6 +4,8 @@
 // window, as ../main.js, over the mesh (hub.js) instead of one peer. When a fix in ../main.js applies
 // here too, make it in both.
 const { app, BrowserWindow, Tray, Menu, nativeImage, nativeTheme, Notification, shell, globalShortcut } = require('electron');
+const i18n = require('../../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const { Updates } = require('../../shared/updates.js');
 const { aboutInfo } = require('../../shared/about.js');
 const { execFile } = require('child_process');
@@ -237,22 +239,23 @@ function start() {
     const p = peerView();
     const name = link.snapshot().link.state === 'connected' && p ? p.name : '';
     const key = P.hotkeyName(settings.keys.hotkey, 'win');
-    const sub = !here && name ? 'Turned ' + (on ? 'on' : 'off') + ' on ' + name
-      : on ? (name ? 'With ' + name + '. ' : '') + 'Double-tap ' + key + ' to turn it off'
-        : (ble ? 'It comes back on Wi-Fi. ' : '') + 'Double-tap ' + key + ' to turn it on';
-    hud.show(on ? 'linkOn' : 'linkOff', 'Cursor sharing ' + (on ? 'on' : 'off') + (!on && ble ? ' over Bluetooth' : ''), sub);
+    const sub = !here && name ? (on ? tr('main.turned_on_on', { name }, 'Turned on on ' + name) : tr('main.turned_off_on', { name }, 'Turned off on ' + name))
+      : on ? (name ? tr('main.with_peer_double_tap_off', { name, key }, 'With ' + name + '. Double-tap ' + key + ' to turn it off') : tr('main.double_tap_off', { key }, 'Double-tap ' + key + ' to turn it off'))
+        : (ble ? tr('main.comes_back_wifi_double_tap_on', { key }, 'It comes back on Wi-Fi. Double-tap ' + key + ' to turn it on') : tr('main.double_tap_on', { key }, 'Double-tap ' + key + ' to turn it on'));
+    const text = on ? tr('main.cursor_sharing_on', null, 'Cursor sharing on') : (ble ? tr('main.cursor_sharing_off_ble', null, 'Cursor sharing off over Bluetooth') : tr('main.cursor_sharing_off', null, 'Cursor sharing off'));
+    hud.show(on ? 'linkOn' : 'linkOff', text, sub);
   };
   kvm.onWhere = (mode) => { // the switching popup
     const name = peerName();
-    if (mode === 'driving') hud.show('away', (kvm.keyboardOnly ? 'Typing on ' : 'Using ') + name);
-    else if (mode === 'driven') hud.show('driven', name + ' is using {me}');
-    else hud.show('home', 'Back on {me}');
+    if (mode === 'driving') hud.show('away', (kvm.keyboardOnly ? tr('main.typing_on', { name }, 'Typing on ' + name) : tr('main.using_peer', { name }, 'Using ' + name)));
+    else if (mode === 'driven') hud.show('driven', tr('main.peer_is_using_me', { name }, name + ' is using {me}'));
+    else hud.show('home', tr('main.back_on_me', null, 'Back on {me}'));
   };
   // Cursor lock: the popup goes where the pointer is (the device we drive shows its own).
   kvm.onLock = (on, mode) => {
     if (mode === 'driving' && !(kvm.local && kvm.local.drives(kvm.partner))) return;
     const where = mode === 'driving' ? peerName() : '{me}';
-    hud.show('lock', on ? 'Cursor locked on ' + where : 'Cursor unlocked');
+    hud.show('lock', on ? tr('main.cursor_locked_on', { where }, 'Cursor locked on ' + where) : tr('main.cursor_unlocked', null, 'Cursor unlocked'));
   };
   // The lock key at home: a global shortcut, held while connected (pushState syncs it).
   lockKey = new CL.GlobalLockKey(globalShortcut, () => kvm.toggleLock());
@@ -310,13 +313,18 @@ function start() {
     liveToast('send', 'Sending ' + b.name, b.sent, b.bytes);
   };
   link.on('closed', () => {
-    liveDone('recv', 'Files stopped', peerName() + ' disconnected');
-    liveDone('send', 'Files stopped', peerName() + ' disconnected');
+    liveDone('recv', tr('main.files_stopped', null, 'Files stopped'), tr('main.peer_disconnected', { name: peerName() }, peerName() + ' disconnected'));
+    liveDone('send', tr('main.files_stopped', null, 'Files stopped'), tr('main.peer_disconnected', { name: peerName() }, peerName() + ' disconnected'));
   });
   fileRecv.onBatch = (b) => {
-    liveDone('recv', b.files ? 'Received ' + plural(b.files, 'file') : 'Nothing arrived', b.files ? 'From ' + peerName() : '');
+    liveDone('recv', b.files ? (b.files === 1 ? tr('main.received_one_file', null, 'Received 1 file') : tr('main.received_n_files', { count: b.files }, 'Received ' + b.files + ' files')) : tr('main.nothing_arrived', null, 'Nothing arrived'), b.files ? tr('main.from_peer', { name: peerName() }, 'From ' + peerName()) : '');
     if (b.kind === 'paste') fileClip.pasted(b);
-    else if (b.files) hud.show('driven', 'Received ' + b.files + ' file' + (b.files === 1 ? '' : 's') + ' from ' + peerName());
+    else if (b.files) {
+      const msg = b.files === 1
+        ? tr('files.received_count_one', { name: peerName() }, 'Received 1 file from ' + peerName())
+        : tr('files.received_count_other', { count: b.files, name: peerName() }, 'Received ' + b.files + ' files from ' + peerName());
+      hud.show('driven', msg);
+    }
   };
   wake = new Wake({ link, settings, save: saveSettings, onChange: pushState, address: () => ownAddresses()[0] }); // Wake over the network
   const sender = new Sender(link); // every rtc2 video session we send (screen, app windows)
@@ -427,7 +435,7 @@ function startPhone(server, pairing) {
         if (!c || c.os !== P.OS.ANDROID || !(c.transport === 'ble' || (net && net.linked))) return false;
         pendingView = { ...v, until: Date.now() + 60 * 1000 };
         if (net && net.onBle) net.need('phone').then((ok) => !ok && (pendingView = null));
-        else hud.show('home', 'Opening it when wireless debugging is ready…');
+        else hud.show('home', tr('main.opening_wireless_debugging_ready', null, 'Opening it when wireless debugging is ready…'));
         return true;
       };
       viaWifi(views, 'openScreen', 'phone');
@@ -748,10 +756,10 @@ function joinHotspot(arg) {
 function waitWifi(why, fn, failed) {
   if (!net || (!net.onBle && !net.linked)) return fn();
   if (!net.onBle) return void net.need(why).then(fn); // on a link made for something else: kept up for this too
-  hud.show('home', 'Moving to Wi-Fi with {name}…');
+  hud.show('home', tr('main.moving_to_wifi', null, 'Moving to Wi-Fi with {name}…'));
   net.need(why).then((ok) => {
     if (ok) return fn();
-    hud.show('home', net.error || 'Wi-Fi with {name} didn’t come up');
+    hud.show('home', net.error || tr('main.wifi_didnt_come_up', null, 'Wi-Fi with {name} didn’t come up'));
     if (failed) failed();
   });
 }
@@ -788,7 +796,7 @@ function openPhoneApp(pkg) {
   if (phone && phone.connected && (phone.bridge.state === 'ready' || (net && net.onBle))) return phone.views.openApp(pkg, (phone.apps.find((a) => a.id === pkg) || {}).name);
   const first = !pendingPhoneApp;
   pendingPhoneApp = { pkg, until: (pendingPhoneApp && pendingPhoneApp.until) || Date.now() + 2 * 60 * 1000 };
-  if (first && hud) hud.show('home', 'Opening it when the phone is ready…');
+  if (first && hud) hud.show('home', tr('main.opening_phone_ready', null, 'Opening it when the phone is ready…'));
   // Until then, every 2 s: the phone may not be up (TwinDesk just started) or nearby yet.
   clearTimeout(openPhoneApp.timer);
   if (Date.now() > pendingPhoneApp.until) return (pendingPhoneApp = null);
@@ -805,7 +813,7 @@ function openMacApp(id) {
     screen.ensureHidden(); // the app windows come from the Mac's screen stream
   } else {
     pendingMacApp = { id, until: Date.now() + 2 * 60 * 1000 };
-    if (hud) hud.show('home', 'Opening it when {name} connects…');
+    if (hud) hud.show('home', tr('main.opening_peer_connects', null, 'Opening it when {name} connects…'));
   }
 }
 
@@ -1130,25 +1138,27 @@ function updateTray(s = buildState()) {
     pushState();
   };
   const kind = (os) => (os === 'mac' ? 'Mac' : os === 'linux' ? 'Linux' : os === 'android' ? 'Phone' : 'PC');
+  const l = settings && settings.app && settings.app.lang;
+  i18n.setLanguage(!l || l === 'auto' ? app.getLocale() : l);
   tray.setContextMenu(Menu.buildFromTemplate(trayMenu.template({
     connected,
-    status: connected ? 'Connected to ' + name + rtt : 'Not connected',
+    status: connected ? tr('tray.connected_to', { name: name + rtt }, 'Connected to {name}') : tr('sidebar.not_connected', null, 'Not connected'),
     home: away ? () => kvm.home() : null,
     shared: { checked: kvm.linked && !kvm.paused, set: (on) => kvm.setShared(on) },
-    lock: connected ? { label: 'Lock Cursor on ' + (kvm.mode === 'driving' ? other : device.name) + ' (' + CL.keysLabel(settings.keys.lockKeys, 'win') + ')', checked: kvm.locked, set: (on) => kvm.setLocked(on) } : null,
+    lock: connected ? { label: tr('tray.lock_cursor_on', { name: kvm.mode === 'driving' ? other : device.name, keys: CL.keysLabel(settings.keys.lockKeys, 'win') }, 'Lock Cursor on {name} ({keys})'), checked: kvm.locked, set: (on) => kvm.setLocked(on) } : null,
     keyboard: { checked: k.keyboard, set: (on) => set('kvm', { keyboard: on }, () => kvm.applyConfig()) },
-    drive: { label: 'Use Mouse and Keyboard on ' + other, checked: k.driveOther, set: (on) => set('kvm', { driveOther: on }, () => kvm.applyConfig()) },
-    driven: { label: 'Let ' + other + ' Control ' + device.name, checked: k.beDriven, set: (on) => set('kvm', { beDriven: on }, () => kvm.applyConfig()) },
+    drive: { label: tr('tray.use_mk_on', { name: other }, 'Use Mouse and Keyboard on {name}'), checked: k.driveOther, set: (on) => set('kvm', { driveOther: on }, () => kvm.applyConfig()) },
+    driven: { label: tr('tray.let_control', { name: other, me: device.name }, 'Let {name} Control {me}'), checked: k.beDriven, set: (on) => set('kvm', { beDriven: on }, () => kvm.applyConfig()) },
     popup: { checked: settings.app.hud, set: (on) => set('app', { hud: on }) },
     screen: [
-      { label: 'Share Screen', checked: sharing, set: (on) => pcScreen.setMode(on ? 'mirror' : 'off') },
+      { label: tr('tray.share_screen', null, 'Share Screen'), checked: sharing, set: (on) => pcScreen.setMode(on ? 'mirror' : 'off') },
       // Opens/closes the screen window (opening starts the other computer's sharing).
-      { label: 'Receive Screen', checked: watching, set: (on) => (on ? screen.open(false) : screen.close()) },
+      { label: tr('tray.receive_screen', null, 'Receive Screen'), checked: watching, set: (on) => (on ? screen.open(false) : screen.close()) },
     ],
     clipboard: { checked: settings.clipboard.enabled, set: (on) => set('clipboard', { enabled: on }, () => clip.applySettings()) },
     sound: { checked: settings.audio.send, set: (on) => set('audio', { send: on }, () => sound.apply()) },
     drag: { checked: settings.files.edgeDrag, set: (on) => set('files', { edgeDrag: on }, () => kvm.applyConfig()) },
-    shortcuts: { label: 'Copy and Paste Files (' + CL.keysLabel(settings.files.copyKeys, 'win') + ', ' + CL.keysLabel(settings.files.pasteKeys, 'win') + ')', checked: settings.files.shortcuts, set: (on) => set('files', { shortcuts: on }, () => { kvm.applyConfig(); fileClip.apply(); }) },
+    shortcuts: { label: tr('tray.copy_paste_files', { copy: CL.keysLabel(settings.files.copyKeys, 'win'), paste: CL.keysLabel(settings.files.pasteKeys, 'win') }, 'Copy and Paste Files ({copy}, {paste})'), checked: settings.files.shortcuts, set: (on) => set('files', { shortcuts: on }, () => { kvm.applyConfig(); fileClip.apply(); }) },
     found: found.map((d) => ({ label: d.name + ' (' + kind(d.os) + ')', click: () => {
       if (d.os === P.OS.ANDROID) return connectPhoneDev(d);
       discovery.clearInvite(d.id);
@@ -1157,7 +1167,7 @@ function updateTray(s = buildState()) {
     } })),
     byAddress: () => goTab('connection'),
     lookAgain: () => discovery.probe(),
-    update: s.updates && s.updates.available ? { label: 'Download DuoDesk ' + s.updates.latest + '…', click: showUpdateWindow } : null,
+    update: s.updates && s.updates.available ? { label: tr('tray.download_version', { version: s.updates.latest }, 'Download DuoDesk ' + s.updates.latest + '…'), click: showUpdateWindow } : null,
     open: showMain,
     log: () => require('../../shared/applog.js').open(),
     quit: () => app.quit(),

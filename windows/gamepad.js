@@ -9,6 +9,8 @@ const { execFile, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { scriptElevated } = require('./ps');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const EXE = path.join(__dirname, '..', 'windows-helper', 'bin', 'twindesk-pad.exe');
 // ViGEmBus 1.22.0 (https://github.com/nefarius/ViGEmBus, BSD-3-Clause), signed by Nefarius Software Solutions e.U.
@@ -29,7 +31,7 @@ const driver = {
   name: 'Xbox 360 controller',
 
   async check() {
-    if (!fs.existsSync(EXE)) return { supported: false, message: 'Not in this build of DuoDesk' };
+    if (!fs.existsSync(EXE)) return { supported: false, message: tr('win_gamepad.not_in_build', null, 'Not in this build of DuoDesk') };
     return { supported: true, installed: (await status()).bus === true };
   },
 
@@ -40,12 +42,12 @@ const driver = {
     try {
       await scriptElevated('vigem-install', { Url: BUS.url, Sha256: BUS.sha256, Log: log }, 300000);
     } catch (e) {
-      throw new Error(/cancel/i.test(e.message) ? 'The administrator prompt was declined' : e.message);
+      throw new Error(/cancel/i.test(e.message) ? tr('vdd.admin_declined', null, 'The administrator prompt was declined') : e.message);
     }
-    const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: the setup didn’t finish';
+    const r = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim() : 'error: ' + tr('win_gamepad.setup_unfinished', null, 'the setup didn’t finish');
     try { fs.unlinkSync(log); } catch {}
     if (r !== 'ok') throw new Error(r.replace(/^error: /, ''));
-    if ((await status()).bus !== true) throw new Error('ViGEmBus was installed but doesn’t answer yet: restart Windows');
+    if ((await status()).bus !== true) throw new Error(tr('win_gamepad.vigem_restart', null, 'ViGEmBus was installed but doesn’t answer yet: restart Windows'));
   },
 
   // The controller, plugged in while this runs; pad states (12 bytes each) go to its stdin.

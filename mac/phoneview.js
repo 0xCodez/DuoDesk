@@ -20,6 +20,8 @@ const { Session, ACTION, TYPE } = require('./scrcpy');
 const { KeyState, ANDROID } = require('./android-keys');
 const chat = require('../shared/phonechat.js');
 const { DockStub, addToDock } = require('./dockstub');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 const NOTIFIED_MS = 60000; // how long a clicked notification waits for the unlock and wireless debugging
@@ -76,7 +78,7 @@ class PhoneViews extends EventEmitter {
     ipcMain.on('phoneview:drop', (e, paths) => {
       if (!Array.isArray(paths) || !paths.length || !this.server.current) return;
       const b = this.fileSend.sendBatch(paths.filter((p) => typeof p === 'string' && p.startsWith('/')).slice(0, 1000), 'send');
-      if (b) this.bridge.emit('popup', 'away', `Sending ${b.name} to ${this.server.current.name}`);
+      if (b) this.bridge.emit('popup', 'away', tr('files.sending_to', { name: b.name, the: this.server.current.name }, `Sending ${b.name} to ${this.server.current.name}`));
     });
   }
 
@@ -84,7 +86,7 @@ class PhoneViews extends EventEmitter {
   sound(on) {
     const open = [...this.views.values()].find((v) => v.kind === 'sound');
     if (on && !open && this.bridge.serial) {
-      this._open({ kind: 'sound', title: 'Phone sound', width: 200, height: 100, hidden: true, opts: { video: false, audio: true, control: false, audioSource: 'output' } });
+      this._open({ kind: 'sound', title: tr('phone.phone_sound', null, 'Phone sound'), width: 200, height: 100, hidden: true, opts: { video: false, audio: true, control: false, audioSource: 'output' } });
     } else if (!on && open) this.close(open.id);
   }
 
@@ -92,7 +94,7 @@ class PhoneViews extends EventEmitter {
   // hidden window with no adb session, fed what comes through the session.
   netSound(on) {
     const open = [...this.views.values()].find((v) => v.kind === 'netsound');
-    if (on && !open) this._open({ kind: 'netsound', title: 'Phone sound', width: 200, height: 100, hidden: true });
+    if (on && !open) this._open({ kind: 'netsound', title: tr('phone.phone_sound', null, 'Phone sound'), width: 200, height: 100, hidden: true });
     else if (!on && open) this.close(open.id);
   }
 
@@ -223,8 +225,9 @@ class PhoneViews extends EventEmitter {
     if (!n) return;
     n.answered = true;
     if (!m.unlocked) {
-      const phone = (this.server.current && this.server.current.name) || 'the phone';
-      return void (m.waiting && this.bridge.emit('popup', 'away', `Unlock ${phone} to open ${n.name || 'the app'}`));
+      const phone = (this.server.current && this.server.current.name) || tr('mac_phoneview.the_phone', null, 'the phone');
+      const what = n.name || tr('apps.the_app', null, 'the app');
+      return void (m.waiting && this.bridge.emit('popup', 'away', tr('mac_phoneview.unlock_to_open', { phone, app: what }, `Unlock ${phone} to open ${what}`)));
     }
     n.unlocked = true;
     this._openNotified();
@@ -259,7 +262,7 @@ class PhoneViews extends EventEmitter {
     if (!this.bridge.serial && kind !== 'netsound') {
       // Through Bluetooth: the phone's hotspot first (main.js), then this window.
       if (this.onNoAdb && this.onNoAdb({ kind, app, title, width, height, opts, hidden })) return;
-      return this.bridge.emit('popup', 'home', 'Set up wireless debugging on the Phone page first');
+      return this.bridge.emit('popup', 'home', tr('mac_phoneview.setup_adb_first', null, 'Set up wireless debugging on the Phone page first'));
     }
     const id = nextId++;
     const win = new BrowserWindow({
@@ -581,7 +584,7 @@ class PhoneViews extends EventEmitter {
   async pin(pkg, name) {
     const info = this._info(pkg, name);
     const ok = await addToDock(info);
-    this.bridge.emit('popup', ok ? 'home' : 'driven', ok ? `${info.name} is in the Dock` : `Couldn’t add ${info.name} to the Dock`);
+    this.bridge.emit('popup', ok ? 'home' : 'driven', ok ? tr('mac_phoneview.in_dock', { name: info.name }, `${info.name} is in the Dock`) : tr('mac_phoneview.couldnt_add_dock', { name: info.name }, `Couldn’t add ${info.name} to the Dock`));
   }
 }
 

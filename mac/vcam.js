@@ -15,6 +15,8 @@
 // says legacy while that one still runs, and the next start activates this build's, which replaces it
 // (no new approval). Until then, or if that fails, feed writes into the old one.
 const { execFile, spawn } = require('child_process');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const fs = require('fs');
 const path = require('path');
 
@@ -63,20 +65,20 @@ const driver = {
 
   async check(target) {
     if (target === 'obs') {
-      if (!fs.existsSync(TOOL)) return { supported: false, message: 'Not in this build' };
+      if (!fs.existsSync(TOOL)) return { supported: false, message: tr('mac_vcam.not_in_build', null, 'Not in this build') };
       if ((await tool('status', null, 20000, ['--name', OBS])).camera === true) return { supported: true, installed: true };
       return {
         supported: true,
         installed: false,
         message: obsInstalled()
-          ? 'Turn on OBS Virtual Camera in System Settings › General › Login Items & Extensions › Camera Extensions (or press Start Virtual Camera in OBS once), then turn this on again'
-          : 'Install OBS Studio and press Start Virtual Camera in it once, then turn this on again',
+          ? tr('mac_vcam.obs_turn_on', null, 'Turn on OBS Virtual Camera in System Settings › General › Login Items & Extensions › Camera Extensions (or press Start Virtual Camera in OBS once), then turn this on again')
+          : tr('mac_vcam.obs_install', null, 'Install OBS Studio and press Start Virtual Camera in it once, then turn this on again'),
       };
     }
     if (!fs.existsSync(TOOL) || !fs.existsSync(EXTENSION)) {
-      return { supported: false, message: 'Not in this build: macOS takes camera extensions only from DuoDesk signed by its developer (a release build). Choose OBS Virtual Camera instead' };
+      return { supported: false, message: tr('mac_vcam.not_in_build_release', null, 'Not in this build: macOS takes camera extensions only from DuoDesk signed by its developer (a release build). Choose OBS Virtual Camera instead') };
     }
-    if (!/^\/Applications\//.test(CONTENTS)) return { supported: false, message: 'Move DuoDesk to the Applications folder first: macOS installs camera extensions only from there' };
+    if (!/^\/Applications\//.test(CONTENTS)) return { supported: false, message: tr('mac_vcam.move_to_applications', null, 'Move DuoDesk to the Applications folder first: macOS installs camera extensions only from there') };
     const st = await tool('status');
     if (st.camera !== true && st.legacy === true) return { supported: true, installed: migrating }; // renamed once per start
     return { supported: true, installed: st.camera === true };
@@ -84,15 +86,15 @@ const driver = {
 
   async install(say, target) {
     // OBS installs its own: check() said how.
-    if (target === 'obs') throw new Error((await driver.check('obs')).message || 'OBS Virtual Camera isn’t here');
+    if (target === 'obs') throw new Error((await driver.check('obs')).message || tr('mac_vcam.obs_missing', null, 'OBS Virtual Camera isn’t here'));
     const legacy = (await tool('status')).legacy === true;
     if (legacy) migrating = true;
     const r = await tool('activate', (m) => {
-      if (m.approval) say('Allow it in System Settings › General › Login Items & Extensions › Camera Extensions (macOS asks once)');
+      if (m.approval) say(tr('mac_vcam.allow_in_settings', null, 'Allow it in System Settings › General › Login Items & Extensions › Camera Extensions (macOS asks once)'));
     }, 310000);
     if (!r.ok && legacy) return console.log('[vcam] renaming the camera:', r.error); // the old one still works
-    if (!r.ok) throw new Error('macOS didn’t install the camera: ' + (r.error || 'unknown'));
-    if (r.reboot) throw new Error('It’s installed after the Mac restarts');
+    if (!r.ok) throw new Error(tr('mac_vcam.didnt_install', { error: r.error || 'unknown' }, 'macOS didn’t install the camera: ' + (r.error || 'unknown')));
+    if (r.reboot) throw new Error(tr('mac_vcam.installed_after_restart', null, 'It’s installed after the Mac restarts'));
     // The new camera shows up in a moment.
     for (let i = 0; i < 30; i++) {
       if ((await tool('status')).camera === true) return;

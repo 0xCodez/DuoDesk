@@ -7,6 +7,7 @@
 // the session again if the network goes. A move that doesn't last is tried again later and later (resumeBackoff).
 const WebSocket = require('ws');
 const P = require('../shared/protocol.js');
+const { t: tr } = require('../shared/i18n.js');
 const { PairLimit, versionMessage } = require('../shared/pairlimit.js');
 
 const T = P.T;
@@ -18,12 +19,12 @@ const RESUME_LASTED_MS = 60000; // a move that held this long worked: the next o
 const RESUME_MAX_MS = 5 * 60000; // … else each wait doubles, up to this
 const isBle = (a) => String(a || '').startsWith('ble:');
 
-const PAIR_ERRORS = {
-  [P.E.PAIR_REFUSED]: '{Name} refused pairing.',
-  [P.E.PAIR_TIMEOUT]: 'Pairing timed out.',
-  [P.E.BUSY]: '{Name} is already pairing with another device.',
-  [P.E.VERSION_MISMATCH]: '{Name} runs a different DuoDesk version. Update both apps.',
-};
+const pairError = (code) => ({
+  [P.E.PAIR_REFUSED]: tr('lin_link.pair_refused', null, '{Name} refused pairing.'),
+  [P.E.PAIR_TIMEOUT]: tr('lin_link.pair_timeout', null, 'Pairing timed out.'),
+  [P.E.BUSY]: tr('lin_link.pair_busy', null, '{Name} is already pairing with another device.'),
+  [P.E.VERSION_MISMATCH]: tr('lin_link.version_mismatch', null, '{Name} runs a different DuoDesk version. Update both apps.'),
+})[code];
 
 class Link {
   // opts: device {id, name}, store {load, save, clear}, resolveAddress(macId) -> {address, port}|null,
@@ -179,8 +180,8 @@ class Link {
     const viaBle = isBle(target.address) || (mode === 'session' && near && !this.resolveAddress(hostId));
     if (!viaBle) return this._open(target.address, target.port, 'ip');
     if (!near) {
-      this.lastError = '{Name} isn’t nearby';
-      return mode === 'pair' ? this._pairFailed('{Name} isn’t nearby any more.') : this._scheduleReconnect();
+      this.lastError = tr('lin_link.not_nearby', null, '{Name} isn’t nearby');
+      return mode === 'pair' ? this._pairFailed(tr('lin_link.not_nearby_pair', null, '{Name} isn’t nearby any more.')) : this._scheduleReconnect();
     }
     this.ws = { readyState: WebSocket.CONNECTING, terminate: () => {}, close: () => {}, bufferedAmount: 0 }; // opening the pipe
     this.ble.open(hostId).then((port) => {
@@ -310,7 +311,7 @@ class Link {
     }
     if (!seenFp || seenFp !== this.pairing.fp) {
       this._closeSocket();
-      this._setStatus('identity_changed', 'This Mac looks different now. Forget it and pair again.');
+      this._setStatus('identity_changed', tr('lin_link.identity_changed', null, 'This Mac looks different now. Forget it and pair again.'));
       return;
     }
     this._hello();
@@ -320,7 +321,7 @@ class Link {
     const p = this.pairing;
     this._raw({ t: T.HELLO, v: P.PROTOCOL_VERSION, id: this.device.id, name: this.device.name, os: P.OS.LINUX, token: p.token, fx: 1, ...(this.takeover ? { takeover: true } : {}) });
     this.timers.hello = setTimeout(() => {
-      this.lastError = 'No welcome from {name}';
+      this.lastError = tr('lin_link.no_welcome', null, 'No welcome from {name}');
       if (this.ws) this.ws.terminate();
     }, this.transport === 'ble' ? P.BLE_TIMEOUT_MS : HELLO_TIMEOUT_MS);
   }
@@ -337,7 +338,7 @@ class Link {
     switch (msg.t) {
       case T.PAIR_NONCE: return this._onNonce(msg);
       case T.PAIR_OK: return this._onPairOk(msg);
-      case T.PAIR_CANCEL: return this._pairFailed('Pairing was cancelled on {name}.');
+      case T.PAIR_CANCEL: return this._pairFailed(tr('lin_link.pair_cancelled', null, 'Pairing was cancelled on {name}.'));
       case T.WELCOME: return this._onWelcome(msg);
       case T.ERROR: return this._onError(msg);
       case T.PING: return this.authed && ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: T.PONG, ts: msg.ts }));
@@ -359,7 +360,7 @@ class Link {
     const ps = this.pairState;
     if (this.mode !== 'pair' || !ps || !this.nw || this.nm) return;
     if (typeof msg.nonce !== 'string' || !/^[0-9a-f]{32,128}$/.test(msg.nonce) || msg.nonce.length % 2) {
-      return this._pairFailed('{Name} sent a bad pairing message.');
+      return this._pairFailed(tr('lin_link.bad_pair_message', null, '{Name} sent a bad pairing message.'));
     }
     this.nm = msg.nonce;
     this._raw({ t: T.PAIR_REVEAL, nonce: this.nw });
@@ -372,7 +373,7 @@ class Link {
     const ps = this.pairState;
     if (this.mode !== 'pair' || !ps || ps.phase !== 'waiting') return;
     if (typeof msg.token !== 'string' || !msg.token || typeof msg.macId !== 'string') {
-      return this._pairFailed('{Name} sent a bad pairing message.');
+      return this._pairFailed(tr('lin_link.bad_pair_message', null, '{Name} sent a bad pairing message.'));
     }
     this.pairing = {
       macId: msg.macId,
@@ -412,7 +413,7 @@ class Link {
         if (!ws || !ws.transport) continue;
         const rx = Math.max(ws.lastRx, (ws.transport === 'ble' && this.ble && this.ble.lastDown) || 0); // a big message's bytes count too
         if (now - rx > (ws.transport === 'ble' ? P.BLE_TIMEOUT_MS : P.TIMEOUT_MS)) {
-          if (ws === this.ws) this.lastError = '{Name} stopped answering';
+          if (ws === this.ws) this.lastError = tr('lin_link.stopped_answering', null, '{Name} stopped answering');
           ws.terminate();
         } else if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ t: T.PING, ts: now }));
@@ -430,21 +431,21 @@ class Link {
     const code = msg.code;
     if (this.mode === 'pair') {
       const name = (this.pairState && this.pairState.macName) || '{Name}';
-      return this._pairFailed((code === P.E.VERSION_MISMATCH && versionMessage(msg, name)) || PAIR_ERRORS[code] || 'Pairing failed (' + code + ').');
+      return this._pairFailed((code === P.E.VERSION_MISMATCH && versionMessage(msg, name)) || pairError(code) || tr('lin_link.pair_failed_code', { code }, 'Pairing failed (' + code + ').'));
     }
     if (code === P.E.BAD_TOKEN) {
       this.forget();
-      this._setStatus('not_paired', 'Your Mac forgot {me}. Pair again.');
+      this._setStatus('not_paired', tr('lin_link.forgot_me', null, 'Your Mac forgot {me}. Pair again.'));
       return;
     }
-    if (code === P.E.VERSION_MISMATCH) this.lastError = PAIR_ERRORS[code];
+    if (code === P.E.VERSION_MISMATCH) this.lastError = pairError(code);
     else if (code === P.E.ASLEEP) {
       // Not again on our own: a dark wake would let us in only to go silent. It invites us when it wakes.
-      this.stopped = { why: code, message: '{Name} is asleep' };
+      this.stopped = { why: code, message: tr('lin_link.asleep', null, '{Name} is asleep') };
     } else if (code === P.E.REPLACED || code === P.E.RELEASED) {
-      this.stopped = { why: code, message: String(msg.message || (code === P.E.RELEASED ? '{Name} disconnected' : 'Another device took over')).slice(0, 120) };
-    } else if (code === P.E.BUSY) this.lastError = this.busyBy = String(msg.message || 'In use by another device').slice(0, 120);
-    else this.lastError = '{Name} closed the link (' + code + ')';
+      this.stopped = { why: code, message: String(msg.message || (code === P.E.RELEASED ? tr('lin_link.disconnected', null, '{Name} disconnected') : tr('lin_link.took_over', null, 'Another device took over'))).slice(0, 120) };
+    } else if (code === P.E.BUSY) this.lastError = this.busyBy = String(msg.message || tr('lin_link.in_use', null, 'In use by another device')).slice(0, 120);
+    else this.lastError = tr('lin_link.closed_link', { code }, '{Name} closed the link (' + code + ')');
     // The Mac closes the socket after an error; _onClose reconnects.
   }
 
@@ -475,8 +476,10 @@ class Link {
       if (ps && ps.phase !== 'failed') {
         const nobody = /^(ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/.test(this.lastError);
         this._pairFailed(ps.phase === 'connecting'
-          ? (nobody ? 'No DuoDesk at ' + ps.address + '.' : 'Could not connect to ' + ps.address + (this.lastError ? ' (' + this.lastError + ')' : '') + '.')
-          : 'The connection to {name} closed.');
+          ? (nobody ? tr('lin_link.no_duodesk_at', { address: ps.address }, 'No DuoDesk at ' + ps.address + '.')
+            : this.lastError ? tr('lin_link.could_not_connect_why', { address: ps.address, why: this.lastError }, 'Could not connect to ' + ps.address + ' (' + this.lastError + ').')
+              : tr('lin_link.could_not_connect', { address: ps.address }, 'Could not connect to ' + ps.address + '.'))
+          : tr('lin_link.connection_closed', null, 'The connection to {name} closed.'));
       }
       return;
     }

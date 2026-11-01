@@ -8,6 +8,8 @@ const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const P = require('../shared/protocol.js');
 const loopback = require('./loopback');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 
 const T = P.T;
 
@@ -70,7 +72,7 @@ class Sound {
         this._toWin({ t: 'start-send', session: me.session, label, ice: this._ice() });
       }, (e) => {
         if (this.sending !== me) return;
-        this.status.error = 'Sending this computer’s sound: ' + e.message;
+        this.status.error = tr('lin_sound.sending_sound', { error: e.message }, 'Sending this computer’s sound: ' + e.message);
         this.onChange();
       });
     } else if (!want && this.sending) this._stopSend(true);

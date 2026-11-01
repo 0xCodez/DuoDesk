@@ -18,29 +18,30 @@ UI.tab({
   badge: (s) => (s.receive && s.receive.status === 'live' ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
-    const STATUS = { off: 'Off', connecting: 'Connecting…', new: 'Connecting…', live: 'Live', disconnected: 'Reconnecting…', failed: 'Waiting for {name}…', stopped: 'Stopped on the other computer', closed: 'Closed' };
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
+    const STATUS = { off: t('clipboard.off', null, 'Off'), connecting: t('overview.connecting', null, 'Connecting…'), new: t('overview.connecting', null, 'Connecting…'), live: t('display.live', null, 'Live'), disconnected: t('sidebar.reconnecting', null, 'Reconnecting…'), failed: t('display.waiting_for_name_ellipsis', null, 'Waiting for {name}…'), stopped: t('display_pc.stopped_on_the_other_computer', null, 'Stopped on the other computer'), closed: t('display.closed', null, 'Closed') };
 
-    const fullSw = UI.switch((v) => api.setReceive({ fullScreen: v }), { label: 'Open full screen' });
-    const inputSw = UI.switch((v) => api.setReceive({ input: v }), { label: 'Control it' });
-    const ctlRow = UI.row('Control {name} from its window', '', [inputSw]);
-    const showBtn = UI.button('Open', () => api.showPcView(), 'primary');
-    const winRow = UI.row('Screen window', '', [showBtn]);
+    const fullSw = UI.switch((v) => api.setReceive({ fullScreen: v }), { label: t('display_pc.open_full_screen', null, 'Open full screen') });
+    const inputSw = UI.switch((v) => api.setReceive({ input: v }), { label: t('display_pc.control_it', null, 'Control it') });
+    const ctlRow = UI.row(t('display_pc.control_name_from_its_window', null, 'Control {name} from its window'), '', [inputSw]);
+    const showBtn = UI.button(t('files.open', null, 'Open'), () => api.showPcView(), 'primary');
+    const winRow = UI.row(t('display_pc.screen_window', null, 'Screen window'), '', [showBtn]);
     // Run the other computer's sharing from here (screen.ctl), when it allows that.
     // One control, the same three choices as on the PC itself, kept in step (screen.state).
     const rMode = UI.segmented([
-      { value: 'off', label: 'Off' },
-      { value: 'mirror', label: 'Mirror' },
-      { value: 'extend', label: 'Extend' },
+      { value: 'off', label: t('clipboard.off', null, 'Off') },
+      { value: 'mirror', label: t('display.mirror', null, 'Mirror') },
+      { value: 'extend', label: t('display.extend', null, 'Extend') },
     ], (v) => api.remoteScreen(v === 'off' ? { share: false } : { share: true, mode: v }));
-    const rRow = UI.row('{name} shares', '', [rMode]);
-    rRow.label.dataset.peer = '{name} shares';
+    const rRow = UI.row(t('display_pc.name_shares', null, '{name} shares'), '', [rMode]);
+    rRow.label.dataset.peer = t('display_pc.name_shares', null, '{name} shares');
     const paceRow = UI.paceRow();
-    const fgSw = UI.switch((v) => api.setReceive({ framegen: v }), { label: 'Frame generation' });
-    const fgRow = UI.row('Frame generation', 'Fills in late or dropped frames, and adds in-between frames when this screen is faster than the stream', [fgSw]);
+    const fgSw = UI.switch((v) => api.setReceive({ framegen: v }), { label: t('display_pc.frame_generation', null, 'Frame generation') });
+    const fgRow = UI.row(t('display_pc.frame_generation', null, 'Frame generation'), t('display_pc.fills_in_late_or_dropped', null, 'Fills in late or dropped frames, and adds in-between frames when this screen is faster than the stream'), [fgSw]);
 
     const live = {
-      status: UI.row('Status', ''), picture: UI.row('Picture', ''), rate: UI.row('Speed', ''), rtt: UI.row('Round trip', ''),
-      codec: UI.row('Codec', ''), decoder: UI.row('Decoder', ''), delay: UI.row('Delay', ''), smooth: UI.row('Smoothness', ''),
+      status: UI.row(t('display.status', null, 'Status'), ''), picture: UI.row(t('display.picture', null, 'Picture'), ''), rate: UI.row(t('display.speed', null, 'Speed'), ''), rtt: UI.row(t('display.round_trip', null, 'Round trip'), ''),
+      codec: UI.row(t('display.codec', null, 'Codec'), ''), decoder: UI.row(t('display_pc.decoder', null, 'Decoder'), ''), delay: UI.row(t('display_pc.delay', null, 'Delay'), ''), smooth: UI.row(t('display_pc.smoothness', null, 'Smoothness'), ''),
     };
     const vals = Object.fromEntries(Object.entries(live).map(([k, r]) => {
       const v = el('span', { class: 'value' });
@@ -52,12 +53,12 @@ UI.tab({
       UI.card('', [
         winRow,
         rRow,
-        UI.row('Open full screen', 'Ctrl ⌘ F switches', [fullSw]),
+        UI.row(t('display_pc.open_full_screen', null, 'Open full screen'), t('display_pc.ctrl_f_switches', null, 'Ctrl ⌘ F switches'), [fullSw]),
         ctlRow,
         paceRow,
         fgRow,
       ], { cls: 'keep-on' }),
-      UI.card('Details', Object.values(live), { cls: 'keep-on' }),
+      UI.card(t('display.details', null, 'Details'), Object.values(live), { cls: 'keep-on' }),
     );
 
     return (s) => {
@@ -69,27 +70,27 @@ UI.tab({
       const rs = r.remote;
       rMode.set(rs ? (rs.on ? rs.mode : 'off') : '');
       rMode.disable(!s.client || !rs || !rs.remote);
-      rRow.setHint(!s.client ? 'Connect to choose from here'
-        : !rs ? 'Update DuoDesk on the other computer to choose from here'
-          : !rs.remote ? 'The other computer doesn’t allow choosing from here'
-            : rs.on ? (rs.mode === 'extend' ? 'An extra screen for it, shown here' : 'Its main screen, shown here') : 'Pick Mirror or Extend — or just press Open');
+      rRow.setHint(!s.client ? t('display_pc.connect_to_choose_from_here', null, 'Connect to choose from here')
+        : !rs ? t('display_pc.update_duodesk_on_the_other', null, 'Update DuoDesk on the other computer to choose from here')
+          : !rs.remote ? t('display_pc.the_other_computer_doesnt_allow', null, 'The other computer doesn’t allow choosing from here')
+            : rs.on ? (rs.mode === 'extend' ? t('display_pc.an_extra_screen_for_it', null, 'An extra screen for it, shown here') : t('display_pc.its_main_screen_shown_here', null, 'Its main screen, shown here')) : t('display_pc.pick_mirror_or_extend_or', null, 'Pick Mirror or Extend — or just press Open'));
       inputSw.set(r.input);
       const p = UI.peer(s);
       const pc = p.name;
-      showBtn.textContent = r.open ? 'Show' : 'Open';
+      showBtn.textContent = r.open ? t('files.show', null, 'Show') : t('files.open', null, 'Open');
       const canStart = r.remote && r.remote.remote;
-      winRow.setHint(!s.client ? `Waiting for ${pc}`
-        : r.session ? `Showing ${pc}` : canStart ? `Open starts it on ${pc}` : `Choose what to share in DuoDesk on ${pc}`);
+      winRow.setHint(!s.client ? t('display.waiting_for_name', { name: pc }, 'Waiting for {name}')
+        : r.session ? t('display_pc.showing_name', { name: pc }, 'Showing {name}') : canStart ? t('display_pc.open_starts_it_on_name', { name: pc }, 'Open starts it on {name}') : t('display_pc.choose_what_to_share_in', { name: pc }, 'Choose what to share in DuoDesk on {name}'));
       const st = r.stats;
       const isLive = r.status === 'live' && st;
       vals.status.textContent = UI.fill(STATUS[r.status] || r.status);
       vals.picture.textContent = isLive ? `${st.width} × ${st.height} · ${st.fps} fps` : '';
-      vals.rate.textContent = isLive ? `${st.mbps} Mbps` : '';
+      vals.rate.textContent = isLive ? t('display.mbps', { mbps: st.mbps }, '{mbps} Mbps') : '';
       vals.rtt.textContent = s.client && s.client.rttMs != null ? `${s.client.rttMs} ms` : '';
       vals.codec.textContent = isLive && st.codec ? st.codec : '';
       vals.decoder.textContent = isLive && st.decoder ? st.decoder : '';
-      vals.delay.textContent = isLive && st.bufferMs != null ? `${st.bufferMs} ms buffer · ${st.decodeMs} ms decode` : '';
-      vals.smooth.textContent = isLive ? `${st.dropped || 0} dropped · ${st.freezes || 0} freezes${st.framegen ? ' · frame generation on' : ''}` : '';
+      vals.delay.textContent = isLive && st.bufferMs != null ? t('display_pc.ms_buffer_ms_decode', { buffer: st.bufferMs, decode: st.decodeMs }, '{buffer} ms buffer · {decode} ms decode') : '';
+      vals.smooth.textContent = isLive ? t(st.framegen ? 'display_pc.dropped_freezes_frame_generation' : 'display_pc.dropped_freezes', { dropped: st.dropped || 0, freezes: st.freezes || 0 }, st.framegen ? '{dropped} dropped · {freezes} freezes · frame generation on' : '{dropped} dropped · {freezes} freezes') : '';
       for (const k of ['picture', 'rate', 'rtt', 'codec', 'decoder', 'delay', 'smooth']) live[k].hidden = !vals[k].textContent;
     };
   },

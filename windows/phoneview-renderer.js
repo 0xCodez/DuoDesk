@@ -9,6 +9,7 @@
 
 (() => {
   const api = window.phoneview;
+  const tr = (k, p, d) => (window.DuoDeskI18n ? window.DuoDeskI18n.t(k, p, d) : (d || k));
   const q = new URLSearchParams(location.search);
   const kind = q.get('kind') || 'screen';
   // A camera's window opens hidden: its picture goes to the Camera tab, and to the virtual camera
@@ -109,12 +110,12 @@
       const el = document.getElementById('via');
       el.textContent = s.via === 'usb' ? 'USB' : 'Wi-Fi';
       el.className = s.via;
-      el.title = s.via === 'usb' ? 'Through the USB cable' : 'Through wireless debugging';
+      el.title = s.via === 'usb' ? tr('phoneview.via_usb', null, 'Through the USB cable') : tr('phoneview.via_wireless', null, 'Through wireless debugging');
       el.hidden = false;
     }
     if (s.error) setStatus(s.error);
-    else if (s.closed) setStatus(`The phone stopped sharing (${s.closed}).`);
-    else if (s.ready && !size) setStatus('Waiting for the picture…');
+    else if (s.closed) setStatus(tr('phoneview.stopped_sharing', { reason: s.closed }, 'The phone stopped sharing (' + s.closed + ').'));
+    else if (s.ready && !size) setStatus(tr('phoneview.waiting_for_picture', null, 'Waiting for the picture…'));
   });
 
   // An app's virtual display has at least 2 pixels per point, like the Mac's: at 100% scaling a
@@ -388,25 +389,25 @@
   const PHONE = ['screen', 'app'];
   const CAMERA = ['torch', 'flip', 'zoomIn', 'zoomOut'];
   const CONTROLS = [
-    { k: 'volumeUp', title: 'Volume up' },
-    { k: 'volumeDown', title: 'Volume down' },
-    { k: 'mute', title: 'Mute' },
-    { k: 'rotate', title: kind === 'app' ? 'Rotate the window' : 'Rotate' },
-    { k: 'torch', title: 'Light', in: ['camera'], toggle: true },
-    { k: 'flip', title: 'Front or back camera', in: ['camera'] },
-    { k: 'zoomIn', title: 'Zoom in', in: ['camera'] },
-    { k: 'zoomOut', title: 'Zoom out', in: ['camera'] },
-    { k: 'shot', title: 'Screenshot (copies it: paste with Ctrl+V)', in: ['screen', 'app', 'camera'] },
-    { k: 'notifications', title: 'Notifications', in: ['screen'] },
-    { k: 'settings', title: 'Quick settings', in: ['screen'] },
-    { k: 'power', title: 'Power (lock or wake the phone)', in: ['screen'] },
-    { k: 'screenOff', title: 'Phone screen off (it keeps showing here, and saves the battery)', in: ['screen'], toggle: true },
-    { k: 'enterSends', title: 'Enter sends in WhatsApp, Instagram and Telegram (Shift+Enter: a new line)', toggle: true },
-    { k: 'arrowSwipe', title: 'Arrow keys swipe the screen (feeds, Reels, Shorts)', toggle: true },
-    { k: 'pin', title: 'Keep on top', in: ['screen', 'app', 'camera'], toggle: true },
-    { k: 'back', title: 'Back (right click, Esc)', nav: true },
-    { k: 'home', title: 'Home (middle click)', nav: true },
-    { k: 'recents', title: 'Recent apps', nav: true, in: ['screen'] },
+    { k: 'volumeUp', title: tr('phoneview.vol_up', null, 'Volume up') },
+    { k: 'volumeDown', title: tr('phoneview.vol_down', null, 'Volume down') },
+    { k: 'mute', title: tr('phoneview.mute', null, 'Mute') },
+    { k: 'rotate', title: kind === 'app' ? tr('phoneview.rotate_window', null, 'Rotate the window') : tr('phoneview.rotate', null, 'Rotate') },
+    { k: 'torch', title: tr('phoneview.torch', null, 'Light'), in: ['camera'], toggle: true },
+    { k: 'flip', title: tr('phoneview.flip', null, 'Front or back camera'), in: ['camera'] },
+    { k: 'zoomIn', title: tr('phoneview.zoom_in', null, 'Zoom in'), in: ['camera'] },
+    { k: 'zoomOut', title: tr('phoneview.zoom_out', null, 'Zoom out'), in: ['camera'] },
+    { k: 'shot', title: tr('phoneview.shot', null, 'Screenshot (copies it: paste with Ctrl+V)'), in: ['screen', 'app', 'camera'] },
+    { k: 'notifications', title: tr('phoneview.notifs', null, 'Notifications'), in: ['screen'] },
+    { k: 'settings', title: tr('phoneview.settings', null, 'Quick settings'), in: ['screen'] },
+    { k: 'power', title: tr('phoneview.power', null, 'Power (lock or wake the phone)'), in: ['screen'] },
+    { k: 'screenOff', title: tr('phoneview.screen_off', null, 'Phone screen off (it keeps showing here, and saves the battery)'), in: ['screen'], toggle: true },
+    { k: 'enterSends', title: tr('phoneview.enter_sends', null, 'Enter sends in WhatsApp, Instagram and Telegram (Shift+Enter: a new line)'), toggle: true },
+    { k: 'arrowSwipe', title: tr('phoneview.arrow_swipe', null, 'Arrow keys swipe the screen (feeds, Reels, Shorts)'), toggle: true },
+    { k: 'pin', title: tr('phoneview.pin', null, 'Keep on top'), in: ['screen', 'app', 'camera'], toggle: true },
+    { k: 'back', title: tr('phoneview.back_nav', null, 'Back (right click, Esc)'), nav: true },
+    { k: 'home', title: tr('phoneview.home_nav', null, 'Home (middle click)'), nav: true },
+    { k: 'recents', title: tr('phoneview.recents', null, 'Recent apps'), nav: true, in: ['screen'] },
   ].filter((c) => (c.in || PHONE).includes(kind));
   // The title bar layouts carry what the title bar always had: Back, Home, Recents, Notifications,
   // Rotate; the screen-off and Enter switches, and a camera's own, too.

@@ -2,6 +2,8 @@
 // Main-window actions (preload-app.js → here). Every value is validated by settings.apply().
 const { ipcMain, dialog, shell, BrowserWindow, clipboard, Menu, app } = require('electron');
 const path = require('path');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 const { receivedDir } = require('../shared/received.js');
 const { LINKS } = require('../shared/about.js');
@@ -173,7 +175,7 @@ function setupIpc(ctx) {
   handle('sendFiles', sendFiles);
   handle('chooseSendFiles', async () => {
     const win = BrowserWindow.getFocusedWindow();
-    const r = await dialog.showOpenDialog(win, { title: 'Send files', buttonLabel: 'Send', properties: ['openFile', 'multiSelections'] });
+    const r = await dialog.showOpenDialog(win, { title: tr('files.send_files', null, 'Send files'), buttonLabel: tr('general.send', null, 'Send'), properties: ['openFile', 'multiSelections'] });
     if (!r.canceled) sendFiles(r.filePaths);
   });
   handle('setNotifs', (partial) => {
@@ -187,7 +189,7 @@ function setupIpc(ctx) {
   // General › Received files (shared/received.js): chosen here only, never by the page itself.
   handle('chooseReceivedFolder', async () => {
     const win = BrowserWindow.getFocusedWindow();
-    const r = await dialog.showOpenDialog(win, { title: 'Folder for received files', buttonLabel: 'Use this folder',
+    const r = await dialog.showOpenDialog(win, { title: tr('files.folder_for_received', null, 'Folder for received files'), buttonLabel: tr('files.use_this_folder', null, 'Use this folder'),
       defaultPath: receivedDir(settings, app.getPath('downloads')), properties: ['openDirectory', 'createDirectory'] });
     if (!r.canceled && r.filePaths[0]) change('files', { receivedFolder: r.filePaths[0] });
   });
@@ -196,7 +198,7 @@ function setupIpc(ctx) {
   handle('setShareOn', (on) => smb.setShareOn(on === true));
   handle('chooseShareFolder', async () => {
     const win = BrowserWindow.getFocusedWindow();
-    const r = await dialog.showOpenDialog(win, { title: 'Folder to share with the other computer', properties: ['openDirectory', 'createDirectory'] });
+    const r = await dialog.showOpenDialog(win, { title: tr('files.folder_to_share_with_peer', null, 'Folder to share with the other computer'), properties: ['openDirectory', 'createDirectory'] });
     if (!r.canceled && r.filePaths[0]) await smb.chooseFolder(r.filePaths[0]);
   });
   handle('removeShare', () => smb.unshare());
@@ -247,8 +249,8 @@ function setupIpc(ctx) {
     if (!arg || typeof arg.id !== 'string' || !/^[\w.]{1,200}$/.test(arg.id)) return;
     const name = String(arg.name || arg.id).slice(0, 100);
     Menu.buildFromTemplate([
-      { label: 'Open in a Window', click: () => ctx.phoneViews.openApp(arg.id, name) },
-      { label: 'Pin to Start', click: () => ctx.phoneViews.pin(arg.id, name) },
+      { label: tr('win_ipc.open_in_window', null, 'Open in a Window'), click: () => ctx.phoneViews.openApp(arg.id, name) },
+      { label: tr('apps.pin_to_start', null, 'Pin to Start'), click: () => ctx.phoneViews.pin(arg.id, name) },
     ]).popup();
   });
   phone('phoneRetry', () => ctx.phone.bridge._kick());

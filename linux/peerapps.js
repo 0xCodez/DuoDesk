@@ -7,6 +7,8 @@
 // Not with a Mac: it sends its own apps (apps.js).
 const path = require('path');
 const { BrowserWindow, ipcMain, nativeImage, screen: displays } = require('electron');
+const i18n = require('../shared/i18n.js');
+const tr = (k, p, d) => i18n.t(k, p, d);
 const P = require('../shared/protocol.js');
 
 const T = P.T;
@@ -42,7 +44,8 @@ class PeerApps {
     link.on(T.PAPP_LAUNCHED, (m) => {
       if (!this.active || m.ok) return;
       const a = this.list.find((x) => x.id === String(m.id));
-      this.message = 'Couldn’t open ' + (a ? a.name : 'the app') + (m.why ? ': ' + m.why : '');
+      const who = a ? a.name : tr('apps.the_app', null, 'the app');
+      this.message = m.why ? tr('lin_peerapps.couldnt_open_why', { name: who, why: m.why }, 'Couldn’t open ' + who + ': ' + m.why) : tr('lin_peerapps.couldnt_open', { name: who }, 'Couldn’t open ' + who);
       this.onChange();
     });
     link.on(T.PAPP_WINDOWS, (m) => this.active && this.cfg.on && Array.isArray(m.windows) && this._sync(m.windows));
@@ -106,7 +109,8 @@ class PeerApps {
     if (!this.active || !this.cfg.on || typeof id !== 'string') return;
     const a = this.list.find((x) => x.id === id);
     this.message = '';
-    this.popup('away', 'Opening ' + (a ? a.name : 'the app') + ' on ' + this.peerName() + '…');
+    const name = a ? a.name : tr('apps.the_app', null, 'the app');
+    this.popup('away', tr('apps.opening_on_peer', { name, peer: this.peerName() }, 'Opening ' + name + ' on ' + this.peerName() + '…'));
     this.link.send({ t: T.PAPP_LAUNCH, id });
     this.onChange();
   }

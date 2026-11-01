@@ -6,10 +6,35 @@
 (() => {
   const { el, api } = UI;
   const $ = (id) => document.getElementById(id);
+  const tFn = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : d);
   const nav = $('nav');
   const pages = $('pages');
   const views = new Map(); // id -> { def, page, navBtn, stateEl, master, render }
   let current = null;
+
+  // Initialize i18n from saved preference or system language
+  let handedOverLang = false;
+  function syncSavedLanguage(s) {
+    if (handedOverLang || !s || !s.app) return;
+    let saved = null;
+    try { saved = localStorage.getItem('duodesk.general.language') || localStorage.getItem('duodesk.lang'); } catch (_) {}
+    if (saved && saved !== 'auto' && s.app.lang === 'auto') {
+      handedOverLang = true;
+      if (api.setApp) api.setApp({ lang: saved });
+    }
+  }
+
+  if (typeof DuoDeskI18n !== 'undefined') {
+    let saved = null;
+    try { saved = localStorage.getItem('duodesk.general.language') || localStorage.getItem('duodesk.lang'); } catch (_) {}
+    const target = (saved && saved !== 'auto') ? saved : (navigator.language || 'en');
+    DuoDeskI18n.setLanguage(target);
+  }
+
+  const navLabelText = (def) => (typeof t === 'function' ? t('nav.' + def.id, null, def.id === 'general' ? t('nav.settings', null, def.title) : def.title) : def.title);
+
+  // A tab's heading / description in the current language; the tab file's own text is the English.
+  const tabText = (def, field) => (def[field] && typeof t === 'function' ? t('tab.' + def.id + '.' + field, null, def[field]) : def[field] || '');
 
   // Sidebar groups: no headings, one icon column, a small gap between groups: the device and
   // Connection, the phone's own things, screens, input, sharing, media; Multi-device, General and
@@ -31,7 +56,8 @@
     lastGroup = group;
     if (def.bottom && !nav.querySelector('.sep')) nav.append(el('li', { class: 'sep', attrs: { role: 'presentation' } })); // one line above General and About
     const stateEl = el('span', { class: 'state' });
-    const navLabel = el('span', { class: 'label', text: def.title });
+    const navText = navLabelText(def);
+    const navLabel = el('span', { class: 'label', text: navText });
     const tile = el('span', { class: 'tile' }, [UI.icon(def.icon || def.id)]);
     tile.style.background = def.color; // CSSOM, allowed by the CSP (inline style attributes aren't)
     const navBtn = el('button', { class: 'nav-item', attrs: { role: 'tab', 'aria-controls': 'page-' + def.id } }, [
@@ -44,18 +70,30 @@
     views.set(def.id, { def, ...buildPage(def), navBtn, stateEl, navLabel, gap });
   }
 
+  function updateNavLabels() {
+    for (const [id, v] of views) {
+      if (v.navLabel && v.def) {
+        v.navLabel.textContent = navLabelText(v.def);
+      }
+    }
+  }
+
+  if (typeof DuoDeskI18n !== 'undefined' && DuoDeskI18n.onLanguageChange) {
+    DuoDeskI18n.onLanguageChange(updateNavLabels);
+  }
+
   function buildPage(def) {
     const page = el('section', { class: 'page', id: 'page-' + def.id, hidden: true, attrs: { role: 'tabpanel' } });
-    const headText = el('span', { text: def.heading || def.title });
+    const headText = el('span', { text: def.heading ? tabText(def, 'heading') : navLabelText(def) });
     const limitNote = def.macOnly ? UI.note('info', '') : null;
     const titles = el('div', { class: 'titles' }, [
       el('h1', {}, [headText, def.phase ? el('span', { class: 'pill muted', text: 'Phase ' + def.phase }) : null,
         def.tag ? el('span', { class: 'pill beta', text: def.tag }) : null]),
-      el('p', { text: def.desc || '' }),
+      el('p', { text: tabText(def, 'desc') }),
     ]);
     let master = null;
     if (def.master) {
-      master = UI.switch((v) => def.master.set(v), { label: def.title, disabled: !!def.master.disabled });
+      master = UI.switch((v) => def.master.set(v), { label: navLabelText(def), disabled: !!def.master.disabled });
     }
     page.append(el('header', { class: 'page-head' }, [titles, master ? master.el : null]));
     // Over Bluetooth, a page that needs Wi-Fi (and doesn't move the session onto it) says so, with
@@ -148,11 +186,11 @@
     const dot = l.state === 'connected' ? 'good' : l.state === 'identity_changed' ? 'bad'
       : (s.pairing || l.state === 'connecting' || l.state === 'reconnecting') ? 'warn' : '';
     $('peer-dot').className = 'dot ' + dot;
-    let text = 'Not paired';
+    let text = typeof t === 'function' ? t('sidebar.not_paired', null, 'Not paired') : 'Not paired';
     if (l.state === 'connected') text = l.macName + (UI.via(s) !== 'Wi-Fi' ? ' · ' + UI.via(s) : '') + (l.rtt != null ? ' · ' + l.rtt + ' ms' : '');
-    else if (s.pairing) text = 'Pairing…';
-    else if (l.state === 'connecting' || l.state === 'reconnecting') text = 'Reconnecting…';
-    else if (l.state === 'identity_changed') text = 'Identity changed';
+    else if (s.pairing) text = typeof t === 'function' ? t('sidebar.pairing', null, 'Pairing…') : 'Pairing…';
+    else if (l.state === 'connecting' || l.state === 'reconnecting') text = typeof t === 'function' ? t('sidebar.reconnecting', null, 'Reconnecting…') : 'Reconnecting…';
+    else if (l.state === 'identity_changed') text = typeof t === 'function' ? t('sidebar.identity_changed', null, 'Identity changed') : 'Identity changed';
     $('peer-text').textContent = text;
     renderPhones(s);
     // Tabs that don't apply to the peer (a phone has no terminal or screen to share to it…).
@@ -191,8 +229,8 @@
     // The connected phone's line (ping, battery) changes often: written in place, the tiles (and
     // their wallpaper) built again only when something else changed, else they flicker.
     const subOf = (d) => (d.connected
-      ? (ph.connected.rttMs != null ? ph.connected.rttMs + ' ms' : 'Connected') + (info.battery != null ? ' · ' + info.battery + '%' + (info.charging ? ' ⚡' : '') : '')
-      : ph.connecting && ph.connecting.id === d.id ? 'Connecting…' : 'Nearby · Click to connect');
+      ? (ph.connected.rttMs != null ? ph.connected.rttMs + ' ms' : (typeof t === 'function' ? t('sidebar.connected', null, 'Connected') : 'Connected')) + (info.battery != null ? ' · ' + info.battery + '%' + (info.charging ? ' ⚡' : '') : '')
+      : ph.connecting && ph.connecting.id === d.id ? (typeof t === 'function' ? t('sidebar.connecting', null, 'Connecting…') : 'Connecting…') : (typeof t === 'function' ? t('sidebar.nearby_click_to_connect', null, 'Nearby · Click to connect') : 'Nearby · Click to connect'));
     const key = JSON.stringify([ph.nearby, ph.connecting, ph.held, colors, UI.phoneWall ? UI.phoneWall.length : 0, current && current.def.id]);
     if (key === phonesKey) {
       ph.nearby.forEach((d, i) => {
@@ -207,7 +245,7 @@
       if (d.connected && UI.phoneWall) wall.style.backgroundImage = UI.phoneWall;
       else if (d.connected && colors) wall.style.backgroundImage = 'linear-gradient(160deg, ' + colors.join(', ') + (colors.length === 1 ? ', ' + colors[0] : '') + ')';
       const sub = subOf(d);
-      const b = el('button', { class: 'phone-tile' + (d.connected ? ' connected' : ''), title: d.connected ? d.name : 'Connect to ' + d.name }, [
+      const b = el('button', { class: 'phone-tile' + (d.connected ? ' connected' : ''), title: d.connected ? d.name : (typeof t === 'function' ? t('sidebar.connect_to', { name: d.name }, 'Connect to ' + d.name) : 'Connect to ' + d.name) }, [
         wall,
         el('span', { class: 'phone-text' }, [el('span', { class: 'phone-name', text: d.name }), el('span', { class: 'phone-sub', text: sub })]),
         d.connected ? el('span', { class: 'dot good' }) : ph.connecting && ph.connecting.id === d.id ? el('span', { class: 'spin', attrs: { 'aria-hidden': 'true' } }) : null,
@@ -224,30 +262,30 @@
     $('banner').hidden = !s.pairing && !inv;
     if (inv) { // this PC asked a phone to pair: it goes on there
       $('banner').classList.remove('failed');
-      $('pair-title').textContent = 'Press Pair on ' + inv.name;
+      $('pair-title').textContent = typeof t === 'function' ? t('pair.press_pair_on', { name: inv.name }, 'Press Pair on ' + inv.name) : 'Press Pair on ' + inv.name;
       $('pair-code-wrap').hidden = true;
       $('pair-match').hidden = true;
-      $('pair-cancel').textContent = 'Cancel';
-      $('pair-hint').textContent = 'DuoDesk on ' + inv.name + ' asks to pair with this PC. Press Pair there, then compare the codes.';
+      $('pair-cancel').textContent = typeof t === 'function' ? t('pair.cancel', null, 'Cancel') : 'Cancel';
+      $('pair-hint').textContent = typeof t === 'function' ? t('pair.banner_ask_hint', { name: inv.name }, 'DuoDesk on ' + inv.name + ' asks to pair with this PC. Press Pair there, then compare the codes.') : 'DuoDesk on ' + inv.name + ' asks to pair with this PC. Press Pair there, then compare the codes.';
       return;
     }
     const p = s.pairing;
     if (!p) return;
     $('banner').classList.toggle('failed', p.phase === 'failed');
     const host = p.role === 'host'; // another computer asks to pair with this PC
-    $('pair-title').textContent = host ? p.macName + ' wants to pair' : 'Pairing with ' + p.macName;
+    $('pair-title').textContent = host ? (typeof t === 'function' ? t('pair.wants_to_pair', { name: p.macName }, p.macName + ' wants to pair') : p.macName + ' wants to pair') : (typeof t === 'function' ? t('pair.title_with', { name: p.macName }, 'Pairing with ' + p.macName) : 'Pairing with ' + p.macName);
     $('pair-code-wrap').hidden = !p.code || !!p.wired; // on the USB cable: nothing to compare
     $('pair-code').textContent = p.code ? p.code.slice(0, 3) + ' ' + p.code.slice(3) : '';
     $('pair-match').hidden = host ? !p.code || p.allowed : p.phase !== 'code';
-    $('pair-match').textContent = host ? 'Allow' : 'Codes match';
-    $('pair-cancel').textContent = host ? 'Deny' : p.phase === 'failed' ? 'Close' : 'Cancel';
+    $('pair-match').textContent = host ? (typeof t === 'function' ? t('pair.allow', null, 'Allow') : 'Allow') : (typeof t === 'function' ? t('pair.match', null, 'Codes match') : 'Codes match');
+    $('pair-cancel').textContent = host ? (typeof t === 'function' ? t('pair.deny', null, 'Deny') : 'Deny') : p.phase === 'failed' ? (typeof t === 'function' ? t('pair.close', null, 'Close') : 'Close') : (typeof t === 'function' ? t('pair.cancel', null, 'Cancel') : 'Cancel');
     const hints = {
-      connecting: 'Connecting to ' + p.address + '…',
-      starting: 'Waiting for ' + p.macName + '…',
-      code: 'Check that ' + p.macName + ' shows the same code, then click Codes match.',
-      waiting: 'Waiting for Allow on ' + p.macName + '…',
+      connecting: tFn('pair.connecting_to', { address: p.address }, 'Connecting to ' + p.address + '…'),
+      starting: tFn('pair.waiting_for', { name: p.macName }, 'Waiting for ' + p.macName + '…'),
+      code: tFn('pair.check_code_match', { name: p.macName }, 'Check that ' + p.macName + ' shows the same code, then click Codes match.'),
+      waiting: tFn('pair.waiting_for_allow', { name: p.macName }, 'Waiting for Allow on ' + p.macName + '…'),
       failed: p.error,
-      request: p.wired ? (p.allowed ? 'Pairing…' : p.macName + ' is on the USB cable. Click Allow to pair.') : !p.code ? 'Waiting for the code…' : p.allowed ? 'Waiting for ' + p.macName + '…' : 'Check that ' + p.macName + ' shows the same code, then click Allow.',
+      request: p.wired ? (p.allowed ? tFn('sidebar.pairing', null, 'Pairing…') : tFn('pair.usb_cable_allow', { name: p.macName }, p.macName + ' is on the USB cable. Click Allow to pair.')) : !p.code ? tFn('pair.waiting_for_the_code', null, 'Waiting for the code…') : p.allowed ? tFn('pair.waiting_for', { name: p.macName }, 'Waiting for ' + p.macName + '…') : tFn('pair.check_code_allow', { name: p.macName }, 'Check that ' + p.macName + ' shows the same code, then click Allow.'),
     };
     $('pair-hint').textContent = hints[p.phase] || '';
   }
@@ -263,7 +301,7 @@
     if (key === peerKey) return;
     peerKey = key;
     // The Display tabs keep their names (Receive screen / Share screen); headings name the peer.
-    const heads = { 'mac-pc': p.Name + ' on ' + p.me, 'pc-mac': p.me + ' on ' + p.name }; // as the Mac: "Inuka on Inukas-MBA"
+    const heads = { 'mac-pc': t('display.peer_on_me', { name: p.Name, me: p.me }, p.Name + ' on ' + p.me), 'pc-mac': t('display.me_on_peer', { me: p.me, name: p.name }, p.me + ' on ' + p.name) }; // as the Mac: "Inuka on Inukas-MBA"
     for (const [id, text] of Object.entries(heads)) {
       const v = views.get(id);
       if (v) v.headText.textContent = text;
@@ -273,7 +311,7 @@
     // Sentences and route heads with the real name ({name}, {the}, {them}).
     for (const e of document.querySelectorAll('[data-peer]')) e.textContent = e.dataset.peer.replace(/\{(\w+)\}/g, (m, k) => (k in p ? p[k] : m));
     for (const e of document.querySelectorAll('[data-os="peer"]')) e.className = 'os-ico ' + UI.osClass(p.os);
-    for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', [...e.querySelectorAll('.nm')].map((n) => n.textContent).join(' to '));
+    for (const e of document.querySelectorAll('.route')) e.setAttribute('aria-label', [...e.querySelectorAll('.nm')].map((n) => n.textContent).join(t('route.to', null, ' to ')));
   }
 
   let wasLinked = null;
@@ -313,9 +351,10 @@
   // Relative times ("2 min ago") age without a state push.
   setInterval(() => UI.state && current && renderPage(current, UI.state), 15000);
 
-  api.onState(render);
+  api.onState((s) => { syncSavedLanguage(s); render(s); });
   api.getState().then((s) => {
     UI.state = s;
+    syncSavedLanguage(s);
     show((s.ui && s.ui.tab) || home(s), false);
     render(s);
   });

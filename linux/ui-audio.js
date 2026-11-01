@@ -15,17 +15,18 @@ UI.tab({
   badge: (s) => (s.audio.receiving || s.audio.sending ? 'on' : ''),
   build(body) {
     const { api } = UI;
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
     const set = (partial) => api.setAudio(partial);
     const volume = UI.slider({ min: 0, max: 1, step: 0.05, format: (v) => Math.round(v * 100) + '%' }, (v) => set({ volume: v }));
-    const mute = UI.switch((v) => set({ muteLocal: v }), { label: 'Mute {me} while sending' });
+    const mute = UI.switch((v) => set({ muteLocal: v }), { label: t('audio.mute_me_while_sending', null, 'Mute {me} while sending') });
     const recvState = UI.row('', '');
     const sendState = UI.row('', '');
     const pair = UI.dirCards(
-      { on: { get: (s) => s.audio.receive, set: (v) => set({ receive: v }) }, label: 'Play {name}’s sound on {me}', rows: [
-        UI.row('Volume', '', [volume]),
+      { on: { get: (s) => s.audio.receive, set: (v) => set({ receive: v }) }, label: t('audio.play_name_s_sound_on', null, 'Play {name}’s sound on {me}'), rows: [
+        UI.row(t('audio.volume', null, 'Volume'), '', [volume]),
         recvState,
       ] },
-      { on: { get: (s) => s.audio.send, set: (v) => set({ send: v }) }, label: 'Play {me}’s sound on {name}', rows: [
+      { on: { get: (s) => s.audio.send, set: (v) => set({ send: v }) }, label: t('audio.play_me_s_sound_on', null, 'Play {me}’s sound on {name}'), rows: [
         sendState,
       ] },
     );
@@ -44,9 +45,9 @@ UI.tab({
       recvState.hidden = !a.receive;
       const nm = UI.peer(s).name;
       const phone = UI.phoneSound && UI.phoneSound(s);
-      recvState.label.textContent = phone != null ? phone : a.receiving ? 'Playing ' + nm : connected ? 'Turned off on ' + nm : 'Waiting for ' + nm;
+      recvState.label.textContent = phone != null ? phone : a.receiving ? t('audio.playing_name', { name: nm }, 'Playing {name}') : connected ? t('clipboard.turned_off_on', { name: nm }, 'Turned off on {name}') : t('audio.waiting_for_name', { name: nm }, 'Waiting for {name}');
       sendState.hidden = !a.send && !a.error;
-      sendState.label.textContent = a.sending ? 'Playing on ' + nm : !connected ? 'Waiting for ' + nm : !a.macAccepts ? 'Turned off on ' + nm : 'Connecting…';
+      sendState.label.textContent = a.sending ? t('audio.playing_on_name', { name: nm }, 'Playing on {name}') : !connected ? t('audio.waiting_for_name', { name: nm }, 'Waiting for {name}') : !a.macAccepts ? t('clipboard.turned_off_on', { name: nm }, 'Turned off on {name}') : t('sidebar.connecting', null, 'Connecting…');
       sendState.setHint(a.error || '');
     };
   },

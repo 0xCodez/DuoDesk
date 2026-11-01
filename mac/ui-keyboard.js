@@ -14,19 +14,20 @@ UI.tab({
   badge: (s) => (s.kvm && s.kvm.keyboard ? 'on' : ''),
   build(body) {
     const { el, api } = UI;
+    const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
     const status = UI.note('info', '');
     const hotkey = UI.select(Object.entries(UI.HOTKEYS).map(([value, label]) => ({ value, label })), (v) => api.setKeys({ hotkey: v }));
-    const hotkeyRow = UI.row('Hotkey', 'Double-tap to turn cursor sharing on or off', [hotkey]);
-    const switchSw = UI.switch((v) => api.setKvm({ hotkeySwitch: v }), { label: 'Switch the keyboard with the hotkey' });
-    const switchRow = UI.row('Switch the keyboard with the hotkey', '', [switchSw]);
-    const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: 'Swap Ctrl and Command' });
-    const shortcutsRow = UI.row('Shortcuts on {name}', '⌘ works as Ctrl, so ⌘C copies there');
-    const swapRow = UI.row('Ctrl works as ⌘', 'So Ctrl+C copies here', [swap]);
-    const otherHotkey = UI.row('Hotkey on {name}', '');
+    const hotkeyRow = UI.row(t('keyboard.hotkey', null, 'Hotkey'), t('keyboard.double_tap_to_turn_cursor', null, 'Double-tap to turn cursor sharing on or off'), [hotkey]);
+    const switchSw = UI.switch((v) => api.setKvm({ hotkeySwitch: v }), { label: t('keyboard.switch_the_keyboard_with_the', null, 'Switch the keyboard with the hotkey') });
+    const switchRow = UI.row(t('keyboard.switch_the_keyboard_with_the', null, 'Switch the keyboard with the hotkey'), '', [switchSw]);
+    const swap = UI.switch((v) => api.setKeys({ swapCtrlCmd: v }), { label: t('keyboard.swap_ctrl_and_command', null, 'Swap Ctrl and Command') });
+    const shortcutsRow = UI.row(t('keyboard.shortcuts_on_name', null, 'Shortcuts on {name}'), t('keyboard.works_as_ctrl_so_c', null, '⌘ works as Ctrl, so ⌘C copies there'));
+    const swapRow = UI.row(t('keyboard.ctrl_works_as', null, 'Ctrl works as ⌘'), t('keyboard.so_ctrl_c_copies_here', null, 'So Ctrl+C copies here'), [swap]);
+    const otherHotkey = UI.row(t('keyboard.hotkey_on_name', null, 'Hotkey on {name}'), '');
 
     body.append(
       status,
-      UI.card('Hotkey', [hotkeyRow, switchRow], { cls: 'keep-on' }),
+      UI.card(t('keyboard.hotkey', null, 'Hotkey'), [hotkeyRow, switchRow], { cls: 'keep-on' }),
       UI.pair(UI.dir('m2w', [shortcutsRow]), UI.dir('w2m', [otherHotkey, swapRow])),
     );
 
@@ -40,12 +41,12 @@ UI.tab({
       // Keyboard-only switching exists only while the pointer isn't shared (Cursor off).
       switchSw.set(s.kvm.hotkeySwitch);
       switchSw.disable(!!s.kvm.mouse);
-      switchRow.setHint(s.kvm.mouse ? 'Only when Cursor is off' : `Double-tap to type on ${p.name} and back`);
+      switchRow.setHint(s.kvm.mouse ? t('keyboard.only_when_cursor_is_off', null, 'Only when Cursor is off') : t('keyboard.double_tap_to_type_on', null, 'Double-tap to type on {name} and back'));
       // Ctrl/Cmd swapping only between a Mac and a PC or Linux.
       shortcutsRow.hidden = p.same;
       swapRow.hidden = p.same;
       swap.set(s.keys && s.keys.swapCtrlCmd);
-      otherHotkey.setHint(`Set in DuoDesk on ${p.name}`);
+      otherHotkey.setHint(t('keyboard.set_in_duodesk_on_name', null, 'Set in DuoDesk on {name}'));
     };
   },
 });

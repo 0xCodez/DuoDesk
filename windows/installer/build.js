@@ -21,7 +21,7 @@ const pkg = require(path.join(WIN, 'package.json'));
 const electronVersion = require(path.join(WIN, 'node_modules', 'electron', 'package.json')).version;
 
 const SKIP = new Set(['node_modules', 'dist', 'installer', 'test', 'package-lock.json']); // tests (mesh/test) stay out of the package
-const SHARED_DIRS = ['fonts', 'art', 'pagefx']; // shared/ subfolders the pages load at run time
+const SHARED_DIRS = ['fonts', 'art', 'pagefx', 'locales']; // shared/ subfolders the pages load at run time
 const ARCHS = process.argv.slice(2).length ? process.argv.slice(2) : ['x64'];
 for (const a of ARCHS) if (a !== 'x64' && a !== 'arm64') throw new Error('Unknown architecture ' + a + ' (x64 or arm64)');
 
@@ -144,6 +144,10 @@ async function pack(arch) {
         uninstallerIcon: path.join(__dirname, 'icon.ico'),
         license: path.join(ROOT, 'LICENSE'),
         include: path.join(__dirname, 'installer.nsh'),
+        // Installer language: asks on start, English or Brazilian Portuguese (installer screens only).
+        multiLanguageInstaller: true,
+        displayLanguageSelector: true,
+        installerLanguages: ['en_US', 'pt_BR'],
         shortcutName: 'DuoDesk',
         createDesktopShortcut: true,
         createStartMenuShortcut: true,

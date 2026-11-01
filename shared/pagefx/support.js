@@ -17,6 +17,7 @@
   if (!FX || FX._support) return;
   FX._support = true;
   const UI = window.UI || {};
+  const tr = (k, p, d) => (typeof window !== 'undefined' && typeof window.t === 'function' ? window.t(k, p, d) : d !== undefined ? d : k);
   const snap = (id) => (UI.support && UI.support[id]) || {};
 
   // ---------------------------------------------------------------------------------------------------
@@ -40,7 +41,7 @@
       const cap = el('span', 'pg-cap spx-cap');
       const left = el('div', 'pg-col spx-text', [el('div', 'spx-figline', [fig, per]), kick, cap]);
       const n = el('span', 'pg-fig spx-n');
-      const nk = el('span', 'pg-kick', 'supporters');
+      const nk = el('span', 'pg-kick', tr('tip.supporters_label', null, 'supporters'));
       const right = el('div', 'pg-col spx-side', [n, nk]);
       h.replaceChildren(art, left, el('div', 'pg-spacer'), right);
       ctx.stagger([art, left, right]);
@@ -49,12 +50,12 @@
     function paint(ctx, d) {
       if (!r) return;
       const st = d.state || 'loading';
-      ctx.text(r.fig, st === 'offline' ? 'Offline' : d.label || (st === 'loading' ? '…' : '–'));
-      ctx.text(r.per, d.label && d.monthly ? '/ month' : '');
-      ctx.text(r.kick, st === 'offline' ? 'can’t reach the tip jar' : st === 'opened' ? 'checkout opened in your browser' : d.monthly ? 'monthly tip' : 'one-time tip');
-      ctx.text(r.cap, d.name ? 'to ' + d.name + ' · through Stripe' : 'through Stripe');
+      ctx.text(r.fig, st === 'offline' ? tr('pfx_support.offline', null, 'Offline') : d.label || (st === 'loading' ? '…' : '–'));
+      ctx.text(r.per, d.label && d.monthly ? tr('pfx_support.per_month', null, '/ month') : '');
+      ctx.text(r.kick, st === 'offline' ? tr('pfx_support.cant_reach_tip_jar', null, 'can’t reach the tip jar') : st === 'opened' ? tr('pfx_support.checkout_opened', null, 'checkout opened in your browser') : d.monthly ? tr('pfx_support.monthly_tip', null, 'monthly tip') : tr('pfx_support.one_time_tip', null, 'one-time tip'));
+      ctx.text(r.cap, d.name ? tr('pfx_support.to_name_stripe', { name: d.name }, 'to {name} · through Stripe') : tr('pfx_support.through_stripe', null, 'through Stripe'));
       ctx.text(r.n, d.count != null ? String(d.count) : '–');
-      ctx.text(r.nk, d.count === 1 ? 'supporter' : 'supporters');
+      ctx.text(r.nk, d.count === 1 ? tr('tip.supporter', null, 'supporter') : tr('tip.supporters_label', null, 'supporters'));
       ctx.cls(r.h, 'off', st === 'offline');
       ctx.cls(r.h, 'monthly', !!d.monthly);
       if (st === 'opened' && ctx.changed('opened', d.at || 0)) ctx.pop(r.h, 'spx-thanks', 2400);
@@ -93,14 +94,14 @@
       const art = el('div', 'spx-art', [bubble]);
       const fig = el('span', 'pg-fig spx-fig');
       const kick = el('span', 'pg-kick spx-kick');
-      const cap = el('span', 'pg-cap spx-cap', 'contact@beyond-media.ai · or a GitHub issue');
+      const cap = el('span', 'pg-cap spx-cap');
       const left = el('div', 'pg-col spx-text', [fig, kick, cap]);
       const n = el('span', 'pg-fig spx-n');
-      const nk = el('span', 'pg-kick', 'characters');
+      const nk = el('span', 'pg-kick');
       const right = el('div', 'pg-col spx-side', [n, nk]);
       h.replaceChildren(art, left, el('div', 'pg-spacer'), right);
       ctx.stagger([art, left, right]);
-      return { h, l1, l2, caret, fig, kick, n };
+      return { h, l1, l2, caret, fig, kick, cap, n, nk };
     }
     function paint(ctx, d) {
       if (!r) return;
@@ -120,9 +121,11 @@
       ctx.attr(r.caret, 'x2', cx.toFixed(1));
       ctx.attr(r.caret, 'y1', onTwo ? '18.2' : '12.2');
       ctx.attr(r.caret, 'y2', onTwo ? '23.8' : '17.8');
-      ctx.text(r.fig, d.label || 'Bug');
+      ctx.text(r.fig, d.label || tr('feedback.bug', null, 'Bug'));
       const sent = d.state === 'sent' || d.state === 'copied';
-      ctx.text(r.kick, d.state === 'copied' ? 'copied to the clipboard' : d.state === 'sent' ? 'opened in your mail app' : d.info === false ? 'just your words' : 'with version and system info');
+      ctx.text(r.kick, d.state === 'copied' ? tr('pfx_support.copied_clipboard', null, 'copied to the clipboard') : d.state === 'sent' ? tr('pfx_support.opened_mail_app', null, 'opened in your mail app') : d.info === false ? tr('pfx_support.just_your_words', null, 'just your words') : tr('pfx_support.with_version_info', null, 'with version and system info'));
+      ctx.text(r.cap, tr('pfx_support.contact_or_issue', null, 'contact@beyond-media.ai · or a GitHub issue'));
+      ctx.text(r.nk, tr('pfx_support.characters', null, 'characters'));
       ctx.text(r.n, String(len));
       ctx.cls(r.h, 'sent', sent);
       ctx.cls(r.h, 'love', d.kind === 'love');

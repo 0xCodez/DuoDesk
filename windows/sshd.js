@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { t: tr } = require('../shared/i18n.js');
 const P = require('../shared/protocol.js');
 const { script, scriptElevated } = require('./ps');
 
@@ -72,7 +73,7 @@ class Sshd {
         this.save();
         this.message = '';
       } catch (e) {
-        this.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined' : 'Couldn’t add {name}’s key: ' + e.message;
+        this.message = /cancel/i.test(e.message) ? tr('vdd.admin_declined', null, 'The administrator prompt was declined') : tr('lin_sshd.couldnt_add_key', { error: e.message }, 'Couldn’t add {name}’s key: ' + e.message);
         return this._info(false, 'not_allowed');
       }
     }
@@ -111,7 +112,7 @@ class Sshd {
       this.cfg.installedKey = '';
       this.save();
     } catch (e) {
-      this.message = '{Name}’s key is still installed: ' + e.message;
+      this.message = tr('lin_sshd.key_still_installed', { error: e.message }, '{Name}’s key is still installed: ' + e.message);
     }
     this.onChange();
   }
@@ -125,7 +126,7 @@ class Sshd {
       await scriptElevated('sshd-setup', {}, 600000);
       this.message = '';
     } catch (e) {
-      this.message = /cancel/i.test(e.message) ? 'The administrator prompt was declined' : 'Setup failed: ' + e.message;
+      this.message = /cancel/i.test(e.message) ? tr('vdd.admin_declined', null, 'The administrator prompt was declined') : tr('lin_sshd.setup_failed', { error: e.message }, 'Setup failed: ' + e.message);
     }
     this.busy = false;
     await this.refresh();

@@ -4,6 +4,7 @@
 (function () {
   const api = window.monitor;
   const status = document.getElementById('drop-status');
+  const t = (k, p, d) => (typeof window.t === 'function' ? window.t(k, p, d) : d);
   const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 
   window.addEventListener('dragover', (e) => {
@@ -31,8 +32,10 @@
     if (v.current) {
       const c = v.current;
       const pct = c.size ? Math.floor((c.sent / c.size) * 100) : 100;
-      status.textContent = 'Sending ' + c.name + (c.count > 1 ? ' (' + (c.index + 1) + ' of ' + c.count + ')' : '') +
+      const p = { name: c.name, index: c.index + 1, count: c.count, pct, sent: mb(c.sent), size: mb(c.size) };
+      const plain = 'Sending ' + c.name + (c.count > 1 ? ' (' + (c.index + 1) + ' of ' + c.count + ')' : '') +
         ', ' + pct + '%  ' + mb(c.sent) + ' / ' + mb(c.size);
+      status.textContent = c.count > 1 ? t('lin_monitor_drop.sending_multi', p, plain) : t('lin_monitor_drop.sending', p, plain);
       status.className = '';
     } else if (v.last) {
       status.textContent = (v.last.name ? v.last.name + ': ' : '') + v.last.text;

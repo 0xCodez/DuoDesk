@@ -2,6 +2,8 @@
 // Cursor tab: directions, edge resistance, speed, scrolling. Which device each edge leads to is the
 // layout in the Multi-device tab (ui-multi.js, docs/mesh.md "Shared layout").
 'use strict';
+(() => { // own scope: every mesh/ui-*.js declares `tr`, and top-level consts of classic scripts collide
+var tr = (k, p, d) => (typeof t === 'function' ? t(k, p, d) : (d || k));
 
 UI.tab({
   id: 'cursor',
@@ -26,35 +28,35 @@ UI.tab({
       return r;
     };
 
-    const drive = UI.switch((v) => api.setKvm({ driveOther: v }), { label: 'Use here, control there' });
-    const driven = UI.switch((v) => api.setKvm({ beDriven: v }), { label: 'Let it control this computer' });
+    const drive = UI.switch((v) => api.setKvm({ driveOther: v }), { label: tr('cursor.use_here_control_there', null, 'Use here, control there') });
+    const driven = UI.switch((v) => api.setKvm({ beDriven: v }), { label: tr('cursor.let_it_control_this', null, 'Let it control this computer') });
     const resistance = UI.slider({ min: 0, max: 400, step: 10, format: (v) => `${v} px` }, (v) => api.setKvm({ resistancePx: v }));
     const speed = UI.slider({ min: 0.25, max: 4, step: 0.25, format: (v) => `${v.toFixed(2)}×` }, (v) => api.setKvm({ speed: v }));
-    const reverse = UI.switch((v) => api.setKvm({ reverseScroll: v }), { label: 'Reverse scrolling' });
-    const gestures = UI.switch((v) => api.setKvm({ gestures: v }), { label: 'Trackpad gestures' });
-    const gestureRow = UI.row('Trackpad gestures', 'Pinch to zoom, swipe between desktops, Mission Control / Task View, back and forward — done the native way on {name}. The same on both', [gestures]);
-    const ble = UI.switch((v) => api.setKvm({ ble: v }), { label: 'Over Bluetooth' });
-    const bleRow = UI.row('Over Bluetooth', 'When {name} isn’t on this network and you’re connected through Bluetooth (slower). Off: nothing crosses until you’re on Wi-Fi again. The same on both', [ble]);
+    const reverse = UI.switch((v) => api.setKvm({ reverseScroll: v }), { label: tr('cursor.reverse_scrolling', null, 'Reverse scrolling') });
+    const gestures = UI.switch((v) => api.setKvm({ gestures: v }), { label: tr('cursor.trackpad_gestures', null, 'Trackpad gestures') });
+    const gestureRow = UI.row(tr('cursor.trackpad_gestures', null, 'Trackpad gestures'), tr('cursor.gestures_hint_mac', null, 'Pinch to zoom, swipe between desktops, Mission Control / Task View, back and forward — done the native way on {name}. The same on both'), [gestures]);
+    const ble = UI.switch((v) => api.setKvm({ ble: v }), { label: tr('cursor.over_bluetooth', null, 'Over Bluetooth') });
+    const bleRow = UI.row(tr('cursor.over_bluetooth', null, 'Over Bluetooth'), tr('cursor.bluetooth_hint', null, 'When {name} isn’t on this network and you’re connected through Bluetooth (slower). Off: nothing crosses until you’re on Wi-Fi again. The same on both'), [ble]);
 
     // A phone as the peer: how the pointer and keys reach it (settings.phone.input, the phone's own toggle too).
-    const via = UI.segmented([{ value: 'adb', label: 'ADB' }, { value: 'phone', label: 'Accessibility' }], (v) => api.setPhone({ input: v, inputPicked: true }));
-    const viaRow = UI.row('Through', 'ADB: full control. Accessibility: DuoDesk on the phone taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth, no developer options', [via.el]);
+    const via = UI.segmented([{ value: 'adb', label: 'ADB' }, { value: 'phone', label: tr('cursor.accessibility', null, 'Accessibility') }], (v) => api.setPhone({ input: v, inputPicked: true }));
+    const viaRow = UI.row(tr('cursor.through', null, 'Through'), tr('cursor.through_hint', null, 'ADB: full control. Accessibility: DuoDesk on the phone taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth, no developer options'), [via.el]);
     let driven2 = null;
     body.append(
       status,
       UI.pair(
-        UI.dir('m2w', [peerRow('Use {me}’s mouse and keyboard on {name}', 'Push the pointer past the edge', [drive]), viaRow]),
-        UI.dir('w2m', [driven2 = peerRow('Use {name}’s mouse and keyboard on {me}', '', [driven])]),
+        UI.dir('m2w', [peerRow(tr('cursor.use_me_on_peer', null, 'Use {me}’s mouse and keyboard on {name}'), tr('cursor.push_edge', null, 'Push the pointer past the edge'), [drive]), viaRow]),
+        UI.dir('w2m', [driven2 = peerRow(tr('cursor.use_peer_on_me', null, 'Use {name}’s mouse and keyboard on {me}'), '', [driven])]),
       ),
       lock.el,
-      UI.note('info', 'Which device each edge of the screen leads to: Multi-device › Layout.'),
-      UI.card('Feel', [
-        UI.row('Edge resistance', 'Push a little further to cross', [resistance]),
-        UI.row('Pointer speed here', 'Another computer’s mouse on this Mac, and this Mac’s on a phone', [speed]),
-        peerRow('Reverse scrolling from {name}', '', [reverse]),
+      UI.note('info', tr('cursor.which_edge_hint', null, 'Which device each edge of the screen leads to: Multi-device › Layout.')),
+      UI.card(tr('cursor.feel', null, 'Feel'), [
+        UI.row(tr('cursor.edge_resistance', null, 'Edge resistance'), tr('cursor.resistance_hint', null, 'Push a little further to cross'), [resistance]),
+        UI.row(tr('cursor.pointer_speed', null, 'Pointer speed here'), tr('meshm_cursor.another_computers_mouse_on', null, 'Another computer’s mouse on this Mac, and this Mac’s on a phone'), [speed]),
+        peerRow(tr('cursor.reverse_scrolling_from_name', null, 'Reverse scrolling from {name}'), '', [reverse]),
         gestureRow,
       ]),
-      UI.card('Not on the same network', [bleRow]),
+      UI.card(tr('cursor.not_same_network', null, 'Not on the same network'), [bleRow]),
     );
 
     return (s) => {
@@ -64,7 +66,7 @@ UI.tab({
       status.className = `note ${kind}`;
       status.set(text);
       lock.update(s);
-      driven2.setHint('Double-tap the hotkey to take everything back');
+      driven2.setHint(tr('cursor.double_tap_the_hotkey', null, 'Double-tap the hotkey to take everything back'));
       drive.set(k.driveOther);
       driven.set(k.beDriven);
       resistance.set(k.resistancePx);
@@ -77,3 +79,4 @@ UI.tab({
     };
   },
 });
+})();
