@@ -9,6 +9,7 @@
 package com.twindesk.android
 
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
@@ -75,9 +76,9 @@ class Files(core: Core) : Feature(core) {
     // One line for the ongoing notification while something moves.
     fun activeLine(): String? {
         val inb = batches.values.firstOrNull()
-        if (inb != null) return "Receiving ${plural(inb.count, "file")} · ${pct(inb.got, inb.bytes)}%"
+        if (inb != null) return core.ctx.getString(R.string.files_active_receiving, plural(inb.count, "file"), pct(inb.got, inb.bytes))
         val outb = outBatches.values.firstOrNull()
-        if (outb != null) return "Sending ${outb.name} · ${pct(outb.sent, outb.bytes)}%"
+        if (outb != null) return core.ctx.getString(R.string.files_active_sending, outb.name, pct(outb.sent, outb.bytes))
         return null
     }
 
@@ -248,18 +249,18 @@ class Files(core: Core) : Feature(core) {
         val where = b.target.where.ifEmpty { "Download/DuoDesk" }
         if (drags.remove(b.id) != null) core.send(msg("drag.end", "drag" to b.id, "result" to if (b.ok) "dropped" else "failed", "where" to where))
         else core.send(msg(Proto.T.FILES_DONE, "batch" to b.id, "ok" to b.ok, "where" to where, "files" to b.done))
-        val from = core.host?.name ?: "your computer"
+        val from = core.host?.name ?: core.ctx.getString(R.string.common_your_computer)
         val what = if (b.tops.size == 1) b.tops.first() else plural(b.tops.size, "item")
-        recent.add(0, "${if (b.ok) "Received" else "Some of"} $what from $from")
+        recent.add(0, core.ctx.getString(if (b.ok) R.string.files_received_from else R.string.files_some_of_from, what, from))
         while (recent.size > 20) recent.removeAt(recent.size - 1)
         if (b.target.onDone != null) {
             Notify.cancelFiles(core.ctx, b.key)
             b.target.onDone.invoke(b)
-            if (b.target.where.isNotEmpty()) Notify.files(core.ctx, b.key, if (b.ok) "$what from $from" else "Not everything arrived from $from", "In ${b.target.where}", null, null)
+            if (b.target.where.isNotEmpty()) Notify.files(core.ctx, b.key, if (b.ok) core.ctx.getString(R.string.files_what_from, what, from) else core.ctx.getString(R.string.files_not_everything_from, from), core.ctx.getString(R.string.files_in_where, b.target.where), null, null)
         } else {
             val open = if (b.placed.size == 1) Notify.viewIntent(b.placed[0].first, b.placed[0].second)
             else Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            Notify.files(core.ctx, b.key, if (b.ok) "$what from $from" else "Not everything arrived from $from", if (b.ok) "In Downloads › DuoDesk. Tap to open." else "$what is incomplete", null, open)
+            Notify.files(core.ctx, b.key, if (b.ok) core.ctx.getString(R.string.files_what_from, what, from) else core.ctx.getString(R.string.files_not_everything_from, from), if (b.ok) core.ctx.getString(R.string.files_in_downloads_tap) else core.ctx.getString(R.string.files_what_incomplete, what), null, open)
         }
         core.changed()
     }
@@ -268,8 +269,9 @@ class Files(core: Core) : Feature(core) {
         val now = System.currentTimeMillis()
         if (!force && now - b.lastNote < 500) return
         b.lastNote = now
-        if (b.target.onDone != null && b.target.where.isEmpty()) Notify.fclipProgress(core.ctx, "Copying ${plural(b.count, "file")} from ${core.host?.name ?: "your computer"}", pct(b.got, b.bytes))
-        else Notify.files(core.ctx, b.key, "Receiving ${plural(b.count, "file")} from ${core.host?.name ?: "your computer"}", "${pct(b.got, b.bytes)}%", pct(b.got, b.bytes), null)
+        val hostName = core.host?.name ?: core.ctx.getString(R.string.common_your_computer)
+        if (b.target.onDone != null && b.target.where.isEmpty()) Notify.fclipProgress(core.ctx, core.ctx.getString(R.string.files_copying_from, plural(b.count, "file"), hostName), pct(b.got, b.bytes))
+        else Notify.files(core.ctx, b.key, core.ctx.getString(R.string.files_receiving_from, plural(b.count, "file"), hostName), "${pct(b.got, b.bytes)}%", pct(b.got, b.bytes), null)
         core.changed()
     }
 
@@ -363,9 +365,17 @@ class Files(core: Core) : Feature(core) {
     val sending: List<OutBatch> get() = outBatches.values.toList()
     val receiving: List<Batch> get() = batches.values.toList()
 
+    fun plural(n: Int, what: String): String = plural(core.ctx, n, what)
+
     companion object {
         fun mimeOf(name: String): String =
             MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase()) ?: "application/octet-stream"
+
+        fun plural(ctx: Context, n: Int, what: String): String = when (what) {
+            "file" -> ctx.resources.getQuantityString(R.plurals.files_count, n, n)
+            "item" -> ctx.resources.getQuantityString(R.plurals.files_items, n, n)
+            else -> "$n $what${if (n == 1) "" else "s"}"
+        }
 
         fun plural(n: Int, what: String) = "$n $what${if (n == 1) "" else "s"}"
         fun pct(a: Long, b: Long) = if (b <= 0) 100 else ((a * 100) / b).toInt().coerceIn(0, 100)

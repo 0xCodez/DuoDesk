@@ -1,9 +1,687 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Core App Name -->
+    <string name="app_name">DuoDesk</string>
+
+    <!-- App Shortcuts & Services -->
     <string name="sc_adb_short">Wireless debugging</string>
     <string name="sc_adb_long">Turn on wireless debugging</string>
     <string name="sc_screen_short">Mac screen</string>
     <string name="sc_screen_long">Show the Mac’s screen</string>
     <string name="input_service">DuoDesk: your computer’s mouse and keyboard</string>
     <string name="input_service_desc">Lets the computer you paired in DuoDesk tap, scroll and type on this phone with its mouse and keyboard when wireless debugging isn’t available (for example over Bluetooth). DuoDesk only acts on what that computer sends while you share its cursor; it doesn’t read your screen.</string>
+
+    <!-- Navigation Tabs & Pages -->
+    <string name="nav_overview">Overview</string>
+    <string name="nav_connection">Connection</string>
+    <string name="nav_calls">Calls</string>
+    <string name="nav_messages">Messages</string>
+    <string name="nav_photos">Photos</string>
+    <string name="nav_file_access">File access</string>
+    <string name="nav_screen">Screen</string>
+    <string name="nav_cursor">Mouse</string>
+    <string name="nav_keyboard">Keyboard</string>
+    <string name="nav_remote">Remote</string>
+    <string name="nav_clipboard">Clipboard</string>
+    <string name="nav_notifications">Notifications</string>
+    <string name="nav_files">Files</string>
+    <string name="nav_rezume">ReZume</string>
+    <string name="nav_sound">Sound</string>
+    <string name="nav_camera">Camera</string>
+    <string name="nav_share">Share</string>
+    <string name="nav_more">More</string>
+    <string name="nav_general">General</string>
+    <string name="nav_about">About</string>
+
+    <!-- Pairing & Link -->
+    <string name="pair_code">Check that %1$s shows the same code.</string>
+    <string name="pair_title">Pair with %1$s?</string>
+    <string name="pair_match">Codes match</string>
+    <string name="pair_cancel">Cancel</string>
+    <string name="pair_ok">OK</string>
+    <string name="pair_invite_title">%1$s wants to pair</string>
+    <string name="pair_invite_desc">Press Pair to pair this device with %1$s. You\'ll check that both show the same code.</string>
+    <string name="pair_invite_note">%1$s wants to pair with this device.</string>
+    <string name="pair_pairing_with">Pairing with %1$s</string>
+    <string name="pair_btn_pair">Pair</string>
+    <string name="pair_btn_not_now">Not now</string>
+    <string name="pair_waiting">Waiting for Allow on %1$s…</string>
+    <string name="pair_connecting">Connecting…</string>
+    <string name="pair_connecting_ble">Connecting over Bluetooth…</string>
+    <string name="pair_usb_cable">On the USB cable. Click Allow on %1$s.</string>
+    <string name="pair_pairing">Pairing…</string>
+    <string name="pair_not_connected">Not connected</string>
+    <string name="pair_connected">Connected</string>
+    <string name="pair_by_address">Pair by address</string>
+    <string name="pair_forget">Forget</string>
+    <string name="pair_forget_confirm">Forget?</string>
+
+    <!-- Wireless Debugging Dialog -->
+    <string name="adb_dialog_title">Turn on wireless debugging</string>
+    <string name="adb_dialog_desc">%1$s uses it for this device\'s screen, its mouse and keyboard here, and sound. Some phones (MIUI, HyperOS) switch it off after a Wi-Fi change, a screen lock or a restart.\n\nSettings opens at Developer options: switch USB debugging and Wireless debugging on, then come back.</string>
+    <string name="adb_dialog_settings">Open Settings</string>
+    <string name="adb_dialog_not_now">Not now</string>
+
+    <!-- Page Descriptions & Features -->
+    <string name="desc_screen">Use this device as a screen for %1$s: its own screen (Mirror), or a second one (Extend).</string>
+    <string name="desc_cursor">Move %1$s\'s pointer off the edge of its screen to use this device.</string>
+    <string name="desc_keyboard">Type on whichever device the pointer is on.</string>
+    <string name="desc_rezume">Like Handoff on Apple devices: go on with what you were doing. %1$s\'s page or document here, and this phone\'s page or app on %1$s.</string>
+    <string name="desc_remote">Use this device as %1$s\'s touchpad and keyboard, or as a gamepad.</string>
+    <string name="desc_clipboard">Copy on one, paste on the other.</string>
+    <string name="desc_notifications">See each other\'s notifications.</string>
+    <string name="desc_files">Send files, copy and paste them, drag them across.</string>
+    <string name="desc_sound">Hear one on the other.</string>
+    <string name="wifi_direct">Wi-Fi Direct</string>
+
+    <!-- About Page -->
+    <string name="about_tagline">Use your computer and this device as one desk.</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_card_updates">Updates</string>
+    <string name="about_card_made_by">Made by</string>
+    <string name="about_card_license">License</string>
+    <!-- MainActivity.kt / common -->
+    <string name="common_the_computer">the computer</string>
+    <string name="common_allow">Allow</string>
+    <string name="common_open">Open</string>
+    <string name="common_save">Save</string>
+    <string name="common_show">Show</string>
+    <string name="common_stop">Stop</string>
+    <string name="common_close">Close</string>
+    <string name="common_choose">Choose…</string>
+    <string name="common_off">Off</string>
+    <string name="common_set_up">Set up</string>
+    <string name="common_turn_on">Turn on</string>
+    <string name="common_disconnect">Disconnect</string>
+    <string name="common_connect">Connect</string>
+    <string name="common_take_over">Take over</string>
+    <string name="common_download">Download</string>
+    <string name="common_guide">Guide</string>
+    <string name="common_dismiss">Dismiss</string>
+    <string name="common_send">Send</string>
+    <string name="common_copy">Copy</string>
+    <string name="common_start">Start</string>
+    <string name="common_mirror">Mirror</string>
+    <string name="common_extend">Extend</string>
+    <string name="common_paired">Paired</string>
+    <string name="common_allowed">Allowed</string>
+    <string name="common_accessibility">Accessibility</string>
+
+    <!-- MainActivity.kt / ov -->
+    <string name="ov_not_connected_connect_to">Not connected. Connect to %1$s on the Overview page.</string>
+    <string name="ov_tap_connect_or_click">Tap Connect, or click this device on your Mac.</string>
+    <string name="ov_pick_a_computer_below">Pick a computer below, or pair by address.</string>
+    <string name="ov_wireless_debugging_only_available">Wireless debugging: only available over Wi-Fi. You’re connected to %1$s over Bluetooth.</string>
+    <string name="ov_wireless_debugging_isn_t">Wireless debugging isn’t set up. %1$s needs it to show this screen and control it through ADB.</string>
+    <string name="ov_wireless_debugging_is_off">Wireless debugging is off. %1$s needs it to show this screen and control it through ADB.</string>
+    <string name="ov_back_to_bluetooth">Back to Bluetooth</string>
+    <string name="ov_connect_with_wi_fi">Connect with Wi-Fi Direct</string>
+    <string name="ov_show_s_screen">Show %1$s’s screen</string>
+    <string name="ov_switch_to">Switch to</string>
+    <string name="ov_nearby_over_bluetooth_paired">Nearby over Bluetooth · paired</string>
+    <string name="ov_nearby_paired">Nearby · paired</string>
+    <string name="ov_paired_not_nearby">Paired · not nearby</string>
+    <string name="ov_switch">Switch</string>
+    <string name="ov_allow_nearby_devices_on">Allow Nearby devices on the General page</string>
+    <string name="ov_open_it_on_the">Open it on the Screen page</string>
+    <string name="ov_mouse_and_keyboard">Mouse and keyboard</string>
+    <string name="ov_needs_duodesk_with_notifications">Needs DuoDesk with notifications (Notifications page)</string>
+    <string name="ov_needs_notification_access_general">Needs Notification access (General)</string>
+    <string name="ov_needs_android_11_or">Needs Android 11 or later</string>
+    <string name="ov_allow_all_files_access">Allow All files access: switch it on again</string>
+    <string name="ov_tap_allow_on_the">Tap Allow on the prompt, or switch it on again</string>
+    <string name="ov_only_the_photos_you">Only the photos you chose</string>
+    <string name="ov_some_access_is_missing">Some access is missing: switch it on again to allow it</string>
+    <string name="ov_answer_and_make_calls">Answer and make calls on %1$s</string>
+    <string name="ov_read_and_send_texts">Read and send texts on %1$s</string>
+    <string name="ov_browse_this_phone_s">Browse this phone’s storage on %1$s, no ADB</string>
+    <string name="ov_see_and_save_them">See and save them on %1$s</string>
+    <string name="ov_nearby">Nearby</string>
+    <string name="ov_scan_a_qr_code">Scan a QR code</string>
+    <string name="ov_connection_pair_a_phone">Connection › Pair a phone with a QR code, on the computer</string>
+    <string name="ov_scan">Scan</string>
+    <string name="ov_looking_for_computers">Looking for computers…</string>
+    <string name="ov_open_duodesk_on_your">Open DuoDesk on your computer (same Wi-Fi, or Bluetooth on)</string>
+    <string name="ov_open_duodesk_on_your_2">Open DuoDesk on your computer (same Wi-Fi)</string>
+
+    <!-- MainActivity.kt / dev -->
+    <string name="dev_ring">Ring</string>
+    <string name="dev_lock">Lock</string>
+    <string name="dev_sleep">Sleep</string>
+    <string name="dev_on">On %1$s</string>
+    <string name="dev_do_not_disturb">Do not disturb</string>
+    <string name="dev_volume">Volume</string>
+    <string name="dev_that_isn_t_a">That isn’t a DuoDesk pairing code</string>
+    <string name="dev_scan_it_with_the">Scan it with the camera app: it opens DuoDesk</string>
+
+    <!-- MainActivity.kt / ble -->
+    <string name="ble_bluetooth_with_computers">Bluetooth with computers</string>
+    <string name="ble_only_computers_on_this">Only computers on this network or a USB cable connect</string>
+    <string name="ble_bluetooth_is_off_on">Bluetooth is off on this device</string>
+    <string name="ble_off_while_you_re">Off while you’re on the same Wi-Fi as %1$s, on again if it drops</string>
+    <string name="ble_connects_to_over_bluetooth">Connects to %1$s over Bluetooth when it isn’t on this network. Files and screens move to a direct Wi-Fi link for a while</string>
+
+    <!-- MainActivity.kt / wifi -->
+    <string name="wifi_direct_failed">Wi-Fi Direct didn’t come up</string>
+    <string name="wifi_is_only_available_over">%1$s is only available over Wi-Fi Direct. Connecting…</string>
+    <string name="wifi_is_only_available_over_2">%1$s is only available over Wi-Fi Direct. %2$s</string>
+    <string name="wifi_is_only_available_over_3">%1$s is only available over Wi-Fi Direct (or the same Wi-Fi network): you’re connected over Bluetooth.</string>
+    <string name="wifi_try_again">Try again</string>
+    <string name="wifi_photos_on">Photos on %1$s</string>
+    <string name="wifi_phone_files_on">Phone Files on %1$s</string>
+
+    <!-- MainActivity.kt / hub -->
+    <string name="hub_duodesk_on_needs_to">DuoDesk on %1$s needs to be up to date for %2$s.</string>
+    <string name="hub_file_access_needs_android">File access needs Android 11 or later. Mount on %1$s works through ADB instead.</string>
+    <string name="hub_needs_duodesk_with_notifications">%1$s needs DuoDesk with notifications: Android doesn’t let downloaded apps read texts. %2$s installs it once wireless debugging is set up (its Phone page › Install). Your settings and pairing stay.</string>
+    <string name="hub_off_switch_it_on">Off. Switch it on here or on %1$s.</string>
+    <string name="hub_allow_all_files_access">Allow All files access, so %1$s can browse this phone’s storage. DuoDesk reads and writes the files itself: no ADB.</string>
+    <string name="hub_allow_photos_and_videos">Allow photos and videos, so %1$s can show them.</string>
+    <string name="hub_only_the_photos_you">Only the photos you chose show on %1$s.</string>
+    <string name="hub_some_of_needs_more">Some of %1$s needs more: allow the rest to use all of it.</string>
+    <string name="hub_allow_more">Allow more</string>
+    <string name="hub_on_from_this_phone">On: %1$s from this phone on %2$s.</string>
+
+    <!-- MainActivity.kt / calls -->
+    <string name="calls_answer_make_and_end">Answer, make and end this phone’s calls on %1$s.</string>
+    <string name="calls_answer_and_decline">Answer and decline</string>
+    <string name="calls_a_window_on_when">A window on %1$s when this phone rings</string>
+    <string name="calls_make_calls">Make calls</string>
+    <string name="calls_the_number_pad_contacts">The number pad, contacts and recent calls on %1$s’s Calls page</string>
+    <string name="calls_sound_on">Sound on %1$s</string>
+    <string name="calls_allow_nearby_devices_so">Allow Nearby devices so DuoDesk sees this phone’s pairing with %1$s</string>
+    <string name="calls_bluetooth_is_off_on">Bluetooth is off on this phone</string>
+    <string name="calls_pairing_confirm_the_code">Pairing… Confirm the code here and on %1$s</string>
+    <string name="calls_forget_in_bluetooth_settings">Forget %1$s in Bluetooth settings here (Android keeps the old pairing for itself), then pair them again there</string>
+    <string name="calls_paired_with_calls_can">Paired with %1$s: calls can play there</string>
+    <string name="calls_paired_over_bluetooth_le">Paired over Bluetooth LE only, which can’t carry a call: Forget, then pair them again in Bluetooth settings</string>
+    <string name="calls_waiting_for">Waiting for %1$s…</string>
+    <string name="calls_not_paired_with_over">Not paired with %1$s over classic Bluetooth: pair them in Bluetooth settings (here: Pair new device, or Add device on %1$s). DuoDesk connects once they are</string>
+    <string name="calls_open_bluetooth_settings">Open Bluetooth settings</string>
+    <string name="calls_this_phone_and_forget">This phone and %1$s forget each other, over classic Bluetooth and LE; Bluetooth settings open to pair them again</string>
+
+    <!-- MainActivity.kt / msgs -->
+    <string name="msgs_read_and_send_this">Read and send this phone’s texts on %1$s.</string>
+    <string name="msgs_conversations">Conversations</string>
+    <string name="msgs_texts_and_mms_pictures">Texts and MMS pictures on %1$s’s Messages page</string>
+    <string name="msgs_new_texts">New texts</string>
+    <string name="msgs_counted_on_the_messages">Counted on the Messages tab on %1$s</string>
+
+    <!-- MainActivity.kt / photos -->
+    <string name="photos_see_this_phone_s">See this phone’s photos and videos on %1$s and copy them there.</string>
+    <string name="photos_photos_videos_and_screenshots">Photos, videos and screenshots</string>
+    <string name="photos_newest_first_on_s">Newest first on %1$s’s Photos page</string>
+    <string name="photos_copies_go_to_s">Copies go to %1$s’s Downloads</string>
+
+    <!-- MainActivity.kt / fa -->
+    <string name="fa_browse_this_phone_s">Browse this phone’s storage on %1$s, and copy files both ways.</string>
+    <string name="fa_phone_files">Phone Files</string>
+    <string name="fa_folders_save_to_upload">Folders, Save to %1$s, Upload, New folder, Rename, Delete</string>
+    <string name="fa_no_adb">No ADB</string>
+    <string name="fa_duodesk_reads_and_writes">DuoDesk reads and writes the files itself with All files access. Mount on %1$s is the ADB way</string>
+    <string name="fa_where">Where</string>
+    <string name="fa_on_usb_wi_fi">On USB, Wi-Fi or Wi-Fi Direct. Over Bluetooth %1$s says so, with Connect with Wi-Fi Direct</string>
+
+    <!-- MainActivity.kt / shared -->
+    <string name="shared_shared_folders">Shared folders</string>
+    <string name="shared_share_a_folder_with">Share a folder with %1$s</string>
+    <string name="shared_needs_all_files_access">Needs All files access (above)</string>
+    <string name="shared_opens_it_over_wi">%1$s: %2$s opens it over Wi-Fi Direct</string>
+    <string name="shared_couldn_t_share">Couldn’t share: %1$s</string>
+    <string name="shared_open_on_phone_files">%1$s: open on %2$s (Phone Files › Shared folders)</string>
+    <string name="shared_folder">Folder</string>
+    <string name="shared_s_shared_folder">%1$s’s shared folder</string>
+    <string name="shared_connecting_with_wi_fi">Connecting with Wi-Fi Direct…</string>
+    <string name="shared_open_connects_with_wi">Open connects with Wi-Fi Direct</string>
+    <string name="shared_in_the_files_app">“%1$s” in the Files app and every app’s file picker</string>
+    <string name="shared_opening">Opening…</string>
+    <string name="shared_off_switch_it_on">Off: switch it on to see a folder of %1$s in the Files app</string>
+
+    <!-- MainActivity.kt / cam -->
+    <string name="cam_this_device_s_camera">This device’s camera on %1$s: in DuoDesk there, and as a camera its apps can pick.</string>
+    <string name="cam_this_camera_on">This camera on %1$s</string>
+    <string name="cam_switching_takes_a_moment">Switching takes a moment</string>
+    <string name="cam_the_one_it_starts">The one it starts with</string>
+    <string name="cam_back">Back</string>
+    <string name="cam_front">Front</string>
+    <string name="cam_needs_wireless_debugging_set">Needs wireless debugging: set it up from Overview</string>
+    <string name="cam_it_stopped">It stopped: %1$s</string>
+    <string name="cam_running_as_duodesk_camera">Running as “DuoDesk Camera”: in Zoom, Teams or the browser there, choose only that one</string>
+    <string name="cam_in_duodesk_s_camera">In DuoDesk’s Camera page there. Its Virtual camera makes it a camera other apps can pick</string>
+    <string name="cam_s_virtual_camera_is">%1$s’s Virtual camera is on: apps there see this camera as “DuoDesk Camera”.</string>
+    <string name="cam_turn_on_virtual_camera">Turn on Virtual camera in DuoDesk’s Camera page on %1$s to use this camera as a real camera in its apps (Zoom, Teams, the browser…).</string>
+
+    <!-- MainActivity.kt / screen -->
+    <string name="screen_this_screen_on">This screen on %1$s</string>
+    <string name="screen_show_this_screen_on">Show this screen on %1$s</string>
+    <string name="screen_this_device_s_windows">This device’s windows are open on %1$s. Close shuts them</string>
+    <string name="screen_in_a_window_there">In a window there, with its mouse and keyboard</string>
+    <string name="screen_isn_t_sharing_its">%1$s isn’t sharing its screen.</string>
+    <string name="screen_shares_a_second_screen">%1$s shares a second screen the size of this one (Extend).</string>
+    <string name="screen_shares_its_own_screen">%1$s shares its own screen (Mirror).</string>
+    <string name="screen_full_screen_tap_the">Full screen. Tap the handle at the top for Mirror, Extend and the keyboard</string>
+    <string name="screen_mode">Mode</string>
+    <string name="screen_extend_makes_a_second">Extend makes %1$s a second screen the size of this one</string>
+    <string name="screen_starts_and_switches_its">%1$s starts and switches its sharing itself</string>
+    <string name="screen_sharing">Sharing</string>
+    <string name="screen_touch">Touch</string>
+    <string name="screen_touchpad">Touchpad</string>
+    <string name="screen_slide_to_move_the">Slide to move the pointer; sliding never clicks. Off: the pointer goes where you touch</string>
+    <string name="screen_slide">Slide</string>
+    <string name="screen_move_the_pointer">Move the pointer</string>
+    <string name="screen_tap">Tap</string>
+    <string name="screen_left_click">Left click</string>
+    <string name="screen_nothing_remote_tap_to">Nothing (Remote › Tap to click is off)</string>
+    <string name="screen_hold">Hold</string>
+    <string name="cursor_back">Back</string>
+    <string name="screen_right_click">Right click</string>
+    <string name="screen_two_fingers">Two fingers</string>
+    <string name="screen_scroll">Scroll</string>
+    <string name="screen_click">Click</string>
+    <string name="screen_drag">Drag</string>
+    <string name="screen_drag_select_move_windows">Drag (select, move windows)</string>
+    <string name="screen_input_is_off">Input is off</string>
+    <string name="screen_doesn_t_take_input">%1$s doesn’t take input from here (its Share screen › Receive input)</string>
+    <string name="screen_stylus">Stylus</string>
+    <string name="screen_pen">Pen</string>
+    <string name="screen_pressure_tilt_the_eraser">Pressure, tilt, the eraser and the side button, as a drawing tablet on %1$s; your hand on the screen does nothing while the pen is near. Off: the stylus is a mouse</string>
+    <string name="screen_playback">Playback</string>
+    <string name="screen_s_sound_with_the">%1$s’s sound with the screen</string>
+    <string name="screen_when_shares_sound_with">When %1$s shares sound with its screen</string>
+    <string name="screen_smooth">Smooth</string>
+    <string name="screen_even_motion_about_one">Even motion, about one frame later. Off: each frame the moment it arrives</string>
+
+    <!-- MainActivity.kt / cursor -->
+    <string name="cursor_this_build_of_duodesk">This build of DuoDesk can’t use Accessibility: Android’s Play Protect blocks downloaded apps that can. Use wireless debugging, or once it’s set up, %1$s installs DuoDesk with notifications, which can (on %1$s, Phone page › Install).</string>
+    <string name="cursor_allow_duodesk_in_accessibility">Allow DuoDesk in Accessibility, so %1$s’s pointer can tap and type here.</string>
+    <string name="cursor_moves_the_pointer_here">%1$s moves the pointer here through wireless debugging, which is off. Or choose Accessibility below.</string>
+    <string name="cursor_allow_show_the_pointer">Allow “Show the pointer” in General › Setup to see %1$s’s pointer here.</string>
+    <string name="cursor_cursor_sharing_is_off">Cursor sharing is off. Double-tap %1$s on %2$s to turn it on.</string>
+    <string name="cursor_cursor_sharing_is_off_2">Cursor sharing is off over Bluetooth. It comes back on Wi-Fi, or double-tap %1$s on %2$s to turn it on.</string>
+    <string name="cursor_push_s_pointer_past">Push %1$s’s pointer past its edge to come here. Double-tap %2$s to take everything back.</string>
+    <string name="cursor_use_s_mouse_and">Use %1$s’s mouse and keyboard on %2$s</string>
+    <string name="cursor_push_the_pointer_past">Push the pointer past the edge</string>
+    <string name="cursor_through">Through</string>
+    <string name="cursor_automatic_adb_wireless_debugging">Automatic: ADB, wireless debugging is on</string>
+    <string name="cursor_automatic_accessibility_until_wireles">Automatic: Accessibility until wireless debugging is on</string>
+    <string name="cursor_accessibility_duodesk_taps_and">Accessibility: DuoDesk taps and types itself, over Wi-Fi, Wi-Fi Direct or Bluetooth. No developer options</string>
+    <string name="cursor_adb_wireless_debugging_full">ADB (wireless debugging): full control. Over Bluetooth without it, Accessibility</string>
+    <string name="cursor_where_is">Where %1$s is</string>
+    <string name="cursor_feel">Feel</string>
+    <string name="cursor_pointer_speed_here">Pointer speed here</string>
+    <string name="cursor_reverse_scrolling">Reverse scrolling</string>
+    <string name="cursor_scroll_here_the_other">Scroll here the other way</string>
+    <string name="cursor_middle_click">Middle click</string>
+    <string name="cursor_home">Home</string>
+    <string name="cursor_not_on_the_same">Not on the same network</string>
+    <string name="cursor_over_bluetooth">Over Bluetooth</string>
+    <string name="cursor_when_isn_t_on">When %1$s isn’t on this network and you’re connected through Bluetooth (slower). Off: nothing crosses until you’re on Wi-Fi again. The same on both</string>
+
+    <!-- MainActivity.kt / kbd -->
+    <string name="kbd_s_keyboard_types_here">%1$s’s keyboard types here while its pointer is here.</string>
+    <string name="kbd_keyboard_sharing_is_off">Keyboard sharing is off: only the pointer comes here.</string>
+    <string name="kbd_hotkey">Hotkey</string>
+    <string name="kbd_double_tap_on_to">Double-tap on %1$s to turn cursor sharing on or off. Set it in DuoDesk on %1$s</string>
+    <string name="kbd_shortcuts_here">Shortcuts here</string>
+    <string name="kbd_works_as_ctrl_so">⌘ works as Ctrl, so ⌘C copies and ⌘V pastes</string>
+    <string name="kbd_typing">Typing</string>
+    <string name="kbd_every_key_goes_as">Every key goes as a key, so any keyboard layout and the soft keyboard stay out of the way</string>
+    <string name="kbd_in_the_screen_view">In the screen view</string>
+    <string name="kbd_s_screen_here">%1$s’s screen here</string>
+    <string name="kbd_a_keyboard_on_this">A keyboard on this device types on %1$s. The Keyboard button opens the soft keyboard</string>
+
+    <!-- MainActivity.kt / rezume -->
+    <string name="rezume_off_nothing_here_is">Off: nothing here is read or sent. Turned on, the page or app in front goes to %1$s, and %1$s’s comes here.</string>
+    <string name="rezume_continue_from">Continue from %1$s</string>
+    <string name="rezume_has_no_rezume_yet">%1$s has no ReZume yet: update DuoDesk there.</string>
+    <string name="rezume_rezume_is_off_on">ReZume is off on %1$s: turn it on there too.</string>
+    <string name="rezume_ready_sees_this_phone">Ready. %1$s sees this phone’s apps through wireless debugging; for its pages too, turn on DuoDesk’s Accessibility.</string>
+    <string name="rezume_s_pages_and_documents">%1$s’s pages and documents come here. For this phone’s to go there, turn on DuoDesk’s Accessibility (or wireless debugging, for apps).</string>
+    <string name="rezume_offered_to">Offered to %1$s: %2$s</string>
+    <string name="rezume_ready">Ready.</string>
+    <string name="rezume_says_which_app_is">Says which app is in front and reads a browser’s address bar, nothing else</string>
+    <string name="rezume_open_settings">Open settings</string>
+    <string name="rezume_what_goes">What goes</string>
+    <string name="rezume_web_pages">Web pages</string>
+    <string name="rezume_the_tab_in_front">The tab in front in Chrome, Firefox, Edge, Samsung Internet, Brave, Opera, Vivaldi or DuckDuckGo, and %1$s’s here</string>
+    <string name="rezume_documents">Documents</string>
+    <string name="rezume_s_document_in_front">%1$s’s document in front comes here and opens</string>
+    <string name="rezume_apps">Apps</string>
+    <string name="rezume_the_app_in_front">The app in front here opens on %1$s in a window of its own (wireless debugging)</string>
+    <string name="rezume_which_ways">Which ways</string>
+    <string name="rezume_offer_what_s_in">Offer what’s in use here</string>
+    <string name="rezume_can_go_on_with">%1$s can go on with it</string>
+    <string name="rezume_take_s">Take %1$s’s</string>
+    <string name="rezume_what_s_in_use">What’s in use there shows here</string>
+    <string name="rezume_open_what_s_sent">Open what’s sent at once</string>
+    <string name="rezume_send_to_on_opens">Send to on %1$s opens it here without asking (needs Display over other apps; else a notification)</string>
+    <string name="rezume_where_s_shows">Where %1$s’s shows</string>
+    <string name="rezume_notification">Notification</string>
+    <string name="rezume_a_quiet_one_replaced">A quiet one, replaced by the next. Off: only on this page</string>
+    <string name="rezume_share_a_link_to">Share a link to “Open on computer” to open it on %1$s now.</string>
+
+    <!-- MainActivity.kt / remote -->
+    <string name="remote_doesn_t_answer_the">%1$s doesn’t answer the remote: update DuoDesk there.</string>
+    <string name="remote_doesn_t_take_input">%1$s doesn’t take input from here. On %1$s, turn on Remote in DuoDesk.</string>
+    <string name="remote_touchpad_and_keyboard">Touchpad and keyboard</string>
+    <string name="remote_slide_to_move_s">Slide to move %1$s’s pointer, tap to click, hold to right click, two fingers to scroll. Keys and media keys too</string>
+    <string name="remote_gamepad">Gamepad</string>
+    <string name="remote_held_sideways_like_a">Held sideways, like a controller. The left stick is WASD, the right stick is the mouse; Keys in its top bar sets what each button presses</string>
+    <string name="remote_pointer_speed">Pointer speed</string>
+    <string name="remote_also_the_gamepad_s">Also the gamepad’s right stick and the Screen page’s touchpad</string>
+    <string name="remote_tap_to_click">Tap to click</string>
+    <string name="remote_a_quick_tap_left">A quick tap left-clicks; a slide never clicks. Off: only the click buttons click</string>
+    <string name="remote_even_pointer_motion_on">Even pointer motion on %1$s, about a frame later. Off: each move the moment it arrives</string>
+    <string name="remote_on_the_usb_cable">On the USB cable: the quickest way for games.</string>
+    <string name="remote_through_bluetooth_the_pointer">Through Bluetooth the pointer moves about 30 times a second. On Wi-Fi or a USB cable it’s quicker.</string>
+    <string name="remote_over_wi_fi_it">Over Wi-Fi it’s as quick as the delay at the top of the app. For games, a USB cable is quickest.</string>
+
+    <!-- MainActivity.kt / btpad -->
+    <string name="btpad_as_a_bluetooth_gamepad">As a Bluetooth gamepad</string>
+    <string name="btpad_a_game_controller_for">A game controller for any computer over Bluetooth, the Mac too: no driver and no DuoDesk needed there. Games that take any controller (Steam, emulators); Xbox-only games on Windows want Real gamepad on the PC instead</string>
+    <string name="btpad_now">Now</string>
+    <string name="btpad_starting">Starting…</string>
+    <string name="btpad_connected_to_open_the">Connected to %1$s: open the gamepad</string>
+    <string name="btpad_ready_waiting_for_a">Ready: waiting for a computer</string>
+    <string name="btpad_pair_it_once">Pair it once</string>
+    <string name="btpad_on_the_computer_bluetooth">On the computer: Bluetooth settings › Add device (Windows: Bluetooth; Mac: System Settings › Bluetooth; Linux: Bluetooth › +), then pick “%1$s”. Afterwards it connects by itself while this is on</string>
+    <string name="btpad_let_computers_find_it">Let computers find it</string>
+
+    <!-- MainActivity.kt / clip -->
+    <string name="clip_copies_on_land_here">Copies on %1$s land here</string>
+    <string name="clip_at_once">At once</string>
+    <string name="clip_copies_here_go_to">Copies here go to %1$s</string>
+    <string name="clip_while_duodesk_is_open">While DuoDesk is open, or always with wireless debugging</string>
+    <string name="clip_send_the_clipboard_now">Send the clipboard now</string>
+    <string name="clip_also_the_send_clipboard">Also: the Send clipboard tile in Quick Settings</string>
+    <string name="clip_pictures">Pictures</string>
+    <string name="clip_pictures_and_screenshots_up">Pictures and screenshots up to 10 MB, both ways, if Clipboard › Pictures is on at %1$s too. Not over Bluetooth</string>
+    <string name="clip_off_on">Off on %1$s</string>
+    <string name="clip_turn_on_clipboard_pictures">Turn on Clipboard › Pictures there (an older version can’t: update DuoDesk)</string>
+    <string name="clip_screenshots_go_to">Screenshots go to %1$s</string>
+    <string name="clip_each_one_taken_here">Each one taken here lands on %1$s’s clipboard: paste it there</string>
+    <string name="clip_allow_photo_access">Allow photo access</string>
+    <string name="clip_duodesk_looks_only_for">DuoDesk looks only for new screenshots</string>
+    <string name="clip_last_screenshot_sent">Last screenshot sent</string>
+    <string name="clip_recent">Recent</string>
+    <string name="clip_from">From %1$s</string>
+    <string name="clip_to">To %1$s</string>
+
+    <!-- MainActivity.kt / notifs -->
+    <string name="notifs_this_build_of_duodesk">This build of DuoDesk can’t read this device’s notifications: Android’s Play Protect blocks downloaded apps that can. %1$s installs DuoDesk with notifications for you once wireless debugging is set up: on %1$s, Phone page › Install. Your settings and pairing stay.</string>
+    <string name="notifs_allow_notification_access_so">Allow Notification access so this device’s notifications can go to %1$s.</string>
+    <string name="notifs_show_this_device_s">Show this device’s notifications on %1$s</string>
+    <string name="notifs_hide_the_message_text">Hide the message text</string>
+    <string name="notifs_only_the_app_and">Only the app and title go to %1$s</string>
+    <string name="notifs_notification_access">Notification access</string>
+    <string name="notifs_needed_to_read_them">Needed to read them</string>
+    <string name="notifs_set_it_up_first">Set it up first, then install from %1$s</string>
+    <string name="notifs_show_s_notifications_here">Show %1$s’s notifications here</string>
+
+    <!-- MainActivity.kt / files -->
+    <string name="files_copied_on">Copied on %1$s</string>
+    <string name="files_send_to">Send to %1$s</string>
+    <string name="files_send_files">Send files</string>
+    <string name="files_they_land_in_s">They land in %1$s’s Downloads. From any app: Share › %1$s</string>
+    <string name="files_copy_files">Copy files</string>
+    <string name="files_paste_them_on_with">Paste them on %1$s with ⌃⌥V, where you want them</string>
+    <string name="files_drop_to_send_to">Drop to send to %1$s</string>
+    <string name="files_drag_files_here_to">Drag files here to send them to %1$s</string>
+    <string name="files_drag_across_the_edge">Drag across the edge</string>
+    <string name="files_files_dragged_onto_this">Files dragged onto this device land in Downloads › DuoDesk</string>
+    <string name="files_c_on">⌃⌥C on %1$s</string>
+    <string name="files_this_device_offers_to">This device offers to copy them to its clipboard or save them</string>
+    <string name="files_drop_on_the_phone">Drop on the phone window</string>
+    <string name="files_files_dropped_on_this">Files dropped on this device’s window on %1$s come here</string>
+    <string name="files_sending">Sending %1$s</string>
+    <string name="files_downloads">Downloads</string>
+
+    <!-- MainActivity.kt / sound -->
+    <string name="sound_play_s_sound_here">Play %1$s’s sound here</string>
+    <string name="sound_playing">Playing</string>
+    <string name="sound_play_this_device_s">Play this device’s sound on %1$s</string>
+    <string name="sound_sound_that_comes_with">Sound that comes with the screen plays in the screen view (Screen › Playback).</string>
+    <string name="sound_playing_there_captured_here">Playing there (captured here: Stop in the notification)</string>
+    <string name="sound_through_wireless_debugging_else">Through wireless debugging, else DuoDesk captures it (Start, each time)</string>
+    <string name="sound_start_the_sound">Start the sound</string>
+    <string name="sound_android_asks_to_allow">Android asks to allow the capture</string>
+    <string name="sound_captured_sound">Captured sound</string>
+    <string name="sound_plays_here_too_only">Plays here too: only wireless debugging moves it off this phone</string>
+
+    <!-- MainActivity.kt / gen -->
+    <string name="gen_this_device">This device</string>
+    <string name="gen_name">Name</string>
+    <string name="gen_language">Language</string>
+    <string name="gen_language_auto">Automatic</string>
+    <string name="gen_language_auto_hint">Follows the phone’s language</string>
+    <string name="gen_what_your_computers_call">What your computers call it</string>
+    <string name="gen_files_arriving_invites_from">Files arriving, invites from %1$s, and DuoDesk staying connected</string>
+    <string name="gen_your_photos_and_videos">Your photos and videos on %1$s</string>
+    <string name="gen_this_device_s_storage">This device’s storage and shared folders on %1$s, no ADB</string>
+    <string name="gen_needs_duodesk_with_notifications">Needs DuoDesk with notifications (%1$s installs it)</string>
+    <string name="gen_some_access_is_missing">Some access is missing: %1$s</string>
+    <string name="gen_to_show_this_device">To show this device’s notifications on %1$s</string>
+    <string name="gen_comes_with_duodesk_with">Comes with DuoDesk with notifications, which %1$s installs (its Phone page)</string>
+    <string name="gen_run_in_the_background">Run in the background</string>
+    <string name="gen_so_can_reach_this">So %1$s can reach this device any time</string>
+    <string name="gen_paired_with_this_screen">Paired with %1$s: this screen and sound there, its mouse and keyboard here</string>
+    <string name="gen_only_available_over_wi">Only available over Wi-Fi: you’re connected over Bluetooth</string>
+    <string name="gen_paired_with_reconnecting">Paired with %1$s, reconnecting…</string>
+    <string name="gen_on_pair_it_with">On. Pair it with %1$s once (the guide walks you through it)</string>
+    <string name="gen_for_this_screen_and">For this screen and sound on %1$s, and its mouse and keyboard here</string>
+    <string name="gen_wi_fi_only">Wi-Fi only</string>
+    <string name="gen_turn_off_wireless_debugging">Turn off wireless debugging when disconnected</string>
+    <string name="gen_once_paired_with_off">Once paired with %1$s: off again 2 minutes after it disconnects, when DuoDesk switched it on</string>
+    <string name="gen_2_minutes_after_disconnects">2 minutes after %1$s disconnects, when DuoDesk switched it on, and on again as it connects. Switched on by you, it stays on</string>
+    <string name="gen_wireless_debugging_stays_on">Wireless debugging stays on after %1$s disconnects</string>
+    <string name="gen_nearby_devices">Nearby devices</string>
+    <string name="gen_bluetooth_and_wi_fi">Bluetooth and Wi-Fi Direct, for %1$s when it isn’t on this network</string>
+    <string name="gen_accessibility_s_cursor_on">Accessibility: %1$s’s cursor on this phone without wireless debugging, on any network. Only needed when ADB isn’t used</string>
+    <string name="gen_through_wireless_debugging_without">Through wireless debugging. Without it: comes with DuoDesk with notifications, which %1$s installs (its Phone page)</string>
+    <string name="gen_show_the_pointer">Show the pointer</string>
+    <string name="gen_draws_s_pointer_over">Draws %1$s’s pointer over other apps</string>
+    <string name="gen_all_files_access">All files access</string>
+    <string name="gen_your_wallpaper_on_files">Your wallpaper on %1$s, Files and shared folders</string>
+    <string name="gen_allow_nearby_devices_above">Allow Nearby devices above</string>
+    <string name="gen_turn_off_bluetooth_on">Turn off Bluetooth on Wi-Fi connections</string>
+    <string name="gen_on_the_same_wi">On the same Wi-Fi network as %1$s (not Wi-Fi Direct), Bluetooth goes off until the connection ends</string>
+    <string name="gen_bluetooth_stays_on_beside">Bluetooth stays on beside the Wi-Fi, the way back if it drops</string>
+    <string name="gen_starting_a_direct_wi">Starting a direct Wi-Fi link…</string>
+    <string name="gen_joining_s_wi_fi">Joining %1$s’s Wi-Fi…</string>
+    <string name="gen_on_a_direct_wi">On a direct Wi-Fi link with %1$s</string>
+    <string name="gen_connected_over_usb">Connected over USB</string>
+    <string name="gen_connected_over_bluetooth">Connected over Bluetooth</string>
+    <string name="gen_last_address">Last address %1$s</string>
+    <string name="gen_online">Online</string>
+
+    <!-- MainActivity.kt / about -->
+    <string name="about_checking">Checking…</string>
+    <string name="about_couldn_t_check">Couldn’t check: %1$s</string>
+    <string name="about_version_no_releases_published">Version %1$s. No releases published yet</string>
+    <string name="about_check_now">Check now</string>
+    <string name="about_check_automatically">Check automatically</string>
+    <string name="about_looks_for_new_releases">Looks for new releases on GitHub every few hours</string>
+    <string name="about_profile">Profile</string>
+    <string name="about_website">Website</string>
+    <string name="about_source_code">Source code</string>
+    <string name="about_releases">Releases</string>
+    <string name="about_new_versions_for_every">New versions for every platform</string>
+    <string name="about_report_a_problem">Report a problem</string>
+    <string name="about_open_an_issue_on">Open an issue on GitHub</string>
+    <string name="about_issues">Issues</string>
+    <string name="about_gnu_general_public_license">GNU General Public License v3</string>
+    <string name="about_free_and_open_source">Free and open source. © 2026 0xCodez. Includes code © 2026 Inuka Asith.</string>
+    <string name="about_read">Read</string>
+    <string name="about_original_source">Original source</string>
+    <string name="about_the_gpl_3_0">The GPL-3.0 code DuoDesk is built on, by Inuka Asith</string>
+    <string name="about_screen_input_and_sound">Screen, input and sound over wireless debugging</string>
+    <string name="about_network">Network</string>
+    <string name="about_fonts">Fonts</string>
+
+    <!-- Notify.kt / notif -->
+    <string name="notif_shown_while_duodesk_is">Shown while DuoDesk is ready for your computer</string>
+    <string name="notif_pairing_requests">Pairing requests</string>
+    <string name="notif_files_arriving_from_your">Files arriving from your computer</string>
+    <string name="notif_copied_on_your_computer">Copied on your computer</string>
+    <string name="notif_files_copied_with_the">Files copied with the shortcut, ready to copy or save here</string>
+    <string name="notif_your_computer_s_notifications">Your computer’s notifications</string>
+    <string name="notif_shared_screens">Shared screens</string>
+    <string name="notif_your_computer_started_sharing">Your computer started sharing its screen with this phone</string>
+    <string name="notif_a_new_version_of">A new version of DuoDesk on GitHub</string>
+    <string name="notif_is_sharing_its_screen">%1$s is sharing its screen</string>
+    <string name="notif_tap_to_see_it">Tap to see it here</string>
+    <string name="notif_connected_to">Connected to %1$s</string>
+    <string name="notif_files_clipboard_and_notifications">Files, clipboard and notifications are shared</string>
+    <string name="notif_send_clipboard">Send clipboard</string>
+    <string name="common_your_computer">your computer</string>
+    <string name="notif_connecting_to">Connecting to %1$s…</string>
+    <string name="notif_ready_for_your_computer">Ready for your computer</string>
+    <string name="notif_is_nearby">%1$s is nearby</string>
+    <string name="notif_open_duodesk_on_your">Open DuoDesk on your computer to connect</string>
+    <string name="notif_connect_to">Connect to %1$s</string>
+    <string name="notif_exit">Exit</string>
+    <string name="notif_open_duodesk_to_compare">Open DuoDesk to compare the code</string>
+    <string name="notif_switch_on_the_hotspot">Switch on the hotspot for %1$s</string>
+    <string name="notif_isn_t_on_this">%1$s isn’t on this phone’s network. Tap to open the hotspot, then type its name and password on %1$s.</string>
+    <string name="notif_files_and_screens_with">Files and screens with %1$s go over a direct Wi-Fi link. Tap to switch Wi-Fi on; it doesn’t need to join a network.</string>
+    <string name="notif_switch_on_wi_fi">Switch on Wi-Fi for %1$s</string>
+    <string name="notif_to_use_s_mouse">To use %1$s’s mouse and keyboard here without wireless debugging, switch on DuoDesk in Accessibility (Installed apps). Tap to open it.</string>
+    <string name="notif_this_build_of_duodesk">This build of DuoDesk can’t take %1$s’s mouse and keyboard without wireless debugging. Set up wireless debugging, then %1$s installs DuoDesk with notifications, which can (its Phone page › Install).</string>
+    <string name="notif_let_control_this_phone">Let %1$s control this phone</string>
+    <string name="notif_without_wireless_debugging_duodesk">Without wireless debugging, DuoDesk captures it: Start, then Android asks once more. Apps that don’t allow it stay silent.</string>
+    <string name="notif_play_this_phone_s">Play this phone’s sound on %1$s</string>
+    <string name="notif_this_phone_s_sound">This phone’s sound plays on %1$s</string>
+    <string name="notif_asks_to_use_from">%1$s asks to use %2$s from this phone. Tap to allow it.</string>
+    <string name="notif_requests_from_your_computer">Requests from your computer</string>
+    <string name="notif_your_computer_asks_for">Your computer asks for access it needs (Calls, Messages, Photos)</string>
+    <string name="notif_allow_for">Allow %1$s for %2$s</string>
+    <string name="notif_duodesk_is_available">DuoDesk %1$s is available</string>
+    <string name="notif_you_have_tap_to">You have %1$s. Tap to download the new version.</string>
+    <string name="notif_wireless_debugging_is_off">Wireless debugging is off</string>
+    <string name="notif_needs_it_for_this">%1$s needs it for this screen, its mouse and keyboard here, and sound. Tap, then turn on USB debugging and Wireless debugging (both).</string>
+    <string name="notif_6_digit_pairing_code">6-digit pairing code</string>
+    <string name="notif_type_the_pairing_code">Type the pairing code here</string>
+    <string name="notif_settings_shows_a_6">Settings shows a 6-digit code. Type it here to pair with %1$s.</string>
+    <string name="notif_settings_shows_a_6_2">Settings shows a 6-digit code under “Pair with device”. Tap Enter code, type it, and send. %1$s does the rest.</string>
+    <string name="notif_enter_code">Enter code</string>
+    <string name="notif_copy_to_clipboard">Copy to clipboard</string>
+    <string name="notif_save_to_downloads">Save to Downloads</string>
+    <string name="notif_share">Share…</string>
+    <string name="notif_what_you_were_doing">What you were doing on your computer, to go on with here</string>
+    <string name="notif_rezume_sent_to_this">ReZume: sent to this phone</string>
+    <string name="notif_a_page_or_document">A page or document sent here from your computer</string>
+    <string name="notif_from_your_computer_tap">From your computer. Tap to open.</string>
+
+    <!-- Setup.kt / setup -->
+    <string name="setup_files_arriving_copies_from">Files arriving, copies from your computer, and its notifications</string>
+    <string name="setup_this_device_s_notifications">This device’s notifications on your computer</string>
+    <string name="setup_so_your_computer_can">So your computer can reach this device any time</string>
+    <string name="setup_your_computer_s_pointer">Your computer’s pointer over other apps when its mouse is here</string>
+    <string name="setup_this_screen_on_your">This screen on your computer, its mouse and keyboard here, and sound. Your Mac pairs with it once</string>
+    <string name="setup_wallpaper_on_your_computer">Wallpaper on your computer</string>
+    <string name="setup_optional_android_shares_the">Optional: Android shares the wallpaper only with All files access</string>
+    <string name="setup_set_up_duodesk">Set up DuoDesk</string>
+    <string name="setup_allow_these_so_this">Allow these so this device and your computer work as one. You can change them any time in General › Setup.</string>
+    <string name="setup_continue">Continue</string>
+    <string name="setup_skip_for_now">Skip for now</string>
+    <string name="setup_duodesk_works_without_these">DuoDesk works without these, but some features won’t.</string>
+
+    <!-- Guide.kt / guide -->
+    <string name="guide_once_so_can_show">Once, so %1$s can show this screen and use its mouse and keyboard here</string>
+    <string name="guide_done_is_paired_with">Done: %1$s is paired with this device’s wireless debugging.</string>
+    <string name="guide_done">Done</string>
+    <string name="guide_open_duodesk_on_then">Open DuoDesk on %1$s, then tap Connect on Overview.</string>
+    <string name="guide_turn_on_developer_options">Turn on Developer options</string>
+    <string name="guide_about_phone_tap_os">About phone › tap “OS version” 7 times.</string>
+    <string name="guide_about_phone_tap_build">About phone › tap “Build number” 7 times.</string>
+    <string name="guide_xiaomi_usb_debugging_security">Xiaomi: “USB debugging (Security settings)”</string>
+    <string name="guide_developer_options_usb_debugging">Developer options › USB debugging (Security settings): on, for touch, mouse and keyboard from %1$s. It asks for a Mi account.</string>
+    <string name="guide_turn_on_usb_and">Turn on USB and Wireless debugging</string>
+    <string name="guide_developer_options_usb_debugging_2">Developer options › USB debugging and Wireless debugging: both on.</string>
+    <string name="guide_pair_with">Pair with %1$s</string>
+    <string name="guide_pair_device_with_pairing">“Pair device with pairing code”, then type the code in DuoDesk’s notification.</string>
+    <string name="guide_or_type_the_code">Or type the code here</string>
+
+    <!-- Input.kt / input -->
+    <string name="common_your_computer_cap">Your computer</string>
+
+    <!-- ViewerActivity.kt / viewer -->
+    <string name="viewer_hide_keyboard">Hide keyboard</string>
+    <!-- Added by hand (concatenations, plurals) -->
+    <string name="clip_tap_to_copy">tap to copy</string>
+    <string name="clip_screenshot">Screenshot</string>
+    <string name="clip_picture">Picture</string>
+    <string name="about_update_available">%1$s is available. You have %2$s.</string>
+    <string name="about_download_file">Download %1$s</string>
+    <string name="about_opens_release_page">Opens the release page</string>
+    <string name="about_up_to_date">Up to date · checked %1$s</string>
+    <string name="setup_optional">%1$s (optional)</string>
+    <string name="guide_short_developer_options">Developer options</string>
+    <string name="guide_short_usb_and_wireless_debugging">USB and Wireless debugging</string>
+    <plurals name="notifs_sent">
+        <item quantity="one">%1$d sent</item>
+        <item quantity="other">%1$d sent</item>
+    </plurals>
+    <plurals name="notifs_shown">
+        <item quantity="one">%1$d shown</item>
+        <item quantity="other">%1$d shown</item>
+    </plurals>
+    <plurals name="files_items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="files_receiving">
+        <item quantity="one">Receiving %1$d file</item>
+        <item quantity="other">Receiving %1$d files</item>
+    </plurals>
+    <plurals name="hub_allow_permissions">
+        <item quantity="one">Allow what %1$s needs: %2$d permission, asked for once.</item>
+        <item quantity="other">Allow what %1$s needs: %2$d permissions, asked for once.</item>
+    </plurals>
+
+    <!-- Manifest labels -->
+    <string name="manifest_send_to_computer">Send to computer</string>
+    <string name="manifest_copy_to_computer">Copy to computer</string>
+    <string name="manifest_open_on_computer">Open on computer</string>
+
+    <!-- Hub labels -->
+    <string name="hub_calls_on_computer">Calls on the computer</string>
+    <string name="hub_photos_and_videos">Photos and videos</string>
+
+    <!-- FolderShare -->
+    <string name="fs_phone_storage">Phone storage</string>
+
+    <!-- Files plurals & notifications -->
+    <plurals name="files_count">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="files_active_receiving">Receiving %1$s · %2$d%%</string>
+    <string name="files_active_sending">Sending %1$s · %2$d%%</string>
+    <string name="files_received_from">Received %1$s from %2$s</string>
+    <string name="files_some_of_from">Some of %1$s from %2$s</string>
+    <string name="files_what_from">%1$s from %2$s</string>
+    <string name="files_not_everything_from">Not everything arrived from %1$s</string>
+    <string name="files_in_where">In %1$s</string>
+    <string name="files_in_downloads_tap">In Downloads › DuoDesk. Tap to open.</string>
+    <string name="files_what_incomplete">%1$s is incomplete</string>
+    <string name="files_copying_from">Copying %1$s from %2$s</string>
+    <string name="files_receiving_from">Receiving %1$s from %2$s</string>
+
+    <!-- Share, Clip & QR -->
+    <string name="share_not_connected">Not connected. Open DuoDesk to connect to your computer.</string>
+    <string name="share_opening_on">Opening on %1$s</string>
+    <string name="share_copied_for_paste">Copied for %1$s: paste there with ⌃⌥V</string>
+    <string name="share_sending_to">Sending %1$s to %2$s</string>
+    <string name="share_not_connected_to">Not connected to your computer</string>
+    <string name="share_couldnt_copy">Couldn’t copy that</string>
+    <string name="share_clipboard_empty">The clipboard is empty</string>
+    <string name="share_clipboard_sent_to">Clipboard sent to %1$s</string>
+    <string name="share_couldnt_send_clipboard">Couldn’t send the clipboard</string>
+    <string name="share_couldnt_send_to">Couldn’t send to %1$s</string>
+    <string name="rezume_getting">Getting %1$s…</string>
+    <string name="rezume_not_offered">That isn’t offered any more</string>
+    <string name="adb_wireless_debugging_on">Wireless debugging is on</string>
+    <string name="qr_pairing_with">Pairing with %1$s. Allow it there.</string>
+    <string name="qr_cant_reach">Can’t reach %1$s. Is the phone on the same Wi-Fi?</string>
 </resources>

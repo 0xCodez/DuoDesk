@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Core App Name -->
+    <string name="app_name">DuoDesk</string>
+
+    <!-- App Shortcuts & Services -->
+    <string name="sc_adb_short">Depuração sem fio</string>
+    <string name="sc_adb_long">Ativar depuração sem fio</string>
+    <string name="sc_screen_short">Tela do computador</string>
+    <string name="sc_screen_long">Exibir a tela do computador</string>
+    <string name="input_service">DuoDesk: mouse e teclado do computador</string>
+    <string name="input_service_desc">Permite que o computador pareado no DuoDesk toque, role e digite neste telefone com mouse e teclado quando a depuração sem fio não estiver disponível (por exemplo via Bluetooth). O DuoDesk apenas atua no que o computador envia enquanto você compartilha o cursor; ele não lê sua tela.</string>
+
+    <!-- Navigation Tabs & Pages -->
+    <string name="nav_overview">Visão geral</string>
+    <string name="nav_connection">Conexão</string>
+    <string name="nav_calls">Chamadas</string>
+    <string name="nav_messages">Mensagens</string>
+    <string name="nav_photos">Fotos</string>
+    <string name="nav_file_access">Acesso a arquivos</string>
+    <string name="nav_screen">Tela</string>
+    <string name="nav_cursor">Mouse</string>
+    <string name="nav_keyboard">Teclado</string>
+    <string name="nav_remote">Controle remoto</string>
+    <string name="nav_clipboard">Área de transferência</string>
+    <string name="nav_notifications">Notificações</string>
+    <string name="nav_files">Arquivos</string>
+    <string name="nav_rezume">ReZume</string>
+    <string name="nav_sound">Som</string>
+    <string name="nav_camera">Câmera</string>
+    <string name="nav_share">Compartilhar</string>
+    <string name="nav_more">Mais</string>
+    <string name="nav_general">Geral</string>
+    <string name="nav_about">Sobre</string>
+
+    <!-- Pairing & Link -->
+    <string name="pair_code">Verifique se %1$s exibe o mesmo código.</string>
+    <string name="pair_title">Parear com %1$s?</string>
+    <string name="pair_match">Os códigos coincidem</string>
+    <string name="pair_cancel">Cancelar</string>
+    <string name="pair_ok">OK</string>
+    <string name="pair_invite_title">%1$s deseja parear</string>
+    <string name="pair_invite_desc">Toque em Parear para conectar este dispositivo a %1$s. Você verificará se ambos exibem o mesmo código.</string>
+    <string name="pair_invite_note">%1$s deseja parear com este dispositivo.</string>
+    <string name="pair_pairing_with">Pareando com %1$s</string>
+    <string name="pair_btn_pair">Parear</string>
+    <string name="pair_btn_not_now">Agora não</string>
+    <string name="pair_waiting">Aguardando permissão em %1$s…</string>
+    <string name="pair_connecting">Conectando…</string>
+    <string name="pair_connecting_ble">Conectando via Bluetooth…</string>
+    <string name="pair_usb_cable">No cabo USB. Clique em Permitir no %1$s.</string>
+    <string name="pair_pairing">Pareando…</string>
+    <string name="pair_not_connected">Não conectado</string>
+    <string name="pair_connected">Conectado</string>
+    <string name="pair_by_address">Parear por endereço</string>
+    <string name="pair_forget">Esquecer</string>
+    <string name="pair_forget_confirm">Esquecer?</string>
+
+    <!-- Wireless Debugging Dialog -->
+    <string name="adb_dialog_title">Ativar depuração sem fio</string>
+    <string name="adb_dialog_desc">%1$s a utiliza para a tela deste dispositivo, mouse e teclado aqui, e áudio. Alguns telefones (MIUI, HyperOS) a desativam após trocar de Wi-Fi, bloquear a tela ou reiniciar.\n\nAs Configurações serão abertas nas Opções do desenvolvedor: ative a Depuração USB e a Depuração sem fio, depois retorne.</string>
+    <string name="adb_dialog_settings">Abrir Configurações</string>
+    <string name="adb_dialog_not_now">Agora não</string>
+
+    <!-- Page Descriptions & Features -->
+    <string name="desc_screen">Use este dispositivo como tela para %1$s: espelhando a tela principal (Espelhar) ou como uma segunda tela (Estender).</string>
+    <string name="desc_cursor">Mova o cursor de %1$s além da borda da tela para controlar este dispositivo.</string>
+    <string name="desc_keyboard">Digite no dispositivo onde o cursor estiver posicionado.</string>
+    <string name="desc_rezume">Como o Handoff em dispositivos Apple: continue o que estava fazendo. A página ou documento de %1$s aqui, e o aplicativo ou página deste telefone no %1$s.</string>
+    <string name="desc_remote">Use este dispositivo como touchpad e teclado de %1$s, ou como controle para jogos.</string>
+    <string name="desc_clipboard">Copie em um dispositivo e cole no outro.</string>
+    <string name="desc_notifications">Veja notificações sincronizadas entre os dispositivos.</string>
+    <string name="desc_files">Envie arquivos, copie e cole, ou arraste entre os dispositivos.</string>
+    <string name="desc_sound">Ouça o áudio de um dispositivo no outro.</string>
+    <string name="wifi_direct">Wi-Fi Direct</string>
+
+    <!-- About Page -->
+    <string name="about_tagline">Use seu computador e este dispositivo como uma única bancada.</string>
+    <string name="about_version">Versão %1$s</string>
+    <string name="about_card_updates">Atualizações</string>
+    <string name="about_card_made_by">Criado por</string>
+    <string name="about_card_license">Licença</string>
+    <!-- MainActivity.kt / common -->
+    <string name="common_the_computer">o computador</string>
+    <string name="common_allow">Permitir</string>
+    <string name="common_open">Abrir</string>
+    <string name="common_save">Salvar</string>
+    <string name="common_show">Mostrar</string>
+    <string name="common_stop">Parar</string>
+    <string name="common_close">Fechar</string>
+    <string name="common_choose">Escolher…</string>
+    <string name="common_off">Desativado</string>
+    <string name="common_set_up">Configurar</string>
+    <string name="common_turn_on">Ativar</string>
+    <string name="common_disconnect">Desconectar</string>
+    <string name="common_connect">Conectar</string>
+    <string name="common_take_over">Assumir</string>
+    <string name="common_download">Baixar</string>
+    <string name="common_guide">Guia</string>
+    <string name="common_dismiss">Dispensar</string>
+    <string name="common_send">Enviar</string>
+    <string name="common_copy">Copiar</string>
+    <string name="common_start">Iniciar</string>
+    <string name="common_mirror">Espelhar</string>
+    <string name="common_extend">Estender</string>
+    <string name="common_paired">Pareado</string>
+    <string name="common_allowed">Permitido</string>
+    <string name="common_accessibility">Acessibilidade</string>
+
+    <!-- MainActivity.kt / ov -->
+    <string name="ov_not_connected_connect_to">Não conectado. Conecte-se a %1$s na página Visão geral.</string>
+    <string name="ov_tap_connect_or_click">Toque em Conectar ou clique neste dispositivo no seu Mac.</string>
+    <string name="ov_pick_a_computer_below">Escolha um computador abaixo ou pareie por endereço.</string>
+    <string name="ov_wireless_debugging_only_available">Depuração sem fio: disponível apenas por Wi-Fi. Você está conectado a %1$s por Bluetooth.</string>
+    <string name="ov_wireless_debugging_isn_t">A depuração sem fio não está configurada. %1$s precisa dela para exibir esta tela e controlá-la via ADB.</string>
+    <string name="ov_wireless_debugging_is_off">A depuração sem fio está desativada. %1$s precisa dela para exibir esta tela e controlá-la via ADB.</string>
+    <string name="ov_back_to_bluetooth">Voltar ao Bluetooth</string>
+    <string name="ov_connect_with_wi_fi">Conectar com Wi-Fi Direct</string>
+    <string name="ov_show_s_screen">Mostrar a tela de %1$s</string>
+    <string name="ov_switch_to">Trocar para</string>
+    <string name="ov_nearby_over_bluetooth_paired">Por perto via Bluetooth · pareado</string>
+    <string name="ov_nearby_paired">Por perto · pareado</string>
+    <string name="ov_paired_not_nearby">Pareado · fora de alcance</string>
+    <string name="ov_switch">Trocar</string>
+    <string name="ov_allow_nearby_devices_on">Permita Dispositivos por perto na página Geral</string>
+    <string name="ov_open_it_on_the">Abra na página Tela</string>
+    <string name="ov_mouse_and_keyboard">Mouse e teclado</string>
+    <string name="ov_needs_duodesk_with_notifications">Requer o DuoDesk com notificações (página Notificações)</string>
+    <string name="ov_needs_notification_access_general">Requer acesso a notificações (Geral)</string>
+    <string name="ov_needs_android_11_or">Requer Android 11 ou posterior</string>
+    <string name="ov_allow_all_files_access">Permita o acesso a todos os arquivos: ative novamente</string>
+    <string name="ov_tap_allow_on_the">Toque em Permitir na solicitação ou ative novamente</string>
+    <string name="ov_only_the_photos_you">Somente as fotos que você escolheu</string>
+    <string name="ov_some_access_is_missing">Falta algum acesso: ative novamente para permiti-lo</string>
+    <string name="ov_answer_and_make_calls">Atender e fazer chamadas em %1$s</string>
+    <string name="ov_read_and_send_texts">Ler e enviar mensagens de texto em %1$s</string>
+    <string name="ov_browse_this_phone_s">Navegar pelo armazenamento deste telefone em %1$s, sem ADB</string>
+    <string name="ov_see_and_save_them">Ver e salvar em %1$s</string>
+    <string name="ov_nearby">Por perto</string>
+    <string name="ov_scan_a_qr_code">Escanear um código QR</string>
+    <string name="ov_connection_pair_a_phone">Conexão › Parear um telefone com código QR, no computador</string>
+    <string name="ov_scan">Escanear</string>
+    <string name="ov_looking_for_computers">Procurando computadores…</string>
+    <string name="ov_open_duodesk_on_your">Abra o DuoDesk no seu computador (mesmo Wi-Fi ou com Bluetooth ativado)</string>
+    <string name="ov_open_duodesk_on_your_2">Abra o DuoDesk no seu computador (mesmo Wi-Fi)</string>
+
+    <!-- MainActivity.kt / dev -->
+    <string name="dev_ring">Tocar</string>
+    <string name="dev_lock">Bloquear</string>
+    <string name="dev_sleep">Suspender</string>
+    <string name="dev_on">Em %1$s</string>
+    <string name="dev_do_not_disturb">Não perturbe</string>
+    <string name="dev_volume">Volume</string>
+    <string name="dev_that_isn_t_a">Este não é um código de pareamento do DuoDesk</string>
+    <string name="dev_scan_it_with_the">Escaneie com o aplicativo da câmera: ele abre o DuoDesk</string>
+
+    <!-- MainActivity.kt / ble -->
+    <string name="ble_bluetooth_with_computers">Bluetooth com computadores</string>
+    <string name="ble_only_computers_on_this">Só se conectam computadores nesta rede ou por cabo USB</string>
+    <string name="ble_bluetooth_is_off_on">O Bluetooth está desativado neste dispositivo</string>
+    <string name="ble_off_while_you_re">Desativado enquanto você estiver no mesmo Wi-Fi que %1$s; ativado novamente se a conexão cair</string>
+    <string name="ble_connects_to_over_bluetooth">Conecta-se a %1$s por Bluetooth quando ele não está nesta rede. Arquivos e telas passam para um link Wi-Fi direto por um tempo</string>
+
+    <!-- MainActivity.kt / wifi -->
+    <string name="wifi_direct_failed">O Wi-Fi Direct não funcionou</string>
+    <string name="wifi_is_only_available_over">%1$s: disponível apenas por Wi-Fi Direct. Conectando…</string>
+    <string name="wifi_is_only_available_over_2">%1$s: disponível apenas por Wi-Fi Direct. %2$s</string>
+    <string name="wifi_is_only_available_over_3">%1$s: disponível apenas por Wi-Fi Direct (ou pela mesma rede Wi-Fi). Você está conectado por Bluetooth.</string>
+    <string name="wifi_try_again">Tentar novamente</string>
+    <string name="wifi_photos_on">Fotos em %1$s</string>
+    <string name="wifi_phone_files_on">Arquivos do telefone em %1$s</string>
+
+    <!-- MainActivity.kt / hub -->
+    <string name="hub_duodesk_on_needs_to">O DuoDesk em %1$s precisa estar atualizado para %2$s.</string>
+    <string name="hub_file_access_needs_android">O acesso a arquivos requer Android 11 ou posterior. O recurso Montar em %1$s funciona via ADB.</string>
+    <string name="hub_needs_duodesk_with_notifications">%1$s requer o DuoDesk com notificações: o Android não permite que aplicativos baixados leiam mensagens de texto. %2$s o instala assim que a depuração sem fio for configurada (página Telefone › Instalar). Suas configurações e o pareamento são mantidos.</string>
+    <string name="hub_off_switch_it_on">Desativado. Ative aqui ou em %1$s.</string>
+    <string name="hub_allow_all_files_access">Permita o acesso a todos os arquivos para que %1$s possa navegar pelo armazenamento deste telefone. O DuoDesk lê e grava os arquivos por conta própria: sem ADB.</string>
+    <string name="hub_allow_photos_and_videos">Permita o acesso a fotos e vídeos para que %1$s possa exibi-los.</string>
+    <string name="hub_only_the_photos_you">Apenas as fotos que você escolheu aparecem em %1$s.</string>
+    <string name="hub_some_of_needs_more">Parte de %1$s precisa de mais permissões: permita o restante para usar tudo.</string>
+    <string name="hub_allow_more">Permitir mais</string>
+    <string name="hub_on_from_this_phone">Ativado: %1$s deste telefone em %2$s.</string>
+
+    <!-- MainActivity.kt / calls -->
+    <string name="calls_answer_make_and_end">Atenda, faça e encerre as chamadas deste telefone em %1$s.</string>
+    <string name="calls_answer_and_decline">Atender e recusar</string>
+    <string name="calls_a_window_on_when">Uma janela em %1$s quando este telefone tocar</string>
+    <string name="calls_make_calls">Fazer chamadas</string>
+    <string name="calls_the_number_pad_contacts">O teclado numérico, os contatos e as chamadas recentes na página Chamadas de %1$s</string>
+    <string name="calls_sound_on">Som em %1$s</string>
+    <string name="calls_allow_nearby_devices_so">Permita Dispositivos por perto para que o DuoDesk veja o pareamento deste telefone com %1$s</string>
+    <string name="calls_bluetooth_is_off_on">O Bluetooth está desativado neste telefone</string>
+    <string name="calls_pairing_confirm_the_code">Pareando… Confirme o código aqui e em %1$s</string>
+    <string name="calls_forget_in_bluetooth_settings">Esqueça %1$s nas configurações de Bluetooth daqui (o Android mantém o pareamento antigo para si) e depois pareie novamente por lá</string>
+    <string name="calls_paired_with_calls_can">Pareado com %1$s: as chamadas podem tocar lá</string>
+    <string name="calls_paired_over_bluetooth_le">Pareado apenas por Bluetooth LE, que não consegue transportar uma chamada: toque em Esquecer e pareie novamente nas configurações de Bluetooth</string>
+    <string name="calls_waiting_for">Aguardando %1$s…</string>
+    <string name="calls_not_paired_with_over">Não pareado com %1$s por Bluetooth clássico: pareie nas configurações de Bluetooth (aqui: Parear novo dispositivo; em %1$s: Adicionar dispositivo). O DuoDesk se conecta assim que estiverem pareados</string>
+    <string name="calls_open_bluetooth_settings">Abrir configurações de Bluetooth</string>
+    <string name="calls_this_phone_and_forget">Este telefone e %1$s se esquecem, por Bluetooth clássico e LE; as configurações de Bluetooth abrem para pareá-los novamente</string>
+
+    <!-- MainActivity.kt / msgs -->
+    <string name="msgs_read_and_send_this">Leia e envie as mensagens de texto deste telefone em %1$s.</string>
+    <string name="msgs_conversations">Conversas</string>
+    <string name="msgs_texts_and_mms_pictures">Mensagens de texto e imagens MMS na página Mensagens de %1$s</string>
+    <string name="msgs_new_texts">Novas mensagens</string>
+    <string name="msgs_counted_on_the_messages">Contadas na aba Mensagens de %1$s</string>
+
+    <!-- MainActivity.kt / photos -->
+    <string name="photos_see_this_phone_s">Veja as fotos e os vídeos deste telefone em %1$s e copie-os para lá.</string>
+    <string name="photos_photos_videos_and_screenshots">Fotos, vídeos e capturas de tela</string>
+    <string name="photos_newest_first_on_s">Mais recentes primeiro na página Fotos de %1$s</string>
+    <string name="photos_copies_go_to_s">As cópias vão para a pasta Downloads de %1$s</string>
+
+    <!-- MainActivity.kt / fa -->
+    <string name="fa_browse_this_phone_s">Navegue pelo armazenamento deste telefone em %1$s e copie arquivos nos dois sentidos.</string>
+    <string name="fa_phone_files">Arquivos do telefone</string>
+    <string name="fa_folders_save_to_upload">Pastas, Salvar em %1$s, Enviar, Nova pasta, Renomear, Excluir</string>
+    <string name="fa_no_adb">Sem ADB</string>
+    <string name="fa_duodesk_reads_and_writes">O DuoDesk lê e grava os arquivos por conta própria com o acesso a todos os arquivos. Montar em %1$s é o caminho via ADB</string>
+    <string name="fa_where">Onde</string>
+    <string name="fa_on_usb_wi_fi">Por USB, Wi-Fi ou Wi-Fi Direct. Por Bluetooth, %1$s avisa e oferece Conectar com Wi-Fi Direct</string>
+
+    <!-- MainActivity.kt / shared -->
+    <string name="shared_shared_folders">Pastas compartilhadas</string>
+    <string name="shared_share_a_folder_with">Compartilhar uma pasta com %1$s</string>
+    <string name="shared_needs_all_files_access">Requer acesso a todos os arquivos (acima)</string>
+    <string name="shared_opens_it_over_wi">%1$s: %2$s a abre por Wi-Fi Direct</string>
+    <string name="shared_couldn_t_share">Não foi possível compartilhar: %1$s</string>
+    <string name="shared_open_on_phone_files">%1$s: abra em %2$s (Arquivos do telefone › Pastas compartilhadas)</string>
+    <string name="shared_folder">Pasta</string>
+    <string name="shared_s_shared_folder">Pasta compartilhada de %1$s</string>
+    <string name="shared_connecting_with_wi_fi">Conectando com Wi-Fi Direct…</string>
+    <string name="shared_open_connects_with_wi">Abrir conecta com Wi-Fi Direct</string>
+    <string name="shared_in_the_files_app">“%1$s” no aplicativo Arquivos e no seletor de arquivos de todos os aplicativos</string>
+    <string name="shared_opening">Abrindo…</string>
+    <string name="shared_off_switch_it_on">Desativado: ative para ver uma pasta de %1$s no aplicativo Arquivos</string>
+
+    <!-- MainActivity.kt / cam -->
+    <string name="cam_this_device_s_camera">A câmera deste dispositivo em %1$s: no DuoDesk de lá e como uma câmera que os aplicativos de lá podem escolher.</string>
+    <string name="cam_this_camera_on">Esta câmera em %1$s</string>
+    <string name="cam_switching_takes_a_moment">A troca leva um instante</string>
+    <string name="cam_the_one_it_starts">A câmera com que ele inicia</string>
+    <string name="cam_back">Traseira</string>
+    <string name="cam_front">Frontal</string>
+    <string name="cam_needs_wireless_debugging_set">Requer depuração sem fio: configure-a na Visão geral</string>
+    <string name="cam_it_stopped">Parou: %1$s</string>
+    <string name="cam_running_as_duodesk_camera">Em execução como “DuoDesk Camera”: no Zoom, no Teams ou no navegador de lá, escolha somente essa</string>
+    <string name="cam_in_duodesk_s_camera">Na página Câmera do DuoDesk de lá. A Câmera virtual a transforma em uma câmera que outros aplicativos podem escolher</string>
+    <string name="cam_s_virtual_camera_is">A Câmera virtual de %1$s está ativada: os aplicativos de lá veem esta câmera como “DuoDesk Camera”.</string>
+    <string name="cam_turn_on_virtual_camera">Ative a Câmera virtual na página Câmera do DuoDesk em %1$s para usar esta câmera como uma câmera real nos aplicativos de lá (Zoom, Teams, navegador…).</string>
+
+    <!-- MainActivity.kt / screen -->
+    <string name="screen_this_screen_on">Esta tela em %1$s</string>
+    <string name="screen_show_this_screen_on">Mostrar esta tela em %1$s</string>
+    <string name="screen_this_device_s_windows">As janelas deste dispositivo estão abertas em %1$s. Fechar as encerra</string>
+    <string name="screen_in_a_window_there">Em uma janela de lá, com o mouse e o teclado dele</string>
+    <string name="screen_isn_t_sharing_its">%1$s não está compartilhando a tela.</string>
+    <string name="screen_shares_a_second_screen">%1$s compartilha uma segunda tela do tamanho desta (Estender).</string>
+    <string name="screen_shares_its_own_screen">%1$s compartilha a própria tela (Espelhar).</string>
+    <string name="screen_full_screen_tap_the">Tela cheia. Toque na alça no topo para Espelhar, Estender e o teclado</string>
+    <string name="screen_mode">Modo</string>
+    <string name="screen_extend_makes_a_second">Estender transforma %1$s em uma segunda tela do tamanho desta</string>
+    <string name="screen_starts_and_switches_its">%1$s inicia e alterna o compartilhamento por conta própria</string>
+    <string name="screen_sharing">Compartilhamento</string>
+    <string name="screen_touch">Toque</string>
+    <string name="screen_touchpad">Touchpad</string>
+    <string name="screen_slide_to_move_the">Deslize para mover o ponteiro; deslizar nunca clica. Desativado: o ponteiro vai para onde você toca</string>
+    <string name="screen_slide">Deslizar</string>
+    <string name="screen_move_the_pointer">Mover o ponteiro</string>
+    <string name="screen_tap">Toque</string>
+    <string name="screen_left_click">Clique com o botão esquerdo</string>
+    <string name="screen_nothing_remote_tap_to">Nada (Controle remoto › Tocar para clicar está desativado)</string>
+    <string name="screen_hold">Manter pressionado</string>
+    <string name="cursor_back">Voltar</string>
+    <string name="screen_right_click">Clique com o botão direito</string>
+    <string name="screen_two_fingers">Dois dedos</string>
+    <string name="screen_scroll">Rolar</string>
+    <string name="screen_click">Clique</string>
+    <string name="screen_drag">Arrastar</string>
+    <string name="screen_drag_select_move_windows">Arrastar (selecionar, mover janelas)</string>
+    <string name="screen_input_is_off">Entrada desativada</string>
+    <string name="screen_doesn_t_take_input">%1$s não aceita entrada daqui (em Compartilhar tela › Receber entrada)</string>
+    <string name="screen_stylus">Stylus</string>
+    <string name="screen_pen">Caneta</string>
+    <string name="screen_pressure_tilt_the_eraser">Pressão, inclinação, borracha e botão lateral, como uma mesa digitalizadora em %1$s; sua mão na tela não faz nada enquanto a caneta estiver por perto. Desativado: a stylus funciona como um mouse</string>
+    <string name="screen_playback">Reprodução</string>
+    <string name="screen_s_sound_with_the">Som de %1$s com a tela</string>
+    <string name="screen_when_shares_sound_with">Quando %1$s compartilha o som com a tela</string>
+    <string name="screen_smooth">Suave</string>
+    <string name="screen_even_motion_about_one">Movimento uniforme, cerca de um quadro depois. Desativado: cada quadro assim que chega</string>
+
+    <!-- MainActivity.kt / cursor -->
+    <string name="cursor_this_build_of_duodesk">Esta versão do DuoDesk não pode usar a Acessibilidade: o Play Protect do Android bloqueia aplicativos baixados que a usam. Use a depuração sem fio ou, depois de configurada, %1$s instala o DuoDesk com notificações, que consegue (em %1$s, página Telefone › Instalar).</string>
+    <string name="cursor_allow_duodesk_in_accessibility">Permita o DuoDesk em Acessibilidade para que o ponteiro de %1$s possa tocar e digitar aqui.</string>
+    <string name="cursor_moves_the_pointer_here">%1$s move o ponteiro aqui pela depuração sem fio, que está desativada. Ou escolha Acessibilidade abaixo.</string>
+    <string name="cursor_allow_show_the_pointer">Permita “Mostrar o ponteiro” em Geral › Configuração para ver o ponteiro de %1$s aqui.</string>
+    <string name="cursor_cursor_sharing_is_off">O compartilhamento do cursor está desativado. Pressione duas vezes %1$s em %2$s para ativá-lo.</string>
+    <string name="cursor_cursor_sharing_is_off_2">O compartilhamento do cursor está desativado por Bluetooth. Ele volta no Wi-Fi ou pressione duas vezes %1$s em %2$s para ativá-lo.</string>
+    <string name="cursor_push_s_pointer_past">Empurre o ponteiro de %1$s além da borda para vir até aqui. Pressione duas vezes %2$s para recuperar tudo.</string>
+    <string name="cursor_use_s_mouse_and">Usar o mouse e o teclado de %1$s em %2$s</string>
+    <string name="cursor_push_the_pointer_past">Empurre o ponteiro além da borda</string>
+    <string name="cursor_through">Via</string>
+    <string name="cursor_automatic_adb_wireless_debugging">Automático: ADB, a depuração sem fio está ativada</string>
+    <string name="cursor_automatic_accessibility_until_wireles">Automático: Acessibilidade até a depuração sem fio ser ativada</string>
+    <string name="cursor_accessibility_duodesk_taps_and">Acessibilidade: o DuoDesk toca e digita por conta própria, por Wi-Fi, Wi-Fi Direct ou Bluetooth. Sem opções do desenvolvedor</string>
+    <string name="cursor_adb_wireless_debugging_full">ADB (depuração sem fio): controle total. Por Bluetooth sem ela, Acessibilidade</string>
+    <string name="cursor_where_is">Onde %1$s está</string>
+    <string name="cursor_feel">Comportamento</string>
+    <string name="cursor_pointer_speed_here">Velocidade do ponteiro aqui</string>
+    <string name="cursor_reverse_scrolling">Rolagem invertida</string>
+    <string name="cursor_scroll_here_the_other">Rolar aqui no sentido contrário</string>
+    <string name="cursor_middle_click">Clique do meio</string>
+    <string name="cursor_home">Início</string>
+    <string name="cursor_not_on_the_same">Fora da mesma rede</string>
+    <string name="cursor_over_bluetooth">Por Bluetooth</string>
+    <string name="cursor_when_isn_t_on">Quando %1$s não está nesta rede e você está conectado por Bluetooth (mais lento). Desativado: nada passa até você voltar ao Wi-Fi. O mesmo nos dois</string>
+
+    <!-- MainActivity.kt / kbd -->
+    <string name="kbd_s_keyboard_types_here">O teclado de %1$s digita aqui enquanto o ponteiro dele está aqui.</string>
+    <string name="kbd_keyboard_sharing_is_off">O compartilhamento do teclado está desativado: só o ponteiro vem para cá.</string>
+    <string name="kbd_hotkey">Atalho</string>
+    <string name="kbd_double_tap_on_to">Pressione duas vezes em %1$s para ativar ou desativar o compartilhamento do cursor. Defina no DuoDesk em %1$s</string>
+    <string name="kbd_shortcuts_here">Atalhos aqui</string>
+    <string name="kbd_works_as_ctrl_so">O ⌘ funciona como Ctrl, então ⌘C copia e ⌘V cola</string>
+    <string name="kbd_typing">Digitação</string>
+    <string name="kbd_every_key_goes_as">Cada tecla vai como tecla, então qualquer layout de teclado e o teclado virtual não atrapalham</string>
+    <string name="kbd_in_the_screen_view">Na visualização da tela</string>
+    <string name="kbd_s_screen_here">A tela de %1$s aqui</string>
+    <string name="kbd_a_keyboard_on_this">Um teclado neste dispositivo digita em %1$s. O botão Teclado abre o teclado virtual</string>
+
+    <!-- MainActivity.kt / rezume -->
+    <string name="rezume_off_nothing_here_is">Desativado: nada aqui é lido ou enviado. Quando ativado, a página ou o aplicativo em primeiro plano vai para %1$s, e o de %1$s vem para cá.</string>
+    <string name="rezume_continue_from">Continuar de %1$s</string>
+    <string name="rezume_has_no_rezume_yet">%1$s ainda não tem o ReZume: atualize o DuoDesk lá.</string>
+    <string name="rezume_rezume_is_off_on">O ReZume está desativado em %1$s: ative-o lá também.</string>
+    <string name="rezume_ready_sees_this_phone">Pronto. %1$s vê os aplicativos deste telefone pela depuração sem fio; para ver as páginas também, ative a Acessibilidade do DuoDesk.</string>
+    <string name="rezume_s_pages_and_documents">As páginas e os documentos de %1$s vêm para cá. Para que os deste telefone vão para lá, ative a Acessibilidade do DuoDesk (ou a depuração sem fio, para aplicativos).</string>
+    <string name="rezume_offered_to">Oferecido a %1$s: %2$s</string>
+    <string name="rezume_ready">Pronto.</string>
+    <string name="rezume_says_which_app_is">Informa qual aplicativo está em primeiro plano e lê a barra de endereços do navegador, nada mais</string>
+    <string name="rezume_open_settings">Abrir configurações</string>
+    <string name="rezume_what_goes">O que é enviado</string>
+    <string name="rezume_web_pages">Páginas da web</string>
+    <string name="rezume_the_tab_in_front">A guia em primeiro plano no Chrome, Firefox, Edge, Samsung Internet, Brave, Opera, Vivaldi ou DuckDuckGo, e a de %1$s aqui</string>
+    <string name="rezume_documents">Documentos</string>
+    <string name="rezume_s_document_in_front">O documento em primeiro plano de %1$s vem para cá e abre</string>
+    <string name="rezume_apps">Aplicativos</string>
+    <string name="rezume_the_app_in_front">O aplicativo em primeiro plano aqui abre em %1$s em uma janela própria (depuração sem fio)</string>
+    <string name="rezume_which_ways">Em quais sentidos</string>
+    <string name="rezume_offer_what_s_in">Oferecer o que está em uso aqui</string>
+    <string name="rezume_can_go_on_with">%1$s pode continuar com isso</string>
+    <string name="rezume_take_s">Receber o de %1$s</string>
+    <string name="rezume_what_s_in_use">O que está em uso lá aparece aqui</string>
+    <string name="rezume_open_what_s_sent">Abrir o que for enviado imediatamente</string>
+    <string name="rezume_send_to_on_opens">Enviar para em %1$s abre aqui sem perguntar (requer Exibir sobre outros aplicativos; senão, uma notificação)</string>
+    <string name="rezume_where_s_shows">Onde o de %1$s aparece</string>
+    <string name="rezume_notification">Notificação</string>
+    <string name="rezume_a_quiet_one_replaced">Uma notificação silenciosa, substituída pela próxima. Desativado: só nesta página</string>
+    <string name="rezume_share_a_link_to">Compartilhe um link para “Abrir no computador” para abri-lo em %1$s agora.</string>
+
+    <!-- MainActivity.kt / remote -->
+    <string name="remote_doesn_t_answer_the">%1$s não responde ao controle remoto: atualize o DuoDesk lá.</string>
+    <string name="remote_doesn_t_take_input">%1$s não aceita entrada daqui. Em %1$s, ative Controle remoto no DuoDesk.</string>
+    <string name="remote_touchpad_and_keyboard">Touchpad e teclado</string>
+    <string name="remote_slide_to_move_s">Deslize para mover o ponteiro de %1$s, toque para clicar, mantenha pressionado para clicar com o botão direito, use dois dedos para rolar. Teclas e teclas de mídia também</string>
+    <string name="remote_gamepad">Gamepad</string>
+    <string name="remote_held_sideways_like_a">Na horizontal, como um controle. O direcional esquerdo é WASD e o direito é o mouse; Teclas, na barra superior, define o que cada botão pressiona</string>
+    <string name="remote_pointer_speed">Velocidade do ponteiro</string>
+    <string name="remote_also_the_gamepad_s">Também vale para o direcional direito do gamepad e para o touchpad da página Tela</string>
+    <string name="remote_tap_to_click">Tocar para clicar</string>
+    <string name="remote_a_quick_tap_left">Um toque rápido faz o clique esquerdo; deslizar nunca clica. Desativado: só os botões de clique clicam</string>
+    <string name="remote_even_pointer_motion_on">Movimento uniforme do ponteiro em %1$s, cerca de um quadro depois. Desativado: cada movimento assim que chega</string>
+    <string name="remote_on_the_usb_cable">No cabo USB: a forma mais rápida para jogos.</string>
+    <string name="remote_through_bluetooth_the_pointer">Pelo Bluetooth, o ponteiro se move cerca de 30 vezes por segundo. No Wi-Fi ou por cabo USB é mais rápido.</string>
+    <string name="remote_over_wi_fi_it">No Wi-Fi, a velocidade é a do atraso exibido no topo do aplicativo. Para jogos, o cabo USB é o mais rápido.</string>
+
+    <!-- MainActivity.kt / btpad -->
+    <string name="btpad_as_a_bluetooth_gamepad">Como gamepad Bluetooth</string>
+    <string name="btpad_a_game_controller_for">Um controle de jogos para qualquer computador por Bluetooth, inclusive o Mac: sem driver e sem precisar do DuoDesk lá. Jogos que aceitam qualquer controle (Steam, emuladores); jogos do Windows exclusivos para Xbox exigem o Gamepad real no PC</string>
+    <string name="btpad_now">Agora</string>
+    <string name="btpad_starting">Iniciando…</string>
+    <string name="btpad_connected_to_open_the">Conectado a %1$s: abra o gamepad</string>
+    <string name="btpad_ready_waiting_for_a">Pronto: aguardando um computador</string>
+    <string name="btpad_pair_it_once">Pareie uma vez</string>
+    <string name="btpad_on_the_computer_bluetooth">No computador: configurações de Bluetooth › Adicionar dispositivo (Windows: Bluetooth; Mac: Ajustes do Sistema › Bluetooth; Linux: Bluetooth › +) e escolha “%1$s”. Depois disso, ele se conecta sozinho enquanto isto estiver ativado</string>
+    <string name="btpad_let_computers_find_it">Permitir que computadores o encontrem</string>
+
+    <!-- MainActivity.kt / clip -->
+    <string name="clip_copies_on_land_here">Cópias feitas em %1$s chegam aqui</string>
+    <string name="clip_at_once">Imediatamente</string>
+    <string name="clip_copies_here_go_to">Cópias feitas aqui vão para %1$s</string>
+    <string name="clip_while_duodesk_is_open">Enquanto o DuoDesk estiver aberto, ou sempre com a depuração sem fio</string>
+    <string name="clip_send_the_clipboard_now">Enviar a área de transferência agora</string>
+    <string name="clip_also_the_send_clipboard">Também: o bloco Enviar área de transferência nas Configurações rápidas</string>
+    <string name="clip_pictures">Imagens</string>
+    <string name="clip_pictures_and_screenshots_up">Imagens e capturas de tela de até 10 MB, nos dois sentidos, com Área de transferência › Imagens ativado também em %1$s. Não por Bluetooth</string>
+    <string name="clip_off_on">Desativado em %1$s</string>
+    <string name="clip_turn_on_clipboard_pictures">Ative Área de transferência › Imagens lá (uma versão mais antiga não consegue: atualize o DuoDesk)</string>
+    <string name="clip_screenshots_go_to">Capturas de tela vão para %1$s</string>
+    <string name="clip_each_one_taken_here">Cada captura feita aqui vai para a área de transferência de %1$s: cole lá</string>
+    <string name="clip_allow_photo_access">Permitir acesso às fotos</string>
+    <string name="clip_duodesk_looks_only_for">O DuoDesk procura apenas novas capturas de tela</string>
+    <string name="clip_last_screenshot_sent">Última captura de tela enviada</string>
+    <string name="clip_recent">Recentes</string>
+    <string name="clip_from">De %1$s</string>
+    <string name="clip_to">Para %1$s</string>
+
+    <!-- MainActivity.kt / notifs -->
+    <string name="notifs_this_build_of_duodesk">Esta versão do DuoDesk não pode ler as notificações deste dispositivo: o Play Protect do Android bloqueia aplicativos baixados que podem. %1$s instala o DuoDesk com notificações para você assim que a depuração sem fio for configurada: em %1$s, página Telefone › Instalar. Suas configurações e o pareamento são mantidos.</string>
+    <string name="notifs_allow_notification_access_so">Permita o acesso a notificações para que as notificações deste dispositivo possam ir para %1$s.</string>
+    <string name="notifs_show_this_device_s">Mostrar as notificações deste dispositivo em %1$s</string>
+    <string name="notifs_hide_the_message_text">Ocultar o texto das mensagens</string>
+    <string name="notifs_only_the_app_and">Apenas o aplicativo e o título vão para %1$s</string>
+    <string name="notifs_notification_access">Acesso a notificações</string>
+    <string name="notifs_needed_to_read_them">Necessário para lê-las</string>
+    <string name="notifs_set_it_up_first">Configure primeiro e depois instale a partir de %1$s</string>
+    <string name="notifs_show_s_notifications_here">Mostrar as notificações de %1$s aqui</string>
+
+    <!-- MainActivity.kt / files -->
+    <string name="files_copied_on">Copiado em %1$s</string>
+    <string name="files_send_to">Enviar para %1$s</string>
+    <string name="files_send_files">Enviar arquivos</string>
+    <string name="files_they_land_in_s">Eles chegam à pasta Downloads de %1$s. De qualquer aplicativo: Compartilhar › %1$s</string>
+    <string name="files_copy_files">Copiar arquivos</string>
+    <string name="files_paste_them_on_with">Cole-os em %1$s com ⌃⌥V, onde quiser</string>
+    <string name="files_drop_to_send_to">Solte para enviar para %1$s</string>
+    <string name="files_drag_files_here_to">Arraste arquivos para cá para enviá-los para %1$s</string>
+    <string name="files_drag_across_the_edge">Arrastar pela borda</string>
+    <string name="files_files_dragged_onto_this">Os arquivos arrastados para este dispositivo vão para Downloads › DuoDesk</string>
+    <string name="files_c_on">⌃⌥C em %1$s</string>
+    <string name="files_this_device_offers_to">Este dispositivo oferece copiá-los para a área de transferência ou salvá-los</string>
+    <string name="files_drop_on_the_phone">Soltar na janela do telefone</string>
+    <string name="files_files_dropped_on_this">Os arquivos soltos na janela deste dispositivo em %1$s chegam aqui</string>
+    <string name="files_sending">Enviando %1$s</string>
+    <string name="files_downloads">Downloads</string>
+
+    <!-- MainActivity.kt / sound -->
+    <string name="sound_play_s_sound_here">Reproduzir aqui o som de %1$s</string>
+    <string name="sound_playing">Reproduzindo</string>
+    <string name="sound_play_this_device_s">Reproduzir em %1$s o som deste dispositivo</string>
+    <string name="sound_sound_that_comes_with">O som que acompanha a tela é reproduzido na visualização da tela (Tela › Reprodução).</string>
+    <string name="sound_playing_there_captured_here">Reproduzindo lá (capturado aqui: toque em Parar na notificação)</string>
+    <string name="sound_through_wireless_debugging_else">Pela depuração sem fio; senão, o DuoDesk o captura (Iniciar, a cada vez)</string>
+    <string name="sound_start_the_sound">Iniciar o som</string>
+    <string name="sound_android_asks_to_allow">O Android pede permissão para a captura</string>
+    <string name="sound_captured_sound">Som capturado</string>
+    <string name="sound_plays_here_too_only">Também toca aqui: somente a depuração sem fio o tira deste telefone</string>
+
+    <!-- MainActivity.kt / gen -->
+    <string name="gen_this_device">Este dispositivo</string>
+    <string name="gen_name">Nome</string>
+    <string name="gen_language">Idioma</string>
+    <string name="gen_language_auto">Automático</string>
+    <string name="gen_language_auto_hint">Segue o idioma do telefone</string>
+    <string name="gen_what_your_computers_call">Como seus computadores o chamam</string>
+    <string name="gen_files_arriving_invites_from">Chegada de arquivos, convites de %1$s e o DuoDesk permanecendo conectado</string>
+    <string name="gen_your_photos_and_videos">Suas fotos e vídeos em %1$s</string>
+    <string name="gen_this_device_s_storage">O armazenamento e as pastas compartilhadas deste dispositivo em %1$s, sem ADB</string>
+    <string name="gen_needs_duodesk_with_notifications">Requer o DuoDesk com notificações (%1$s o instala)</string>
+    <string name="gen_some_access_is_missing">Falta algum acesso: %1$s</string>
+    <string name="gen_to_show_this_device">Para mostrar as notificações deste dispositivo em %1$s</string>
+    <string name="gen_comes_with_duodesk_with">Vem com o DuoDesk com notificações, que %1$s instala (página Telefone dele)</string>
+    <string name="gen_run_in_the_background">Executar em segundo plano</string>
+    <string name="gen_so_can_reach_this">Para que %1$s possa alcançar este dispositivo a qualquer momento</string>
+    <string name="gen_paired_with_this_screen">Pareado com %1$s: esta tela e o som lá, o mouse e o teclado dele aqui</string>
+    <string name="gen_only_available_over_wi">Disponível apenas por Wi-Fi: você está conectado por Bluetooth</string>
+    <string name="gen_paired_with_reconnecting">Pareado com %1$s, reconectando…</string>
+    <string name="gen_on_pair_it_with">Ativada. Pareie com %1$s uma vez (o guia orienta você)</string>
+    <string name="gen_for_this_screen_and">Para esta tela e o som em %1$s, e o mouse e o teclado dele aqui</string>
+    <string name="gen_wi_fi_only">Somente Wi-Fi</string>
+    <string name="gen_turn_off_wireless_debugging">Desativar a depuração sem fio ao desconectar</string>
+    <string name="gen_once_paired_with_off">Depois de pareada com %1$s: desativada novamente 2 minutos após a desconexão, se o DuoDesk a tiver ativado</string>
+    <string name="gen_2_minutes_after_disconnects">2 minutos depois que %1$s se desconecta, se o DuoDesk a tiver ativado, e ativada novamente quando ele se conecta. Se foi você quem a ativou, ela permanece ativada</string>
+    <string name="gen_wireless_debugging_stays_on">A depuração sem fio permanece ativada depois que %1$s se desconecta</string>
+    <string name="gen_nearby_devices">Dispositivos por perto</string>
+    <string name="gen_bluetooth_and_wi_fi">Bluetooth e Wi-Fi Direct, para %1$s quando ele não está nesta rede</string>
+    <string name="gen_accessibility_s_cursor_on">Acessibilidade: o cursor de %1$s neste telefone sem depuração sem fio, em qualquer rede. Necessária apenas quando o ADB não é usado</string>
+    <string name="gen_through_wireless_debugging_without">Pela depuração sem fio. Sem ela: vem com o DuoDesk com notificações, que %1$s instala (página Telefone dele)</string>
+    <string name="gen_show_the_pointer">Mostrar o ponteiro</string>
+    <string name="gen_draws_s_pointer_over">Desenha o ponteiro de %1$s sobre outros aplicativos</string>
+    <string name="gen_all_files_access">Acesso a todos os arquivos</string>
+    <string name="gen_your_wallpaper_on_files">Seu papel de parede em %1$s, Arquivos e pastas compartilhadas</string>
+    <string name="gen_allow_nearby_devices_above">Permita Dispositivos por perto acima</string>
+    <string name="gen_turn_off_bluetooth_on">Desativar o Bluetooth em conexões Wi-Fi</string>
+    <string name="gen_on_the_same_wi">Na mesma rede Wi-Fi que %1$s (não Wi-Fi Direct), o Bluetooth é desativado até a conexão terminar</string>
+    <string name="gen_bluetooth_stays_on_beside">O Bluetooth permanece ativado junto com o Wi-Fi, como caminho de volta se ele cair</string>
+    <string name="gen_starting_a_direct_wi">Iniciando um link Wi-Fi direto…</string>
+    <string name="gen_joining_s_wi_fi">Conectando-se ao Wi-Fi de %1$s…</string>
+    <string name="gen_on_a_direct_wi">Em um link Wi-Fi direto com %1$s</string>
+    <string name="gen_connected_over_usb">Conectado por USB</string>
+    <string name="gen_connected_over_bluetooth">Conectado por Bluetooth</string>
+    <string name="gen_last_address">Último endereço %1$s</string>
+    <string name="gen_online">Online</string>
+
+    <!-- MainActivity.kt / about -->
+    <string name="about_checking">Verificando…</string>
+    <string name="about_couldn_t_check">Não foi possível verificar: %1$s</string>
+    <string name="about_version_no_releases_published">Versão %1$s. Nenhuma versão publicada ainda</string>
+    <string name="about_check_now">Verificar agora</string>
+    <string name="about_check_automatically">Verificar automaticamente</string>
+    <string name="about_looks_for_new_releases">Procura novas versões no GitHub a cada poucas horas</string>
+    <string name="about_profile">Perfil</string>
+    <string name="about_website">Site</string>
+    <string name="about_source_code">Código-fonte</string>
+    <string name="about_releases">Versões</string>
+    <string name="about_new_versions_for_every">Novas versões para todas as plataformas</string>
+    <string name="about_report_a_problem">Relatar um problema</string>
+    <string name="about_open_an_issue_on">Abra uma issue no GitHub</string>
+    <string name="about_issues">Issues</string>
+    <string name="about_gnu_general_public_license">Licença Pública Geral GNU v3</string>
+    <string name="about_free_and_open_source">Gratuito e de código aberto. © 2026 0xCodez. Inclui código © 2026 Inuka Asith.</string>
+    <string name="about_read">Ler</string>
+    <string name="about_original_source">Código original</string>
+    <string name="about_the_gpl_3_0">O código GPL-3.0 em que o DuoDesk se baseia, de Inuka Asith</string>
+    <string name="about_screen_input_and_sound">Tela, entrada e som pela depuração sem fio</string>
+    <string name="about_network">Rede</string>
+    <string name="about_fonts">Fontes</string>
+
+    <!-- Notify.kt / notif -->
+    <string name="notif_shown_while_duodesk_is">Exibida enquanto o DuoDesk está pronto para o seu computador</string>
+    <string name="notif_pairing_requests">Solicitações de pareamento</string>
+    <string name="notif_files_arriving_from_your">Arquivos recebidos do seu computador</string>
+    <string name="notif_copied_on_your_computer">Copiado no seu computador</string>
+    <string name="notif_files_copied_with_the">Arquivos copiados com o atalho, prontos para copiar ou salvar aqui</string>
+    <string name="notif_your_computer_s_notifications">Notificações do seu computador</string>
+    <string name="notif_shared_screens">Telas compartilhadas</string>
+    <string name="notif_your_computer_started_sharing">Seu computador começou a compartilhar a tela com este telefone</string>
+    <string name="notif_a_new_version_of">Uma nova versão do DuoDesk no GitHub</string>
+    <string name="notif_is_sharing_its_screen">%1$s está compartilhando a tela</string>
+    <string name="notif_tap_to_see_it">Toque para ver aqui</string>
+    <string name="notif_connected_to">Conectado a %1$s</string>
+    <string name="notif_files_clipboard_and_notifications">Arquivos, área de transferência e notificações são compartilhados</string>
+    <string name="notif_send_clipboard">Enviar área de transferência</string>
+    <string name="common_your_computer">seu computador</string>
+    <string name="notif_connecting_to">Conectando a %1$s…</string>
+    <string name="notif_ready_for_your_computer">Pronto para o seu computador</string>
+    <string name="notif_is_nearby">%1$s está por perto</string>
+    <string name="notif_open_duodesk_on_your">Abra o DuoDesk no seu computador para conectar</string>
+    <string name="notif_connect_to">Conectar a %1$s</string>
+    <string name="notif_exit">Sair</string>
+    <string name="notif_open_duodesk_to_compare">Abra o DuoDesk para comparar o código</string>
+    <string name="notif_switch_on_the_hotspot">Ative o ponto de acesso para %1$s</string>
+    <string name="notif_isn_t_on_this">%1$s não está na rede deste telefone. Toque para abrir o ponto de acesso e digite o nome e a senha dele em %1$s.</string>
+    <string name="notif_files_and_screens_with">Arquivos e telas com %1$s passam por um link Wi-Fi direto. Toque para ativar o Wi-Fi; ele não precisa se conectar a uma rede.</string>
+    <string name="notif_switch_on_wi_fi">Ative o Wi-Fi para %1$s</string>
+    <string name="notif_to_use_s_mouse">Para usar o mouse e o teclado de %1$s aqui sem depuração sem fio, ative o DuoDesk em Acessibilidade (Aplicativos instalados). Toque para abrir.</string>
+    <string name="notif_this_build_of_duodesk">Esta versão do DuoDesk não pode receber o mouse e o teclado de %1$s sem depuração sem fio. Configure a depuração sem fio e, em seguida, %1$s instala o DuoDesk com notificações, que consegue (página Telefone › Instalar).</string>
+    <string name="notif_let_control_this_phone">Permitir que %1$s controle este telefone</string>
+    <string name="notif_without_wireless_debugging_duodesk">Sem depuração sem fio, o DuoDesk captura o áudio: toque em Iniciar e o Android pergunta mais uma vez. Aplicativos que não permitem isso ficam em silêncio.</string>
+    <string name="notif_play_this_phone_s">Reproduzir em %1$s o som deste telefone</string>
+    <string name="notif_this_phone_s_sound">O som deste telefone está tocando em %1$s</string>
+    <string name="notif_asks_to_use_from">%1$s pede para usar %2$s deste telefone. Toque para permitir.</string>
+    <string name="notif_requests_from_your_computer">Solicitações do seu computador</string>
+    <string name="notif_your_computer_asks_for">Seu computador pede o acesso de que precisa (Chamadas, Mensagens, Fotos)</string>
+    <string name="notif_allow_for">Permitir %1$s para %2$s</string>
+    <string name="notif_duodesk_is_available">O DuoDesk %1$s está disponível</string>
+    <string name="notif_you_have_tap_to">Você está na versão %1$s. Toque para baixar a nova versão.</string>
+    <string name="notif_wireless_debugging_is_off">A depuração sem fio está desativada</string>
+    <string name="notif_needs_it_for_this">%1$s precisa dela para esta tela, o mouse e o teclado dele aqui e o som. Toque e ative a Depuração USB e a Depuração sem fio (ambas).</string>
+    <string name="notif_6_digit_pairing_code">código de pareamento de 6 dígitos</string>
+    <string name="notif_type_the_pairing_code">Digite o código de pareamento aqui</string>
+    <string name="notif_settings_shows_a_6">As Configurações mostram um código de 6 dígitos. Digite-o aqui para parear com %1$s.</string>
+    <string name="notif_settings_shows_a_6_2">As Configurações mostram um código de 6 dígitos em “Parear com dispositivo”. Toque em Inserir código, digite-o e envie. %1$s faz o resto.</string>
+    <string name="notif_enter_code">Inserir código</string>
+    <string name="notif_copy_to_clipboard">Copiar para a área de transferência</string>
+    <string name="notif_save_to_downloads">Salvar em Downloads</string>
+    <string name="notif_share">Compartilhar…</string>
+    <string name="notif_what_you_were_doing">O que você estava fazendo no computador, para continuar aqui</string>
+    <string name="notif_rezume_sent_to_this">ReZume: enviado para este telefone</string>
+    <string name="notif_a_page_or_document">Uma página ou documento enviado para cá do seu computador</string>
+    <string name="notif_from_your_computer_tap">Do seu computador. Toque para abrir.</string>
+
+    <!-- Setup.kt / setup -->
+    <string name="setup_files_arriving_copies_from">Chegada de arquivos, cópias do seu computador e as notificações dele</string>
+    <string name="setup_this_device_s_notifications">As notificações deste dispositivo no seu computador</string>
+    <string name="setup_so_your_computer_can">Para que seu computador possa alcançar este dispositivo a qualquer momento</string>
+    <string name="setup_your_computer_s_pointer">O ponteiro do seu computador sobre outros aplicativos quando o mouse dele estiver aqui</string>
+    <string name="setup_this_screen_on_your">Esta tela no seu computador, o mouse e o teclado dele aqui e o som. Seu Mac faz o pareamento uma vez</string>
+    <string name="setup_wallpaper_on_your_computer">Papel de parede no seu computador</string>
+    <string name="setup_optional_android_shares_the">Opcional: o Android só compartilha o papel de parede com o acesso a todos os arquivos</string>
+    <string name="setup_set_up_duodesk">Configurar o DuoDesk</string>
+    <string name="setup_allow_these_so_this">Permita estes itens para que este dispositivo e seu computador funcionem como um só. Você pode alterá-los a qualquer momento em Geral › Configuração.</string>
+    <string name="setup_continue">Continuar</string>
+    <string name="setup_skip_for_now">Pular por enquanto</string>
+    <string name="setup_duodesk_works_without_these">O DuoDesk funciona sem estes itens, mas alguns recursos não funcionarão.</string>
+
+    <!-- Guide.kt / guide -->
+    <string name="guide_once_so_can_show">Uma vez, para que %1$s possa exibir esta tela e usar o mouse e o teclado dele aqui</string>
+    <string name="guide_done_is_paired_with">Pronto: %1$s está pareado com a depuração sem fio deste dispositivo.</string>
+    <string name="guide_done">Concluído</string>
+    <string name="guide_open_duodesk_on_then">Abra o DuoDesk em %1$s e toque em Conectar na Visão geral.</string>
+    <string name="guide_turn_on_developer_options">Ativar as Opções do desenvolvedor</string>
+    <string name="guide_about_phone_tap_os">Sobre o telefone › toque 7 vezes em “Versão do SO”.</string>
+    <string name="guide_about_phone_tap_build">Sobre o telefone › toque 7 vezes em “Número da versão”.</string>
+    <string name="guide_xiaomi_usb_debugging_security">Xiaomi: “Depuração USB (Configurações de segurança)”</string>
+    <string name="guide_developer_options_usb_debugging">Opções do desenvolvedor › Depuração USB (Configurações de segurança): ativada, para toque, mouse e teclado vindos de %1$s. Ela pede uma conta Mi.</string>
+    <string name="guide_turn_on_usb_and">Ativar a Depuração USB e a Depuração sem fio</string>
+    <string name="guide_developer_options_usb_debugging_2">Opções do desenvolvedor › Depuração USB e Depuração sem fio: ambas ativadas.</string>
+    <string name="guide_pair_with">Parear com %1$s</string>
+    <string name="guide_pair_device_with_pairing">“Parear dispositivo com código de pareamento” e digite o código na notificação do DuoDesk.</string>
+    <string name="guide_or_type_the_code">Ou digite o código aqui</string>
+
+    <!-- Input.kt / input -->
+    <string name="common_your_computer_cap">Seu computador</string>
+
+    <!-- ViewerActivity.kt / viewer -->
+    <string name="viewer_hide_keyboard">Ocultar teclado</string>
+    <!-- Added by hand (concatenations, plurals) -->
+    <string name="clip_tap_to_copy">toque para copiar</string>
+    <string name="clip_screenshot">Captura de tela</string>
+    <string name="clip_picture">Imagem</string>
+    <string name="about_update_available">%1$s está disponível. Você está usando %2$s.</string>
+    <string name="about_download_file">Baixar %1$s</string>
+    <string name="about_opens_release_page">Abre a página de versões</string>
+    <string name="about_up_to_date">Atualizado · verificado às %1$s</string>
+    <string name="setup_optional">%1$s (opcional)</string>
+    <string name="guide_short_developer_options">Opções do desenvolvedor</string>
+    <string name="guide_short_usb_and_wireless_debugging">Depuração USB e sem fio</string>
+    <plurals name="notifs_sent">
+        <item quantity="one">%1$d enviada</item>
+        <item quantity="other">%1$d enviadas</item>
+        <item quantity="many">%1$d enviadas</item>
+    </plurals>
+    <plurals name="notifs_shown">
+        <item quantity="one">%1$d exibida</item>
+        <item quantity="other">%1$d exibidas</item>
+        <item quantity="many">%1$d exibidas</item>
+    </plurals>
+    <plurals name="files_items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d itens</item>
+        <item quantity="many">%1$d itens</item>
+    </plurals>
+    <plurals name="files_receiving">
+        <item quantity="one">Recebendo %1$d arquivo</item>
+        <item quantity="other">Recebendo %1$d arquivos</item>
+        <item quantity="many">Recebendo %1$d arquivos</item>
+    </plurals>
+    <plurals name="hub_allow_permissions">
+        <item quantity="one">Permita o necessário para %1$s: %2$d permissão, solicitada uma única vez.</item>
+        <item quantity="other">Permita o necessário para %1$s: %2$d permissões, solicitadas uma única vez.</item>
+        <item quantity="many">Permita o necessário para %1$s: %2$d permissões, solicitadas uma única vez.</item>
+    </plurals>
+
+    <!-- Manifest labels -->
+    <string name="manifest_send_to_computer">Enviar para o computador</string>
+    <string name="manifest_copy_to_computer">Copiar para o computador</string>
+    <string name="manifest_open_on_computer">Abrir no computador</string>
+
+    <!-- Hub labels -->
+    <string name="hub_calls_on_computer">Chamadas no computador</string>
+    <string name="hub_photos_and_videos">Fotos e vídeos</string>
+
+    <!-- FolderShare -->
+    <string name="fs_phone_storage">Armazenamento do telefone</string>
+
+    <!-- Files plurals & notifications -->
+    <plurals name="files_count">
+        <item quantity="one">%1$d arquivo</item>
+        <item quantity="other">%1$d arquivos</item>
+        <item quantity="many">%1$d arquivos</item>
+    </plurals>
+    <string name="files_active_receiving">Recebendo %1$s · %2$d%%</string>
+    <string name="files_active_sending">Enviando %1$s · %2$d%%</string>
+    <string name="files_received_from">%1$s recebido de %2$s</string>
+    <string name="files_some_of_from">Parte de %1$s de %2$s</string>
+    <string name="files_what_from">%1$s de %2$s</string>
+    <string name="files_not_everything_from">Nem tudo foi recebido de %1$s</string>
+    <string name="files_in_where">Em %1$s</string>
+    <string name="files_in_downloads_tap">Em Downloads › DuoDesk. Toque para abrir.</string>
+    <string name="files_what_incomplete">%1$s está incompleto</string>
+    <string name="files_copying_from">Copiando %1$s de %2$s</string>
+    <string name="files_receiving_from">Recebendo %1$s de %2$s</string>
+
+    <!-- Share, Clip & QR -->
+    <string name="share_not_connected">Não conectado. Abra o DuoDesk para se conectar ao seu computador.</string>
+    <string name="share_opening_on">Abrindo em %1$s</string>
+    <string name="share_copied_for_paste">Copiado para %1$s: cole lá com ⌃⌥V</string>
+    <string name="share_sending_to">Enviando %1$s para %2$s</string>
+    <string name="share_not_connected_to">Não conectado ao seu computador</string>
+    <string name="share_couldnt_copy">Não foi possível copiar</string>
+    <string name="share_clipboard_empty">A área de transferência está vazia</string>
+    <string name="share_clipboard_sent_to">Área de transferência enviada para %1$s</string>
+    <string name="share_couldnt_send_clipboard">Não foi possível enviar a área de transferência</string>
+    <string name="share_couldnt_send_to">Não foi possível enviar para %1$s</string>
+    <string name="rezume_getting">Obtendo %1$s…</string>
+    <string name="rezume_not_offered">Isso não está mais disponível</string>
+    <string name="adb_wireless_debugging_on">A depuração sem fio está ativada</string>
+    <string name="qr_pairing_with">Pareando com %1$s. Permita a conexão lá.</string>
+    <string name="qr_cant_reach">Não foi possível alcançar %1$s. O telefone está na mesma rede Wi-Fi?</string>
+</resources>
