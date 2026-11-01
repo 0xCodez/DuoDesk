@@ -1,0 +1,205 @@
+{
+  "page": {
+    "title": "DuoDesk: uma só mesa para todos os seus dispositivos",
+    "description": "Todos os seus computadores e telefone, trabalhando como uma só mesa. Mouse e teclado unificados, segunda tela, aplicativos em janelas, área de transferência, arquivos, chamadas, mensagens e câmeras no Mac, Windows, Linux e Android. Gratuito, código aberto, sem conta e sem nuvem."
+  },
+  "skip": "Pular para o conteúdo",
+  "nav": {
+    "features": "Recursos",
+    "connections": "Conexões",
+    "privacy": "Privacidade",
+    "faq": "FAQ",
+    "source": "Código",
+    "download": "Baixar",
+    "langAria": "Alternar idioma / Switch language"
+  },
+  "hero": {
+    "badge": "Novo no 2.5: <b>ReZume</b><span class=\"badge-more\">, continue de onde parou</span>",
+    "tagline": "Todos os seus computadores e telefone, trabalhando como <span class=\"spec\">uma&nbsp;só&nbsp;mesa</span>.",
+    "lede": "Telas, aplicativos, arquivos, área de transferência, câmeras, chamadas, mensagens, notificações, mouse e teclado compartilhados entre Mac, Windows, Linux e Android. Gratuito e de código aberto. Sem conta, sem nuvem.",
+    "download": "Baixar DuoDesk",
+    "seeApp": "Conheça o aplicativo",
+    "os": {
+      "win": "Windows <small>.exe</small>",
+      "mac": "macOS <small>.dmg</small>",
+      "linux": "Linux <small>.AppImage · .deb</small>",
+      "android": "Android <small>.apk</small>"
+    }
+  },
+  "osLabels": {
+    "win": "Baixar para Windows",
+    "mac": "Baixar para macOS",
+    "linux": "Baixar para Linux",
+    "android": "Baixar para Android"
+  },
+  "demo": {
+    "title": "O aplicativo DuoDesk",
+    "tabHomeTitle": "Início",
+    "tabHomeDesc": "Cada aparelho, cada ajuste",
+    "tabAskTitle": "Pergunte ao DuoDesk",
+    "tabAskDesc": "Basta falar, acontece",
+    "tabMouseTitle": "Mouse e teclado",
+    "tabMouseDesc": "Um cursor, ambas as telas"
+  },
+  "platforms": {
+    "mac": "13 Ventura+",
+    "win": "10 e 11",
+    "linux": "X11 · Wayland",
+    "android": "10+, telefones e tablets"
+  },
+  "features": {
+    "eyebrow": "Recursos",
+    "title": "Cada aparelho cumpre seu papel.<br><span class=\"muted\">Agora, trabalhando juntos.</span>",
+    "lede": "Coloque um Mac e um PC lado a lado e use-os como um só. Cada recurso começa desativado e nem sequer é carregado até que você o ative.",
+    "kvm": {
+      "title": "Um mouse e um teclado",
+      "desc": "Deslize o cursor pela borda de uma tela direto para o próximo computador. Teclado, rolagem e atalhos acompanham o movimento, do Mac para o PC e de volta."
+    },
+    "screen": {
+      "title": "Uma segunda tela",
+      "desc": "Transforme um notebook antigo ou tablet Android em monitor extra, ou veja a tela de outro computador em uma janela."
+    },
+    "apps": {
+      "title": "Aplicativos em janelas",
+      "desc": "Abra aplicativos do outro computador, ou do telefone, como janelas comuns na mesa em que você está trabalhando."
+    },
+    "clip": {
+      "title": "Área de transferência e arquivos",
+      "desc": "Copie em um aparelho e cole em outro: textos, imagens e arquivos. Transfira arquivos em velocidade máxima ou abra uma pasta compartilhada."
+    },
+    "phone": {
+      "title": "Seu telefone no computador",
+      "desc": "Atenda chamadas, leia mensagens, veja notificações, veja fotos e use a câmera do telefone em reuniões. Ou use-o como controle remoto e gamepad."
+    },
+    "rezume": {
+      "title": "ReZume <span class=\"tag\">Novo</span>",
+      "desc": "Transfira o que você estava fazendo entre computadores e telefone: o documento, a aba do navegador, a música. Continue exatamente de onde parou."
+    }
+  },
+  "connections": {
+    "eyebrow": "Conexões",
+    "title": "Funciona em qualquer lugar.<br><span class=\"muted\">Mesmo sem rede.</span>",
+    "lede": "Na mesma rede Wi-Fi, por cabo USB ou sem nenhuma rede compartilhada: via Bluetooth ou conexão Wi-Fi direta própria. O DuoDesk seleciona a melhor e migra para uma mais rápida quando disponível.",
+    "mesh": "<b>DuoDesk Mesh</b> conecta todos os dispositivos de uma só vez, não apenas dois.",
+    "statEncrypted": "criptografado",
+    "wifi": {
+      "title": "Mesmo Wi-Fi",
+      "desc": "Descoberta automática, sem configurações"
+    },
+    "usb": {
+      "title": "Cabo USB",
+      "desc": "Menor latência, carrega enquanto usa"
+    },
+    "bt": {
+      "title": "Bluetooth",
+      "desc": "Não precisa de rede alguma"
+    },
+    "direct": {
+      "title": "Wi-Fi Direct",
+      "desc": "Conexão Wi-Fi rápida e direta, criada sob demanda"
+    }
+  },
+  "how": {
+    "eyebrow": "Como começar",
+    "title": "Dois minutos para ter uma só mesa.",
+    "step1": {
+      "title": "Instale nos aparelhos",
+      "desc": "Baixe o DuoDesk em cada computador e o aplicativo no seu telefone ou tablet."
+    },
+    "step2": {
+      "title": "Pareie uma vez com um código",
+      "desc": "Os aparelhos se encontram na rede. Confirme os mesmos seis dígitos em ambos e pronto, estão pareados."
+    },
+    "step3": {
+      "title": "Ative o que precisar",
+      "desc": "Ligue apenas os recursos desejados. Todo o resto permanece desativado, sem consumir memória."
+    }
+  },
+  "privacy": {
+    "eyebrow": "Privacidade",
+    "title": "Sua mesa continua sendo sua.",
+    "lede": "Seus aparelhos conversam exclusivamente entre si. Não há servidores intermediários, cadastros nem telemetria.",
+    "noAccount": {
+      "title": "Sem conta",
+      "desc": "Pareie com um código simples. Só isso."
+    },
+    "noCloud": {
+      "title": "Sem nuvem",
+      "desc": "Sem servidores de relay, sem telemetria."
+    },
+    "encrypted": {
+      "title": "Criptografado",
+      "desc": "Em cada conexão entre os aparelhos."
+    },
+    "openSource": {
+      "title": "Código aberto",
+      "desc": "Licença GPL-3.0, leia cada linha."
+    }
+  },
+  "download": {
+    "eyebrow": "Download",
+    "title": "Gratuito. Para todos os seus computadores.",
+    "lede": "Instale em todos os computadores e telefones que desejar na mesa. As atualizações chegam diretamente no aplicativo.",
+    "badge": "Seu sistema",
+    "win": {
+      "desc": "Windows 10 e 11 · x64 e ARM64",
+      "btn": "Baixar .exe"
+    },
+    "mac": {
+      "desc": "macOS 13 Ventura ou superior · Apple Silicon",
+      "btn": "Baixar .dmg"
+    },
+    "linux": {
+      "desc": "X11 e Wayland · x86_64 · AppImage, .deb e Arch",
+      "btn": "Baixar .AppImage"
+    },
+    "android": {
+      "desc": "Android 10 ou superior · telefones e tablets",
+      "btn": "Baixar .apk"
+    },
+    "note": "Os aplicativos ainda não têm assinatura digital paga, por isso o macOS e o Windows solicitam confirmação na primeira abertura. <a href=\"#faq-signed\">Veja como autorizar.</a> Todos os arquivos e hashes estão na <a href=\"https://github.com/0xCodez/DuoDesk/releases\">página de lançamentos</a>."
+  },
+  "faq": {
+    "eyebrow": "FAQ",
+    "title": "Perguntas frequentes.",
+    "q1": "O DuoDesk é realmente gratuito?",
+    "a1": "Sim. É gratuito e de código aberto sob a licença GPL-3.0, sem versões pagas, sem anúncios e sem cadastro. O código completo está no <a href=\"https://github.com/0xCodez/DuoDesk\">GitHub</a>.",
+    "q2": "Quais aparelhos funcionam juntos?",
+    "a2": "Qualquer combinação: Mac com Windows, Mac com Mac, PC com PC, Linux com qualquer sistema, e telefone ou tablet Android com qualquer computador. Com o DuoDesk Mesh, todos ao mesmo tempo.",
+    "q3": "Meus aparelhos precisam estar no mesmo Wi-Fi?",
+    "a3": "Não. O mesmo Wi-Fi é o caminho mais simples, mas um cabo USB também funciona perfeitamente, e mesmo sem rede o DuoDesk se conecta via Bluetooth ou cria um canal Wi-Fi direto.",
+    "q4": "Algum dado passa pela nuvem?",
+    "a4": "Não. Os dispositivos comunicam-se diretamente por conexão criptografada ponta a ponta. Não há contas, servidores de transmissão nem coleta de telemetria.",
+    "q5": "Por que meu computador exibe um aviso ao abrir?",
+    "a5": "Os aplicativos ainda não possuem certificados pagos de assinatura de código, então o sistema operacional solicita permissão uma única vez. No <b>macOS</b>, abra, clique em Concluído, acesse Ajustes do Sistema › Privacidade e Segurança e clique em Abrir Mesmo Assim. No <b>Windows</b>, clique em Mais informações e em Executar assim mesmo. No <b>Android</b>, autorize a instalação de aplicativos de fontes desconhecidas no navegador ou gerenciador de arquivos. As próximas atualizações abrirão normalmente.",
+    "q6": "Qual é a relação entre o DuoDesk e o TwinDesk?",
+    "a6": "O DuoDesk é um fork com interface redesenhada do <a href=\"https://github.com/InukaAsith/TwinDesk\">TwinDesk</a> de Inuka Asith, sob a mesma licença GPL-3.0. Ele traz uma experiência visual refinada sobre a mesma base segura e local."
+  },
+  "final": {
+    "title": "Transforme cada aparelho em <span class=\"spec\">uma&nbsp;só&nbsp;mesa</span>.",
+    "download": "Baixar DuoDesk",
+    "star": "Dar estrela no GitHub"
+  },
+  "support": {
+    "eyebrow": "Apoio",
+    "title": "Gratuito, hoje e sempre.",
+    "lede": "O DuoDesk não tem anúncios, planos pagos nem cadastro. Se ele economiza seu tempo no dia a dia, uma contribuição ajuda a mantê-lo assim.",
+    "note": "Os pagamentos são processados com segurança pelo Stripe em beyond-media.ai. <a href=\"https://beyond-media.ai/tips?creator=beyond-aplicativos\">Abra a página de apoio</a> se o formulário não carregar."
+  },
+  "footer": {
+    "tagline": "Todos os seus computadores e telefone, trabalhando como uma só mesa.",
+    "product": "Produto",
+    "features": "Recursos",
+    "connections": "Conexões",
+    "privacy": "Privacidade",
+    "download": "Baixar",
+    "support": "Apoiar o DuoDesk",
+    "source": "Código",
+    "repo": "Repositório no GitHub",
+    "releases": "Lançamentos",
+    "issues": "Relatar problema",
+    "license": "Licença (GPL-3.0)",
+    "madeBy": "Desenvolvido por <a class=\"handle\" href=\"https://github.com/0xCodez\">0xCodez</a>",
+    "basedOn": "Baseado no <a href=\"https://github.com/InukaAsith/TwinDesk\">TwinDesk</a> de Inuka Asith — GPL-3.0"
+  }
+}
